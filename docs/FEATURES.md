@@ -52,6 +52,13 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-024 Vertical button bar between panels (TC 9+) — — — optional middle bar with configurable buttons (e.g. copy/move arrows)
 - [ ] F-025 Separate tree panel (cm_SeparateTreeOff/1/2) — — — Show > Separate tree: none, one shared tree, or one tree per panel; tree follows panel path; clicking a tree node navigates
 - [ ] F-026 Two-panel visual feedback when other panel is target — — — inactive panel is dimmed slightly; target panel is the one copy/move goes to
+- [ ] F-766 Focus left / right / source panel directly (cm_FocusLeft / cm_FocusRight / cm_FocusSrc) — — — each command puts keyboard focus in the named panel
+- [ ] F-767 Show/hide each layout element by command (cm_VisButtonbar, cm_VisButtonbar2, cm_VisDriveButtons, cm_VisTwoDriveButtons, cm_VisFlatDriveButtons, cm_VisDriveCombo, cm_VisCurDir, cm_VisBreadCrumbs, cm_VisTabHeader, cm_VisStatusbar, cm_VisCmdLine, cm_VisKeyButtons, cm_VisDirTabs, cm_VisHistHotButtons, cm_VisFlatInterface) — — — each command toggles its element, its menu entry shows a check mark, and the state is saved
+- [ ] F-768 Focus the button bar for keyboard use (cm_FocusButtonBar) — Alt+Shift+F11 — first button gets focus; Left/Right move, Enter runs, Esc goes back to the file list
+- [ ] F-769 Switch between file list and separate tree — Shift+Tab — with the separate tree on, Shift+Tab focuses the tree of the active side; pressing it again goes back to the file list
+- [ ] F-770 Minimize / maximize / restore window (cm_Minimize, cm_Maximize, cm_Restore) — Shift+Esc (minimize) — each command changes the window state
+- [ ] F-771 Alt+F4 minimizes instead of quitting (option, TC MinimizeOnClose) — Alt+F4 — with the option on, Alt+F4 and the close button minimize; File > Quit still quits
+- [ ] F-772 Breadcrumb path bar with keyboard (TC current directory bar) — Alt+F11 / Alt+F12 — opens the left/right path bar with focus; Left/Right move between parts, Down lists the subfolders of that part, Enter goes there, Esc returns
 
 ## 2. Folder tabs
 
@@ -77,6 +84,11 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-046 Tab bar options: show on one line / multiple lines, show only when >1 tab, width limit, "*" marker for locked — — — each option visibly changes the tab bar
 - [ ] F-047 Per-tab history — — — Alt+Left/Right history is per tab
 - [ ] F-048 Ctrl+click on folder opens it in new tab (mouse) — — — Ctrl/Cmd+double-click opens folder in a new tab
+- [ ] F-773 Open new tab in background (cm_OpenNewTabBg) — Ctrl+Shift+T — a new tab with the current folder is added; the current tab stays active
+- [ ] F-774 Activate tab n in left / right / target panel (cm_LeftActivateTab1..99, cm_RightActivateTab1..99, cm_TrgActivateTab1..99) — — (assignable) — command switches the named panel to its n-th tab
+- [ ] F-775 Favorite tabs (cm_LoadFavoriteTabs, cm_SaveFavoriteTabs, cm_ConfigFavoriteTabs) — — — both panels' tab sets saved under a name; Favorite tabs menu (tab context menu and tab bar button) restores them; optional hotkey per entry
+- [ ] F-776 Reopen last closed tab (cm_ReopenClosedTab, ours) — — — the closed tab comes back with its folder, lock and sort
+- [ ] F-777 Open in new tab from history and hotlist — Shift+Enter — in the Alt+Down history list and the Ctrl+D hotlist, Shift+Enter opens the chosen folder in a new tab
 
 ## 3. Navigation in panels
 
@@ -84,15 +96,15 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-050 Left / Right in Brief view moves between columns — Left / Right — in Brief view Left/Right moves by a column
 - [ ] F-051 Open folder / run file — Enter — Enter on a folder opens it; on a file opens it with the system default app; on an archive opens it as folder (per setting)
 - [ ] F-052 Go to parent folder — Backspace / Enter on ".." — parent folder is shown and the cursor lands on the folder we came from
-- [ ] F-053 Go to root of drive/volume (cm_GoToRoot) — Ctrl+\ — panel shows the root of the current drive (/ or the volume root on macOS/Linux)
-- [ ] F-054 Go back / forward in history (cm_GoToPrev / cm_GoToNext) — Alt+Left / Alt+Right — goes to previously visited folder and back again
-- [ ] F-055 Directory history list (cm_DirHistory) — Alt+Down — popup list of recently visited folders; choosing one navigates
+- [ ] F-053 Go to root of drive/volume (cm_GoToRoot) — Ctrl+\ (US) / Ctrl+< (European keyboards) — panel shows the root of the current drive (/ or the volume root on macOS/Linux)
+- [ ] F-054 Go back / forward in history (cm_GoToPreviousDir / cm_GoToNextDir) — Alt+Left / Alt+Right — goes to previously visited folder and back again
+- [ ] F-055 Directory history list (cm_DirectoryHistory) — Alt+Down — popup list of recently visited folders; choosing one navigates
 - [ ] F-056 Folder history in path bar dropdown — — — arrow on path bar shows same list
 - [ ] F-057 Target = source (cm_MatchSrc) from navigation — — — other panel shows the active panel's folder
 - [ ] F-058 Open drive/volume list (cm_SrcOpenDrives / drive combobox) — Alt+F1 / Alt+F2 — popup for left/right panel lists drives/volumes with labels and free space; choose one to switch
 - [ ] F-059 Drive bar buttons — — — one button per drive/volume; click switches active panel; right-click shows context menu
 - [ ] F-060 Two drive bars (one per panel) option — — — Configuration allows separate drive bar per panel
-- [ ] F-061 Edit path bar (cm_EditPath) — Alt+F11 / Alt+F12 (left/right), Cmd+L on macOS — path bar enters edit mode with text selected; Enter navigates
+- [ ] F-061 Edit path bar (cm_EditPath) — — (assignable; Cmd+L on macOS) — path bar enters edit mode with text selected; Enter navigates. Note: TC's Alt+F11 / Alt+F12 open the left/right current directory bar (breadcrumb) for keyboard use, see F-772
 - [ ] F-062 Change folder from command line with cd — — — typing "cd <path>" in the command line and Enter changes the active panel folder; "cd .." and "cd \" work
 - [ ] F-063 Go to home folder — — — "~" in command line or a hotlist entry jumps to the user's home folder
 - [ ] F-064 Reread source (cm_RereadSource) — Ctrl+R — active panel refreshes and shows new/removed files; cursor stays on same file if it still exists
@@ -110,6 +122,12 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-076 Follow symlink / alias target (cm_GoToDir on link) — Ctrl+PgDn on link — for a symlink, the panel jumps to the target folder with cursor on the target
 - [ ] F-077 Open parent folder of file in path line — Ctrl+PgUp — Ctrl+PgUp goes to parent folder (same as Backspace)
 - [ ] F-078 Open folder under cursor — Ctrl+PgDn — Ctrl+PgDn opens folder or archive under cursor
+- [ ] F-778 Root jump on European keyboards — Ctrl+< — the key next to left Shift (KeyboardEvent.code IntlBackslash, e.g. the í key on Hungarian layout) jumps to the root like Ctrl+\
+- [ ] F-779 Go to first / last entry, first file, next / previous selected (cm_GoToFirstEntry, cm_GoToLastEntry, cm_GoToFirstFile, cm_GoToNextSelected, cm_GoToPrevSelected) — — — cursor jumps as named; with no selection the selected-file commands do nothing
+- [ ] F-780 Reuse last quick filter — Ctrl+Shift+S — quick filter opens with the last used text already applied
+- [ ] F-781 Clear quick filter with Ctrl+F10 — Ctrl+F10 — while a quick filter is on, Ctrl+F10 (all files) removes it
+- [ ] F-782 Auto-complete in path bar and dialog path fields (copy target, Find files 'Search in') — — — typing part of a path offers matching folders; Tab or Right accepts
+- [ ] F-783 Type-to-select in drive popup — Alt+F1 / Alt+F2 then letter — typing a drive letter or the first letter of a volume name picks it
 
 ## 4. Views and display modes
 
@@ -118,10 +136,10 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-081 Tree view in panel (cm_SrcTree) — Ctrl+F8 — panel shows folder tree of the drive; Enter switches back to the folder in Full view
 - [ ] F-082 Quick view panel (cm_SrcQuickView) — Ctrl+Q — other panel shows preview of the file under cursor (text, image, media, hex) and updates as cursor moves; Ctrl+Q again restores
 - [ ] F-083 Thumbnails view (cm_SrcThumbs) — Ctrl+Shift+F1 — panel shows image previews as tiles with names; sizes configurable; cached thumbnails
-- [ ] F-084 Custom columns view (cm_SrcCustomViewMenu / custom column sets) — Ctrl+Shift+F2 (column set menu) — user-defined column sets can be chosen per panel
+- [ ] F-084 Custom columns view (cm_SrcCustomViewMenu / custom column sets) — Shift+F1 (column set menu) — user-defined column sets can be chosen per panel
 - [ ] F-085 Comments view (cm_SrcComments) — Ctrl+Shift+F2 — shows file comments (descript.ion) in a column
-- [ ] F-086 Branch view (cm_SrcBranchSel / cm_ShowBranch) — Ctrl+B — flat list of all files in current folder and all subfolders with relative path; Ctrl+B again returns
-- [ ] F-087 Branch view of selected folders only (cm_BranchViewSelected) — Ctrl+Shift+B — flat view only of selected folders
+- [ ] F-086 Branch view (cm_DirBranch) — Ctrl+B — flat list of all files in current folder and all subfolders with relative path; Ctrl+B again returns
+- [ ] F-087 Branch view of selected files and folders only (cm_DirBranchSel) — Ctrl+Shift+B — flat view only of selected folders
 - [ ] F-088 Show all files / programs only / custom filter (cm_SrcAllFiles / cm_SrcExecs / cm_SrcUserSpec) — Ctrl+F10 / Ctrl+F11 / Ctrl+F12 — panel filter changes; status bar or path shows filter is active
 - [ ] F-089 Define custom filter (cm_SrcUserDef) — — — dialog lets user enter wildcards like *.jpg;*.png or a saved search; panel shows only matching files
 - [ ] F-090 Hide/show hidden and system files (cm_SwitchHidSys) — Ctrl+H (ours; TC: config) — dotfiles and hidden files toggle visible/invisible immediately
@@ -141,6 +159,12 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-104 Horizontal scrolling in Full view when columns exceed width — — — horizontal scrollbar appears; no layout break
 - [ ] F-105 Long file name ellipsis and tooltip with full name — — — truncated names end with "..."; hover tooltip shows full name (data-tip tooltip style)
 - [ ] F-106 Hint tooltip with file info on hover (option) — — — hovering a file shows size, dates, type after a delay
+- [ ] F-784 Quick view with the built-in viewer only (cm_SrcQuickInternalOnly) — — — quick view shows text/hex with the built-in viewer, skipping image/media viewers
+- [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them
+- [ ] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser
+- [ ] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state
+- [ ] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle
+- [ ] F-789 Custom tooltips per file type (Configuration > Display > Tooltips) — — — hovering e.g. an image shows the fields set for images (size, date, image size)
 
 ## 5. Sorting
 
@@ -155,6 +179,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-115 Natural sorting (numbers as numbers: file2 before file10) option — — — "file2" sorts before "file10" when option set
 - [ ] F-116 Case-sensitive / Unicode / locale-aware sorting option — — — options change order per spec
 - [ ] F-117 Sort settings per tab remembered — — — each tab keeps its sort
+- [ ] F-790 Sort by column n of the current column set (cm_SrcSortByCol1..99, cm_LeftSortByCol.., cm_RightSortByCol..) — — (assignable) — command sorts by that column; running it again reverses the order
 
 ## 6. Selection (marking)
 
@@ -184,6 +209,13 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-141 Copy path of current folder (cm_CopySrcPathToClip) — — — current folder path copied
 - [ ] F-142 Copy names as Unix/URL paths, network names (cm_CopyNetNamesToClip) — — — variants supported where meaningful
 - [ ] F-143 Select same names as in other panel (cm_SelectFromOtherPanel, ours) — — — files whose names are selected in the other panel get selected here
+- [ ] F-791 Select group including folders (cm_SelectBoth) — Shift+Num + — like Num +, but selects files and folders when Num + selects only files (and the other way round)
+- [ ] F-792 Unselect group from files only (cm_UnselectFiles) — Shift+Num - — removes the selection from matching files only; folders stay selected
+- [ ] F-793 Select all including folders (cm_SelectAllBoth) — Ctrl+Shift+Num + — files and folders selected when Ctrl+Num + selects only files
+- [ ] F-794 Unselect all files only (cm_ClearFiles) — Ctrl+Shift+Num - — files lose selection, folders keep it
+- [ ] F-795 Invert files only / folders only, unselect folders only (cm_ExchangeSelFiles, cm_ExchangeSelFolders, cm_ClearFolders) — — — each command acts on the named kind only
+- [ ] F-796 Copy target panel path to clipboard (cm_CopyTrgPathToClip) — — — path of the other panel's folder copied
+- [ ] F-797 Option: Space selects only, without counting folder size (Operation > Selection with Space) — Space — with the option off, Space on a folder selects it without calculating the size
 
 ## 7. Function keys and F-key commands
 
@@ -216,14 +248,14 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-170 Activate main menu — F10 — focuses the main menu
 - [ ] F-171 Tree of folders (cm_CDtree) — Alt+F10 — popup folder tree of current drive for fast navigation with type-to-search
 - [ ] F-172 Show context menu of file (cm_ContextMenu) — Shift+F10 — context menu for file(s) under cursor opens at cursor position
-- [ ] F-173 Exit (cm_Exit) — Alt+F4 — app quits (asks to confirm if operations running); on macOS also Cmd+Q
+- [ ] F-173 Exit (cm_Exit) — Alt+F4 — app quits (asks to confirm if operations running); on macOS also Cmd+Q; minimize-on-close option see F-771
 - [ ] F-174 Left drive list — Alt+F1 — drive popup for left panel
 - [ ] F-175 Right drive list — Alt+F2 — drive popup for right panel
-- [ ] F-176 Alternative viewer (cm_ListExternal / cm_ListInternalOnly) — Alt+F3 — file opens with the other viewer (external if internal is default and vice versa)
-- [ ] F-177 Lister without plugins / as text (Shift+F3 variants) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-176 Alternative viewer (cm_ListExternal) — Alt+F3 — file opens with the other viewer (external if internal is default and vice versa)
+- [ ] F-177 Lister with the built-in viewer only, no image/media viewers (cm_ListInternalOnly) — Alt+Shift+F3 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-178 Create shortcut / symlink (cm_CreateShortcut) — Ctrl+Shift+F5 — creates a symbolic link (macOS/Linux) or .lnk/symlink (Windows) in the target folder
 - [ ] F-179 Hard link / symbolic link dialog (cm_CreateHardLink / cm_CreateSymbolicLink) — — — dialog lets user choose hard link or symlink and the name; works in temp dir test
-- [ ] F-180 Move to other panel without confirmation (Shift+F6 variants) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-180 Move to other panel without confirmation (cm_RenMov with confirmation off, ours) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-181 Show other window: compare files by content (cm_CompareFilesByContent) — — — see Compare
 - [ ] F-182 Edit comment (cm_EditComment) — Ctrl+Z — edit descript.ion comment of file under cursor
 - [ ] F-183 Calculate folder sizes (cm_CountDirContent) — Alt+Shift+Enter — sizes of all folders in panel calculated and shown in size column
@@ -276,7 +308,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-227 Alt+F9 unpack — Alt+F9 — wired
 - [ ] F-228 Alt+Shift+F9 test archive — Alt+Shift+F9 — cm_TestArchive wired
 - [ ] F-229 Alt+F10 folder tree — Alt+F10 — cm_CDtree wired
-- [ ] F-230 Alt+F11 / Alt+F12 left / right panel current dir bar (TC: open left/right directory bar menu) — Alt+F11 / Alt+F12 — wired to path bar edit left/right
+- [ ] F-230 Alt+F11 / Alt+F12 left / right current directory bar (breadcrumb) — Alt+F11 / Alt+F12 — opens the left/right path bar for keyboard use (see F-772)
 - [ ] F-231 Ctrl+F1..F12 view/sort/filter — Ctrl+F1..F12 — Brief, Full, sort name/ext/date/size/unsorted, Tree, Print (F9), all files, programs, custom filter wired
 - [ ] F-232 Ctrl+F9 print file under cursor — Ctrl+F9 — cm_PrintFile wired (system print of associated app, where supported)
 - [ ] F-233 Ctrl+Shift+F1 thumbnails — Ctrl+Shift+F1 — wired
@@ -318,10 +350,10 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-269 Alt+Num + / Alt+Num - same-extension select — Alt+Num +/- — wired
 - [ ] F-270 Ctrl+Num + / Ctrl+Num - select/unselect all — Ctrl+Num +/- — wired
 - [ ] F-271 Ins / Space mark — Ins / Space — wired
-- [ ] F-272 Tab / Shift+Tab switch panel — Tab — wired
+- [ ] F-272 Tab switch panel — Tab — wired; Shift+Tab moves between the file list and the separate tree (see F-769), not between panels
 - [ ] F-273 Esc clear command line / close quick search / cancel — Esc — Esc in panel clears the command line text; in dialogs cancels
 - [ ] F-274 Ctrl+Alt+letter / Alt+letter quick search — — — wired per quick-search setting
-- [ ] F-275 Alt+Shift+... hotkey for command line focus: typing any printable letter goes to command line — — — when quick search mode is Ctrl+Alt, plain letters go to the command line
+- [ ] F-275 Letter keys go to the command line — letter —  when quick search mode is Ctrl+Alt, plain letters go to the command line
 - [ ] F-276 Shift+Esc minimize (TC) — Shift+Esc — app window minimizes
 - [ ] F-277 Ctrl+Shift+F5 create shortcut/link — Ctrl+Shift+F5 — wired
 - [ ] F-278 Alt+Shift+F5 move to archive — — — wired
@@ -330,6 +362,20 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-281 Ctrl+Tab / Ctrl+Shift+Tab tabs — — — wired
 - [ ] F-282 User-redefinable hotkeys (Configuration > Misc > Redefine hotkeys) — — — user can assign any key combo to any cm_* or user command; conflict warning; saved to ini; works in both panels
 - [ ] F-283 Restore default hotkeys — — — button resets all hotkeys to TC defaults
+- [ ] F-798 Alt+Shift+F3 built-in viewer only — Alt+Shift+F3 — cm_ListInternalOnly wired
+- [ ] F-799 Alt+Shift+F11 focus button bar — Alt+Shift+F11 — cm_FocusButtonBar wired
+- [ ] F-800 Ctrl+Shift+T new tab in background — Ctrl+Shift+T — cm_OpenNewTabBg wired
+- [ ] F-801 Ctrl+Shift+S reuse last quick filter — Ctrl+Shift+S — wired
+- [ ] F-802 Ctrl+Shift+M FTP transfer mode — Ctrl+Shift+M — wired (see Net)
+- [ ] F-803 Ctrl+Shift+B branch view of selection — Ctrl+Shift+B — cm_DirBranchSel wired
+- [ ] F-804 Ctrl+Down command line history — Ctrl+Down — opens the command line history list (same as Alt+F8)
+- [ ] F-805 Shift+Num + / Shift+Num - / Shift+Num * selection variants — Shift+Num keys — cm_SelectBoth / cm_UnselectFiles / cm_ExchangeSelBoth wired
+- [ ] F-806 Ctrl+Shift+Num + / Ctrl+Shift+Num - — Ctrl+Shift+Num +/- — cm_SelectAllBoth / cm_ClearFiles wired
+- [ ] F-807 Shift+Tab file list / separate tree focus — Shift+Tab — wired
+- [ ] F-808 Ctrl+< root on European keyboards — Ctrl+< — cm_GoToRoot wired (IntlBackslash key code)
+- [ ] F-809 Delete / Shift+Delete — Delete / Shift+Delete — cm_Delete wired, same as F8 / Shift+F8
+- [ ] F-810 F8 and Shift+F8 swap when 'delete to trash' is off — F8 / Shift+F8 — with trash turned off in Configuration, F8 deletes permanently and Shift+F8 moves to trash (TC rule)
+- [ ] F-811 Apps / Menu key opens file context menu — Menu key — same as Shift+F10 where the keyboard has the key
 
 ## 9. macOS key mapping rule (document and implement)
 
@@ -347,7 +393,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-292 Command line below panels showing current path prompt — — — prompt shows active panel path; Enter runs command with that folder as working directory
 - [ ] F-293 Run program / shell command — Enter — command runs; console programs run in a terminal window (or captured output, option)
 - [ ] F-294 Run and keep terminal open — Shift+Enter — terminal stays open after command
-- [ ] F-295 Command line history dropdown — Alt+F8 / Ctrl+E / Ctrl+X — previous commands shown/cycled; history saved across restarts (cmdlinehistory)
+- [ ] F-295 Command line history dropdown — Alt+F8 / Ctrl+Down / Ctrl+E / Ctrl+X — previous commands shown/cycled; history saved across restarts (cmdlinehistory)
 - [ ] F-296 Auto-complete paths in command line — — — typing a path suggests matching folders/files
 - [ ] F-297 cd command handling — — — "cd path" changes active panel folder instead of running a shell
 - [ ] F-298 Insert file name / full path — Ctrl+Enter / Ctrl+Shift+Enter — inserted with quotes if it has spaces
@@ -356,6 +402,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-301 Internal commands typed in command line (cm_* names) — — — typing "cm_Copy" and Enter runs that internal command
 - [ ] F-302 Environment variables in command line — — — %HOME% / $HOME expanded
 - [N/A] F-303 Run as administrator/root from command line — macOS/Linux have no safe GUI elevation for arbitrary commands — Windows: run elevated via UAC prompt; macOS/Linux: clear message, user runs sudo in terminal
+- [ ] F-812 Enter runs the command line when it has text — Enter — with text in the command line, Enter runs it instead of opening the file under cursor
+- [ ] F-813 Ctrl+Enter adds names one after another — Ctrl+Enter — pressing Ctrl+Enter on two files gives both names separated by a space, quoted if needed
 
 ## 11. Button bar (toolbar)
 
@@ -370,6 +418,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-312 Button bar large/small icons, flat look, wrap to multiple lines — — — options apply
 - [ ] F-313 Right-click on button: change, delete, copy, paste — — — context menu works
 - [ ] F-314 Vertical button bar config — — — separate bar config for the middle bar
+- [ ] F-814 Parameter prompt in buttons and start menu items — — — a '?' at the start of the parameters shows an edit box with the expanded parameters before running; Cancel runs nothing
 
 ## 12. Files menu
 
@@ -400,6 +449,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-339 Wipe / secure delete (cm_Wipe) — — — file overwritten before deletion (best effort; note SSD limitation); confirmation required
 - [ ] F-340 Set file date from EXIF / name (TC via plugins) — — — provided by attributes dialog template field
 - [ ] F-341 Open file with ... / Open in other app — — — context menu offers system apps
+- [N/A] F-815 Edit ACL / owner / audit dialogs (cm_EditPermissionInfo, cm_EditOwnerInfo, cm_EditAuditInfo) — Windows security dialogs — Windows: open the native security tab; macOS/Linux: permissions and owner in the attributes dialog (F-315, F-338)
 
 ## 13. Mark menu
 
@@ -460,6 +510,9 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-390 Send FTP command (cm_FtpSendCommand) — — — raw FTP command can be sent; reply shown in log
 - [ ] F-391 FTP log window — — — log of FTP commands and responses can be shown
 - [ ] F-392 Restore lost connection — — — after disconnect, operation reconnects automatically (retries configurable)
+- [ ] F-816 Change FTP transfer mode — Ctrl+Shift+M — cycles binary / ASCII / auto; the current mode is shown in the FTP status bar
+- [ ] F-817 FTP status bar above panel while connected (mode, log button, Abort) — — — while connected a small bar shows; Abort stops the running transfer cleanly
+- [ ] F-818 Server listing formats (Unix ls, Windows/IIS, MLSD) — — — listings from each format parse into correct names, sizes, dates (unit tests with fixtures and a local test server)
 
 ## 16. Show menu
 
@@ -482,6 +535,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-409 Show hidden/system toggle — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-410 Horizontal arrangement — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-411 Show 2 panels / single panel — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel
 
 ## 17. Configuration menu and dialog pages
 
@@ -512,8 +566,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-436 Page: Background copy / transfer queue options — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-437 Page: Ftp/proxy — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-438 Page: Directory hotlist settings — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-439 Save position — — — window position, size and splitter saved on demand
-- [ ] F-440 Save settings (cm_SaveSettings) — — — settings written immediately to ini
+- [ ] F-439 Save position (cm_ConfigSavePos) — — — window position, size and splitter saved on demand
+- [ ] F-440 Save settings (cm_ConfigSaveSettings) — — — settings written immediately to ini
 - [ ] F-441 Change button bar — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-442 Change start menu — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-443 Configuration file in wincmd.ini-style format (INI sections [Configuration], [Layout], [Colors], [left], [right], [lefttabs], [righttabs], [DirMenu], [Shortcuts], [SearchName]...) — — — settings stored as human-readable INI in the platform config dir (configdir.go convention); hand edits are picked up on restart
@@ -521,6 +575,15 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-445 Config path override via command line /i= /f= — — — starting with -i=<path> uses given ini; -f= for ftp ini
 - [ ] F-446 Import Total Commander wincmd.ini (hotlist, buttons, colors, custom columns) — — — importing a real wincmd.ini copy (in a test temp dir) brings hotlist and hotkeys over
 - [ ] F-447 Export / back up settings — — — settings can be saved to a chosen file and restored
+- [ ] F-820 Page: View modes — — — create, edit and order view modes and their auto-switch rules
+- [ ] F-821 Page: Tooltips — — — define which fields show in tooltips per file type; option to turn tooltips off
+- [ ] F-822 Page: Lister (default mode, fonts, tab width, default charset, image fit, auto-detect, which built-in viewers to use) — — — each option changes the Lister
+- [ ] F-823 Page: Drag & drop and mouse (selection mode, confirm drop, right-drag menu, spring-loaded folders, middle click) — — — each option changes behaviour
+- [ ] F-824 Page: Tree (separate tree options, tree follows folder, show hidden folders in tree) — — — each option changes the tree
+- [ ] F-825 Page: Find files defaults (search depth, archives, Spotlight/locate use, encoding) — — — defaults appear in a new Find files dialog
+- [ ] F-826 Edit settings files directly (cm_ConfigChangeIniFiles) — — — opens the ini file in the editor; after saving the app reloads it (or says a restart is needed)
+- [ ] F-827 Search box in Options dialog (ours) — — — typing filters the page tree to pages that contain matching options
+- [ ] F-828 Custom main menu (TC .mnu menu files) — — — user can load a custom main menu file; 'default' brings the built-in menu back
 
 ## 18. Start menu (user menu)
 
@@ -575,6 +638,10 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-490 Overwrite older files only option in dialog (TC 11 dropdown "Overwrite mode") — — — dropdown: ask, overwrite all, skip all, overwrite older, auto-rename source/target, copy larger/smaller
 - [ ] F-491 Copy free space check before start — — — warn if target lacks free space
 - [ ] F-492 Copy statistics at end (count, bytes, errors) — — — summary shown in log/status
+- [ ] F-829 Copy/move dialog folder tree — F10 in dialog — 'Tree' button (F10) opens a folder tree to pick the target; choice goes into the target field
+- [ ] F-830 Copy/move dialog target history and other-panel tabs — — — dropdown lists recent targets and the folders of the other panel's tabs
+- [ ] F-831 Move: remove source folders that end up empty — — — after moving a folder tree, no empty source folders stay behind
+- [ ] F-832 F5/F6 on '..' or empty selection — F5 / F6 — with no selection the file under cursor is used; on '..' nothing happens and a short message shows
 
 ## 21. Delete
 
@@ -587,6 +654,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-499 Delete on FTP/SFTP — — — file removed on server
 - [ ] F-500 Wipe (secure delete) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-501 Trash restore (via Trash folder view) — — — files in trash can be restored to original place (where OS supports)
+- [ ] F-833 Volumes without trash — F8 — on volumes that have no trash (some USB sticks, network shares) the confirmation says files will be deleted permanently
 
 ## 22. Rename and Multi-Rename tool
 
@@ -608,6 +676,9 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-517 MRT start/ OK / Close — — — renames executed, list refreshes
 - [ ] F-518 MRT reset fields — — — all mask fields return to defaults
 - [ ] F-519 MRT sort list / drag to reorder — — — counter follows the list order
+- [ ] F-834 MRT extra mask forms: [C10+5:3] inline counter, [E2-3] part of extension, [N-8,5] counted from the end, [[] and []] literal brackets — — — each form gives the expected name in unit tests
+- [ ] F-835 MRT load new names from a text file or clipboard — — — new names taken line by line; line count mismatch shows a warning
+- [ ] F-836 MRT remove accents option (ours) — — — 'árvíztűrő' becomes 'arvizturo' in preview and after rename
 
 ## 23. Make folder
 
@@ -640,6 +711,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-544 Search in found files (refine) — — — search again only within results
 - [ ] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required)
+- [ ] F-837 Find: exclude folders by pattern ('|vendor/' or '|.git\') — — — `*.go|vendor/` skips everything under vendor folders
+- [ ] F-838 Find: copy results to clipboard / save results to a file — — — result names (with paths) copied or written as text
 
 ## 25. Synchronize directories
 
@@ -664,6 +737,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-561 Compare files from two panels with same name automatically — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-562 Compare folders recursively by content (Sync) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-563 External diff tool option — — — user can set external compare program
+- [ ] F-839 Compare tool: line numbers, synced scrolling, encoding choice — — — both sides scroll together; encoding menu redisplays text
 
 ## 27. Lister (internal viewer)
 
@@ -694,6 +768,13 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-588 Lister options: tab width, ANSI/ASCII charset default — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-589 Quick view uses Lister engine — Ctrl+Q — same modes in quick view panel
 - [ ] F-590 External viewer option — — — F3 can be set to launch an external viewer; Alt+F3 the other one
+- [ ] F-840 Lister charset keys: ANSI / ASCII (DOS) / variable-width font — A / S / V — each key changes the display at once
+- [ ] F-841 Lister Unicode / UTF-8 keys — U / 8 — UTF-16 and UTF-8 files show correctly after the key
+- [ ] F-842 Lister reload — F2 — file read again from disk
+- [ ] F-843 Lister print — Ctrl+P — print dialog for the shown file
+- [ ] F-844 Lister close — Esc (also Q) — window closes; focus returns to the panel
+- [ ] F-845 Lister image zoom — + / - — image zooms in/out; fit-to-window toggles back
+- [ ] F-846 Several Lister windows at once and remembered window size — — — F3 on another file opens a second window; size and position kept across uses
 
 ## 28. Editor
 
@@ -738,6 +819,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-626 Show archive as folder in Branch view / Find files inside archives — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [N/A] F-627 Self-extracting archives (SFX) — Windows SFX stub, not portable — plain zip; documented
 - [ ] F-628 Convert archive to another format (unpack+pack) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-847 Info on packed file — Alt+Enter / Enter on archive entry (per setting) — shows packed size, ratio, date, CRC and method
+- [ ] F-848 Archive name encoding for old non-UTF-8 zips — — — user can choose the codepage; Hungarian names from an old Windows zip show correctly
 
 ## 30. FTP and network file systems
 
@@ -780,6 +863,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-662 History size setting and clear — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-663 Hotlist import from TC [DirMenu] — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-664 Hotlist folder for tabs (tab sets) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-849 Hotlist paths with variables ($HOME, %COMMANDER_PATH%-style) — — — entries using variables open the expanded folder on every platform
 
 ## 32. Custom columns and column sets
 
@@ -802,6 +886,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-678 Thumbnail cache (cm "Delete thumbnails cache") — — — cache can be cleared
 - [ ] F-679 Thumbnails with custom field lines under picture — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-680 Thumbnail cache across sessions — — — reopening a folder shows cached thumbs instantly
+- [ ] F-850 Keyboard moves in the thumbnail grid — arrows / PgUp / PgDn — arrows move by row and column; selection keys work as in other views
 
 ## 34. File properties and attributes
 
@@ -833,6 +918,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-700 Rubber-band selection with mouse (option, ours) — — — dragging on empty area selects files in rectangle (Full/Brief/Thumbnails)
 - [ ] F-701 Auto-scroll while dragging near edge — — — list scrolls
 - [ ] F-702 Spring-loaded folders (hover opens) — — — hovering over folder while dragging opens it after delay (option)
+- [ ] F-851 macOS drag modifiers follow Finder too — — — on macOS Option-drag copies, Cmd-drag moves, Cmd+Option-drag links, besides the TC rules
 
 ## 37. Context menus
 
@@ -881,6 +967,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-733 /I= /F= ini paths — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-734 /N (new instance) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-735 Single instance handling (re-exec like mormiview reexec*.go) — — — second launch focuses first window when single-instance option is on
+- [ ] F-852 Standalone tools from the command line (TC /S=L Lister) — — — 'mormicommander /S=L file' opens only the Lister; ours: same idea for compare and sync
 
 ## 42. Miscellaneous TC features
 
@@ -914,7 +1001,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-763 TC "Encode/Decode" and "Split" also in context menu — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-764 Panel focus indicator for keyboard users and screen readers (accessibility labels) — — — list items have aria labels; focus visible
 - [ ] F-765 Localized decimal/thousand separators in sizes — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-853 Environment for launched programs (COMMANDER_PATH, COMMANDER_INI) — — — programs started from the app see these variables
 
 ---
 
-Total: 765 items (25 marked N/A).
+Total: 853 items (26 marked N/A).
