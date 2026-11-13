@@ -71,6 +71,9 @@ func main() {
 		AssetServer:   &assetserver.Options{Assets: assets},
 		// Matches --bg of the dark theme (style.css), so the window doesn't flash white while the page loads.
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
+		// Files dropped from Finder / Explorer reach the page with their paths (window.runtime.OnFileDrop, used by
+		// frontend/src/features/system.js); drags between the panels stay ordinary HTML drags.
+		DragAndDrop: &options.DragAndDrop{EnableFileDrop: true},
 		// Without Mac options Wails leaves the green zoom (maximise) button disabled.
 		Mac:     &mac.Options{Appearance: macAppearance(o.Theme)},
 		Windows: &windows.Options{Theme: windowsTheme(o.Theme)},

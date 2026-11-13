@@ -1,0 +1,352 @@
+// Desktop integration (FEATURES.md sections 3, 10, 36-39): Enter opens a file with its app or runs a program (F-051,
+// smart Enter on shortcut files F-738), Shift+Enter runs it in a terminal (F-199, F-265), "Open with" (F-200), a
+// terminal in the current folder (F-196, F-363, F-371), "Show in Finder / Explorer" (F-366), the desktop folder, the
+// command line runs programs (F-293, F-294, F-302), the files clipboard shared with Finder / Explorer (F-237, F-739,
+// F-740), automatic refresh (F-065), volumes appearing and disappearing (F-709), the error log window (F-718) and the
+// safety confirmations (F-719). Drag and drop is in system-dnd.js, the context menus in system-menus.js; the Go side is
+// feature_system*.go over internal/launch, internal/clipfiles, internal/fswatch and internal/links.
+//
+// Settings (all optional): "terminal" (program or command line with %D), "autoRefresh" (true), "refreshOnlyActive"
+// (false), "refreshExclude" (folders, one per line or ";"-separated), "refreshNetwork" (true), "confirmDrop" (true),
+// "confirmExit" (false), "enableLog" / "logFile" (the log file).
+
+import './system.css';
+import { command, getCommand } from '../core/registry.js';
+import { go, on, errText } from '../core/go.js';
+import { showList } from '../core/popup.js';
+import { inputDialog, modal, esc, messageDialog } from '../core/dialogs.js';
+import { addCmdlineHandler } from '../core/cmdline.js';
+import { addControlCommand } from '../core/control.js';
+import { plural } from '../core/format.js';
+import { app as theApp } from '../core/app.js';
+import { isLocal, baseName, dirName, logError, errorLog, onLog, runTransfer, focusIn } from './system-lib.js';
+
+const REVEAL = { darwin: 'Show in Finder', windows: 'Show in Explorer', linux: 'Open in the file manager' };
+export const revealLabel = (app) => REVEAL[app.platform] || REVEAL.linux;
+
+// anchorFor places a popup at the mouse (args.x/y) or under the cursor row of a panel.
+export function anchorFor(panel, args = {}) {
+  if (args.x != null && args.y != null) return { x: args.x, y: args.y };
+  const row = panel.$.rows.querySelector('.row.cur .n') || panel.$.rows.querySelector('.row.cur');
+  if (row) { const r = row.getBoundingClientRect(); return { x: r.left + 24, y: r.bottom }; }
+  return panel.$.list;
+}
+
+// ---- opening files (Enter, Shift+Enter, Open with) ----
+
+// openEntry is the last open handler of Enter on a file (after archives and the like): shortcut files are followed,
+// programs run, documents open with their app.
+async function openEntry(app, panel, e, path) {
+  if (app.demo || e.broken || !isLocal(path)) return false;
+  try {
+    const r = await go.SystemLaunch.Open(path, panel.path);
+    if (r.kind === 'dir') { await panel.go(r.dir, { focus: r.focus || null }); return true; }
+    app.flash(r.kind === 'started' ? `Started ${e.name}.` : `Opened ${e.name}.`);
+  } catch (err) {
+    app.flash(errText(err), 'err');
+  }
+  return true;
+}
+
+command({
+  // Shift+Enter (F-199, F-265): a program or script in a terminal that stays open; a document with its app; a folder in
+  // Finder / Explorer. With text in the command line, Shift+Enter runs that instead (core/keyboard.js).
+  name: 'cm_RunKeepOpen', label: 'Run in a terminal',
+  run: async (app) => {
+    const p = app.cur, e = p.cur;
+    if (!e || e.up) return false;
+    const path = p.fullPath(e.name);
+    if (!isLocal(path)) { app.flash('Only files on this computer can be run.', 'err'); return false; }
+    const r = await go.SystemLaunch.RunKeepOpen(path, p.path);
+    app.flash(r.kind === 'started' ? `Started ${e.name}.` : `Opened ${e.name}.`);
+    return true;
+  },
+});
+
+// openWith shows the apps that can open the files (F-200): the default first, then "Other program…" (and the system's
+// own chooser on Windows).
+export async function openWith(app, args = {}) {
+  const p = app.cur;
+  const files = p.targets().filter((e) => !e.dir || /\.app$/i.test(e.name));
+  if (!files.length) { app.flash('Choose a file to open.'); return false; }
+  const paths = files.map((e) => p.fullPath(e.name));
+  if (!paths.every(isLocal)) { app.flash('Only files on this computer can be opened with another app.', 'err'); return false; }
+  const apps = await go.SystemLaunch.AppsFor(paths[0]).catch((e) => { app.flash(errText(e), 'err'); return []; });
+  const items = (apps || []).map((a) => ({ label: a.Name, detail: a.Default ? 'default' : '', value: a }));
+  if (items.length) items.push({ sep: true });
+  items.push({ label: 'Other program…', value: 'other' });
+  if (await go.SystemLaunch.HasChooser().catch(() => false)) items.push({ label: 'Choose another app…', value: 'chooser' });
+  const what = files.length === 1 ? files[0].name : plural(files.length, 'file');
+  const r = await showList({ title: `Open ${what} with`, items, anchor: anchorFor(p, args), kind: 'open-with' });
+  if (!r) return false;
+  if (r.item.value === 'chooser') { await go.SystemLaunch.OpenWithChooser(paths[0]); return true; }
+  if (r.item.value === 'other') {
+    const last = app.setting('openWithLast', '');
+    const prog = await inputDialog({ title: `Open ${what} with`, label: 'Program', value: last, okLabel: 'Open', kind: 'open-with-program',
+      note: app.platform === 'darwin' ? 'An app name such as TextEdit, or the path of a program.' : 'The name or the path of a program.',
+      validate: (v) => (v.trim() ? '' : 'Type the name or the path of a program.') });
+    if (prog === null) return false;
+    app.setSetting('openWithLast', prog.trim());
+    await go.SystemLaunch.OpenWithProgram(paths, prog);
+    app.flash(`Opened ${what} with ${prog.trim()}.`);
+    return true;
+  }
+  await go.SystemLaunch.OpenWith(paths, r.item.value);
+  app.flash(`Opened ${what} with ${r.item.value.Name}.`);
+  return true;
+}
+command({ name: 'cm_OpenWith', label: 'Open with…', menu: 'Files', menuAfter: 'cm_InternalAssociate', run: (app, args) => openWith(app, args) });
+
+// ---- terminal, Finder / Explorer, desktop ----
+
+command({
+  name: 'cm_ExecuteDOS', label: 'Open terminal here',
+  run: async (app) => {
+    await go.SystemLaunch.Terminal(app.cur.path);
+    app.flash(`Opened a terminal in ${app.cur.path}.`);
+  },
+});
+command({
+  // cm_Explorer: the file under the cursor selected in Finder / Explorer, or the folder itself on "..".
+  name: 'cm_Explorer', label: 'Show in Finder',
+  run: async (app) => {
+    const p = app.cur, e = p.cur;
+    if (e && !e.up) await go.SystemLaunch.Reveal(p.fullPath(e.name));
+    else await go.SystemLaunch.OpenFolder(p.path);
+    return true;
+  },
+});
+command({
+  name: 'cm_OpenDesktop', label: 'Go to desktop folder',
+  run: async (app) => app.cur.go(await go.SystemLaunch.Desktop()),
+});
+
+// ---- the command line runs programs (F-293, F-294, F-302) ----
+
+addCmdlineHandler(async (text, { shift }) => {
+  const app = theApp, p = app.cur;
+  let r;
+  try { r = await go.SystemLaunch.RunLine(text, p.path, !!shift); } catch (e) { app.flash(errText(e), 'err'); return true; }
+  if (r.kind === 'cd') await p.go(r.target);
+  else if (r.kind === 'back') await p.goBack();
+  else if (r.kind === 'internal') await app.run(r.command);
+  else if (r.kind === 'run') app.flash(`Started: ${text}`);
+  return true;
+});
+
+// ---- the files clipboard (F-237, F-739, F-740) ----
+
+async function toClipboard(app, cut) {
+  const p = app.cur;
+  const list = p.targets();
+  if (!list.length) { app.flash('Nothing to copy: the cursor is on "..".'); return false; }
+  const paths = list.map((e) => p.fullPath(e.name));
+  if (!paths.every(isLocal)) { app.flash('Only files on this computer can go to the clipboard.', 'err'); return false; }
+  await go.SystemClip.Copy(paths, cut);
+  const what = list.length === 1 ? list[0].name : plural(list.length, 'file');
+  app.flash(cut ? `${what} will be moved by the next paste (${app.keyLabel('cm_PasteFromClipboard') || 'Ctrl+V'}).` : `Copied ${what} to the clipboard.`);
+  return true;
+}
+command({ name: 'cm_CopyToClipboard', label: 'Copy to clipboard', run: (app) => toClipboard(app, false) });
+command({ name: 'cm_CutToClipboard', label: 'Cut to clipboard', run: (app) => toClipboard(app, true) });
+
+// pasteData saves text or an image from the clipboard as a new file (F-740), asking for its name.
+async function pasteData(app, dir, content) {
+  const ext = content.image ? '.png' : '.txt';
+  const name0 = await go.SystemClip.SuggestName(dir, 'clipboard', ext);
+  const name = await inputDialog({
+    title: content.image ? 'Paste image as a file' : 'Paste text as a file', label: 'File name', value: name0, okLabel: 'Save',
+    select: [0, name0.length - ext.length], kind: 'paste-data',
+    validate: (v) => (!v.trim() ? 'Type a name for the new file.' : /[\\/]/.test(v) ? 'A file name can\'t contain / or \\.' : ''),
+  });
+  if (name === null) return false;
+  const path = await go.SystemClip.PasteData(dir, name.trim());
+  await Promise.all(app.panels.filter((p) => p.path === dir).map((p) => p.reload()));
+  focusIn(app, dir, [baseName(path)]);
+  app.flash(`Saved ${baseName(path)}.`);
+  return true;
+}
+
+command({
+  name: 'cm_PasteFromClipboard', label: 'Paste from clipboard',
+  run: async (app) => {
+    const dir = app.cur.path;
+    if (!isLocal(dir)) { app.flash('Files can only be pasted into folders on this computer.', 'err'); return false; }
+    const c = await go.SystemClip.Content();
+    if (!c.files) {
+      if (c.image || c.text) return pasteData(app, dir, c);
+      app.flash('The clipboard is empty.');
+      return false;
+    }
+    const t = await go.SystemClip.PlanPaste(dir);
+    const names = await runTransfer(app, t);
+    if (names && t.move) await go.SystemClip.Clear().catch(() => {});
+    focusIn(app, dir, names);
+    return !!names;
+  },
+});
+
+// ---- automatic refresh (F-065) ----
+
+function watchOptions(app) {
+  const ex = app.setting('refreshExclude', '');
+  return {
+    enabled: app.setting('autoRefresh', true) !== false,
+    onlyActive: !!app.setting('refreshOnlyActive', false),
+    exclude: (Array.isArray(ex) ? ex : String(ex).split(/[;\n]/)).map((s) => s.trim()).filter(Boolean),
+    network: app.setting('refreshNetwork', true) !== false,
+  };
+}
+
+const pending = new Map(); // panel → timer
+// refreshPanel rereads a panel after a change on disk, unless the user is typing in it (inline rename) or it is busy;
+// then it tries again a little later. The cursor stays on its file and the selection is kept (Panel.reload).
+function refreshPanel(app, p) {
+  clearTimeout(pending.get(p));
+  pending.set(p, setTimeout(async () => {
+    pending.delete(p);
+    const ae = document.activeElement;
+    if (p.loading || (ae && p.el.contains(ae) && ae.matches('input, textarea'))) { refreshPanel(app, p); return; }
+    const path = p.path;
+    await p.reload();
+    if (p.path === path) go.FS.VolumeOf(path).then((v) => p.renderDriveInfo(v), () => {});
+  }, 120));
+}
+
+// leaveGone moves a panel whose folder was deleted, renamed or unmounted to the nearest folder that is still there.
+async function leaveGone(app, p) {
+  const gone = p.path;
+  let dir = gone;
+  for (let i = 0; i < 64; i++) {
+    const up = dirName(dir);
+    if (!up || up === dir) break;
+    dir = up;
+    if (await p.go(dir, { history: false, focus: baseName(gone) })) { app.flash(`The folder ${gone} is not there any more.`); return; }
+  }
+  await p.go(app.home);
+}
+
+// ---- volumes (F-709): the drive bar follows USB sticks and shares being mounted and ejected ----
+
+async function volumesChanged(app) {
+  await app.loadVolumes();
+  for (const p of app.panels) {
+    if (!isLocal(p.path) || app.demo) continue;
+    const ok = await go.FS.Stat(p.path).then(() => true, () => false);
+    if (!ok) leaveGone(app, p);
+  }
+}
+
+// ---- the error log window (F-718) ----
+
+command({
+  name: 'cm_ErrorLog', label: 'Error log…', menu: 'Commands', menuAfter: 'cm_SyncDirs',
+  run: (app) => modal((box, done) => {
+    box.classList.add('mc-system-log');
+    const paint = () => {
+      const list = box.querySelector('.mc-system-loglist');
+      list.innerHTML = errorLog.length ? errorLog.slice().reverse().map((x) => `<li><time>${esc(new Date(x.time).toLocaleTimeString())}</time> <span>${esc(x.text)}</span>${x.details.length ? `<ul>${x.details.slice(0, 50).map((d) => `<li>${esc(d)}</li>`).join('')}</ul>` : ''}</li>`).join('')
+        : '<li class="mc-system-empty">No errors so far.</li>';
+      box.querySelector('.mc-msg').textContent = errorLog.length ? `${plural(errorLog.length, 'error')} since mormiCommander started.` : 'No errors since mormiCommander started.';
+    };
+    box.innerHTML = `<h2>Error log</h2><p class="mc-msg"></p><ul class="mc-system-loglist"></ul><p class="mc-note"></p>
+      <div class="mc-btns"><button type="button" class="copy">Copy all</button><button type="button" class="clear">Clear</button><button type="button" class="primary close">Close</button></div>`;
+    paint();
+    const off = onLog(paint);
+    go.SystemLog.Path().then((p) => { if (app.setting('enableLog', false)) box.querySelector('.mc-note').textContent = `Also written to ${p}.`; }, () => {});
+    box.querySelector('.copy').onclick = async () => {
+      const text = errorLog.map((x) => [`${new Date(x.time).toISOString()} ${x.text}`, ...x.details.map((d) => `  ${d}`)].join('\n')).join('\n');
+      try { await go.SystemClip.WriteText(text); app.flash('Copied the error log to the clipboard.'); } catch (e) { app.flash(errText(e), 'err'); }
+    };
+    box.querySelector('.clear').onclick = () => { errorLog.length = 0; paint(); };
+    const close = () => { off(); done(); };
+    box.querySelector('.close').onclick = close;
+    box.onsubmit = (ev) => { ev.preventDefault(); close(); };
+  }, undefined, { kind: 'error-log' }),
+});
+
+// ---- safety confirmations (F-719) ----
+
+const CONFIRMS = [
+  ['confirmCopy', 'Show the copy and move dialog (F5, F6)', true],
+  ['confirmDelete', 'Ask before deleting files', true],
+  ['confirmDeleteDirs', 'Ask before deleting folders that are not empty', true],
+  ['confirmOverwrite', 'Ask before overwriting files', true],
+  ['confirmDrop', 'Ask before dropping files (drag and drop)', true],
+  ['confirmExit', 'Ask before quitting', false],
+];
+command({
+  name: 'cm_SafetyConfirmations', label: 'Confirmations…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys',
+  run: (app) => modal((box, done) => {
+    box.innerHTML = `<h2>Confirmations</h2><p class="mc-note">Which actions ask before they are done.</p>
+      ${CONFIRMS.map(([k, l, d]) => `<label class="mc-system-check"><input type="checkbox" id="${k}"${app.setting(k, d) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}
+      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+    box.querySelector('.cancel').onclick = () => done(false);
+    box.onsubmit = (ev) => {
+      ev.preventDefault();
+      for (const [k] of CONFIRMS) app.setSetting(k, box.querySelector(`#${k}`).checked);
+      app.emit('settings');
+      done(true);
+    };
+  }, false, { kind: 'confirmations' }),
+});
+
+// ---- start-up ----
+
+export function init(app) {
+  // Enter on a file: last of the open handlers, so archives and the like are asked first
+  app.on('ready', () => app.openHandlers.push((panel, e, path) => openEntry(app, panel, e, path)));
+
+  // every error message also goes to the error log (job errors come with their full list, see below)
+  const flash = app.flash.bind(app);
+  let lastJobErr = '';
+  app.flash = (msg, kind = '') => {
+    if (kind === 'err' && !(lastJobErr && String(msg).startsWith(lastJobErr))) logError(msg);
+    return flash(msg, kind);
+  };
+  on('job-done', (p) => {
+    if (p?.errors?.length) {
+      lastJobErr = p.errors[0];
+      logError(`${({ copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash', wipe: 'Wiping' })[p.kind] || 'A job'} had ${plural(p.errors.length, 'error')}.`, p.errors);
+    }
+  });
+
+  // automatic refresh: each panel watches its folder; changes reread it
+  const configure = () => go.SystemWatch.Configure(watchOptions(app)).catch(() => {});
+  configure();
+  app.on('settings', configure);
+  app.on('panel', (p, { moved }) => { if (moved) go.SystemWatch.Watch(p.side, isLocal(p.path) ? p.path : '').catch(() => {}); });
+  on('system-fswatch', (ev) => {
+    for (const p of app.panels) {
+      if (p.path !== ev.path) continue;
+      if (ev.kind === 'changed') refreshPanel(app, p);
+      else if (ev.kind === 'gone') leaveGone(app, p);
+    }
+  });
+  const active = () => go.SystemWatch.SetActive(document.hasFocus() && document.visibilityState === 'visible').catch(() => {});
+  window.addEventListener('focus', active);
+  window.addEventListener('blur', active);
+  document.addEventListener('visibilitychange', active);
+  active();
+  on('system-volumes', () => volumesChanged(app));
+
+  // the menu and the command browser name Finder / Explorer / the file manager as the system calls it
+  const ex = getCommand('cm_Explorer');
+  if (ex) ex.label = revealLabel(app);
+
+  // Quit asks first when "confirmExit" is on (F-719)
+  const quit = getCommand('cm_Exit');
+  if (quit) {
+    const run = quit.run;
+    quit.run = async (a, args) => {
+      if (a.setting('confirmExit', false)) {
+        const b = await messageDialog({ Title: 'Quit mormiCommander?', Message: 'Do you really want to quit?', Buttons: ['Quit', 'Cancel'], Kind: 'quit-confirm' });
+        if (b !== 'Quit') return false;
+      }
+      return run(a, args);
+    };
+  }
+}
+
+addControlCommand('errorlog', async () => ({ ok: true, errors: errorLog.slice() }));
+addControlCommand('clipboard_content', async () => ({ ok: true, content: await go.SystemClip.Content() }));
