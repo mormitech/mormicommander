@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.21 – 2026-11-13
+
+### Fixed
+
+- Find: a huge size filter value in TB no longer overflows and matches the wrong files.
+- Packing a file whose name has characters outside Latin-1 to .gz no longer fails.
+- Multi-rename: counter width is capped at 255 digits, so a mask like [C:2000000000] is refused instead of hanging.
+- Multi-rename: the error count is recomputed before running, so hand edits can no longer slip past the check.
+
 ## 0.9.20 – 2026-11-13
 
 ### Added
