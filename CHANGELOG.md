@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.10 – 2026-11-13
+
+### Added
+
+- Map any folder to the drive bar as a quick jump: "Map to the drive bar…" in the context menu of a folder, of the
+  folder's background and of the path bar asks for a name. Mapped buttons come after the real drives and Home, behind a
+  thin divider, appear in the drive list (Alt+F1/F2), light up while you are inside them, and their own context menu
+  renames, moves or removes them.
+
 ## 0.9.9 – 2026-11-13
 
 ### Fixed

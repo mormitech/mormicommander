@@ -121,7 +121,7 @@ export const app = {
   volumeFor(p) {
     let best = null;
     for (const v of this.volumes) {
-      if (v.kind === 'home') continue;
+      if (v.kind === 'home' || v.kind === 'map') continue;
       const root = v.path;
       const within = p === root || p.startsWith(root.endsWith('/') || root.endsWith('\\') ? root : root + this.sepFor(root));
       const winWithin = this.platform === 'windows' && p.toLowerCase().startsWith(root.toLowerCase());
@@ -130,19 +130,28 @@ export const app = {
     return best;
   },
 
-  // driveFor is the drive bar button to highlight for a path: Home while inside the home folder, else its volume.
+  // driveFor is the drive bar button to highlight for a path: the most specific of Home and your mapped folders that
+  // contains it (so inside a mapped folder its button lights up), else the volume it is on.
   driveFor(p) {
-    const home = this.volumes.find((v) => v.kind === 'home');
-    if (home) {
-      const root = home.path, win = this.platform === 'windows';
+    let best = null;
+    const win = this.platform === 'windows';
+    for (const v of this.volumes) {
+      if (v.kind !== 'home' && v.kind !== 'map') continue;
+      const root = v.path;
       const a = win ? p.toLowerCase() : p, r = win ? root.toLowerCase() : root;
-      if (a === r || a.startsWith(r.endsWith('/') || r.endsWith('\\') ? r : r + this.sepFor(root))) return home;
+      const inside = a === r || a.startsWith(r.endsWith('/') || r.endsWith('\\') ? r : r + this.sepFor(root));
+      if (inside && (!best || root.length > best.path.length)) best = v;
     }
-    return this.volumeFor(p);
+    return best || this.volumeFor(p);
   },
 
+  // loadVolumes reads the drives from Go and adds the folders you mapped to the drive bar (settings "driveMaps",
+  // features/drivemaps.js) after them, so the real drives keep their places and keys.
   async loadVolumes() {
-    try { this.volumes = (await go.FS.Volumes()) || []; } catch { this.volumes = []; }
+    let vols;
+    try { vols = (await go.FS.Volumes()) || []; } catch { vols = []; }
+    const maps = (getSetting('driveMaps', []) || []).filter((m) => m && m.path).map((m) => ({ name: m.name || m.path, path: m.path, kind: 'map' }));
+    this.volumes = [...vols, ...maps];
     for (const p of this.panels) p.renderDrives(this.volumes);
   },
 

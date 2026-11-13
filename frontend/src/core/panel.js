@@ -465,7 +465,8 @@ export class Panel {
   // renderDrives draws the drive bar: one button per volume, the one the panel is on highlighted.
   renderDrives(volumes, currentPath) {
     const on = this.app.driveFor(currentPath ?? this.path);
-    this.$.drives.innerHTML = volumes.map((v, i) => `<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('');
+    const firstMap = volumes.findIndex((v) => v.kind === 'map');
+    this.$.drives.innerHTML = volumes.map((v, i) => `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('');
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
@@ -494,6 +495,7 @@ function shortName(v, platform) {
 function driveIcon(kind) {
   const p = {
     home: '<path d="M4 11l8-6 8 6v9H4z"/><path d="M10 20v-5h4v5"/>',
+    map: '<path d="M7 4h10v16l-5-4-5 4z"/>',
     network: '<rect x="3" y="4" width="18" height="11" rx="2"/><path d="M12 15v4M7 20h10"/>',
     cdrom: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/>',
     removable: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/>',

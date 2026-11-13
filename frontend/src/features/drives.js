@@ -13,7 +13,7 @@ async function openDrives(app, panel) {
   const items = vols.map((v) => ({
     label: v.label ? `${v.name} ${v.label}` : v.name,
     detail: v.total ? `${size(v.free)} free of ${size(v.total)}` : v.path,
-    key: v.kind === 'home' ? '~' : app.platform === 'windows' ? v.name[0] : '',
+    key: v.kind === 'home' ? '~' : v.kind === 'map' ? '' : app.platform === 'windows' ? v.name[0] : '',
     value: v,
   }));
   const r = await showList({ title: `Drive for the ${panel.side} panel`, items, anchor: panel.$.drives, index: Math.max(0, vols.indexOf(on)), kind: 'drives' });
