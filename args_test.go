@@ -21,6 +21,12 @@ func TestParseArgs(t *testing.T) {
 		{[]string{"--about", "--theme=dark"}, startOpts{About: true, Theme: "dark"}},
 		{[]string{"-psn_0_1234", "--version"}, startOpts{Version: true}},
 		{[]string{"/P=X"}, startOpts{}},
+		{[]string{"/P=X", "/a"}, startOpts{Left: "/a"}},
+		{[]string{"/T", "/a", "/b"}, startOpts{NewTab: true, TCLeft: "/a", TCRight: "/b"}},
+		{[]string{"-s", "-P=R", "/a", "/b"}, startOpts{SourceTarget: true, Active: "R", TCLeft: "/b", TCRight: "/a"}},
+		{[]string{"/O", "/N", "/I=/tmp/x.ini", "/F=/tmp/f.ini", "/L=/a"}, startOpts{OpenInRunning: true, NewInstance: true, IniPath: "/tmp/x.ini", FtpIniPath: "/tmp/f.ini", Left: "/a"}},
+		{[]string{"/S=L:T3", "/tmp/f.txt"}, startOpts{Tool: "lister", ToolOpts: "T3", ToolFile1: "/tmp/f.txt"}},
+		{[]string{"/S=C", "/a", "/b"}, startOpts{Tool: "compare", ToolFile1: "/a", ToolFile2: "/b"}},
 	}
 	for _, c := range cases {
 		if got := parseArgs(c.args); got != c.want {

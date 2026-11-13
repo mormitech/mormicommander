@@ -93,6 +93,11 @@ function toSpec(items) {
   return out;
 }
 
+// Items a feature adds to a menu at run time (the user's Start menu entries, a Layout submenu): addMenuItems('Start', fn)
+// where fn() returns items in the MENUS format ([label, cmd], '-', [label, [items]]); they go at the end of that menu.
+const providers = [];
+export function addMenuItems(menu, fn) { providers.push({ menu, fn }); refreshMenu(); }
+
 // menuSpec is the whole tree, with the commands that put themselves in a menu (command({menu: 'Show'})) added.
 export function menuSpec() {
   const listed = new Set();
@@ -106,6 +111,12 @@ export function menuSpec() {
     const at = c.menuAfter ? m[1].findIndex((it) => Array.isArray(it) && it[1] === c.menuAfter) : -1;
     if (at >= 0) m[1].splice(at + 1, 0, [c.label, c.name]);
     else m[1].push([c.label, c.name]);
+  }
+  for (const p of providers) {
+    const m = menus.find(([l]) => l === p.menu);
+    let items = [];
+    try { items = p.fn() || []; } catch (e) { console.error(e); }
+    if (m && items.length) m[1].push(...items);
   }
   return menus.map(([label, items]) => ({ label, items: toSpec(items) }));
 }
