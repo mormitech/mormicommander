@@ -341,8 +341,8 @@ func parseCounter(spec string) (*counterSpec, error) {
 			s = ""
 		} else {
 			v, rest, ok := parseSigned(s[1:])
-			if !ok || v < 0 {
-				return nil, fmt.Errorf("bad counter width in %q", spec)
+			if !ok || v < 0 || v > MaxCounterDigits {
+				return nil, fmt.Errorf("bad counter width in %q (at most %d digits)", spec, MaxCounterDigits)
 			}
 			cs.digits = &v
 			s = rest

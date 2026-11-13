@@ -97,8 +97,29 @@ type Result struct {
 	fold bool
 }
 
-// HasErrors reports whether any entry has a blocking problem.
-func (r *Result) HasErrors() bool { return r.Errors > 0 }
+// HasErrors reports whether any entry has a blocking problem. It looks at the
+// entries themselves rather than at the Errors count, because a caller may
+// edit names and rerun CheckEntries after the count was taken; a stale count
+// must never let a conflicting batch through to Execute. The count is
+// refreshed on the way so messages built from it stay correct.
+func (r *Result) HasErrors() bool {
+	r.Recount()
+	return r.Errors > 0
+}
+
+// Recount refreshes Errors and Changes from the entries, for callers that
+// changed names or reran CheckEntries after the preview was built.
+func (r *Result) Recount() {
+	r.Errors, r.Changes = 0, 0
+	for _, e := range r.Entries {
+		if !e.OK() {
+			r.Errors++
+		}
+		if e.Changed() {
+			r.Changes++
+		}
+	}
+}
 
 // Preview compiles the settings and builds the preview in one call.
 func Preview(items []Item, s Settings, o PreviewOptions) (*Result, error) {
@@ -129,14 +150,7 @@ func (r *Renamer) Preview(items []Item, o PreviewOptions) *Result {
 		res.Entries[i] = Entry{Item: items[i], NewName: names[i], Warnings: warns[i]}
 	}
 	CheckEntries(res.Entries, o)
-	for _, e := range res.Entries {
-		if !e.OK() {
-			res.Errors++
-		}
-		if e.Changed() {
-			res.Changes++
-		}
-	}
+	res.Recount()
 	return res
 }
 

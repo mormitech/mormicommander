@@ -168,22 +168,29 @@ type SizeFilter struct {
 // Active reports whether the filter is set.
 func (s SizeFilter) Active() bool { return s.Op != SizeAny }
 
-// Match tests a size in bytes.
+// Match tests a size in bytes. It never multiplies Value by the unit, which
+// could overflow int64 for a large value in TB and flip the comparison;
+// instead the size is divided by the unit (rounding down) and the quotient
+// and remainder are compared with Value. The results are the same as
+// "lo := Value*unit" for every value that does not overflow.
 func (s SizeFilter) Match(size int64) bool {
 	f, err := s.Unit.factor()
 	if err != nil {
 		return false
 	}
-	lo := s.Value * f
+	q, r := size/f, size%f
+	if r < 0 { // round towards minus infinity so r is always in [0, f)
+		q, r = q-1, r+f
+	}
 	switch s.Op {
 	case SizeAny:
 		return true
 	case SizeEqual:
-		return size >= lo && size < lo+f
+		return q == s.Value
 	case SizeGreater:
-		return size > lo
+		return q > s.Value || (q == s.Value && r > 0)
 	case SizeLess:
-		return size < lo
+		return q < s.Value
 	}
 	return false
 }

@@ -360,7 +360,7 @@ func writeSingle(ctx context.Context, w io.Writer, f Format, level int, items []
 		return err
 	}
 	if gz, ok := cw.(*gzip.Writer); ok {
-		gz.Name = path.Base(it.name)
+		gz.Name = gzipHeaderName(path.Base(it.name))
 		gz.ModTime = it.fi.ModTime()
 	}
 	src, err := os.Open(it.src)
@@ -375,6 +375,20 @@ func writeSingle(ctx context.Context, w io.Writer, f Format, level int, items []
 		return err
 	}
 	return cw.Close()
+}
+
+// gzipHeaderName returns the name to store in a gzip header. The gzip format
+// (RFC 1952) only allows Latin-1 there and Go's writer fails the whole pack on
+// anything else, so a name with characters outside Latin-1 (Cyrillic, CJK,
+// emoji, ...) is left out of the header instead. The name is optional
+// metadata: unpackers fall back to the archive's own file name.
+func gzipHeaderName(name string) string {
+	for _, r := range name {
+		if r == 0 || r > 0xff {
+			return ""
+		}
+	}
+	return name
 }
 
 // removeItems deletes packed sources for "move to archive": files and links

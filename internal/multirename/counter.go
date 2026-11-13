@@ -17,6 +17,11 @@ import (
 // value in the list.
 const AutoDigits = -1
 
+// MaxCounterDigits caps the counter width. No file system accepts a name part
+// longer than 255 bytes, and without a cap typing [C:2000000000] in the live
+// preview would build a 2 GB string and take the whole app down.
+const MaxCounterDigits = 255
+
 // counter renders the counter for the current item (whose 0-based position
 // in its counter group is c.index) from the inline overrides of one [C]
 // placeholder and the dialog settings.
@@ -58,6 +63,7 @@ func (c *renderCtx) counter(cs *counterSpec) string {
 func padInt(v, digits int) string {
 	neg := v < 0
 	s := strconv.Itoa(abs(v))
+	digits = min(digits, MaxCounterDigits)
 	if len(s) < digits {
 		s = strings.Repeat("0", digits-len(s)) + s
 	}
