@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.13 – 2026-11-13
+
+### Changed
+
+- A drive button opens the other panel's folder when the other panel is on that same drive button, as in Total
+  Commander: with the left panel in ~/Downloads, Home on the right opens ~/Downloads (Macintosh HD still opens /); on
+  Windows, with the left panel in d:\games, d opens d:\games and c opens c:\. The drive list (Alt+F1/F2) does the same.
+
 ## 0.9.12 – 2026-11-13
 
 ### Changed

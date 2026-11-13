@@ -19,7 +19,7 @@ async function openDrives(app, panel) {
   const r = await showList({ title: `Drive for the ${panel.side} panel`, items, anchor: panel.$.drives, index: Math.max(0, vols.indexOf(on)), kind: 'drives' });
   if (!r) return false;
   app.setActive(panel);
-  return panel.go(r.item.value.path);
+  return panel.go(app.drivePath(panel, r.item.value));
 }
 
 command({ name: 'cm_LeftOpenDrives', label: 'Drive list, left panel', run: (app) => openDrives(app, app.left) });

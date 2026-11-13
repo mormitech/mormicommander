@@ -145,6 +145,16 @@ export const app = {
     return best || this.volumeFor(p);
   },
 
+  // drivePath is where a drive button (or a drive list entry) takes panel p, as in Total Commander: when the other panel
+  // is on that same drive button (the one lit up there), p goes to the other panel's folder; otherwise to the
+  // button's own folder. So with the left panel in ~/Downloads, Home on the right opens ~/Downloads, while Macintosh HD
+  // opens /; on Windows, with the left panel in d:\games, d opens d:\games and c opens c:\.
+  drivePath(p, v) {
+    const o = p.other;
+    if (o && o.path && this.driveFor(o.path) === v) return o.path;
+    return v.path;
+  },
+
   // loadVolumes reads the drives from Go and adds the folders you mapped to the drive bar (settings "driveMaps",
   // features/drivemaps.js) after them, so the real drives keep their places and keys.
   async loadVolumes() {

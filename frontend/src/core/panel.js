@@ -471,7 +471,7 @@ export class Panel {
       const b = ev.target.closest('button');
       if (!b) return;
       this.app.setActive(this);
-      this.go(volumes[+b.dataset.i].path);
+      this.go(this.app.drivePath(this, volumes[+b.dataset.i]));
     };
   }
 
