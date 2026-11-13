@@ -6,7 +6,11 @@
 // back exactly as it was, except for the lines the user actually edited,
 // which get the file's dominant ending. Saving goes through a temporary file
 // in the same folder and a rename, so a crash or a full disk never leaves a
-// half-written file behind, and the original permission bits are kept.
+// half-written file behind, and the original permission bits are kept. A
+// symbolic link is followed first, so the file it points to is updated and the
+// link stays a link. A file with several hard links is rewritten in place
+// instead, because a rename would detach this name from the other names and
+// leave them holding the old text.
 package compare
 
 import (
@@ -154,14 +158,23 @@ func (d *Document) SaveFile(path string) error {
 }
 
 // WriteFileAtomic writes data to a temporary file next to path and renames it
-// over path.
+// over path. Symbolic links are resolved first, so the link's target is
+// written; a file with more than one hard link is rewritten in place so all
+// its names keep sharing the new content.
 func WriteFileAtomic(path string, data []byte) error {
+	path, err := resolveLinks(path)
+	if err != nil {
+		return err
+	}
 	mode := os.FileMode(0o644)
 	if st, err := os.Stat(path); err == nil {
 		if !st.Mode().IsRegular() {
 			return fmt.Errorf("compare: %s is not a regular file", path)
 		}
 		mode = st.Mode().Perm()
+		if linkCount(path, st) > 1 {
+			return writeInPlace(path, data)
+		}
 	}
 	dir := filepath.Dir(path)
 	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".mc-tmp-*")
@@ -193,4 +206,46 @@ func WriteFileAtomic(path string, data []byte) error {
 	}
 	ok = true
 	return nil
+}
+
+// maxLinkHops limits how many symbolic links resolveLinks follows, like the
+// operating system's own ELOOP limit.
+const maxLinkHops = 40
+
+// resolveLinks follows symbolic links at path until it reaches a name that is
+// not a link (an existing file, or a missing name a dangling link points to).
+func resolveLinks(path string) (string, error) {
+	for i := 0; i < maxLinkHops; i++ {
+		st, err := os.Lstat(path)
+		if err != nil || st.Mode()&os.ModeSymlink == 0 {
+			return path, nil
+		}
+		target, err := os.Readlink(path)
+		if err != nil {
+			return "", err
+		}
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		path = target
+	}
+	return "", fmt.Errorf("compare: %s: too many levels of symbolic links", path)
+}
+
+// writeInPlace truncates and rewrites an existing file, keeping its identity
+// (inode), which is what hard-linked names share.
+func writeInPlace(path string, data []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0)
+	if err != nil {
+		return err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }

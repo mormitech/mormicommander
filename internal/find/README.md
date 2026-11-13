@@ -8,7 +8,7 @@ Standard library only, plus `golang.org/x/text/encoding/charmap` for ANSI/OEM co
 
 | ID | What the engine provides |
 |----|--------------------------|
-| F-525 | `Options.SearchFor` masks: `;`/space separated, quotes, `|` exclusions, TC rules (`*.*`, `*.`, no wildcard = `*text*`) — `ParseMask` |
+| F-525 | `Options.SearchFor` masks: `;`/space separated, quotes, `|` exclusions, TC rules (`*.*`, `*.`, `name.*` also matches `name`, no wildcard and no dot = `*text*`, dotted literal = exact name), NFC comparison — `ParseMask` |
 | F-526 | `Options.SearchIn` (several start folders), `ParseSearchIn("a;b;\"c;d\"")` |
 | F-527 | `Options.Levels` (`Unlimited` = -1, 0 = current folder only, n levels) |
 | F-528 | `Options.SearchArchives` + `Options.Archives` (`ArchiveHandler` interface; adapt internal/archive) |
@@ -51,12 +51,17 @@ saved template as a "select group" / custom filter).
 
 ## Behaviour notes
 
-- Names compare case-insensitively; masks with a path separator in the middle match the
+- Names compare case-insensitively and in Unicode NFC (a macOS NFD name matches an NFC mask);
+  `readme.txt` matches only that name, `report` matches any name containing it; masks with a
+  path separator in the middle match the
   relative path (`src/*.go`). The start folder itself is never a result; a start path that
   is a file is tested on its own.
 - Folder exclusions skip the folder entirely (not listed, not entered); file exclusions
   only drop names from the results.
 - Active size or content filters never match folders. `= 3 KB` means 3072–4095 bytes.
+- Named pipes, sockets and devices (or links to them) are never opened: content search and
+  duplicate search by content skip them, and `OSFS.Open` refuses them (`ErrNotRegular`),
+  because opening a pipe without a writer would block where `Stop` cannot reach it.
 - Errors on single paths go to `Handler.Error` / `Job.Errors()` and never stop the search.
 - Content is read in 1 MiB chunks; matches across chunk boundaries are found, regex matches
   across a boundary up to 64 KiB long. UTF-16 is also tried at odd byte offsets.

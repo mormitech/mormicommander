@@ -1,9 +1,14 @@
 // This file is the synchronize half of the tool (FEATURES.md F-551). A Plan
 // turns the rows' actions into an ordered list of disk operations, filtered
 // by the three checkboxes of Total Commander's Synchronize dialog (copy left
-// to right, copy right to left, delete). Execute then carries the plan out
-// with progress reports, cancellation, an overwrite confirmation hook and a
-// Skip / Retry / Abort error hook.
+// to right, copy right to left, delete) and by the Show buttons above the
+// list: spec 9.4 and 9.7 say rows hidden by the Show filter are neither
+// counted nor synchronized. Rows whose action is unselected (asymmetric
+// overwrites of newer files and right-only deletions, until the user ticks
+// them) are left out too. Execute then carries the plan out with progress
+// reports, cancellation, an overwrite confirmation hook, a Skip / Retry /
+// Abort error hook and an optional trash hook, so deletions can honour the
+// "Delete to trash" setting instead of being permanent.
 //
 // The order is chosen so the tree is always consistent: folders are created
 // before the files that go into them, files are deleted before the folders
@@ -79,15 +84,19 @@ type Op struct {
 	Item *Item  `json:"-"`
 }
 
-// PlanFilter holds the checkboxes of the Synchronize dialog.
+// PlanFilter holds the checkboxes of the Synchronize dialog and, optionally,
+// the Show buttons of the list.
 type PlanFilter struct {
 	LeftToRight bool `json:"leftToRight"`
 	RightToLeft bool `json:"rightToLeft"`
 	Delete      bool `json:"delete"`
+	// Show, when set, limits the plan to the rows Result.Visible shows under
+	// these buttons. Nil means every row.
+	Show *Show `json:"show,omitempty"`
 }
 
-// AllOps has every checkbox on.
-func AllOps() PlanFilter { return PlanFilter{true, true, true} }
+// AllOps has every checkbox on and no Show filter.
+func AllOps() PlanFilter { return PlanFilter{LeftToRight: true, RightToLeft: true, Delete: true} }
 
 // Plan is the ordered list of operations plus the totals the dialog shows.
 type Plan struct {
@@ -100,14 +109,32 @@ type Plan struct {
 	DeletesRight    int   `json:"deletesRight"`
 	NeedsWriteLeft  bool  `json:"needsWriteLeft"`
 	NeedsWriteRight bool  `json:"needsWriteRight"`
-	result          *Result
+	// Unselected counts rows with an action that were left out because the
+	// action is not selected (see Item.Unselected).
+	Unselected int `json:"unselected"`
+	result     *Result
 }
 
 // Plan builds the operations for the current actions.
 func (r *Result) Plan(f PlanFilter) *Plan {
 	p := &Plan{result: r}
+	var visible map[*Item]bool
+	if f.Show != nil {
+		vis := r.Visible(*f.Show)
+		visible = make(map[*Item]bool, len(vis))
+		for _, it := range vis {
+			visible[it] = true
+		}
+	}
 	var copies, deletes []Op
 	for _, it := range r.Items {
+		if visible != nil && !visible[it] {
+			continue
+		}
+		if it.Unselected && it.Action != NoAction {
+			p.Unselected++
+			continue
+		}
 		switch it.Action {
 		case CopyLeftToRight:
 			if f.LeftToRight {
@@ -242,6 +269,14 @@ type ExecOptions struct {
 	ConfirmOverwrite func(op *Op) OverwriteDecision
 	// Force skips the "unchanged since compare" checks.
 	Force bool
+	// Trash, when set, is used instead of a permanent delete for files,
+	// links and other non-folder entries, so deletions honour the "Delete to
+	// trash" setting (spec 9.7). It gets the side's file system and the
+	// slash path on it; SystemTrash is the implementation for local sides.
+	// An error is handled like any failed operation (OnError); the entry is
+	// never deleted permanently as a fallback. Empty folders are always
+	// removed directly, since nothing in them could be lost.
+	Trash func(f WritableFS, name string) error
 }
 
 // OpError is one failed operation.
@@ -567,6 +602,14 @@ func (e *executor) copyFile(op *Op) error {
 	if err := ensureParents(dst, op.Dst); err != nil {
 		return err
 	}
+	// Never open a pipe, socket or device as a copy source: opening a pipe
+	// without a writer blocks forever, and the other kinds have no contents.
+	// Force skips the compare-time checks, so look again here.
+	if st, err := src.Stat(op.Src); err != nil {
+		return err
+	} else if st.Mode()&specialMode != 0 || st.IsDir() {
+		return &fs.PathError{Op: "copy", Path: op.Src, Err: ErrNotRegular}
+	}
 	in, err := src.Open(op.Src)
 	if err != nil {
 		return err
@@ -675,7 +718,12 @@ func (e *executor) remove(op *Op) error {
 			return err
 		}
 	}
-	err := dst.Remove(op.Dst)
+	var err error
+	if op.Kind == OpDelete && e.opts.Trash != nil {
+		err = e.opts.Trash(dst, op.Dst)
+	} else {
+		err = dst.Remove(op.Dst)
+	}
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}

@@ -5,10 +5,13 @@ package compare
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 func TestCompareBinary(t *testing.T) {
@@ -113,5 +116,51 @@ func TestFilesEqual(t *testing.T) {
 	res, err = CompareBinaryFiles(ctx, a, d, 1)
 	if err != nil || !res.Truncated || res.SizeA != 250000 || res.SizeB != 5 {
 		t.Fatalf("truncated sizes from stat: %+v %v", res, err)
+	}
+}
+
+// endless is a non-seekable reader that never ends.
+type endless struct{}
+
+func (endless) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 'x'
+	}
+	return len(p), nil
+}
+
+// TestCompareBinaryTailHonoursCancel: once the shorter input ends, counting the
+// rest of a huge (here endless) input must still stop when ctx is cancelled,
+// and a seekable file's tail is measured without reading it.
+func TestCompareBinaryTailHonoursCancel(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := CompareBinary(ctx, strings.NewReader("x"), endless{}, 0)
+		done <- err
+	}()
+	select {
+	case err := <-done:
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Errorf("want deadline error, got %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("tail count ignored cancellation")
+	}
+
+	dir := t.TempDir()
+	small, big := filepath.Join(dir, "s"), filepath.Join(dir, "b")
+	os.WriteFile(small, []byte("ab"), 0o644)
+	f, _ := os.Create(big)
+	f.Write([]byte("ab"))
+	f.Truncate(1 << 30) // sparse 1 GiB file: reading it would be slow
+	f.Close()
+	res, err := CompareBinaryFiles(context.Background(), small, big, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.SizeA != 2 || res.SizeB != 1<<30 || res.Identical() {
+		t.Errorf("sizes %d %d", res.SizeA, res.SizeB)
 	}
 }

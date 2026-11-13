@@ -6,12 +6,17 @@
 // backslash ("|vendor/" or "|.git\") excludes folders instead: the walker neither
 // lists nor enters them, which is how TC users keep searches out of build output.
 //
-// The matching rules follow Total Commander: names compare without regard to case, "*"
-// is any run of characters and "?" exactly one, "*.*" means every name (even names
-// without a dot), a mask ending in "." ("*.") matches only names without an extension,
-// and a mask with no wildcard at all is searched as "*text*", so typing "report" finds
-// "Q3 report final.pdf". A mask that contains a path separator in the middle
-// ("src/*.go") is matched against the path relative to the search folder.
+// The matching rules follow Total Commander and agree with the shared masks package:
+// names compare without regard to case and in Unicode NFC form (macOS hands out
+// decomposed names, while the user types composed ones, so "árok*" must still find the
+// file Finder shows as "árok.txt"), "*" is any run of characters and "?" exactly one,
+// "*.*" means every name (even names without a dot), a mask ending in ".*" also matches
+// the bare name ("readme.*" finds "readme", the DOS rule), and a mask ending in "."
+// ("*.") matches only names without an extension. A mask with no wildcard and no dot
+// is searched as "*text*", so typing "report" finds "Q3 report final.pdf"; a mask with
+// a dot but no wildcard ("readme.txt") names one exact file. A mask that contains a
+// path separator in the middle ("src/*.go") is matched against the path relative to
+// the search folder.
 
 package find
 
@@ -19,6 +24,8 @@ import (
 	"fmt"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Mask is a parsed "Search for" string.
@@ -35,6 +42,7 @@ type Pattern struct {
 	path  bool   // match against the relative path instead of the name
 	all   bool   // "*.*" or "*": everything
 	noExt bool   // the mask ended in ".": the name must have no extension
+	bare  string // set when the mask ends in ".*": the part before it, also tried on names without an extension
 }
 
 // ParseMask parses a Total Commander "Search for" string.
@@ -127,11 +135,11 @@ func tokenize(s string) []string {
 	return out
 }
 
-// newPattern normalises one mask. autoStar applies TC's "no wildcard means *text*"
-// rule; folder exclusions do not use it, so "|bin/" skips "bin" but not "cabinet".
+// newPattern normalises one mask. autoStar applies TC's "no wildcard and no dot means
+// *text*" rule; folder exclusions do not use it, so "|bin/" skips "bin" but not "cabinet".
 func newPattern(raw string, autoStar bool) Pattern {
 	p := Pattern{Raw: raw}
-	g := strings.ToLower(strings.ReplaceAll(raw, `\`, "/"))
+	g := foldName(strings.ReplaceAll(raw, `\`, "/"))
 	if g == "*.*" || g == "*" {
 		p.all = true
 		return p
@@ -144,11 +152,28 @@ func newPattern(raw string, autoStar bool) Pattern {
 		p.noExt = true
 		g = strings.TrimSuffix(g, ".")
 	}
-	if autoStar && !strings.ContainsAny(g, "*?") {
+	if autoStar && !strings.ContainsAny(g, "*?") && !strings.Contains(g, ".") {
 		g = "*" + g + "*"
+	}
+	if !p.path && len(g) > 2 && strings.HasSuffix(g, ".*") {
+		p.bare = strings.TrimSuffix(g, ".*")
 	}
 	p.glob = g
 	return p
+}
+
+// foldName prepares a name or mask for comparison: NFC first, so composed and
+// decomposed spellings of the same letter are equal, then lower case.
+func foldName(s string) string {
+	return strings.ToLower(norm.NFC.String(s))
+}
+
+// hasExt says whether a (folded) name has an extension: text after the last dot,
+// where a leading dot (".bashrc") does not start one and a trailing dot leaves none.
+// It is the same rule as masks.SplitExt.
+func hasExt(n string) bool {
+	i := strings.LastIndexByte(n, '.')
+	return i > 0 && i < len(n)-1
 }
 
 // Match reports whether a name (or, for path masks, the slash-separated relative path)
@@ -158,15 +183,18 @@ func (p Pattern) Match(name, rel string) bool {
 		return true
 	}
 	if p.path {
-		return Glob(p.glob, strings.ToLower(strings.ReplaceAll(rel, `\`, "/")))
+		return Glob(p.glob, foldName(strings.ReplaceAll(rel, `\`, "/")))
 	}
-	n := strings.ToLower(name)
+	n := foldName(name)
 	if p.noExt {
-		if strings.Contains(strings.TrimPrefix(n, "."), ".") {
+		if hasExt(n) {
 			return false
 		}
 	}
-	return Glob(p.glob, n)
+	if Glob(p.glob, n) {
+		return true
+	}
+	return p.bare != "" && !strings.Contains(n, ".") && Glob(p.bare, n)
 }
 
 // MatchName reports whether a file or folder name is selected by the mask: it matches

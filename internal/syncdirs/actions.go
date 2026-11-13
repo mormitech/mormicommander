@@ -9,8 +9,13 @@
 // action, because the engine cannot know which side the user wants. In
 // asymmetric mode the left side is the master: every difference is copied
 // left to right and names that exist only on the right are marked for
-// deletion. A row never gets an action that would write or delete inside a
-// followed folder link, and file/folder clashes can only be deleted.
+// deletion. The two asymmetric actions that destroy newer or unique data on
+// the right (overwriting a newer right file, deleting a right-only entry)
+// start out unselected, as spec area-5 9.3.3 decides: they are shown, but
+// Plan leaves them out until the user selects them. A row never gets an
+// action that would write or delete inside a followed folder link, a
+// file/folder clash can only be deleted, and a pipe, socket or device is
+// never copied.
 package syncdirs
 
 import (
@@ -46,15 +51,24 @@ func defaultAction(it *Item, asym bool) Action {
 	return a
 }
 
+// setDefault gives the row its default action and selection state.
+func (it *Item) setDefault(asym bool) {
+	it.Default = defaultAction(it, asym)
+	it.defUnselected = asym && ((it.Category == RightNewer && it.Default == CopyLeftToRight) ||
+		(it.Category == RightOnly && it.Default == DeleteRight))
+	it.Action = it.Default
+	it.Unselected = it.defUnselected
+}
+
 // CanApply reports whether action a is allowed for the row.
 func (it *Item) CanApply(a Action) bool {
 	switch a {
 	case NoAction:
 		return true
 	case CopyLeftToRight:
-		return it.Left != nil && !it.TypeMismatch && writableDest(it.Right, it.rvia)
+		return it.Left != nil && it.Left.Kind != KindSpecial && !it.TypeMismatch && writableDest(it.Right, it.rvia)
 	case CopyRightToLeft:
-		return it.Right != nil && !it.TypeMismatch && writableDest(it.Left, it.lvia)
+		return it.Right != nil && it.Right.Kind != KindSpecial && !it.TypeMismatch && writableDest(it.Left, it.lvia)
 	case DeleteLeft:
 		return it.Left != nil && !it.lvia
 	case DeleteRight:
@@ -78,7 +92,8 @@ func writableDest(dst *Entry, via bool) bool {
 	return true
 }
 
-// SetAction overrides the action of one row.
+// SetAction overrides the action of one row. Choosing an action is an
+// explicit decision, so the row also becomes selected.
 func (r *Result) SetAction(path string, a Action) error {
 	it := r.index[path]
 	if it == nil {
@@ -88,14 +103,45 @@ func (r *Result) SetAction(path string, a Action) error {
 		return fmt.Errorf("syncdirs: action %s not possible for %q", a, path)
 	}
 	it.Action = a
+	it.Unselected = false
 	return nil
+}
+
+// SetSelected selects or unselects the action of one row. An unselected
+// row keeps its action (the arrow stays visible) but Plan skips it.
+func (r *Result) SetSelected(path string, on bool) error {
+	it := r.index[path]
+	if it == nil {
+		return fmt.Errorf("syncdirs: no item %q", path)
+	}
+	it.Unselected = !on
+	return nil
+}
+
+// SelectTree selects or unselects the row at path and every row below it
+// (an empty path means all rows) and returns how many rows changed.
+func (r *Result) SelectTree(path string, on bool) (int, error) {
+	if path != "" && r.index[path] == nil {
+		return 0, fmt.Errorf("syncdirs: no item %q", path)
+	}
+	n := 0
+	for _, it := range r.Items {
+		if path != "" && it.Path != path && !strings.HasPrefix(it.Path, path+"/") {
+			continue
+		}
+		if it.Unselected == on {
+			it.Unselected = !on
+			n++
+		}
+	}
+	return n, nil
 }
 
 // SetActionTree sets action a on the row at path and on every row below it
 // where the action is possible, as Total Commander does when the user picks
 // an action for a folder. An empty path means all rows. Rows where the
-// action is impossible keep their current action. It returns how many rows
-// were changed.
+// action is impossible keep their current action. Rows that get the action
+// also become selected. It returns how many rows were changed.
 func (r *Result) SetActionTree(path string, a Action) (int, error) {
 	if path != "" && r.index[path] == nil {
 		return 0, fmt.Errorf("syncdirs: no item %q", path)
@@ -105,8 +151,9 @@ func (r *Result) SetActionTree(path string, a Action) (int, error) {
 		if path != "" && it.Path != path && !strings.HasPrefix(it.Path, path+"/") {
 			continue
 		}
-		if it.CanApply(a) && it.Action != a {
+		if it.CanApply(a) && (it.Action != a || it.Unselected) {
 			it.Action = a
+			it.Unselected = false
 			n++
 		}
 	}
@@ -137,13 +184,15 @@ func (r *Result) ReverseAction(path string) error {
 		return fmt.Errorf("syncdirs: action %s not possible for %q", want, path)
 	}
 	it.Action = want
+	it.Unselected = false
 	return nil
 }
 
-// ResetActions puts every row back to its default action.
+// ResetActions puts every row back to its default action and selection.
 func (r *Result) ResetActions() {
 	for _, it := range r.Items {
 		it.Action = it.Default
+		it.Unselected = it.defUnselected
 	}
 }
 

@@ -24,11 +24,21 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"mormicommander/internal/trash"
 )
 
 // ErrSymlinkInPath is returned when a write or delete would pass through a
 // folder that is a symbolic link.
 var ErrSymlinkInPath = errors.New("syncdirs: path goes through a symbolic link")
+
+// ErrNotRegular is returned when a copy or a content compare would have to
+// open a named pipe, socket or device.
+var ErrNotRegular = errors.New("syncdirs: not a regular file")
+
+// ErrNoTrash is returned by SystemTrash for sides that are not on the local
+// disk or on systems without a trash.
+var ErrNoTrash = errors.New("syncdirs: moving to the trash is not possible here")
 
 // ErrReadOnly is returned when the plan needs to change a side whose FS does
 // not implement WritableFS (an archive opened read-only, for example).
@@ -152,11 +162,19 @@ func (o *OSFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return os.ReadDir(p)
 }
 
-// Open implements FS.
+// Open implements FS. Pipes, sockets and devices are refused before the
+// open call, which could otherwise block forever.
 func (o *OSFS) Open(name string) (io.ReadCloser, error) {
 	p, err := o.abs("open", name)
 	if err != nil {
 		return nil, err
+	}
+	st, err := os.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	if st.Mode()&specialMode != 0 {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: ErrNotRegular}
 	}
 	return os.Open(p)
 }
@@ -251,6 +269,25 @@ func (o *OSFS) Symlink(target, name string) error {
 		return err
 	}
 	return os.Symlink(target, p)
+}
+
+// SystemTrash moves an entry of a local side (an *OSFS) to the system trash
+// or Recycle Bin. Pass it as ExecOptions.Trash when the "Delete to trash"
+// setting is on. Other sides give ErrNoTrash, and like every write it
+// refuses paths that pass through a symlinked folder.
+func SystemTrash(f WritableFS, name string) error {
+	o, ok := f.(*OSFS)
+	if !ok || !trash.Supported() {
+		return ErrNoTrash
+	}
+	if name == "." {
+		return &fs.PathError{Op: "trash", Path: name, Err: fs.ErrInvalid}
+	}
+	p, err := o.writable("trash", name)
+	if err != nil {
+		return err
+	}
+	return trash.Move(p)
 }
 
 // FromFS wraps an io/fs file system as a read-only side. Symlinks are

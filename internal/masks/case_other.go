@@ -1,7 +1,9 @@
-// This file sets the default case rule for macOS and any non-Unix system other than Windows. APFS and HFS+ are
-// case-insensitive by default, so "readme.*" must also select "README.md", exactly as Finder would find it.
+// This file sets the defaults for macOS, Linux and every other system except Windows. Masks compare letters
+// without regard to case on all platforms, even on case-sensitive Linux file systems, because Total Commander users
+// type "*.JPG" and expect it to select "photo.jpg" (spec area-3, mask syntax rule 6). Callers that really need exact
+// letters ask for CaseSensitive explicitly. Saved selection files use plain LF line endings here.
 
-//go:build !windows && (!unix || darwin)
+//go:build !windows
 
 package masks
 

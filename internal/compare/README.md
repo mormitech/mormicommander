@@ -61,3 +61,9 @@ s.ReloadSide(compare.Left, compare.EncWindows1250, compare.DetectOptions{}, fals
 - Detection: BOM → BOM-less UTF-16 → binary (NUL / control chars) → ASCII →
   UTF-8 → `DetectOptions.ANSI` (default Windows-1252; Windows-1250 when bytes
   undefined in 1252 occur). Pass `ANSI: EncWindows1250` for a Hungarian locale.
+- Bytes a single-byte code page leaves undefined decode to U+F700+byte and
+  encode back to the same byte, so such files can still be saved after an edit.
+- Saving follows symbolic links (the target is updated, the link stays) and
+  rewrites hard-linked files in place so their other names see the change.
+- `CompareBinary` measures the tail of a longer seekable input without reading
+  it, and reads a non-seekable tail with cancel checks.

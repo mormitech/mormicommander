@@ -5,9 +5,11 @@
 // except those starting with "read", and "|*.bak" (nothing on the left) means everything except backups. A mask that
 // ends in "\" or "/" applies to folders only, which lets one expression say "all files but skip .git folders":
 // "*|.git\". A word starting with ">" names a saved filter, which the caller looks up through Options.Resolve and
-// whose masks are merged in, the way TC lets ">Pictures" stand for a stored search template. Case rules follow the
-// platform (case-insensitive on Windows and macOS, case-sensitive on Linux and other Unix) unless the caller says
-// otherwise, because that is how the file systems behave by default.
+// whose masks are merged in, the way TC lets ">Pictures" stand for a stored search template. An expression that
+// starts with "<" is one regular expression instead (Go RE2 syntax, matched against the name), for the cases plain
+// wildcards cannot express; there "|", spaces and ";" keep their regex meaning. Letters compare case-insensitively on
+// every platform, even on case-sensitive Linux file systems, unless the caller asks for exact case, because that is
+// what Total Commander users expect when they type "*.JPG".
 
 package masks
 
@@ -21,7 +23,7 @@ import (
 type CaseRule uint8
 
 const (
-	CaseDefault     CaseRule = iota // case-insensitive on Windows and macOS, case-sensitive elsewhere
+	CaseDefault     CaseRule = iota // case-insensitive on every platform (see DefaultCaseSensitive)
 	CaseSensitive                   // "A" and "a" differ
 	CaseInsensitive                 // "A" and "a" are the same letter
 )
@@ -63,6 +65,14 @@ type List struct {
 // TC does when the "Select files" box is left empty with "*.*".
 func Parse(expr string, opt Options) (*List, error) {
 	l := &List{raw: expr, cs: opt.Case.Sensitive()}
+	if t := strings.TrimSpace(expr); strings.HasPrefix(t, "<") {
+		m, err := CompileRegexMask(t[1:], l.cs)
+		if err != nil {
+			return nil, err
+		}
+		l.Include = []*Mask{m}
+		return l, nil
+	}
 	if err := l.add(expr, opt, 0); err != nil {
 		return nil, err
 	}

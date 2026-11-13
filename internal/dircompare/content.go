@@ -2,7 +2,9 @@
 // does not keep times, or after extracting an archive, so TC can open both files and look at the bytes: identical
 // content makes the pair equal whatever the dates say. Both files are read side by side in fixed-size blocks so memory stays
 // small for huge files, the first differing block stops the read, and the context is checked between blocks so the
-// user can cancel a long comparison with Esc.
+// user can cancel a long comparison with Esc. Pipes, sockets and devices are never opened here (judgeFiles skips them
+// and OS.Open refuses them): opening a pipe without a writer would block inside the open call, where no context can
+// reach it.
 package dircompare
 
 import (

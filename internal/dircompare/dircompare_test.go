@@ -484,3 +484,33 @@ func TestOS(t *testing.T) {
 		t.Errorf("RightSelect = %v, want %v", res.RightSelect, want)
 	}
 }
+
+// endlessLister has a subfolder "d" in every folder, like a link loop on a file system that cannot resolve real
+// paths. The depth limit must stop the recursion.
+type endlessLister struct{}
+
+func (endlessLister) ReadDir(_ context.Context, dir string) ([]Entry, error) {
+	return []Entry{{Name: "d", IsDir: true, ModTime: t0}}, nil
+}
+func (endlessLister) Open(context.Context, string) (io.ReadCloser, error) {
+	return nil, errors.New("none")
+}
+func (endlessLister) Join(dir, name string) string { return dir + "/" + name }
+
+func TestDepthLimitWithoutRealPather(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	res, err := Compare(ctx, endlessLister{}, "", endlessLister{}, "", Options{Subdirs: SubdirsRecursive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, it := range res.Flatten() {
+		if errors.Is(it.Err, ErrTooDeep) {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("deep nesting not cut off")
+	}
+}

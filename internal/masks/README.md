@@ -16,14 +16,16 @@ match composed masks).
 | `inc|exc` | include the left masks, minus the right ones; `|*.bak` = everything except backups |
 | `name\` or `name/` | folder-only mask, e.g. `*|.git\` |
 | `>saved` | a saved filter, looked up through `Options.Resolve` |
+| `<regex` | the whole expression is one Go RE2 regular expression matched against the name (`\|` and spaces keep their regex meaning); errors are `*RegexpError` ("Invalid regular expression: ...") |
 
-Case: `CaseDefault` is case-insensitive on Windows and macOS and case-sensitive on Linux/other Unix
-(`case_windows.go`, `case_other.go`, `case_unix.go`); `CaseSensitive` / `CaseInsensitive` override it. Extension
+Case: `CaseDefault` is case-insensitive on every platform, Linux included (spec area-3 mask rule 6;
+`case_windows.go`, `case_other.go`); `CaseSensitive` / `CaseInsensitive` override it. Extension
 rule (`SplitExt`): text after the last dot; a leading dot does not start one (`.bashrc` has none).
 
 ## API
 
-- Masks: `CompileMask(mask, caseSensitive) *Mask` with `Match`, `DirOnly`, `HasWildcards`;
+- Masks: `CompileMask(mask, caseSensitive) *Mask` with `Match`, `DirOnly`, `HasWildcards`, `IsRegex`;
+  `CompilePathMask` (slash paths, `*` does not cross `/`), `CompileRegexMask`;
   `Parse(expr, Options) (*List, error)`, `MustParse`, `List.Match(name, isDir)`, `List.MatchesAll`,
   `List.ExcludesDir` (prune recursive walks), `Match(expr, name)`; `SplitExt`.
 - Selection: `NewSelection(entries, SelectionOptions)`; `SetEntries` (keeps marks by name across refresh), `Toggle`,

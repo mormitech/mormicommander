@@ -7,6 +7,15 @@
 // hour differences" option for daylight-saving and time-zone shifts,
 // asymmetric mode, only-selected and the file-type filter.
 //
+// Names are paired after Unicode NFC normalisation, so a file that macOS
+// stored in decomposed form ("e" + combining accent) pairs with the composed
+// spelling a Linux or SMB server keeps; otherwise one sync would create a
+// second, identical-looking file on the server. Named pipes, sockets and
+// devices are listed but never opened, compared by content or copied: opening
+// a pipe without a writer blocks forever. A cancelled compare returns the
+// rows found so far together with the context error, so the list can show
+// partial results as Total Commander does.
+//
 // The rules follow Total Commander. Without "by content" two files are equal
 // when their dates match within the tolerance and their sizes match; a
 // different date makes the newer side win, and the same date with a
@@ -28,6 +37,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Options are the settings of the Synchronize dialog. The zero value
@@ -60,8 +71,11 @@ type Options struct {
 	FollowSymlinks bool `json:"followSymlinks"`
 	// Case chooses case-sensitive or case-insensitive name matching.
 	Case CaseMode `json:"case"`
-	// Filter is a Total Commander filter string, see ParseFilter.
+	// Filter is a Total Commander filter string, see CompileFilter.
 	Filter string `json:"filter"`
+	// Templates resolves ">name" words in Filter to the "Search for" string
+	// of a saved Find Files template. Nil means no templates are available.
+	Templates func(name string) (string, bool) `json:"-"`
 	// OnlySelected limits the compare to the top-level names in Selected
 	// (the names selected in the panels). With an empty list everything is
 	// compared.
@@ -145,14 +159,21 @@ type Result struct {
 const maxFollowDepth = 64
 
 // Compare compares the trees at the roots of left and right. progress may
-// be nil. Cancelling ctx stops the walk and returns ctx.Err().
+// be nil. Cancelling ctx stops the walk and returns the rows compared so far
+// (with their default actions) together with ctx.Err(); spec 9.3.5 wants
+// partial results to stay visible after Esc. Other errors return a nil
+// Result.
 func Compare(ctx context.Context, left, right FS, opts Options, progress func(CompareProgress)) (*Result, error) {
+	filt, err := CompileFilter(opts.Filter, opts.Templates)
+	if err != nil {
+		return nil, err
+	}
 	w := &walker{
 		ctx:      ctx,
 		l:        left,
 		r:        right,
 		o:        opts,
-		filt:     ParseFilter(opts.Filter),
+		filt:     filt,
 		ci:       opts.Case.insensitive(),
 		progress: progress,
 		res:      &Result{Options: opts, left: left, right: right},
@@ -173,19 +194,19 @@ func Compare(ctx context.Context, left, right FS, opts Options, progress func(Co
 	}
 	w.push(left, w.stackL, ".")
 	w.push(right, w.stackR, ".")
-	if err := w.dir(node{".", true, false}, node{".", true, false}, 0, nil, false); err != nil {
-		return nil, err
+	werr := w.dir(node{".", true, false}, node{".", true, false}, 0, nil, false)
+	if werr != nil && ctx.Err() == nil {
+		return nil, werr
 	}
 	if opts.IgnoreEmptyDirs {
 		w.res.pruneEmptyDirs()
 	}
 	for _, it := range w.res.Items {
-		it.Default = defaultAction(it, opts.Asymmetric)
-		it.Action = it.Default
+		it.setDefault(opts.Asymmetric)
 	}
 	w.res.reindex()
 	w.report("", true)
-	return w.res, nil
+	return w.res, werr
 }
 
 type node struct {
@@ -225,7 +246,10 @@ func joinPath(dir, name string) string {
 	return dir + "/" + name
 }
 
+// fold returns the pairing key of a name: NFC always, lower case when
+// matching ignores case.
 func (w *walker) fold(s string) string {
+	s = norm.NFC.String(s)
 	if w.ci {
 		return strings.ToLower(s)
 	}
@@ -253,16 +277,20 @@ func (w *walker) push(f FS, stack map[string]bool, p string) (string, bool) {
 	return real, true
 }
 
-func entryFromInfo(e *Entry, fi interface {
-	IsDir() bool
-	Size() int64
-	ModTime() time.Time
-}) {
+// specialMode holds the type bits of entries that are neither files, folders
+// nor links: named pipes, sockets and devices.
+const specialMode = fs.ModeNamedPipe | fs.ModeSocket | fs.ModeDevice | fs.ModeCharDevice
+
+func entryFromInfo(e *Entry, fi fs.FileInfo) {
 	e.ModTime = fi.ModTime()
-	if fi.IsDir() {
+	switch {
+	case fi.IsDir():
 		e.Kind = KindDir
 		e.Size = 0
-	} else {
+	case fi.Mode()&specialMode != 0:
+		e.Kind = KindSpecial
+		e.Size = 0
+	default:
 		e.Kind = KindFile
 		e.Size = fi.Size()
 	}
@@ -334,7 +362,7 @@ func (w *walker) keep(es []*Entry, dir string, depth int, sel map[string]bool, p
 				continue
 			}
 			incl[e] = in
-		} else if !w.filt.File(rel, e.Name) {
+		} else if !w.filt.File(rel, e.Name, parentIncl) {
 			continue
 		}
 		out = append(out, e)
@@ -344,10 +372,10 @@ func (w *walker) keep(es []*Entry, dir string, depth int, sel map[string]bool, p
 
 type pair struct{ l, r *Entry }
 
-// pairUp matches names exactly first and then, when matching ignores case,
-// pairs the leftovers by folded name. Two names that differ only in case on
-// one (case-sensitive) side therefore pair with their exact twins and do not
-// swallow each other.
+// pairUp matches names exactly first and then pairs the leftovers by folded
+// name (NFC, and lower case when matching ignores case). Two names that
+// differ only in case or normalisation on one side therefore pair with their
+// exact twins and do not swallow each other.
 func (w *walker) pairUp(ls, rs []*Entry) []pair {
 	rByName := make(map[string]*Entry, len(rs))
 	for _, e := range rs {
@@ -365,12 +393,10 @@ func (w *walker) pairUp(ls, rs []*Entry) []pair {
 		}
 	}
 	byFold := map[string][]*Entry{}
-	if w.ci {
-		for _, e := range rs {
-			if !used[e] {
-				k := w.fold(e.Name)
-				byFold[k] = append(byFold[k], e)
-			}
+	for _, e := range rs {
+		if !used[e] {
+			k := w.fold(e.Name)
+			byFold[k] = append(byFold[k], e)
 		}
 	}
 	for _, e := range restL {
@@ -494,6 +520,9 @@ func (w *walker) dir(ln, rn node, depth int, parent *Item, parentIncl bool) erro
 		case p.l != nil:
 			it.Category = LeftOnly
 			it.IsDir = p.l.Kind == KindDir
+			if p.l.Kind == KindSpecial {
+				it.Note = noteSpecial
+			}
 			w.res.Items = append(w.res.Items, it)
 			if it.IsDir {
 				if err := w.descend(it, node{it.LeftPath, true, ln.via || p.l.Followed}, node{it.RightPath, false, rn.via}, depth, incl); err != nil {
@@ -505,6 +534,9 @@ func (w *walker) dir(ln, rn node, depth int, parent *Item, parentIncl bool) erro
 		default:
 			it.Category = RightOnly
 			it.IsDir = p.r.Kind == KindDir
+			if p.r.Kind == KindSpecial {
+				it.Note = noteSpecial
+			}
 			w.res.Items = append(w.res.Items, it)
 			if it.IsDir {
 				if err := w.descend(it, node{it.LeftPath, false, ln.via}, node{it.RightPath, true, rn.via || p.r.Followed}, depth, incl); err != nil {
@@ -564,6 +596,12 @@ func (w *walker) classify(it *Item) error {
 		}
 		return Unequal
 	}
+	if l.Kind == KindSpecial {
+		// Pipes, sockets and devices have no contents to compare or copy.
+		it.Category = Unequal
+		it.Note = noteSpecial
+		return nil
+	}
 	if l.Kind == KindLink {
 		if l.LinkTarget == r.LinkTarget {
 			it.Category = Equal
@@ -607,6 +645,9 @@ func (w *walker) classify(it *Item) error {
 }
 
 const chunkSize = 256 << 10
+
+// noteSpecial explains rows with a pipe, socket or device.
+const noteSpecial = "pipe, socket or device: not compared or copied"
 
 func (w *walker) sameContent(it *Item) (bool, error) {
 	return compareFiles(w.ctx, w.l, it.LeftPath, w.r, it.RightPath, func(n int64) {
@@ -732,8 +773,7 @@ func (r *Result) Recompare(ctx context.Context, path string) error {
 		}
 	}
 	it.IsDir = (it.Left == nil || it.Left.Kind == KindDir) && (it.Right == nil || it.Right.Kind == KindDir)
-	it.Default = defaultAction(it, r.Options.Asymmetric)
-	it.Action = it.Default
+	it.setDefault(r.Options.Asymmetric)
 	return nil
 }
 

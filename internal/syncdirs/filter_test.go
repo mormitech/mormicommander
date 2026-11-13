@@ -5,33 +5,6 @@ package syncdirs
 
 import "testing"
 
-func TestGlobMatch(t *testing.T) {
-	cases := []struct {
-		pat, s string
-		want   bool
-	}{
-		{"*", "", true},
-		{"*", "abc", true},
-		{"*.txt", "a.txt", true},
-		{"*.txt", "a.txt.bak", false},
-		{"a?c", "abc", true},
-		{"a?c", "ac", false},
-		{"?", "é", true},
-		{"*a*b*", "xxaYYbZZ", true},
-		{"*a*b", "xxaYYbZZ", false},
-		{"abc", "abc", true},
-		{"abc", "abcd", false},
-		{"**x", "x", true},
-		{"", "", true},
-		{"", "a", false},
-	}
-	for _, c := range cases {
-		if got := globMatch(c.pat, c.s); got != c.want {
-			t.Errorf("globMatch(%q, %q) = %v, want %v", c.pat, c.s, got, c.want)
-		}
-	}
-}
-
 func TestFilterFiles(t *testing.T) {
 	cases := []struct {
 		filter, rel string
@@ -55,7 +28,7 @@ func TestFilterFiles(t *testing.T) {
 	}
 	for _, c := range cases {
 		f := ParseFilter(c.filter)
-		if got := f.File(c.rel, baseName(c.rel)); got != c.want {
+		if got := f.File(c.rel, baseName(c.rel), false); got != c.want {
 			t.Errorf("filter %q file %q = %v, want %v", c.filter, c.rel, got, c.want)
 		}
 	}

@@ -33,7 +33,9 @@ res.Items                       // per-name verdicts (Status, Left/Right Entry, 
 res.Flatten(), res.Counts, res.Errors, res.Differ()
 ```
 
-- `Lister` (`ReadDir`, `Open`, `Join`) is what is compared; `OS` is the local disk. Archives, FTP and SFTP wrap
+- `Lister` (`ReadDir`, `Open`, `Join`) is what is compared; `OS` is the local disk. An optional `RealPather`
+  (`OS` has it) lets `SubdirsRecursive` detect symlink loops (`ErrSymlinkLoop`); other Listers get a depth limit
+  (`ErrTooDeep`). Archives, FTP and SFTP wrap
   their listing code in it, and the two sides may use different Listers.
 - `CompareEntries(left, right []Entry, opt)` compares two listings already in memory (no content, no recursion).
 - `CompareTimes(a, b, tol, hourOffset)` and `SameContent(ctx, a, b)` expose the two rules for other tools.
@@ -53,3 +55,5 @@ Folders: ignored by default; `SubdirsMissing` selects folders present on one sid
 walks folders present on both sides and selects such a folder on each side that has something selected inside it.
 Times are truncated to milliseconds before comparing. Names that fold together on a case-sensitive side are not
 merged twice: the extra one is reported as a lone entry. Unicode normalization (NFC vs NFD names) is not applied.
+Pipes, sockets and devices (`Entry.Special`) are compared by date and size only and never opened; `OS.Open` refuses
+them (`ErrNotRegular`).

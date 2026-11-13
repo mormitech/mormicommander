@@ -118,15 +118,18 @@ func (a *Action) UnmarshalText(b []byte) error {
 type Kind int
 
 const (
-	// KindFile is a regular file (or anything that is not a folder or link).
+	// KindFile is a regular file.
 	KindFile Kind = iota
 	// KindDir is a folder.
 	KindDir
 	// KindLink is a symbolic link that was not followed.
 	KindLink
+	// KindSpecial is a named pipe, socket or device. It is listed but never
+	// opened, compared by content or copied (it can still be deleted).
+	KindSpecial
 )
 
-var kindNames = [...]string{"file", "dir", "link"}
+var kindNames = [...]string{"file", "dir", "link", "special"}
 
 func (k Kind) String() string {
 	if k >= 0 && int(k) < len(kindNames) {
@@ -182,6 +185,11 @@ type Item struct {
 	// (the same until the user overrides it).
 	Default Action `json:"default"`
 	Action  Action `json:"action"`
+	// Unselected means the action is shown but not carried out until the
+	// user selects the row (SetSelected, or by choosing an action for it).
+	// In asymmetric mode, overwriting a newer right file and deleting a
+	// right-only entry start out unselected (spec area-5 9.3.3).
+	Unselected bool `json:"unselected,omitempty"`
 	// Note explains problems such as an unreadable file or a symlink loop.
 	Note string `json:"note,omitempty"`
 
@@ -189,6 +197,8 @@ type Item struct {
 	// through a followed folder link on that side; nothing is written or
 	// deleted there.
 	lvia, rvia bool
+	// defUnselected is the Unselected state that goes with Default.
+	defUnselected bool
 }
 
 // Duplicate reports whether the name exists on both sides.

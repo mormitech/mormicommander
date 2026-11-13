@@ -56,6 +56,7 @@ func TestSyncThenRecompareIsEqual(t *testing.T) {
 			o := DefaultOptions()
 			o.Asymmetric = asym
 			res := mustCompare(t, l, r, o)
+			res.SelectTree("", true) // the user ticks the asymmetric overwrites and deletions
 			rep := syncAll(t, res, l, r, AllOps(), ExecOptions{})
 			if len(rep.Errors) > 0 {
 				t.Fatalf("errors: %v", rep.Errors)
@@ -183,6 +184,9 @@ func TestDeleteAlreadyGoneCountsAsDone(t *testing.T) {
 	o.Asymmetric = true
 	res := mustCompare(t, l, r, o)
 	if err := os.Remove(filepath.Join(r, "x")); err != nil {
+		t.Fatal(err)
+	}
+	if err := res.SetSelected("x", true); err != nil {
 		t.Fatal(err)
 	}
 	rep := syncAll(t, res, l, r, AllOps(), ExecOptions{})
@@ -355,6 +359,7 @@ func TestSymlinkCopyAndDeleteAreLinkOnly(t *testing.T) {
 	if it := res.Find("rout"); it.Action != DeleteRight || it.Right.Kind != KindLink {
 		t.Fatalf("rout = %+v", it)
 	}
+	res.SelectTree("", true)
 	rep := syncAll(t, res, l, r, AllOps(), ExecOptions{})
 	if len(rep.Errors) != 0 {
 		t.Fatalf("errors: %v", rep.Errors)

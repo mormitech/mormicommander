@@ -9,6 +9,7 @@
 package find
 
 import (
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -42,9 +43,25 @@ type OSFS struct{}
 func (OSFS) Lstat(name string) (fs.FileInfo, error)     { return os.Lstat(name) }
 func (OSFS) Stat(name string) (fs.FileInfo, error)      { return os.Stat(name) }
 func (OSFS) ReadDir(name string) ([]fs.DirEntry, error) { return os.ReadDir(name) }
-func (OSFS) Open(name string) (io.ReadCloser, error)    { return os.Open(name) }
 func (OSFS) Join(elem ...string) string                 { return filepath.Join(elem...) }
 func (OSFS) Base(name string) string                    { return filepath.Base(name) }
+
+// ErrNotRegular is returned by OSFS.Open for named pipes, sockets and devices.
+// Opening a pipe that has no writer would block forever, out of reach of the
+// search's context, so such entries are refused before the open call.
+var ErrNotRegular = errors.New("find: not a regular file")
+
+// Open opens a local file for reading, refusing pipes, sockets and devices.
+func (OSFS) Open(name string) (io.ReadCloser, error) {
+	st, err := os.Stat(name)
+	if err != nil {
+		return nil, err
+	}
+	if st.Mode()&specialMode != 0 {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: ErrNotRegular}
+	}
+	return os.Open(name)
+}
 
 // SlashFS is a helper base for remote file systems that use forward slashes (FTP,
 // SFTP, WebDAV). Embed it to get Join and Base with slash semantics.

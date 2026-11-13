@@ -142,3 +142,30 @@ func TestNilMask(t *testing.T) {
 		t.Error("nil mask should match everything and skip nothing")
 	}
 }
+
+// TestMaskSpecRules covers spec area-5 3.1 rules 4 to 6: a dotted mask without
+// wildcards matches exactly, "name.*" also finds the bare name (as in the masks
+// package), and names compare in NFC so a macOS NFD name matches a composed mask.
+func TestMaskSpecRules(t *testing.T) {
+	cases := []struct {
+		mask, name string
+		want       bool
+	}{
+		{"readme.txt", "readme.txt", true},
+		{"readme.txt", "README.TXT", true},
+		{"readme.txt", "old_readme.txt.bak", false},
+		{"readme.*", "readme", true},
+		{"readme.*", "readme.md", true},
+		{"readme.*", "readmeX", false},
+		{"árok*", "árok.txt", true},        // NFD name, NFC mask
+		{"árok*", "árok.txt", true},        // NFD mask, NFC name
+		{"*.txt|árok*", "árok.txt", false}, // exclusions normalise too
+		{"report", "annual_report.pdf", true},
+		{"*.", "a.", true}, // a trailing dot leaves no extension (masks.SplitExt rule)
+	}
+	for _, c := range cases {
+		if got := MustParseMask(c.mask).MatchName(c.name, c.name); got != c.want {
+			t.Errorf("mask %q name %q = %v, want %v", c.mask, c.name, got, c.want)
+		}
+	}
+}

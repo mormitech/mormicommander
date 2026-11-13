@@ -12,6 +12,7 @@
 package masks
 
 import (
+	"regexp"
 	"strings"
 	"unicode"
 
@@ -41,16 +42,17 @@ type tok struct {
 
 // Mask is one compiled wildcard pattern. It is safe for concurrent use once compiled.
 type Mask struct {
-	raw      string  // the mask as the user typed it (without a folder marker)
-	toks     []tok   // the compiled pattern
-	dirOnly  bool    // the user wrote a trailing "\" or "/": the mask applies to folders only
-	cs       bool    // compare case-sensitively
-	pathMode bool    // match a whole path: "*" and "?" never cross "/", which only a literal "/" can match
-	dotStar  []tok   // when the mask ends in ".*": the same pattern without it, tried for extensionless names
-	dotEnd   []tok   // when the mask ends in a single ".": the pattern without it, tried for extensionless names
-	literal  bool    // no wildcards at all, so a plain (folded) string compare is enough
-	litFold  string  // the folded literal for the fast path
-	segments [][]tok // pathMode: the pattern split at literal "/" characters
+	raw      string         // the mask as the user typed it (without a folder marker)
+	toks     []tok          // the compiled pattern
+	dirOnly  bool           // the user wrote a trailing "\" or "/": the mask applies to folders only
+	cs       bool           // compare case-sensitively
+	pathMode bool           // match a whole path: "*" and "?" never cross "/", which only a literal "/" can match
+	dotStar  []tok          // when the mask ends in ".*": the same pattern without it, tried for extensionless names
+	dotEnd   []tok          // when the mask ends in a single ".": the pattern without it, tried for extensionless names
+	literal  bool           // no wildcards at all, so a plain (folded) string compare is enough
+	litFold  string         // the folded literal for the fast path
+	segments [][]tok        // pathMode: the pattern split at literal "/" characters
+	re       *regexp.Regexp // set for a "<regex" mask; the other fields are then unused
 }
 
 // CompileMask compiles one mask. caseSensitive decides how letters compare; use CaseRule.Sensitive to follow the
@@ -66,6 +68,11 @@ func CompileMask(mask string, caseSensitive bool) *Mask {
 	m.compile(norm.NFC.String(mask))
 	return m
 }
+
+// CompilePathMask compiles a mask that is matched against a whole slash-separated relative path, such as "src/*.go"
+// in a synchronize filter. "*" and "?" never cross a "/"; only a literal "/" in the mask matches one. Backslashes are
+// turned into slashes first, and a trailing separator makes it a folder-only mask, as with CompileMask.
+func CompilePathMask(mask string, caseSensitive bool) *Mask { return compilePath(mask, caseSensitive) }
 
 // compilePath compiles a mask that is matched against a whole slash-separated path (used by the ignore list for
 // entries such as "C:\Windows\*.dll"). Backslashes are turned into slashes first, so the same list works everywhere.
@@ -180,6 +187,9 @@ func parseSet(rs []rune, start int) (tok, int, bool) {
 
 // String returns the mask as typed, with a trailing "/" when it is a folder-only mask.
 func (m *Mask) String() string {
+	if m.re != nil {
+		return "<" + m.raw
+	}
 	if m.dirOnly {
 		return m.raw + "/"
 	}
@@ -190,11 +200,14 @@ func (m *Mask) String() string {
 func (m *Mask) DirOnly() bool { return m.dirOnly }
 
 // HasWildcards says whether the mask contains "*", "?" or a set; a mask without them names one exact file.
-func (m *Mask) HasWildcards() bool { return !m.literal }
+func (m *Mask) HasWildcards() bool { return m.re != nil || !m.literal }
 
 // Match reports whether name matches the mask. It does not look at DirOnly; List.Match applies that rule.
 func (m *Mask) Match(name string) bool {
 	name = norm.NFC.String(name)
+	if m.re != nil {
+		return m.re.MatchString(name)
+	}
 	if m.pathMode {
 		return m.matchPath(name)
 	}

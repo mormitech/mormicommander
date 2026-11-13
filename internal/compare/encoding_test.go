@@ -5,6 +5,8 @@ package compare
 import (
 	"bytes"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -140,5 +142,50 @@ func TestParseEncoding(t *testing.T) {
 	}
 	if Encoding(999).String() != "Encoding(999)" {
 		t.Error("unknown String")
+	}
+}
+
+// TestUndefinedBytesRoundTrip: bytes a code page leaves undefined (0x81 in
+// Windows-1250/1252) must survive decode, edit and save unchanged.
+func TestUndefinedBytesRoundTrip(t *testing.T) {
+	var all []byte
+	for c := 0x20; c <= 0xFF; c++ {
+		all = append(all, byte(c))
+	}
+	for _, e := range []Encoding{EncWindows1250, EncWindows1252, EncWindows1251} {
+		text, err := Decode(all, e)
+		if err != nil {
+			t.Fatal(err)
+		}
+		back, err := Encode(text, e, false)
+		if err != nil {
+			t.Fatalf("%v: %v", e, err)
+		}
+		if !bytes.Equal(back, all) {
+			t.Errorf("%v: round trip changed the bytes", e)
+		}
+	}
+	dir := t.TempDir()
+	p := filepath.Join(dir, "a.txt")
+	data := append([]byte("first line\n"), all...)
+	os.WriteFile(p, data, 0o644)
+	other := filepath.Join(dir, "b.txt")
+	os.WriteFile(other, []byte("x\n"), 0o644)
+	s, err := OpenFiles(p, other, Options{}, DetectOptions{ANSI: EncWindows1250})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SetLine(Left, 0, "edited"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Save(Left, ""); err != nil {
+		t.Fatalf("save after edit: %v", err)
+	}
+	got, _ := os.ReadFile(p)
+	if want := append([]byte("edited\n"), all...); !bytes.Equal(got, want) {
+		t.Errorf("saved bytes differ:\n got %q\nwant %q", got, want)
+	}
+	if _, err := Encode("ő", EncWindows1252, false); !errors.Is(err, ErrUnencodable) {
+		t.Errorf("real unencodable text must still fail: %v", err)
 	}
 }

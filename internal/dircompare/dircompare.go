@@ -243,7 +243,10 @@ func Compare(ctx context.Context, left Lister, leftDir string, right Lister, rig
 	if err != nil {
 		return nil, err
 	}
-	c := &comparer{ctx: ctx, l: left, r: right, opt: opt, res: &Result{Counts: map[Status]int{}}}
+	c := &comparer{ctx: ctx, l: left, r: right, opt: opt, res: &Result{Counts: map[Status]int{}},
+		ancL: map[string]bool{}, ancR: map[string]bool{}}
+	c.enter(left, c.ancL, leftDir)
+	c.enter(right, c.ancR, rightDir)
 	items, err := c.compareLists(lents, rents, leftDir, rightDir, "")
 	if err != nil {
 		return nil, err
@@ -289,6 +292,42 @@ type comparer struct {
 	res   *Result
 	items int
 	bytes int64
+	// ancL and ancR hold the real paths of the folders being walked on each side (the roots and every folder on the
+	// way down), so a link back to an ancestor is recognised as a loop. depth guards Listers without RealPather.
+	ancL, ancR map[string]bool
+	depth      int
+}
+
+// maxDepth limits recursion when a Lister cannot resolve real paths, as a last guard against link loops.
+const maxDepth = 128
+
+// ErrSymlinkLoop is recorded (inside an ItemError) for a folder that leads back to one of its own ancestors.
+var ErrSymlinkLoop = errors.New("symbolic link loop: folder not entered")
+
+// ErrTooDeep is recorded for a folder nested deeper than maxDepth on a Lister that cannot detect loops itself.
+var ErrTooDeep = errors.New("folder nesting too deep (symbolic link loop?): folder not entered")
+
+func isRealPather(l Lister) bool {
+	_, ok := l.(RealPather)
+	return ok
+}
+
+// enter records a folder as an ancestor on one side. It returns the key to release later, and false when the folder
+// is already an ancestor (a loop). Without a RealPather it always succeeds.
+func (c *comparer) enter(ls Lister, anc map[string]bool, dir string) (string, bool) {
+	rp, ok := ls.(RealPather)
+	if !ok {
+		return "", true
+	}
+	real, err := rp.RealPath(c.ctx, dir)
+	if err != nil {
+		return "", true
+	}
+	if anc[real] {
+		return "", false
+	}
+	anc[real] = true
+	return real, true
 }
 
 func (c *comparer) caseInsensitive() bool {
@@ -443,6 +482,28 @@ func (c *comparer) judge(it *Item, ldir, rdir string) error {
 // recurse compares the insides of a folder present on both sides.
 func (c *comparer) recurse(it *Item, ldir, rdir string) error {
 	lsub, rsub := c.l.Join(ldir, it.Left.Name), c.r.Join(rdir, it.Right.Name)
+	if c.depth >= maxDepth && !(isRealPather(c.l) && isRealPather(c.r)) {
+		it.Status = Error
+		it.Err = &ItemError{Rel: it.Rel, Err: ErrTooDeep}
+		return nil
+	}
+	keyL, okL := c.enter(c.l, c.ancL, lsub)
+	keyR, okR := c.enter(c.r, c.ancR, rsub)
+	defer func() {
+		if keyL != "" {
+			delete(c.ancL, keyL)
+		}
+		if keyR != "" {
+			delete(c.ancR, keyR)
+		}
+	}()
+	if !okL || !okR {
+		it.Status = Error
+		it.Err = &ItemError{Rel: it.Rel, Err: ErrSymlinkLoop}
+		return nil
+	}
+	c.depth++
+	defer func() { c.depth-- }()
 	lents, lerr := c.l.ReadDir(c.ctx, lsub)
 	rents, rerr := c.r.ReadDir(c.ctx, rsub)
 	if err := c.ctx.Err(); err != nil {
@@ -487,7 +548,8 @@ func (c *comparer) judgeFiles(it *Item, ldir, rdir string) error {
 		it.Status = byTime(timeCmp, Different)
 		return nil
 	}
-	if !c.opt.ByContent {
+	if !c.opt.ByContent || l.Special || r.Special {
+		// Pipes, sockets and devices have no bytes to compare; reading one could block forever.
 		it.Status = byTime(timeCmp, Equal)
 		return nil
 	}

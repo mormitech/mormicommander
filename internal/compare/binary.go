@@ -118,7 +118,7 @@ func CompareBinary(ctx context.Context, a, b io.Reader, maxDiffs int) (*BinaryRe
 				rest = b
 			}
 			if (nb > na && !eofB) || (na > nb && !eofA) {
-				m, err := io.Copy(io.Discard, rest)
+				m, err := remaining(ctx, rest)
 				if err != nil {
 					return res, err
 				}
@@ -133,6 +133,35 @@ func CompareBinary(ctx context.Context, a, b io.Reader, maxDiffs int) (*BinaryRe
 	}
 	res.Runs = groupRuns(res.Diffs)
 	return res, nil
+}
+
+// remaining counts the bytes left in r after the shorter input ended. A
+// seekable input (a file) is measured without reading it, so comparing a
+// small file with a huge one stays instant; anything else is read in chunks
+// with a cancel check between them, so Esc still works.
+func remaining(ctx context.Context, r io.Reader) (int64, error) {
+	if s, ok := r.(io.Seeker); ok {
+		if cur, err := s.Seek(0, io.SeekCurrent); err == nil {
+			if end, err := s.Seek(0, io.SeekEnd); err == nil && end >= cur {
+				return end - cur, nil
+			}
+		}
+	}
+	buf := make([]byte, binChunk)
+	var n int64
+	for {
+		if err := ctx.Err(); err != nil {
+			return n, err
+		}
+		m, err := r.Read(buf)
+		n += int64(m)
+		if errors.Is(err, io.EOF) {
+			return n, nil
+		}
+		if err != nil {
+			return n, err
+		}
+	}
 }
 
 // readChunk fills buf as far as possible; it sets *eof when the reader is

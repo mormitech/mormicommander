@@ -154,6 +154,25 @@ type entry struct {
 	open                  func() (io.ReadCloser, error)
 }
 
+// specialMode holds the type bits of entries whose contents cannot be read like a
+// file: named pipes (FIFOs), sockets and devices.
+const specialMode = fs.ModeNamedPipe | fs.ModeSocket | fs.ModeDevice | fs.ModeCharDevice
+
+// special reports whether the entry is a pipe, socket or device, either itself or as
+// the target of a symbolic link that was not followed. Content search and duplicate
+// hashing skip such entries.
+func (e *entry) special(f FS) bool {
+	if e.mode&specialMode != 0 {
+		return true
+	}
+	if e.mode&fs.ModeSymlink != 0 && e.archive == "" {
+		if t, err := f.Stat(e.path); err == nil {
+			return t.Mode()&specialMode != 0
+		}
+	}
+	return false
+}
+
 func (e *entry) result() Result {
 	r := Result{Path: e.path, Name: e.name, Root: e.root, Rel: e.rel, Size: e.size, ModTime: e.mod,
 		Mode: e.mode, IsDir: e.isDir, Attr: e.attr, Archive: e.archive, Inner: e.inner}
@@ -405,7 +424,7 @@ func (r *run) consider(e *entry) error {
 		return nil
 	}
 	if r.q.dup != nil {
-		if !e.isDir {
+		if !e.isDir && !(r.q.dup.needContent() && e.special(r.q.fs)) {
 			r.dupFound = append(r.dupFound, e)
 		}
 		return nil
@@ -447,7 +466,10 @@ func (q *Query) match(ctx context.Context, e *entry) (bool, error) {
 		return false, nil
 	}
 	if q.content != nil {
-		if e.isDir {
+		// Folders have no text, and pipes, sockets and devices must never be opened:
+		// opening a named pipe without a writer blocks inside the open call, where
+		// neither the context nor Job.Stop can reach it.
+		if e.isDir || e.special(q.fs) {
 			return false, nil
 		}
 		rc, err := e.open()

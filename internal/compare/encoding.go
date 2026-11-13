@@ -9,6 +9,13 @@
 // chosen when bytes undefined in 1252 appear, which is typical of Central
 // European text such as Hungarian). The same check tells the compare window
 // whether to start in text or in binary mode.
+//
+// Single-byte code pages leave a few byte values undefined (0x81, 0x8D, 0x8F,
+// 0x90 and 0x9D in Windows-1252, for example). The generic decoder would turn
+// them into U+FFFD, which cannot be written back, so a file holding one such
+// byte could never be saved after an edit. Instead each undefined byte b is
+// decoded to the private-use character U+F700+b and encoded back to b, so
+// every line the user did not touch is saved byte for byte.
 package compare
 
 import (
@@ -325,6 +332,9 @@ func Decode(data []byte, e Encoding) (string, error) {
 	if x == nil {
 		return "", fmt.Errorf("compare: cannot decode %v", e)
 	}
+	if cm, ok := x.(*charmap.Charmap); ok {
+		return decodeSingleByte(cm, data), nil
+	}
 	out, err := x.NewDecoder().Bytes(data)
 	if err != nil {
 		return "", err
@@ -349,9 +359,54 @@ func Encode(s string, e Encoding, withBOM bool) ([]byte, error) {
 	if x == nil {
 		return nil, fmt.Errorf("compare: cannot encode %v", e)
 	}
+	if cm, ok := x.(*charmap.Charmap); ok {
+		b, err := encodeSingleByte(cm, s, e)
+		if err != nil {
+			return nil, err
+		}
+		return append(out, b...), nil
+	}
 	b, err := x.NewEncoder().Bytes([]byte(s))
 	if err != nil {
 		return nil, fmt.Errorf("%w (%v): %v", ErrUnencodable, e, err)
 	}
 	return append(out, b...), nil
+}
+
+// undefinedBase is where bytes that a single-byte code page leaves undefined
+// are parked in the Unicode private-use area: byte b decodes to
+// undefinedBase+b and encodes back to b.
+const undefinedBase = 0xF700
+
+// decodeSingleByte decodes data byte by byte, keeping undefined bytes as
+// private-use characters so they survive a save.
+func decodeSingleByte(cm *charmap.Charmap, data []byte) string {
+	var b strings.Builder
+	b.Grow(len(data))
+	for _, c := range data {
+		r := cm.DecodeByte(c)
+		if r == utf8.RuneError {
+			r = undefinedBase + rune(c)
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
+}
+
+// encodeSingleByte is the inverse of decodeSingleByte. A character the code
+// page cannot represent gives ErrUnencodable.
+func encodeSingleByte(cm *charmap.Charmap, s string, e Encoding) ([]byte, error) {
+	out := make([]byte, 0, len(s))
+	for _, r := range s {
+		if r >= undefinedBase && r <= undefinedBase+0xFF {
+			out = append(out, byte(r-undefinedBase))
+			continue
+		}
+		if c, ok := cm.EncodeRune(r); ok {
+			out = append(out, c)
+			continue
+		}
+		return nil, fmt.Errorf("%w (%v): %q", ErrUnencodable, e, r)
+	}
+	return out, nil
 }
