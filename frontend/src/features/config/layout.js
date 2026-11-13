@@ -7,6 +7,7 @@ import { command, getCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { messageDialog } from '../../core/dialogs.js';
 import { addMenuItems } from '../../core/menus.js';
+import { setDisplay } from '../../core/format.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 
 // Layout option → body class that hides an element (see config.css).
@@ -140,12 +141,50 @@ function wrapExit() {
   };
 }
 
+// ---- the Display page: how the file lists look (F-414) ----
+
+// applyDisplay hands the size, date and name options to the panel rows (core/format.js) and draws the panels again.
+export function applyDisplay() {
+  setDisplay({
+    brackets: on('Display.DirBrackets'), separateExt: on('Display.SeparateExt'), sizeStyle: num('Display.SizeStyle', 0),
+    thousands: on('Display.ThousandsSeparator'), dateFormat: opt('Display.DateFormat').trim(), time24: on('Display.Time24'),
+    seconds: on('Display.ShowSeconds'),
+  });
+  document.body.classList.toggle('mc-config-no-ext', !on('Display.SeparateExt'));
+  relayout();
+}
+
+// syncHidden makes the panels show hidden files as the settings file says (at start, after a reload or an import).
+function syncHidden() {
+  if (!app || !state.loaded) return;
+  const want = on('Display.ShowHidden');
+  if (want === !!app.showHidden) return;
+  app.showHidden = want;
+  for (const p of app.panels || []) { try { p.rebuild(); app.panelChanged(p, { moved: false }); } catch { /* not loaded yet */ } }
+}
+
+// Ctrl+H (cm_SwitchHidSys) also writes its new state to the settings file, so the file and the panels agree.
+function wrapHidden() {
+  const c = getCommand('cm_SwitchHidSys');
+  if (!c || c.mcConfigWrapped) return;
+  const run = c.run;
+  c.mcConfigWrapped = true;
+  c.run = async (a, args) => {
+    const r = await run(a, args);
+    const v = a.showHidden ? '1' : '0';
+    if (opt('Display.ShowHidden') !== v) await applyOptions({ 'Display.ShowHidden': v }).catch((e) => console.error(e));
+    return r;
+  };
+}
+
 // applyAll puts every option on screen (at start, after a reload of the settings file).
 export function applyAll(startTheme) {
   applyLayout();
   applyFonts();
   applyTheme(startTheme);
   applyColors();
+  applyDisplay();
+  syncHidden();
   title();
 }
 
@@ -169,6 +208,7 @@ addMenuItems('Configuration', () => ['-', ['Layout', VIS.map(([name, , label]) =
 export function initLayout(a) {
   app = a;
   wrapExit();
+  wrapHidden();
   const mo = (p) => {
     const o = new MutationObserver(() => paintRows(p));
     o.observe(p.$.rows, { childList: true });

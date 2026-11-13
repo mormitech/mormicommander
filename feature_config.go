@@ -419,11 +419,35 @@ func (c *Configuration) ImportTC(path string, replaceHotlist bool) (map[string]a
 	}
 	opt := config.AllImport()
 	opt.ReplaceHotlist = replaceHotlist
+	// The hotlist lives in folders.ini (feature_tabshotlist.go), not in mormicommander.ini: the engine merges TC's
+	// [DirMenu] into the hotlist it is handed, so it is handed the live one and the result goes back there.
+	th := thInstance
+	saved := cfg.Hotlist.Items
+	if th != nil {
+		th.mu.Lock()
+		cfg.Hotlist.Items = append([]*config.MenuItem(nil), th.hot.Items...)
+		th.mu.Unlock()
+	}
 	rep, err := config.ImportTC(cfg, path, opt)
+	var hotErr error
+	if th != nil {
+		merged := cfg.Hotlist.Items
+		cfg.Hotlist.Items = saved
+		if err == nil && configImportedHotlist(rep.Imported) {
+			th.mu.Lock()
+			th.hot.Items = merged
+			th.hot.Save(th.file)
+			hotErr = th.save()
+			th.mu.Unlock()
+		}
+	}
 	if err == nil {
 		err = cfg.Save()
 	}
 	c.mu.Unlock()
+	if err == nil {
+		err = hotErr
+	}
 	if err != nil {
 		return nil, fmt.Errorf("The file could not be imported: %v", err)
 	}
@@ -529,4 +553,15 @@ func (c *Configuration) SetValue(section, key, value string) error {
 	defer c.mu.Unlock()
 	cfg.File.Set(section, key, value)
 	return cfg.Save()
+}
+
+// configImportedHotlist says whether an import report has a hotlist line (the engine adds one only when TC's
+// [DirMenu] had entries).
+func configImportedHotlist(lines []string) bool {
+	for _, l := range lines {
+		if strings.HasPrefix(l, "hotlist:") {
+			return true
+		}
+	}
+	return false
 }

@@ -57,8 +57,10 @@ export const BRIDGE = {
     get: (app) => { const x = app.setting('dirsLikeFiles', undefined); return x === undefined ? undefined : bit(!x); },
     set: (app, v) => app.setSetting('dirsLikeFiles', v !== '1'),
   },
+  // The settings file is where "show hidden files" is kept: layout.js puts its value on the panels at start and after a
+  // reload, and writes Ctrl+H's toggle back to it, so get() leaves the file's value.
   'Display.ShowHidden': {
-    get: (app) => bit(app.showHidden),
+    get: () => undefined,
     set: (app, v) => { if ((v === '1') !== !!app.showHidden) return app.run('cm_SwitchHidSys', {}, { quiet: true }); return null; },
   },
   'Layout.Horizontal': { get: (app) => b(app.setting('horizontal', undefined)), set: () => {} }, // applied by layout.js

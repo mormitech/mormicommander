@@ -74,3 +74,10 @@ body:not(.mc-config-flat) .bar, body:not(.mc-config-flat) #fkeys button { box-sh
 .mc-config-menus { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 14px; font-size: 12px; }
 .mc-config-menus ul { margin: 0; padding-left: 16px; }
 .mc-config-doc h3, .mc-config-doc h4 { margin: 12px 0 6px; }
+
+/* Display > "Show extension in its own column" off: the core Full view has no Ext column (custom column sets set
+   --cols themselves and are left alone) */
+body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not([style*="--cols"]) .header > [data-col="ext"],
+body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not([style*="--cols"]) .row > .e { display: none; }
+body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not([style*="--cols"]) .header,
+body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not([style*="--cols"]) .row { grid-template-columns: minmax(90px, 1fr) 96px 128px 76px; }

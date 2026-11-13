@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { size, attr, splitExt, date, F, plural } from '../src/core/format.js';
+import { size, attr, splitExt, date, F, plural, cellSize, setDisplay } from '../src/core/format.js';
 
 test('size', () => {
   expect(size(0)).toBe('0 B');
@@ -33,4 +33,25 @@ test('date', () => {
 test('plural', () => {
   expect(plural(1, 'file')).toBe('1 file');
   expect(plural(3, 'folder')).toBe('3 folders');
+});
+
+test('display options: sizes and dates (F-414)', () => {
+  const ms = new Date(2026, 10, 13, 18, 6, 7).getTime();
+  try {
+    setDisplay({ sizeStyle: 0, thousands: false });
+    expect(cellSize(123456)).toBe('123456');
+    setDisplay({ sizeStyle: 1, thousands: true });
+    expect(cellSize(123456)).toBe('121 k');
+    setDisplay({ sizeStyle: 2 });
+    expect(cellSize(123456)).toBe('0.2 M');
+    expect(cellSize(6)).toBe('0.1 M');
+    expect(cellSize(0)).toBe('0 M');
+    setDisplay({ dateFormat: 'yyyy', seconds: true });
+    expect(date(ms)).toBe('2026 18:06:07');
+    setDisplay({ dateFormat: 'dd.MM.yy', seconds: false, time24: false });
+    expect(date(ms)).toBe('13.11.26 6:06 PM');
+  } finally {
+    setDisplay({ sizeStyle: 0, thousands: true, dateFormat: '', time24: true, seconds: false });
+  }
+  expect(date(ms)).toBe('2026-11-13 18:06');
 });

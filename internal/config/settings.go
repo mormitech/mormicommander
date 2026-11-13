@@ -83,11 +83,12 @@ type LayoutPage struct {
 	SeparateTree      int  `ini:"Configuration:SeparateTree" def:"0" min:"0" max:"2" opts:"0=Off|1=One tree for both panels|2=One tree per panel" label:"Separate folder tree"`
 }
 
-// DisplayPage: how file lists look (F-414).
+// DisplayPage: how file lists look (F-414). DirBrackets is on by default in TC; ours is off, the folder icon already
+// tells (docs/spec/area-2.md).
 type DisplayPage struct {
 	ShowHidden         bool   `ini:"Configuration:ShowHiddenSystem" def:"0" label:"Show hidden files"`
 	ShowSystem         bool   `ini:"Configuration:ShowSystemFiles" def:"0" label:"Show system files"`
-	DirBrackets        bool   `ini:"Configuration:DirBrackets" def:"1" label:"Square brackets around folder names"`
+	DirBrackets        bool   `ini:"Configuration:DirBrackets" def:"0" label:"Square brackets around folder names"`
 	SeparateExt        bool   `ini:"Configuration:SeparateExt" def:"1" label:"Show extension in its own column"`
 	SortDirsByName     bool   `ini:"Configuration:SortDirsByName" def:"1" label:"Always sort folders by name"`
 	SortUpper          bool   `ini:"Configuration:SortUpper" def:"0" label:"Case-sensitive sorting"`

@@ -19,12 +19,44 @@ export function size(n) {
 
 const pad = (n) => String(n).padStart(2, '0');
 
-// date is a modification time (Unix ms) as "2026-10-14 09:30", in the computer's time zone. One fixed shape keeps the
-// column narrow and sortable by eye; F-094 adds a choice.
+// display holds the Configuration > Display options the file lists follow (F-414); features/config/layout.js sets
+// them with setDisplay. sizeStyle: 0 bytes, 1 kB, 2 MB, 3 GB, 4 dynamic. dateFormat: "" for yyyy-MM-dd, else a pattern
+// with yyyy yy MM M dd d.
+export const display = { brackets: false, separateExt: true, sizeStyle: 0, thousands: true, dateFormat: '', time24: true, seconds: false };
+export function setDisplay(o) { Object.assign(display, o); }
+
+const plain = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0, useGrouping: false });
+const tenth = (sep) => new Intl.NumberFormat(undefined, { maximumFractionDigits: 1, minimumFractionDigits: 0, useGrouping: sep });
+const tenthSep = tenth(true), tenthPlain = tenth(false);
+
+// cellSize is a file size as the Size column shows it, in the unit and with the separators of the Display options.
+export function cellSize(n) {
+  n = Number(n) || 0;
+  const whole = display.thousands ? group : plain;
+  const frac = display.thousands ? tenthSep : tenthPlain;
+  const up = (v) => (n > 0 ? Math.max(0.1, Math.ceil(v * 10) / 10) : 0); // a non-empty file never shows as 0
+  switch (display.sizeStyle) {
+    case 1: return `${whole.format(Math.ceil(n / 1024))} k`;
+    case 2: return `${frac.format(up(n / 1048576))} M`;
+    case 3: return `${frac.format(up(n / 1073741824))} G`;
+    case 4: return size(n);
+    default: return whole.format(n);
+  }
+}
+
+// date is a modification time (Unix ms), in the computer's time zone: "2026-10-14 09:30" by default, else in the date
+// format, clock and seconds of the Display options.
 export function date(ms) {
   if (!ms) return '';
   const d = new Date(ms);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const y = d.getFullYear(), mo = d.getMonth() + 1, dd = d.getDate();
+  const day = display.dateFormat
+    ? display.dateFormat.replace(/yyyy|yy|MM|M|dd|d/g, (t) => ({ yyyy: String(y), yy: pad(y % 100), MM: pad(mo), M: String(mo), dd: pad(dd), d: String(dd) })[t])
+    : `${y}-${pad(mo)}-${pad(dd)}`;
+  const sec = display.seconds ? `:${pad(d.getSeconds())}` : '';
+  const hr = d.getHours();
+  const time = display.time24 ? `${pad(hr)}:${pad(d.getMinutes())}${sec}` : `${hr % 12 || 12}:${pad(d.getMinutes())}${sec} ${hr < 12 ? 'AM' : 'PM'}`;
+  return `${day} ${time}`;
 }
 
 // Flags as the Go side sends them (internal/vfs).

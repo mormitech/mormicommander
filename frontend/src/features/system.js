@@ -8,17 +8,18 @@
 //
 // Settings (all optional): "terminal" (program or command line with %D), "autoRefresh" (true), "refreshOnlyActive"
 // (false), "refreshExclude" (folders, one per line or ";"-separated), "refreshNetwork" (true), "confirmDrop" (true),
-// "confirmExit" (false), "enableLog" / "logFile" (the log file).
+// "enableLog" / "logFile" (the log file). The confirmations dialog (cm_SafetyConfirmations) writes where each feature reads.
 
 import './system.css';
 import { command, getCommand } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { showList } from '../core/popup.js';
-import { inputDialog, modal, esc, messageDialog } from '../core/dialogs.js';
+import { inputDialog, modal, esc } from '../core/dialogs.js';
 import { addCmdlineHandler } from '../core/cmdline.js';
 import { addControlCommand } from '../core/control.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { applyOptions } from './config/util.js';
 import { isLocal, baseName, dirName, logError, errorLog, onLog, runTransfer, focusIn } from './system-lib.js';
 
 const REVEAL = { darwin: 'Show in Finder', windows: 'Show in Explorer', linux: 'Open in the file manager' };
@@ -267,24 +268,39 @@ command({
 
 // ---- safety confirmations (F-719) ----
 
+// Each confirmation is kept where the feature that asks reads it, so this dialog, Options > Copy/Delete and Options >
+// Misc show and change the same thing: the copy dialog and the delete questions in settings "fileops"
+// (features/fileops.js), the overwrite question as fileops.overwriteDefault ('' = ask), the drop question in
+// "confirmDrop" (system-dnd.js), the quit question in the settings file's Misc.ConfirmExit (config/layout.js).
+const fileopsGet = (app, k, d) => { const v = (app.setting('fileops', {}) || {})[k]; return v === undefined ? d : !!v; };
+const fileopsSet = (app, part) => app.setSetting('fileops', { ...(app.setting('fileops', {}) || {}), ...part });
 const CONFIRMS = [
-  ['confirmCopy', 'Show the copy and move dialog (F5, F6)', true],
-  ['confirmDelete', 'Ask before deleting files', true],
-  ['confirmDeleteDirs', 'Ask before deleting folders that are not empty', true],
-  ['confirmOverwrite', 'Ask before overwriting files', true],
-  ['confirmDrop', 'Ask before dropping files (drag and drop)', true],
-  ['confirmExit', 'Ask before quitting', false],
+  ['confirmCopy', 'Show the copy and move dialog (F5, F6)', (app) => fileopsGet(app, 'confirmCopy', true), (app, v) => fileopsSet(app, { confirmCopy: v })],
+  ['confirmDelete', 'Ask before deleting files', (app) => fileopsGet(app, 'confirmDelete', true), (app, v) => fileopsSet(app, { confirmDelete: v })],
+  ['confirmDeleteDirs', 'Ask before deleting folders that are not empty', (app) => fileopsGet(app, 'confirmDeleteDirs', true), (app, v) => fileopsSet(app, { confirmDeleteDirs: v })],
+  ['confirmOverwrite', 'Ask before overwriting files',
+    (app) => !(app.setting('fileops', {}) || {}).overwriteDefault,
+    (app, v) => fileopsSet(app, { overwriteDefault: v ? '' : 'overwrite' })],
+  ['confirmDrop', 'Ask before dropping files (drag and drop)', (app) => app.setting('confirmDrop', true) !== false, (app, v) => app.setSetting('confirmDrop', v)],
+  ['confirmExit', 'Ask before quitting',
+    (app) => app.config?.values?.['Misc.ConfirmExit'] === '1',
+    (app, v) => applyOptions({ 'Misc.ConfirmExit': v ? '1' : '0' })],
 ];
 command({
   name: 'cm_SafetyConfirmations', label: 'Confirmations…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys',
   run: (app) => modal((box, done) => {
+    const was = Object.fromEntries(CONFIRMS.map(([k, , get]) => [k, !!get(app)]));
     box.innerHTML = `<h2>Confirmations</h2><p class="mc-note">Which actions ask before they are done.</p>
-      ${CONFIRMS.map(([k, l, d]) => `<label class="mc-system-check"><input type="checkbox" id="${k}"${app.setting(k, d) ? ' checked' : ''}> ${esc(l)}</label>`).join('')}
+      ${CONFIRMS.map(([k, l]) => `<label class="mc-system-check"><input type="checkbox" id="${k}"${was[k] ? ' checked' : ''}> ${esc(l)}</label>`).join('')}
       <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
     box.querySelector('.cancel').onclick = () => done(false);
-    box.onsubmit = (ev) => {
+    box.onsubmit = async (ev) => {
       ev.preventDefault();
-      for (const [k] of CONFIRMS) app.setSetting(k, box.querySelector(`#${k}`).checked);
+      try {
+        // only what was changed is written, so a choice like "skip" for overwriting stays until this box changes it
+        for (const [k, , , set] of CONFIRMS) { const v = box.querySelector(`#${k}`).checked; if (v !== was[k]) await set(app, v); }
+      } catch (e) { app.flash(errText(e), 'err'); }
+      app.emit('config', null);
       app.emit('settings');
       done(true);
     };
@@ -333,19 +349,7 @@ export function init(app) {
   // the menu and the command browser name Finder / Explorer / the file manager as the system calls it
   const ex = getCommand('cm_Explorer');
   if (ex) ex.label = revealLabel(app);
-
-  // Quit asks first when "confirmExit" is on (F-719)
-  const quit = getCommand('cm_Exit');
-  if (quit) {
-    const run = quit.run;
-    quit.run = async (a, args) => {
-      if (a.setting('confirmExit', false)) {
-        const b = await messageDialog({ Title: 'Quit mormiCommander?', Message: 'Do you really want to quit?', Buttons: ['Quit', 'Cancel'], Kind: 'quit-confirm' });
-        if (b !== 'Quit') return false;
-      }
-      return run(a, args);
-    };
-  }
+  // Quit asks first when Misc.ConfirmExit is on: config/layout.js wraps cm_Exit (F-719)
 }
 
 addControlCommand('errorlog', async () => ({ ok: true, errors: errorLog.slice() }));

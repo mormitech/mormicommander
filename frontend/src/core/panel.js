@@ -8,7 +8,7 @@
 // ('panel', 'cursor', 'selection'), never by poking the DOM. See docs/ARCHITECTURE.md for the list.
 
 import { go, errText } from './go.js';
-import { F, splitExt, bytes, date, attr, size, plural } from './format.js';
+import { F, splitExt, date, attr, size, plural, cellSize, display } from './format.js';
 import { sortEntries } from './sort.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
@@ -421,10 +421,12 @@ export class Panel {
         if (e.broken) cls += ' broken';
         if (e.exec && !e.dir) cls += ' exe';
       }
-      const name = e.dir ? e.name : e.base;
-      const sz = e.dir ? (e.dirSize != null ? bytes(e.dirSize) : '&lt;DIR&gt;') : bytes(e.size);
+      const sep = display.separateExt;
+      const name = e.dir || !sep ? e.name : e.base;
+      const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
       const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
-      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(name)}</b></span><span class="e">${esc(e.ext)}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
+      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep ? esc(e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;
