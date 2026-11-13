@@ -6,6 +6,8 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.7 – 2026-11-13
+
 ### Added
 
 - F3 opens the Lister in a real window of its own, like Total Commander's Lister: the title is "Lister – <name>", the
