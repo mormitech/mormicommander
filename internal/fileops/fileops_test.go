@@ -129,6 +129,9 @@ func TestCopyIntoItselfRefused(t *testing.T) {
 	if p.State != StateFailed || !strings.Contains(p.Errors[0], "into itself") {
 		t.Fatalf("%+v", p)
 	}
+	if _, err := os.Lstat(filepath.Join(dir, "f", "sub")); !os.IsNotExist(err) {
+		t.Fatalf("the refused target was made: %v", err)
+	}
 	p = start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(dir, "f", "x")}, Target: filepath.Join(dir, "f")})
 	if p.State != StateFailed || !strings.Contains(p.Errors[0], "onto itself") {
 		t.Fatalf("%+v", p)

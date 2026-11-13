@@ -29,6 +29,22 @@ var sameVolume = SameVolume
 
 const defaultBuffer = 1 << 20
 
+// allIntoItself says whether every source is a folder that is the target or holds it, so the whole job would only
+// copy folders into themselves.
+func (j *job) allIntoItself(target string) bool {
+	if len(j.req.Sources) == 0 {
+		return false
+	}
+	for _, src := range j.req.Sources {
+		src = filepath.Clean(src)
+		si, err := lstat(src)
+		if err != nil || !si.IsDir() || !inside(target, src) {
+			return false
+		}
+	}
+	return true
+}
+
 // copyAll copies (or moves) every source into the target folder.
 func (j *job) copyAll(move bool) {
 	verb := "copy"
@@ -36,6 +52,14 @@ func (j *job) copyAll(move bool) {
 		verb = "move"
 	}
 	target := filepath.Clean(j.req.Target)
+	// A folder copied into itself is refused before anything is made: when every source is a folder that holds the
+	// target, the target (say dir/sub) must not be created just to be left behind empty.
+	if j.allIntoItself(target) {
+		for _, src := range j.req.Sources {
+			j.fail("Can't %s the folder %s into itself.", verb, filepath.Base(filepath.Clean(src)))
+		}
+		return
+	}
 	if err, _ := j.try("Can't make the target folder "+target, "", target, nil, func() error { return mkdirAll(target, 0o777) }); err != nil {
 		return
 	}

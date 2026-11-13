@@ -67,6 +67,14 @@ function samePath(app, a, b) {
   return app.platform === 'linux' ? x === y : x.toLowerCase() === y.toLowerCase();
 }
 
+// insidePath says whether p is the folder dir or lies anywhere below it (copying dir there would copy it into itself).
+function insidePath(app, p, dir) {
+  if (samePath(app, p, dir)) return true;
+  const fold = (s) => (app.platform === 'linux' ? String(s || '') : String(s || '').toLowerCase());
+  const d = withSep(app, fold(dir));
+  return fold(p).startsWith(d);
+}
+
 // ---- a dropdown inside a dialog: history, templates, and the folder tree of the copy dialog (F10) ----
 
 class Drop {
@@ -232,6 +240,12 @@ function copyDialog(app, { move, same, items }) {
       try {
         let t;
         try { t = await go.Jobs.ParseTarget(text, items.length, src.path); } catch (e) { err(errText(e)); return; }
+        // Like TC, refuse a folder into itself here, before asking to make (and so making) a target inside it.
+        const self = items.filter((e) => e.dir && insidePath(app, t.dir, src.fullPath(e.name)));
+        if (self.length && self.length === items.length) {
+          err(`Can't ${move ? 'move' : 'copy'} the folder ${self[0].name} into itself.`);
+          return;
+        }
         if (!t.dirExists) {
           const b = await messageDialog({ Title: 'Make the folder?', Message: `The folder ${t.dir} is not there.\n\nMake it?`, Buttons: ['Make it', 'Cancel'], Kind: 'make-target' });
           if (b !== 'Make it') return;
