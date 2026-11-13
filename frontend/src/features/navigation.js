@@ -3,7 +3,6 @@
 
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
-import { showList } from '../core/popup.js';
 import { cmdline } from '../core/cmdline.js';
 
 const base = (p) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
@@ -83,19 +82,7 @@ command({ name: 'cm_GoToHome', label: 'Home folder', run: (app) => app.cur.go(ap
 command({ name: 'cm_GoToPreviousDir', label: 'Back', run: (app) => app.cur.goBack() });
 command({ name: 'cm_GoToNextDir', label: 'Forward', run: (app) => app.cur.goForward() });
 command({ name: 'cm_EditPath', label: 'Edit path', run: (app) => app.cur.editPath() });
-command({
-  name: 'cm_DirectoryHistory', label: 'Folder history',
-  run: async (app) => {
-    const p = app.cur;
-    const seen = new Set([p.path]);
-    const list = [];
-    for (const x of [...p.back].reverse().concat([...p.fwd].reverse())) if (!seen.has(x)) { seen.add(x); list.push(x); }
-    if (!list.length) { app.flash('No other folders visited yet.'); return false; }
-    const r = await showList({ title: 'Folders you visited', items: list.slice(0, 40).map((x) => ({ label: x, value: x })), anchor: p.$.pathbar, kind: 'history' });
-    if (!r) return false;
-    return p.go(r.item.value);
-  },
-});
+// (cm_DirectoryHistory, Alt+Down, is the hotlist feature's: features/hotlist.js)
 
 // ---- panels ----
 command({ name: 'cm_FocusTrg', label: 'Switch panel', run: (app) => app.setActive(app.other) });

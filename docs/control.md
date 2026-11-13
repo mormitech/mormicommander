@@ -118,3 +118,22 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## Folder tabs, hotlist and history (features/tabs.js, features/hotlist.js)
+
+| command | fields | result |
+|---|---|---|
+| `tabs` | — | `left` / `right`: `{active, hidden, tabs: [{path, caption, shown, lock, lockPath, sort}]}` (lock 0 none, 1 locked, 2 folder changes allowed; `shown` has the `*` and the width limit), `closed`: tabs that `cm_ReopenClosedTab` can bring back |
+| `tab_menu` | `side`, `index` | opens the right-click menu of a tab (a popup of kind `tab-menu`; answer it with `popup_choose`) |
+| `hotlist` | — | the hotlist tree: `[{kind: "cmd"/"menu"/"sep", title, label, key, cmd, target, items}]` |
+| `frequent` | — | the frequently used folders, most used first |
+
+Popups have the kinds `hotlist`, `hotlist-search-results`, `history`, `frequent`, `tab-menu`, `favorite-tabs`; dialogs
+`hotlist-config` (fields `hl-list`, `hl-cmd`, `hl-target`), `hotlist-add`, `hotlist-add-tabs`, `hotlist-search`,
+`tab-rename` (fields `tab-name`, `lock-none`, `lock-full`, `lock-dirs`), `tab-close-locked`, `tab-close-all`,
+`tabs-config`, `history-settings`, `favorite-tabs-config`, `favorite-add`. The system Save and Open dialogs of tab files
+and the TC import take queued `answer`s of kind `savefile` and `openfile`. Commands with arguments: `cm_LoadTabs`
+`{file, append}`, `cm_SaveTabs` `{file}`, `cm_SaveFavoriteTabs` / `cm_LoadFavoriteTabs` `{name}`, `cm_OpenDirInNewTab`
+`{path}`, `cm_DirectoryHotlist` `{panel, search}`, `cm_DirectoryHistory` `{panel}`. Everything is stored in
+`folders.ini` in the settings folder (TC's `[DirMenu]`, `[lefttabs]`, `[righttabs]`, `[LeftHistory]`, `[RightHistory]`,
+`[FrequentDirs]`, `[FavoriteTab <name>]`).
