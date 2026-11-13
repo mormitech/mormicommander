@@ -268,6 +268,10 @@ func TestLinkStaysInside(t *testing.T) {
 		{"link", "C:\\Windows", false},
 		{"a/b/link", "../../x/./y", true},
 		{"link", "", false},
+		// ".." after a name can climb through a link made earlier.
+		{"y", "x/up/..", false},
+		{"a/l", "b/../c", false},
+		{"a/l", "../a/../b", false},
 	}
 	for _, tt := range tests {
 		if got := linkStaysInside(tt.rel, tt.target); got != tt.want {
@@ -442,6 +446,45 @@ func TestExtractZipSlip(t *testing.T) {
 	}
 	if runtime.GOOS != "windows" && got["ok/inside"] != "-> fine.txt" {
 		t.Errorf("inside link = %q", got["ok/inside"])
+	}
+}
+
+// TestExtractChainedLinkEscape is a regression test: a link whose target
+// climbs through a link made earlier in the same run ("y" -> "x/up/.."
+// with "x/up" -> "..") must not be created, nor one stored below such a
+// link whose ".." then counts from the wrong folder.
+func TestExtractChainedLinkEscape(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	m := newMem(map[string]string{"x/keep.txt": "k"},
+		Entry{RawName: "x/up", Mode: fs.ModeSymlink | 0o777, Comment: ".."},
+		Entry{RawName: "y", Mode: fs.ModeSymlink | 0o777, Comment: "x/up/.."},
+		Entry{RawName: "x/up/z", Mode: fs.ModeSymlink | 0o777, Comment: ".."})
+	parent := t.TempDir()
+	dest := filepath.Join(parent, "dest")
+	if _, err := Extract(context.Background(), m, ExtractOptions{Dest: dest}); err != nil {
+		t.Fatal(err)
+	}
+	realDest, _ := filepath.EvalSymlinks(dest)
+	err := filepath.WalkDir(dest, func(p string, d fs.DirEntry, err error) error {
+		if err != nil || d.Type()&fs.ModeSymlink == 0 {
+			return err
+		}
+		r, err := filepath.EvalSymlinks(p)
+		if err != nil {
+			return nil
+		}
+		if rel, _ := filepath.Rel(realDest, r); rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			t.Errorf("link %s resolves outside dest: %s", p, r)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(dest, "y")); err == nil {
+		t.Error("chained escaping link y was created")
 	}
 }
 

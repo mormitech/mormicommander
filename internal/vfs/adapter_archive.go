@@ -34,6 +34,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"mormicommander/internal/archive/arcapi"
 )
 
 // DefaultEnterExtensions are the file name endings Enter treats as archives
@@ -82,6 +84,8 @@ type ArchiveFS struct {
 	mounts  map[string]*arcMount // by panel path prefix
 	tmp     string
 	seq     int
+	// writeLocks holds one lock per archive file being changed.
+	writeLocks map[string]*writeLock
 }
 
 // arcHandle is one opened archive.
@@ -835,38 +839,119 @@ func (a *ArchiveFS) Caps(p string) Caps {
 
 // ---- writing ---------------------------------------------------------------
 
-// modify applies changes built for the archive holding p. The cached handle
-// is dropped first, because the engine replaces the archive file.
+// modify applies changes built for the archive holding p. Every change
+// rewrites the whole archive (read the old one, write a temp file, rename
+// it over the original), so two writers to the same archive at once would
+// each start from the old content and the last rename would silently drop
+// the other's change. Writers therefore hold a per-archive lock from
+// reading the current state (build) until the new file is in place.
 func (a *ArchiveFS) modify(ctx context.Context, p string, mode locateMode, build func(h *arcHandle, inner string) (arcChanges, error)) error {
-	h, inner, err := a.locate(ctx, p, mode)
+	file, _, _, _, _, err := a.findHost(a.Clean(p), mode)
 	if err != nil {
 		return err
+	}
+	for attempt := 0; ; attempt++ {
+		unlock := a.lockArchive(file)
+		other, err := a.modifyLocked(ctx, p, mode, file, build)
+		unlock()
+		if other == "" || attempt >= 3 {
+			return err
+		}
+		// p resolved into another archive file than the one locked
+		// (a nested archive): lock that one and start over.
+		file = other
+	}
+}
+
+// modifyLocked does the work of modify while the lock for file is held. It
+// returns the actual archive file instead when p resolves to another one.
+func (a *ArchiveFS) modifyLocked(ctx context.Context, p string, mode locateMode, file string, build func(h *arcHandle, inner string) (arcChanges, error)) (string, error) {
+	// Start from the archive as it is now on disk, not from a handle that
+	// may have been opened before another writer replaced the file.
+	a.dropCachedFile(file)
+	h, inner, err := a.locate(ctx, p, mode)
+	if err != nil {
+		return "", err
+	}
+	if h.file != file {
+		other := h.file
+		a.release(h)
+		return other, nil
 	}
 	if !h.be.writable() {
 		a.release(h)
 		if _, ok := h.be.(*sevenBackend); ok {
-			return opErr("write", p, ErrUnsupported)
+			return "", opErr("write", p, ErrUnsupported)
 		}
-		return opErr("write", p, ErrReadOnly)
+		return "", opErr("write", p, ErrReadOnly)
 	}
 	if h.readOnly {
 		a.release(h)
-		return opErr("write", p, ErrReadOnly)
+		return "", opErr("write", p, ErrReadOnly)
 	}
 	ch, err := build(h, inner)
 	if err != nil {
 		a.release(h)
-		return opErr("write", p, err)
+		return "", opErr("write", p, err)
 	}
-	be, file := h.be, h.file
+	be := h.be
 	a.mu.Lock()
 	a.dropHandleLocked(h)
 	a.mu.Unlock()
 	a.release(h)
-	if err := be.update(ctx, file, ch); err != nil {
-		return opErr("write", p, err)
+	err = be.update(ctx, file, ch)
+	// A reader may have cached the archive while it was being replaced.
+	a.dropCachedFile(file)
+	if err != nil {
+		return "", opErr("write", p, err)
 	}
-	return nil
+	return "", nil
+}
+
+// dropCachedFile removes the cached handle of file, if any.
+func (a *ArchiveFS) dropCachedFile(file string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if h := a.handles[file]; h != nil {
+		a.dropHandleLocked(h)
+	}
+}
+
+// writeLock serialises the writers of one archive file.
+type writeLock struct {
+	mu   sync.Mutex
+	refs int
+}
+
+// lockArchive takes the write lock of the archive file and returns the
+// function that releases it. Paths that lead to the same file through a
+// symbolic link share one lock.
+func (a *ArchiveFS) lockArchive(file string) func() {
+	key := arcapi.ReplaceTarget(file)
+	if abs, err := filepath.Abs(key); err == nil {
+		key = abs
+	}
+	a.mu.Lock()
+	if a.writeLocks == nil {
+		a.writeLocks = map[string]*writeLock{}
+	}
+	l := a.writeLocks[key]
+	if l == nil {
+		l = &writeLock{}
+		a.writeLocks[key] = l
+	}
+	l.refs++
+	a.mu.Unlock()
+	l.mu.Lock()
+	return func() {
+		l.mu.Unlock()
+		a.mu.Lock()
+		l.refs--
+		if l.refs == 0 {
+			delete(a.writeLocks, key)
+		}
+		a.mu.Unlock()
+	}
 }
 
 // Mkdir creates a folder inside an archive (F7).
@@ -927,7 +1012,6 @@ func (a *ArchiveFS) Rename(ctx context.Context, from, to string) error {
 		return err
 	}
 	toFile := ht.file
-	_, statErr := ht.be.stat(ctx, innerTo)
 	a.release(ht)
 	return a.modify(ctx, from, locFile, func(h *arcHandle, inner string) (arcChanges, error) {
 		if h.file != toFile {
@@ -936,7 +1020,9 @@ func (a *ArchiveFS) Rename(ctx context.Context, from, to string) error {
 		if inner == "" || innerTo == "" {
 			return arcChanges{}, ErrUnsupported
 		}
-		if statErr == nil {
+		// Checked here, under the archive's write lock, so a concurrent
+		// write cannot create the target in between.
+		if _, err := h.be.stat(ctx, innerTo); err == nil {
 			return arcChanges{}, fs.ErrExist
 		}
 		if innerTo == inner || strings.HasPrefix(innerTo, inner+"/") {

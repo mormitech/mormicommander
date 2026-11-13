@@ -44,7 +44,7 @@ enable.
 
 | Function | Use |
 |---|---|
-| `Extract(ctx, a, ExtractOptions)` | F5 out of an archive, Alt+F9 unpack. Takes selected `Paths` relative to the panel's `Base` folder, `NoPaths`, `Mask`, `Policy`/`OnConflict` (the overwrite dialog), `OnError` (skip or abort), `Symlinks`, `Progress`. Zip-slip safe: `SafeJoin` plus resolving links in parent folders, links created last and only when they point inside the target, temp file + rename for every file. Returns `ExtractResult` (written, skipped, failed). |
+| `Extract(ctx, a, ExtractOptions)` | F5 out of an archive, Alt+F9 unpack. Takes selected `Paths` relative to the panel's `Base` folder, `NoPaths`, `Mask`, `Policy`/`OnConflict` (the overwrite dialog), `OnError` (skip or abort), `Symlinks`, `Progress`. Zip-slip safe: `SafeJoin` plus resolving links in parent folders, links created last and only when they point inside the target (only leading `..` elements, counted from the link's real folder, so a link cannot climb through an earlier one), temp file + rename for every file. Returns `ExtractResult` (written, skipped, failed). |
 | `Verify(ctx, a, VerifyOptions)` | Alt+Shift+F9 test archive. Returns a `VerifyReport` with the failed entries. |
 | `OpenNested(ctx, outer, entry, opts, tempDir)` | Enter on an archive inside an archive. Stored zips open in place through `Sectioner`; anything else is copied to a temp file that `Close` removes. |
 | `FS(a)` | An `io/fs` view (`fs.WalkDir` for find-in-archive and the branch view). |

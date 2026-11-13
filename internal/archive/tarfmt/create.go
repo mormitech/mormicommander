@@ -250,6 +250,8 @@ func tempFor(final string) (*os.File, error) {
 // existing file of that name only after the new archive is complete (the UI
 // asks the user before calling this for an existing name).
 func Create(ctx context.Context, archivePath string, sources []string, opt CreateOptions) error {
+	// Replace the file a symbolic link points to, not the link.
+	archivePath = archive.ReplaceTarget(archivePath)
 	f := opt.Format
 	if f == FormatUnknown {
 		f = DetectFormat(archivePath)

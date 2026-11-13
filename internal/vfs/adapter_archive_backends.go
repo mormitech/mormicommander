@@ -18,10 +18,8 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"mormicommander/internal/archive"
@@ -305,91 +303,20 @@ func (t *tarBackend) open(ctx context.Context, p string) (io.ReadCloser, error) 
 func (t *tarBackend) writable() bool { return t.r.Format().IsTar() }
 
 func (t *tarBackend) update(ctx context.Context, host string, ch arcChanges) error {
-	base := tarfmt.Changes{Delete: ch.Delete, Mkdir: ch.Mkdir}
+	c := tarfmt.Changes{Delete: ch.Delete, Mkdir: ch.Mkdir}
 	for _, r := range ch.Rename {
-		base.Rename = append(base.Rename, tarfmt.Rename{From: r[0], To: r[1]})
+		c.Rename = append(c.Rename, tarfmt.Rename{From: r[0], To: r[1]})
 	}
-	// tarfmt stores every added source under its base name below one
-	// Prefix per call, so group the additions by target folder and stage
-	// any whose target name differs from the local name.
-	groups, order, cleanup, err := groupAdds(ch.Add)
-	defer cleanup()
-	if err != nil {
-		return err
+	// Every addition names its full target, so the whole batch, deletes
+	// and renames included, is one archive rewrite: it lands completely or
+	// not at all.
+	for _, a := range ch.Add {
+		c.AddTo = append(c.AddTo, tarfmt.AddItem{Source: a.Source, Dest: a.Dest})
 	}
-	if len(order) == 0 {
-		return tarfmt.Modify(ctx, host, base)
-	}
-	for i, dir := range order {
-		c := tarfmt.Changes{Add: groups[dir], AddOptions: tarfmt.CreateOptions{Prefix: dir}}
-		if i == 0 {
-			c.Delete, c.Rename, c.Mkdir = base.Delete, base.Rename, base.Mkdir
-		}
-		if err := tarfmt.Modify(ctx, host, c); err != nil {
-			return err
-		}
-	}
-	return nil
+	return tarfmt.Modify(ctx, host, c)
 }
 
 func (t *tarBackend) close() error { return t.r.Close() }
-
-// groupAdds groups additions by their target folder. A source whose base
-// name differs from the wanted name is linked or copied into a temporary
-// folder under the right name first.
-func groupAdds(adds []arcAdd) (map[string][]string, []string, func(), error) {
-	groups := map[string][]string{}
-	var order []string
-	var tmpDirs []string
-	cleanup := func() {
-		for _, d := range tmpDirs {
-			os.RemoveAll(d)
-		}
-	}
-	for _, a := range adds {
-		dir, name := path.Split(a.Dest)
-		dir = strings.TrimSuffix(dir, "/")
-		src := a.Source
-		if filepath.Base(src) != name {
-			tmp, err := os.MkdirTemp("", "mormi-stage-*")
-			if err != nil {
-				return nil, nil, cleanup, err
-			}
-			tmpDirs = append(tmpDirs, tmp)
-			staged := filepath.Join(tmp, name)
-			if err := stageCopy(src, staged); err != nil {
-				return nil, nil, cleanup, err
-			}
-			src = staged
-		}
-		if _, ok := groups[dir]; !ok {
-			order = append(order, dir)
-		}
-		groups[dir] = append(groups[dir], src)
-	}
-	return groups, order, cleanup, nil
-}
-
-// stageCopy puts a regular file at dst, by hard link when possible.
-func stageCopy(src, dst string) error {
-	fi, err := os.Stat(src)
-	if err != nil {
-		return err
-	}
-	if !fi.Mode().IsRegular() {
-		return fmt.Errorf("%s: cannot pack under a different name: not a regular file", src)
-	}
-	if os.Link(src, dst) == nil {
-		return nil
-	}
-	in, err := os.Open(src)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	_, err = writeLocalAtomic(context.Background(), dst, in, fi.Size(), fi.ModTime(), nil)
-	return err
-}
 
 // ---- 7z and RAR (read-only) ---------------------------------------------
 

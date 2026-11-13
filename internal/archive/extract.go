@@ -445,6 +445,13 @@ func (x *extractor) extractLink(l plannedEntry) error {
 	if target == "" {
 		return nil
 	}
+	// The textual depth of rel can differ from where the link really
+	// lands when a parent folder is itself a link made earlier, so check
+	// the target again against the real depth of the link's folder.
+	if !linkTargetInside(realDepth(x.realDest, filepath.Dir(target)), linkTarget) {
+		x.res.Skipped = append(x.res.Skipped, Skipped{e.Path, "link points outside the target folder: " + linkTarget})
+		return nil
+	}
 	if existing != nil {
 		if err := os.Remove(target); err != nil {
 			return x.fail(e.Path, err)

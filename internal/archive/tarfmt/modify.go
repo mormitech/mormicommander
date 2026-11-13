@@ -18,6 +18,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -39,10 +40,19 @@ type Changes struct {
 	// Members with the same name are replaced.
 	Add        []string
 	AddOptions CreateOptions
+	// AddTo packs each local path under its own full name inside the
+	// archive (a folder's contents go below that name). It is applied in
+	// the same rewrite as everything else, so a batch whose items go to
+	// different folders or get new names is still one atomic change. Only
+	// FollowSymlinks, NoRecurse and RemoveSources of AddOptions apply.
+	AddTo []AddItem
 	// Level is the compression level for the rewritten archive.
 	Level    int
 	Progress func(archive.Progress)
 }
+
+// AddItem is one local file or folder packed under the archive path Dest.
+type AddItem struct{ Source, Dest string }
 
 // paxKeysOwnedByHeader are PAX records archive/tar derives from Header
 // fields; copying them verbatim would clash with renamed names or turn
@@ -79,6 +89,9 @@ func cleanPAX(rec map[string]string) map[string]string {
 // (.gz, .xz, ...) cannot hold more than one file and return
 // archive.ErrNotSupported.
 func Modify(ctx context.Context, archivePath string, ch Changes) error {
+	// Write through a symbolic link to the real archive instead of
+	// replacing the link with a regular file.
+	archivePath = archive.ReplaceTarget(archivePath)
 	r, err := Open(archivePath)
 	if err != nil {
 		return err
@@ -154,13 +167,23 @@ func Modify(ctx context.Context, archivePath string, ch Changes) error {
 	}()
 
 	var adds []item
-	if len(ch.Add) > 0 {
+	if len(ch.Add) > 0 || len(ch.AddTo) > 0 {
 		skip := []fs.FileInfo{arcInfo}
 		if fi, err := tmp.Stat(); err == nil {
 			skip = append(skip, fi)
 		}
-		adds, err = collect(ctx, ch.Add, ch.AddOptions, skip)
+		if len(ch.Add) > 0 {
+			adds, err = collect(ctx, ch.Add, ch.AddOptions, skip)
+			if err != nil {
+				return err
+			}
+		}
+		more, err := collectTo(ctx, ch.AddTo, ch.AddOptions, skip)
 		if err != nil {
+			return err
+		}
+		adds = append(adds, more...)
+		if err := checkAddConflicts(r, adds, deleted, rename); err != nil {
 			return err
 		}
 	}
@@ -340,4 +363,98 @@ func Modify(ctx context.Context, archivePath string, ch Changes) error {
 		return removeItems(adds)
 	}
 	return nil
+}
+
+// collectTo walks each AddItem source and stores it under its own Dest
+// name: the source is collected below the folder of Dest and the leading
+// base name is then swapped for the wanted one.
+func collectTo(ctx context.Context, list []AddItem, base CreateOptions, skip []fs.FileInfo) ([]item, error) {
+	var out []item
+	for _, a := range list {
+		dest := cleanName(a.Dest)
+		if !isLocalName(dest) {
+			return nil, fmt.Errorf("tarfmt: invalid name %q inside archive", a.Dest)
+		}
+		dir := path.Dir(dest)
+		if dir == "." {
+			dir = ""
+		}
+		opt := CreateOptions{Prefix: dir, FollowSymlinks: base.FollowSymlinks, NoRecurse: base.NoRecurse}
+		items, err := collect(ctx, []string{a.Source}, opt, skip)
+		if err != nil {
+			return nil, err
+		}
+		abs, err := filepath.Abs(a.Source)
+		if err != nil {
+			return nil, err
+		}
+		top := path.Join(dir, filepath.Base(abs))
+		for _, it := range items {
+			if it.name == top {
+				it.name = dest
+			} else if strings.HasPrefix(it.name, top+"/") {
+				it.name = dest + it.name[len(top):]
+			}
+			out = append(out, it)
+		}
+	}
+	return out, nil
+}
+
+// checkAddConflicts refuses additions that would leave a tar the panel
+// cannot show consistently: a file stored under the name of a folder that
+// keeps its contents (the folder header would be replaced while its
+// children stay, hiding them), or anything stored below a name that stays
+// a file. The zip engine refuses the same cases.
+func checkAddConflicts(r *Reader, adds []item, deleted func(string) bool, rename func(string) string) error {
+	files := map[string]bool{}
+	dirs := map[string]bool{}
+	r.mu.Lock()
+	for _, e := range r.entries {
+		if !isLocalName(e.Path) || deleted(e.Path) {
+			continue
+		}
+		n := rename(e.Path)
+		if e.IsDir {
+			dirs[n] = true
+		} else {
+			files[n] = true
+		}
+		for d := path.Dir(n); d != "." && d != "/"; d = path.Dir(d) {
+			dirs[d] = true
+		}
+	}
+	r.mu.Unlock()
+	addDirs := map[string]bool{}
+	for _, it := range adds {
+		if it.link == "" && it.fi.IsDir() {
+			addDirs[it.name] = true
+		}
+		for d := path.Dir(it.name); d != "." && d != "/"; d = path.Dir(d) {
+			addDirs[d] = true
+		}
+	}
+	for _, it := range adds {
+		isDir := it.link == "" && it.fi.IsDir()
+		if !isDir && (dirs[it.name] || addDirs[it.name]) {
+			return &archive.EntryError{Name: it.name, Err: fmt.Errorf("a folder with this name exists: %w", fs.ErrExist)}
+		}
+		for d := path.Dir(it.name); d != "." && d != "/"; d = path.Dir(d) {
+			if files[d] && !replacedByDir(d, adds) {
+				return &archive.EntryError{Name: it.name, Err: fmt.Errorf("%s is a file, not a folder: %w", d, fs.ErrExist)}
+			}
+		}
+	}
+	return nil
+}
+
+// replacedByDir reports whether the additions themselves store name as a
+// folder, which replaces an existing file of that name.
+func replacedByDir(name string, adds []item) bool {
+	for _, it := range adds {
+		if it.name == name && it.link == "" && it.fi.IsDir() {
+			return true
+		}
+	}
+	return false
 }

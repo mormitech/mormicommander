@@ -24,11 +24,11 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 	"unicode/utf8"
 
 	"mormicommander/internal/archive"
+	"mormicommander/internal/archive/arcapi"
 )
 
 // Packer implements archive.Packer for zip.
@@ -109,6 +109,8 @@ func (Packer) Update(ctx context.Context, archivePath string, ch archive.Changes
 	if err != nil {
 		return res, err
 	}
+	// Replace the archive a symbolic link points to, not the link itself.
+	archivePath = arcapi.ReplaceTarget(archivePath)
 	var old *Reader
 	oldInfo, statErr := os.Stat(archivePath)
 	if statErr == nil {
@@ -294,8 +296,17 @@ func applyRenames(p *plan, rens []archive.Rename, res *archive.PackResult) error
 		if !p.exists(from) {
 			return fmt.Errorf("%w: %s", archive.ErrNotFound, from)
 		}
-		if p.exists(to) && !strings.EqualFold(from, to) {
+		// Names are case-sensitive here, so a rename that only changes
+		// case passes this check unless "to" is another, existing entry.
+		if p.exists(to) {
 			return fmt.Errorf("%w: %s", archive.ErrExist, to)
+		}
+		// Every parent of the new name must be a folder (or not exist yet):
+		// an entry below a file would make that name both at once.
+		for d := path.Dir(to); d != "." && d != ""; d = path.Dir(d) {
+			if it, ok := p.byPath[d]; ok && !it.isDir {
+				return fmt.Errorf("%w: %s is a file, not a folder", archive.ErrExist, d)
+			}
 		}
 		for _, it := range p.items {
 			if it.path != "" && archive.IsUnder(it.path, from) {

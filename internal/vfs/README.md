@@ -74,7 +74,9 @@ match `fs.ErrNotExist` on every backend.
 - Opened archives are cached (`MaxOpen`, default 8) and reopened when the
   file's size or date changes; readers keep their archive open while in use.
 - Writes (`Mkdir`, `Create`, `Upload`, `AddLocal`, `Remove`, `RemoveAll`,
-  `Rename`) go through the engine's atomic rewrite.
+  `Rename`) go through the engine's atomic rewrite (one rewrite per call,
+  also for tar), under a per-archive write lock so concurrent writers to the
+  same archive never drop each other's changes.
 - `IsArchive(name)` (Enter; `DefaultEnterExtensions` or `EnterExtensions`),
   `Split(p)`, `Info(p)` (`Format`, `Root`, `File`, `Inner`, `ReadOnly`,
   `Nested`), `Mount`/`Unmount`/`Mounted`, `Password`, `Encoding`, `TempDir`.

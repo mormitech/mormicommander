@@ -66,30 +66,68 @@ func realDir(dir string) string {
 
 // linkStaysInside reports whether a symbolic link stored at entry path rel
 // with the given target would point inside the extraction root. Absolute
-// targets never do.
+// targets never do. See linkTargetInside for the rules.
 func linkStaysInside(rel, target string) bool {
-	t := strings.ReplaceAll(target, "\\", "/")
-	if t == "" || strings.HasPrefix(t, "/") || filepath.IsAbs(target) || (len(t) >= 2 && t[1] == ':') {
-		return false
-	}
 	dir := filepath.ToSlash(filepath.Dir(filepath.FromSlash(rel)))
 	depth := 0
 	if dir != "." {
 		depth = len(strings.Split(dir, "/"))
 	}
+	return linkTargetInside(depth, target)
+}
+
+// linkTargetInside reports whether a link target is safe for a link whose
+// folder lies depth levels below the extraction root. Counting ".." alone
+// is not enough, because earlier links of the same archive can make a name
+// in the middle of the target climb further than its text suggests (with
+// x/up -> "..", the target "x/up/.." leaves the root). So, like the tar
+// and 7z engines, only leading ".." elements are accepted, at most depth of
+// them, and the rest of the target may only descend. A target that only
+// descends from inside the root can pass other links only if they were
+// checked the same way, so it stays inside.
+func linkTargetInside(depth int, target string) bool {
+	t := strings.ReplaceAll(target, "\\", "/")
+	if t == "" || strings.HasPrefix(t, "/") || filepath.IsAbs(target) || (len(t) >= 2 && t[1] == ':') {
+		return false
+	}
+	up := 0
+	leading := true
 	for _, p := range strings.Split(t, "/") {
 		switch p {
 		case "", ".":
 		case "..":
-			depth--
-			if depth < 0 {
+			if !leading {
 				return false
 			}
+			up++
 		default:
-			depth++
+			leading = false
 		}
 	}
-	return true
+	return up <= depth
+}
+
+// realDepth returns how many folders the existing folder dir lies below
+// realDest after resolving symbolic links, or -1 when it is not inside.
+func realDepth(realDest, dir string) int {
+	real, err := filepath.EvalSymlinks(dir)
+	if err != nil {
+		return -1
+	}
+	if samePath(real, realDest) {
+		return 0
+	}
+	r, err := filepath.Rel(realDest, real)
+	if err != nil {
+		return -1
+	}
+	if r == "." {
+		return 0
+	}
+	if r == ".." || strings.HasPrefix(r, ".."+string(filepath.Separator)) || filepath.IsAbs(r) {
+		return -1
+	}
+	return len(strings.Split(filepath.ToSlash(r), "/"))
 }
 
 func existsLocal(p string) bool {

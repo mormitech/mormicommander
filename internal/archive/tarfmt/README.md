@@ -101,9 +101,15 @@ err := tarfmt.Modify(ctx, path, tarfmt.Changes{
     Rename: []tarfmt.Rename{{From: "a", To: "b/a"}},
     Mkdir:  []string{"new/folder"},
     Add:    []string{"/local/file"}, AddOptions: tarfmt.CreateOptions{Prefix: "dir"}, // replaces same names
+    AddTo:  []tarfmt.AddItem{{Source: "/local/x", Dest: "sub/y.txt"}}, // own name per source
     Level:  0, Progress: fn,
 })
 ```
+
+Adding a file under the name of a folder that keeps its contents, or below a
+name that stays a file, is refused with an `fs.ErrExist` entry error (as zip
+does). An archive path that is a symbolic link is resolved first, so `Modify`
+and `Create` update the real archive and keep the link.
 
 One rewrite with the same compression; the original is replaced only on success
 (errors and cancel leave it untouched). Single-file formats return
