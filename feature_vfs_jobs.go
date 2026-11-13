@@ -38,6 +38,8 @@ type VfsJobs struct {
 	mu   sync.Mutex
 	seq  int
 	jobs map[int]*vfsJob
+	// started, when set, sees each job as it is registered (tests: a short job can be over before anyone looks it up).
+	started func(*vfsJob)
 }
 
 func init() {
@@ -129,6 +131,9 @@ func (js *VfsJobs) Start(req VfsRequest) (int, error) {
 	job := &vfsJob{js: js, req: req, ctx: ctx, cancel: cancel, answers: make(chan fileops.Answer, 1), policy: req.Overwrite, start: time.Now()}
 	job.p.ID, job.p.Kind, job.p.State, job.p.Target, job.p.ETA = id, fileops.Kind(req.Kind), fileops.StateRunning, req.Target, -1
 	js.jobs[id] = job
+	if js.started != nil {
+		js.started(job)
+	}
 	js.mu.Unlock()
 	go job.run()
 	return id, nil

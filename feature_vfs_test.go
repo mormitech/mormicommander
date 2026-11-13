@@ -31,6 +31,10 @@ func vfsWrite(t *testing.T, p, s string) {
 // vfsRun starts a job and waits for it; it returns the job's errors.
 func vfsRun(t *testing.T, js *VfsJobs, req VfsRequest) *vfsJob {
 	t.Helper()
+	var job *vfsJob
+	js.mu.Lock()
+	js.started = func(j *vfsJob) { job = j }
+	js.mu.Unlock()
 	id, err := js.Start(req)
 	if err != nil {
 		t.Fatalf("%s: %v", req.Kind, err)
@@ -38,9 +42,6 @@ func vfsRun(t *testing.T, js *VfsJobs, req VfsRequest) *vfsJob {
 	if id == 0 {
 		t.Fatalf("%s: the job was not taken", req.Kind)
 	}
-	js.mu.Lock()
-	job := js.jobs[id]
-	js.mu.Unlock()
 	deadline := time.Now().Add(20 * time.Second)
 	for js.Running() {
 		if time.Now().After(deadline) {
