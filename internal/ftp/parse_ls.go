@@ -175,7 +175,11 @@ func parseUnix(line string, opt ParseOptions) (Entry, bool) {
 		e.Group = mid[1].s
 	}
 
-	name := restAfter(line, toks[last])
+	// ls separates the name from the time or year with exactly one space
+	// (the columns before it are padded, the name never is), so only that
+	// one separator is removed: a name that itself starts with spaces must
+	// survive, or " a" and "a" would collapse into the same entry.
+	name := nameAfter(line, toks[last])
 	if e.Type == TypeLink {
 		if n, target, ok := strings.Cut(name, " -> "); ok {
 			name, e.Target = n, target
@@ -183,6 +187,17 @@ func parseUnix(line string, opt ParseOptions) (Entry, bool) {
 	}
 	e.Name = name
 	return e, true
+}
+
+// nameAfter returns the text after token t minus the single blank that
+// separates it from the name. Leading blanks beyond that one belong to the
+// name itself.
+func nameAfter(line string, t token) string {
+	rest := line[t.end:]
+	if rest != "" && (rest[0] == ' ' || rest[0] == '\t') {
+		rest = rest[1:]
+	}
+	return rest
 }
 
 // isoDate parses "2006-01-02".

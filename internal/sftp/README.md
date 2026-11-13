@@ -45,7 +45,7 @@ defer c.Close()
 
 entries, _ := c.ReadDir(c.StartDir())  // []remotefs.Entry, links resolved
 c.Mkdir(p); c.MkdirAll(p); c.Remove(p); c.RemoveAll(ctx, p, onItem)
-c.Rename(a, b)                          // fs.ErrExist if b exists
+c.Rename(a, b)                          // fs.ErrExist if b exists; case-only renames allowed
 c.RenameOverwrite(a, b)
 c.Chmod(p, 0o644); c.Chtimes(p, at, mt); c.Symlink(target, link)
 n, err := c.Download(ctx, remote, local, remotefs.TransferOptions{
@@ -70,7 +70,13 @@ Helpers: `AddKnownHost`, `RemoveKnownHost` (handles hashed entries),
   (`*HostKeyError` carries the details for a later dialog).
 - `@revoked` keys in known_hosts fail with `ErrHostKeyRevoked` and are never
   offered to the prompt.
-- SCP download refuses server-sent names containing `/`, `\` or `..`.
+- SCP download refuses server-sent names containing `/`, `\` or `..`, names
+  that are not valid local names on this OS (`CON`, `x:stream` on Windows),
+  and any top-level item other than the one requested (CVE-2019-6111).
+- `DownloadTree` refuses server names that would not stay inside the local
+  folder on this OS (e.g. `..\x` on Windows).
+- `Rename` / `RenameOverwrite` allow changing only the letter case on
+  case-insensitive servers (Windows OpenSSH, macOS).
 - Agent transport: `$SSH_AUTH_SOCK` Unix socket (macOS/Linux), the
   `\\.\pipe\openssh-ssh-agent` named pipe on Windows.
 

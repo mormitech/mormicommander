@@ -146,6 +146,11 @@ type TreeResult struct {
 	Files int
 	Dirs  int
 	Bytes int64
+	// Skipped lists the remote paths DownloadTree left out: links the
+	// server would not deliver as files (links to folders, broken links)
+	// and special entries such as devices or pipes. The caller shows them
+	// so the user knows the copy is not complete.
+	Skipped []string
 }
 
 // UploadTree copies the local folder localDir into remoteDir (created if
@@ -195,7 +200,11 @@ func (c *Client) UploadTree(ctx context.Context, localDir, remoteDir string, opt
 
 // DownloadTree copies the remote folder remoteDir into the local folder
 // localDir (created if needed), keeping the folder structure. Remote
-// symbolic links are skipped.
+// symbolic links are downloaded as the file they point to, the way Total
+// Commander does it (RETR follows the link on the server). Links the server
+// refuses to deliver as a file (links to folders, broken links) and other
+// special entries are not followed; they are listed in TreeResult.Skipped
+// instead of being dropped silently.
 func (c *Client) DownloadTree(ctx context.Context, remoteDir, localDir string, opt TreeOptions) (TreeResult, error) {
 	var res TreeResult
 	if err := os.MkdirAll(localDir, 0o777); err != nil {
@@ -231,6 +240,26 @@ func (c *Client) DownloadTree(ctx context.Context, remoteDir, localDir string, o
 				return err
 			}
 			res.Files++
+		case TypeLink:
+			if opt.OnFile != nil && !opt.OnFile(lp, rp, -1) {
+				return nil
+			}
+			n, err := c.Download(ctx, rp, lp, opt.TransferOptions)
+			res.Bytes += n
+			if err != nil {
+				// A permanent refusal (550 "not a plain file") means the
+				// link points at a folder or nowhere. Folders behind
+				// links are not followed, so a link loop cannot make
+				// the copy run forever.
+				if code := ReplyCode(err); code >= 500 && code < 600 && n == 0 {
+					res.Skipped = append(res.Skipped, rp)
+					return nil
+				}
+				return err
+			}
+			res.Files++
+		default:
+			res.Skipped = append(res.Skipped, rp)
 		}
 		return nil
 	})

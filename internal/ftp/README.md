@@ -67,7 +67,13 @@ symlinks), DOS/IIS, VMS, EPLF, OS/400 and finally a bare-name fallback.
   `ASCIIMasks`, default `DefaultASCIIMasks`; `IsASCIIName`,
   `TransferTypeFor`). ASCII downloads convert CRLF to the local newline
   (LF on macOS/Linux, unchanged on Windows). Resume uses REST and is refused
-  in ASCII mode (`ErrResumeASCII`).
+  in ASCII mode (`ErrResumeASCII`). A resume whose target is already larger
+  than the source fails with `ErrResumeTooLarge` and leaves both sides alone.
+* `DownloadTree` downloads remote symlinks as the file they point to; links
+  the server will not deliver as files (folders, broken) and special entries
+  are listed in `TreeResult.Skipped` so the UI can tell the user.
+* UNIX `LIST` names keep leading spaces (only the single separator after the
+  date is removed).
 
 ## Connection manager
 

@@ -28,10 +28,14 @@ func (e *Error) Temporary() bool { return e.Code >= 400 && e.Code < 500 }
 
 // Sentinel errors.
 var (
-	ErrClosed          = errors.New("ftp: connection closed")
-	ErrNotSupported    = errors.New("ftp: not supported by the server")
-	ErrActiveViaProxy  = errors.New("ftp: active mode is not possible through a SOCKS or HTTP proxy")
-	ErrResumeASCII     = errors.New("ftp: resuming is not possible in ASCII mode")
+	ErrClosed         = errors.New("ftp: connection closed")
+	ErrNotSupported   = errors.New("ftp: not supported by the server")
+	ErrActiveViaProxy = errors.New("ftp: active mode is not possible through a SOCKS or HTTP proxy")
+	ErrResumeASCII    = errors.New("ftp: resuming is not possible in ASCII mode")
+	// ErrResumeTooLarge means a resume was asked for but the existing
+	// target is already larger than the source, so it cannot be a partial
+	// copy of it. The target is left untouched.
+	ErrResumeTooLarge  = errors.New("ftp: cannot resume: target is larger than the source")
 	ErrLoginFailed     = errors.New("ftp: login failed")
 	ErrTLSRefused      = errors.New("ftp: server refused TLS (AUTH TLS)")
 	ErrBadLine         = errors.New("ftp: command or path contains a line break")

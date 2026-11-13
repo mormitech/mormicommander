@@ -6,7 +6,10 @@
 // complements rather than replaces the SFTP client. The download side checks
 // every name the server sends and refuses ones containing "/" or "..": a
 // malicious server must not be able to write outside the chosen folder (the
-// mistake behind CVE-2019-6111 in the original scp).
+// mistake behind CVE-2019-6111 in the original scp). It also accepts only
+// the one item that was asked for at the top level, under its own name, so
+// a hostile server cannot drop extra files (say a ".bashrc") into the
+// target folder next to the requested one.
 package sftp
 
 import (
@@ -336,6 +339,24 @@ func (c *Client) SCPDownload(ctx context.Context, remote, local string, opts SCP
 	var pmtime, patime time.Time
 	var warnings []error
 	first := true
+	// The top level may carry exactly one item: the one requested, with
+	// its own base name. Anything else is the second half of
+	// CVE-2019-6111 (a server sending files nobody asked for).
+	wantName := path.Base(c.abs(remote))
+	topSeen := false
+	checkTop := func(name string) error {
+		if len(stack) > 0 {
+			return nil
+		}
+		if topSeen {
+			return fmt.Errorf("scp: server sent %q in addition to the requested item", name)
+		}
+		if targetIsDir && name != wantName {
+			return fmt.Errorf("scp: server sent %q instead of the requested %q", name, wantName)
+		}
+		topSeen = true
+		return nil
+	}
 
 	// destFor picks the local path for a received item name.
 	destFor := func(name string) string {
@@ -384,6 +405,9 @@ func (c *Client) SCPDownload(ctx context.Context, remote, local string, opts SCP
 			if err != nil {
 				return total, err
 			}
+			if err := checkTop(name); err != nil {
+				return total, err
+			}
 			dst := destFor(name)
 			first = false
 			if err := os.MkdirAll(dst, 0o755); err != nil {
@@ -412,6 +436,9 @@ func (c *Client) SCPDownload(ctx context.Context, remote, local string, opts SCP
 		case 'C':
 			mode, size, name, err := parseSCPHeader(line)
 			if err != nil {
+				return total, err
+			}
+			if err := checkTop(name); err != nil {
 				return total, err
 			}
 			dst := destFor(name)
@@ -484,7 +511,9 @@ func parseSCPHeader(line string) (fs.FileMode, int64, string, error) {
 		return 0, 0, "", fmt.Errorf("scp: bad size in %q", line)
 	}
 	name := parts[2]
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") {
+	// filepath.IsLocal also rejects names this OS cannot store safely,
+	// such as "x:stream" or "CON" on Windows.
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\\") || !filepath.IsLocal(name) {
 		return 0, 0, "", fmt.Errorf("scp: server sent unsafe file name %q", name)
 	}
 	return fs.FileMode(mode).Perm(), size, name, nil

@@ -289,7 +289,13 @@ func (c *Client) Download(ctx context.Context, remote, local string, opt Transfe
 	flags := os.O_CREATE | os.O_WRONLY | os.O_TRUNC
 	if opt.Resume && t == 'I' {
 		if fi, err := os.Stat(local); err == nil && fi.Mode().IsRegular() && fi.Size() > 0 {
-			if total >= 0 && fi.Size() >= total {
+			if total >= 0 && fi.Size() > total {
+				// A larger local file cannot be a partial copy of the
+				// remote one; it is stale or different. Leave it alone
+				// and say so instead of reporting success.
+				return 0, fmt.Errorf("%w: %s", ErrResumeTooLarge, local)
+			}
+			if total >= 0 && fi.Size() == total {
 				if opt.Progress != nil {
 					opt.Progress(fi.Size(), total)
 				}
@@ -360,7 +366,13 @@ func (c *Client) Upload(ctx context.Context, local, remote string, opt TransferO
 	var offset int64
 	if opt.Resume && t == 'I' {
 		if rs, err := c.Size(ctx, remote); err == nil && rs > 0 {
-			if rs >= fi.Size() {
+			if rs > fi.Size() {
+				// The remote file is larger than the local source, so it
+				// is not a partial upload of it; refuse rather than hide
+				// a stale or different file behind a "success".
+				return 0, fmt.Errorf("%w: %s", ErrResumeTooLarge, remote)
+			}
+			if rs == fi.Size() {
 				if opt.Progress != nil {
 					opt.Progress(fi.Size(), fi.Size())
 				}

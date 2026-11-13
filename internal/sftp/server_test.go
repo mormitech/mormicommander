@@ -51,7 +51,8 @@ type testServer struct {
 
 	// behaviour switches
 	noSFTP      bool
-	scpEvil     bool // scp -f sends a "../evil" file name
+	scpEvil     bool     // scp -f sends a "../evil" file name
+	scpSend     []string // scp -f sends these top-level file names, content "evil"
 	keepalives  atomic.Int32
 	logins      atomic.Int32
 	kbdOnly     bool   // no plain password method
@@ -71,6 +72,9 @@ func withExtraHostKey(k ssh.Signer) serverOpt {
 	return func(s *testServer) { s.extraKeys = append(s.extraKeys, k) }
 }
 func withSCPEvil() serverOpt { return func(s *testServer) { s.scpEvil = true } }
+func withSCPSend(names ...string) serverOpt {
+	return func(s *testServer) { s.scpSend = names }
+}
 
 func newSigner(t *testing.T) ssh.Signer {
 	t.Helper()
@@ -459,6 +463,19 @@ func (s *testServer) scpSource(ch ssh.Channel, br *bufio.Reader, p string, prese
 		}
 		ch.Write([]byte("evil\x00"))
 		readAck()
+		return 0
+	}
+	if len(s.scpSend) > 0 {
+		for _, n := range s.scpSend {
+			fmt.Fprintf(ch, "C0644 4 %s\n", n)
+			if !readAck() {
+				return 1
+			}
+			ch.Write([]byte("evil\x00"))
+			if !readAck() {
+				return 1
+			}
+		}
 		return 0
 	}
 	fi, err := os.Stat(p)

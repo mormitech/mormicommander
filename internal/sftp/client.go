@@ -21,6 +21,7 @@ import (
 	"net"
 	"os"
 	"path"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -594,13 +595,37 @@ func (c *Client) Rename(oldPath, newPath string) error {
 	}
 	defer end()
 	oldPath, newPath = c.abs(oldPath), c.abs(newPath)
-	if _, err := c.sftp.Lstat(newPath); err == nil && oldPath != newPath {
+	if _, err := c.sftp.Lstat(newPath); err == nil && oldPath != newPath && !c.caseOnlyRename(oldPath, newPath) {
 		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: fs.ErrExist}
 	}
 	if err := c.sftp.Rename(oldPath, newPath); err != nil {
 		return &os.LinkError{Op: "rename", Old: oldPath, New: newPath, Err: err}
 	}
 	return nil
+}
+
+// caseOnlyRename reports whether renaming oldPath to newPath only changes
+// the letter case and newPath "exists" merely because the server's file
+// system ignores case (Windows OpenSSH, macOS). Then Lstat(newPath) finds
+// the old file itself, which must neither block the rename (Total
+// Commander allows Shift+F6 to change only the case) nor be deleted as an
+// "existing destination". The parent listing decides: when no entry has
+// exactly the new name, the hit was the old file under another spelling.
+func (c *Client) caseOnlyRename(oldPath, newPath string) bool {
+	if oldPath == newPath || !strings.EqualFold(oldPath, newPath) {
+		return false
+	}
+	list, err := c.sftp.ReadDir(path.Dir(newPath))
+	if err != nil {
+		return false
+	}
+	base := path.Base(newPath)
+	for _, fi := range list {
+		if fi.Name() == base {
+			return false // a real, distinct file with exactly that name
+		}
+	}
+	return true
 }
 
 // RenameOverwrite renames, replacing an existing destination file. It uses
@@ -619,7 +644,7 @@ func (c *Client) RenameOverwrite(oldPath, newPath string) error {
 		}
 		return nil
 	}
-	if fi, err := c.sftp.Lstat(newPath); err == nil && !fi.IsDir() {
+	if fi, err := c.sftp.Lstat(newPath); err == nil && !fi.IsDir() && !c.caseOnlyRename(oldPath, newPath) {
 		if err := c.sftp.Remove(newPath); err != nil {
 			return pathErr("remove", newPath, err)
 		}

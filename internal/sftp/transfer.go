@@ -366,8 +366,11 @@ func (c *Client) DownloadTree(ctx context.Context, remoteRoot, localDir string, 
 		if err != nil {
 			return err
 		}
-		rel, _ := relSlash(base, e.Path)
-		dst := filepath.Join(localDir, filepath.FromSlash(rel))
+		rel, err := localRel(base, e.Path)
+		if err != nil {
+			return err
+		}
+		dst := filepath.Join(localDir, rel)
 		if e.IsLink {
 			fi, err := c.Stat(e.Path)
 			if err != nil || fi.IsDir {
@@ -483,6 +486,24 @@ func (c *Client) TreeSize(ctx context.Context, root string) (files, dirs int, by
 }
 
 // relSlash returns target relative to base for slash paths.
+// localRel turns a remote path below base into a relative local path that
+// is guaranteed to stay inside the destination folder. Names come from the
+// server: one with backslashes ("..\\x") is a plain name to the server but a
+// path that climbs out of the folder on Windows, and "CON" or "a:b" cannot
+// be stored there at all, so the relative path must be local on this OS
+// before it is joined to the destination.
+func localRel(base, target string) (string, error) {
+	rel, err := relSlash(base, target)
+	if err != nil {
+		return "", err
+	}
+	lrel := filepath.FromSlash(rel)
+	if !fs.ValidPath(rel) || !filepath.IsLocal(lrel) {
+		return "", fmt.Errorf("sftp: refusing to download %q: not a safe local name", target)
+	}
+	return lrel, nil
+}
+
 func relSlash(base, target string) (string, error) {
 	if base == "/" {
 		return target[1:], nil
