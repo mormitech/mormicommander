@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.20 – 2026-11-13
+
+### Added
+
+- Copy path: on macOS, Option+Shift+Cmd+C copies the source folder's path (the key had no binding before).
+- New command "Copy names with full path, quoted" (Mark menu, no default key): copies each full path in double quotes,
+  one per line. On Windows only the quotes are added; elsewhere backslash, double quote, $ and backquote are escaped so
+  the path pastes into a shell exactly.
+- The copy-path items (F-139, F-141, F-142, F-796) are ticked in docs/FEATURES.md.
+
 ## 0.9.19 – 2026-11-13
 
 ### Added
