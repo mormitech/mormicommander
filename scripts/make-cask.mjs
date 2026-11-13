@@ -14,8 +14,10 @@ const root = resolve(import.meta.dirname, '..');
 const args = process.argv.slice(2);
 const localAt = args.indexOf('--local');
 const localDir = localAt >= 0 ? resolve(args[localAt + 1]) : null;
-const version = args.find((a, i) => !a.startsWith('--') && (localAt < 0 || i !== localAt + 1))
-  ?? JSON.parse(readFileSync(join(root, 'wails.json'), 'utf8')).info.productVersion;
+const info = JSON.parse(readFileSync(join(root, 'wails.json'), 'utf8')).info;
+const version = args.find((a, i) => !a.startsWith('--') && (localAt < 0 || i !== localAt + 1)) ?? info.productVersion;
+// the macOS bundle identifier, for the files the system keeps under it (removed by `brew uninstall --zap` only)
+const bundleID = info.bundleIdentifier;
 
 const repo = 'mormitech/mormicommander';
 const files = {
@@ -73,7 +75,14 @@ process.stdout.write(`cask "mormicommander" do
           must_succeed: false
     end
 
-    zap trash: "~/Library/Application Support/mormicommander"
+    zap trash: [
+      "~/Library/Application Support/mormicommander",
+      "~/Library/Caches/${bundleID}",
+      "~/Library/HTTPStorages/${bundleID}",
+      "~/Library/Preferences/${bundleID}.plist",
+      "~/Library/Saved Application State/${bundleID}.savedState",
+      "~/Library/WebKit/${bundleID}",
+    ]
   end
 
   on_linux do

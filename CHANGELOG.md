@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.22 – 2026-11-13
+
+### Changed
+
+- The macOS bundle identifier is now com.mormitech.mormicommander (it was com.wails.mormicommander). It is kept in one
+  place, wails.json, and filled into the macOS Info.plist and the Windows manifest by scripts/build.sh. The control-mode
+  `info` command also reports it as `bundleId`. `brew uninstall --zap` now also removes the Library folders named after
+  the ID. Settings stay where they are. macOS ties permissions such as Full Disk Access to the bundle ID, so they must be
+  granted again after updating.
+
 ## 0.9.21 – 2026-11-13
 
 ### Fixed

@@ -30,7 +30,7 @@ or change your settings. `--demo` does the same by itself.
 |---|---|
 | `POST /cmd` | one command, a JSON object with `"cmd"`; the answer is JSON, `{"error": "…"}` when it failed |
 | `POST /batch` | a JSON list of commands, done one after the other; stops at the first error (`?continue=1` goes on) |
-| `GET /info` | version, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`, `maximised`), `title`, `demo`, Go `features`, `windows` (the open windows by name: `main`, `about`) |
+| `GET /info` | version, `bundleId`, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`, `maximised`), `title`, `demo`, Go `features`, `windows` (the open windows by name: `main`, `about`) |
 
 Commands that change something wait until the app is idle (folders read, the screen painted) and answer with the same
 object as `state`, so a script can check the result at once.

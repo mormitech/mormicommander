@@ -23,7 +23,8 @@ for a in "$@"; do
   esac
 done
 
-# info KEY: a field of wails.json's "info" (productVersion, productName, copyright, comments, companyName).
+# info KEY: a field of wails.json's "info" (productVersion, productName, bundleIdentifier, copyright, comments,
+# companyName).
 info() { node -p "require('./wails.json').info.$1"; }
 version=$(info productVersion)
 goos=${GOOS:-$(go env GOOS)}
@@ -44,7 +45,7 @@ mkdir -p build/bin
 
 # fill FILE: the file with @VERSION@ and the other wails.json values put in, on stdout.
 fill() {
-  sed -e "s|@VERSION@|$version|g" -e "s|@PRODUCT_NAME@|$(info productName)|g" -e "s|@COPYRIGHT@|$(info copyright)|g" \
+  sed -e "s|@VERSION@|$version|g" -e "s|@BUNDLE_ID@|$(info bundleIdentifier)|g" -e "s|@PRODUCT_NAME@|$(info productName)|g" -e "s|@COPYRIGHT@|$(info copyright)|g" \
     -e "s|@COMMENTS@|$(info comments)|g" "$1"
 }
 

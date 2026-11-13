@@ -194,7 +194,7 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 			w, h = win.Size()
 			maxed = win.IsMaximised()
 		}
-		return map[string]any{"ok": true, "version": version(), "pid": os.Getpid(), "windowId": a.windowID(), "x": x, "y": y, "w": w, "h": h,
+		return map[string]any{"ok": true, "version": version(), "bundleId": bundleID(), "pid": os.Getpid(), "windowId": a.windowID(), "x": x, "y": y, "w": w, "h": h,
 			"demo": a.mock != nil, "platform": runtime.GOOS, "features": featureNames(), "settings": settingsPath(), "title": a.windowTitle(),
 			"maximised": maxed, "windows": a.windowNames()}, nil
 	case "menu": // what choosing a menu item does: {name: "cm_MatchSrc"} (the native menu can't be clicked from outside)

@@ -8,7 +8,8 @@
   "info": {
     "companyName": "Mormitech",
     "productName": "mormiCommander",
-    "productVersion": "0.9.21",
+    "bundleIdentifier": "com.mormitech.mormicommander",
+    "productVersion": "0.9.22",
     "copyright": "Copyright (c) 2026 mormiCommander contributors",
     "comments": "Two-panel file manager."
   }
