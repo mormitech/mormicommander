@@ -1,0 +1,72 @@
+/* The Multi-Rename tool window (features/multirename.js). It is a page dialog (.mc-box) made big and resizable. */
+.mc-box.mc-multirename { width: min(1120px, 96vw); max-width: 98vw; height: min(760px, 92vh); max-height: 96vh; min-width: 560px; min-height: 380px;
+    display: flex; flex-direction: column; overflow: hidden; resize: both; padding: 12px 14px 10px; }
+.mc-multirename h2 { margin-bottom: 8px; }
+.mc-multirename-top { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; flex: none; }
+.mc-multirename-g { border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px 6px; margin: 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.mc-multirename-g legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+.mc-multirename-gname { flex: 2 1 280px; }
+.mc-multirename-gext { flex: 1 1 180px; }
+.mc-multirename-gsearch { flex: 2 1 260px; }
+.mc-multirename-col { flex: 1 1 200px; display: flex; flex-direction: column; gap: 6px; }
+.mc-multirename input[type=text], .mc-multirename input[type=number], .mc-multirename select { width: 100%; padding: 3px 6px; box-sizing: border-box; font-family: var(--mono); }
+.mc-multirename select { font-family: inherit; }
+.mc-multirename-ph { display: flex; flex-wrap: wrap; gap: 3px; }
+.mc-multirename-ph button { padding: 1px 6px; font-size: 12px; }
+.mc-multirename-l { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+.mc-multirename-l input { color: var(--text); font-size: 13px; }
+.mc-multirename-checks { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.mc-multirename-checks label, .mc-multirename-c { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+.mc-multirename-gcount { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px 6px; }
+.mc-multirename-gcount legend { grid-column: 1 / -1; }
+.mc-multirename-gcount .mc-multirename-c { grid-column: 1 / -1; }
+.mc-multirename-n { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+.mc-multirename-n input, .mc-multirename-n select { color: var(--text); }
+.mc-multirename-ferr { color: var(--danger); font-size: 12px; margin: 0; }
+.mc-multirename-ferr[hidden] { display: none; }
+.mc-multirename .mc-multirename-badfield { border-color: var(--danger); outline: 1px solid var(--danger); }
+
+.mc-multirename-warn { flex: none; margin: 6px 0 0; padding: 4px 8px; border-radius: 5px; border: 1px solid var(--line); background: var(--hover); font-size: 12px; }
+.mc-multirename-warn[hidden] { display: none; }
+
+.mc-multirename-list { flex: 1 1 auto; min-height: 120px; overflow: auto; margin-top: 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); outline: none; }
+.mc-multirename-list:focus-visible { border-color: var(--accent); }
+.mc-multirename-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.mc-multirename-list th { position: sticky; top: 0; z-index: 1; background: var(--panel); color: var(--muted); font-weight: 500; text-align: left; padding: 3px 8px;
+    border-bottom: 1px solid var(--line); white-space: nowrap; user-select: none; }
+.mc-multirename-list th[data-sort] { cursor: pointer; }
+.mc-multirename-list th.sorted::after { content: ' ▲'; font-size: 10px; }
+.mc-multirename-list th.sorted.desc::after { content: ' ▼'; }
+.mc-multirename-list td { padding: 1px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 40vw; font-family: var(--mono); }
+.mc-multirename-list .num { text-align: right; }
+.mc-multirename-list tbody tr:nth-child(even) { background: var(--row-alt); }
+.mc-multirename-list tr.changed td.new { color: var(--accent); }
+.mc-multirename-list tr.warn td.new { color: var(--muted); font-style: italic; }
+.mc-multirename-list tr.bad td.new { color: var(--danger); font-weight: 600; }
+.mc-multirename-list tbody tr.sel { background: var(--cur-off); }
+.mc-multirename-list:focus tbody tr.sel { background: var(--cur); }
+.mc-multirename-list:focus tr.focus { box-shadow: inset 0 0 0 1px var(--accent); }
+.mc-multirename-list tr.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+.mc-multirename-list tr.drop-after { box-shadow: inset 0 -2px 0 var(--accent); }
+.mc-multirename-dir { color: var(--muted); margin-right: 4px; }
+.mc-multirename-path { display: none; }
+.mc-multirename-multi .mc-multirename-path { display: table-cell; }
+
+.mc-multirename-status { flex: none; color: var(--muted); font-size: 12px; margin: 6px 0 0; min-height: 1.3em; }
+.mc-multirename-btns { flex: none; justify-content: flex-start; align-items: center; }
+.mc-multirename-gap { flex: 1; }
+.mc-multirename-busy .mc-multirename-btns button, .mc-multirename-busy .mc-multirename-top { opacity: .6; pointer-events: none; }
+
+.mc-multirename-menu { position: absolute; z-index: 5; min-width: 200px; max-height: 60vh; overflow: auto; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 6px; box-shadow: 0 8px 26px #0007; padding: 4px; display: flex; flex-direction: column; }
+.mc-multirename-menu button { text-align: left; border: 0; background: transparent; padding: 4px 10px; border-radius: 4px; white-space: nowrap; color: var(--text); }
+.mc-multirename-menu button:hover, .mc-multirename-menu button:focus { background: var(--hover); outline: none; }
+.mc-multirename-menu button:disabled { color: var(--muted); opacity: .6; }
+.mc-multirename-menu .sep { height: 1px; background: var(--line); margin: 3px 4px; }
+
+.mc-multirename-rangetext { font-family: var(--mono); letter-spacing: 1px; }
+.mc-multirename-rangenums { display: flex; gap: 10px; margin-bottom: 6px; }
+.mc-multirename-rangenums label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); font-size: 12px; }
+.mc-multirename-rangenums input { width: 80px; }
+.mc-multirename-info { min-width: min(640px, 90vw); }
+.mc-multirename-result { width: 100%; min-height: 260px; box-sizing: border-box; font-family: var(--mono); font-size: 12px; white-space: pre; resize: vertical; }

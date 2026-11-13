@@ -224,3 +224,19 @@ all results share); file commands work on the real files.
   row, side, modified sides, encodings, the rows around the cursor).
 - Compare folders (`cm_CompareDirs`, `cm_CompareDirsWithSubdirs`, `cm_CompareDirsHideEqual`) selects in both panels;
   "No differences found." is a dialog of kind `comparedirs`.
+
+## Multi-Rename tool
+
+The window (Ctrl+M) is a page dialog of kind `multirename`: `dialog` lists its fields (`mr-name`, `mr-ext`,
+`mr-search`, `mr-replace`, `mr-case`, `mr-first`, `mr-inext`, `mr-regex`, `mr-subst`, `mr-casemode`, `mr-accents`,
+`mr-cstart`, `mr-cstep`, `mr-cdigits`, `mr-creset`, `mr-dirext`) and buttons (placeholder buttons, `Start!`, `Undo`,
+`Close`…); `dialog_answer` presses them (with no button it presses `Start!`). F2 opens the settings menu, whose items are
+buttons of the same dialog while it is open.
+
+| command | arguments | does |
+|---|---|---|
+| `multirename` | `set` {field: value}, `sort` (name/ext/size/date/path), `order` [old indices], `select` [indices], `refresh` | fills fields without pressing a button and waits for the preview; returns `open`, `rows` [{old, new, dir, isDir, problems, warnings}], `changes`, `errors`, `field`/`fieldError` (mask or regex mistake), `warnings`, `names` (loaded names, -1 none), `steps`, `status`, `presets`, `undo`, `menu` (items of an open menu) |
+
+`MORMICOMMANDER_NO_EDITOR=1` makes "Edit names" (F3) write the temporary file without opening an editor, so a test
+can change the file itself. `cm_MultiRenameFiles` with `{"param": "<UNDO>"}` undoes the last batch after asking,
+`{"param": "==<UNDO>"}` without asking.
