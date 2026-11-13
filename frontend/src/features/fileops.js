@@ -57,7 +57,11 @@ function describe(items) {
 }
 
 const trashWord = (app) => (app.platform === 'windows' ? 'Recycle Bin' : app.platform === 'darwin' ? 'Trash' : 'trash');
-const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
+// (a Feed to listbox result list, find://results-N, is not remote: its names map to the real files, see find.js)
+const isFeed = (p) => /^find:\/\//i.test(p || '');
+const isRemote = (p) => !isFeed(p) && /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
+// fromOf: the folder a relative target is read from (for a result list, the folder of the first item)
+const fromOf = (src, items) => (isFeed(src.path) && items.length ? src.fullPath(items[0].name).replace(/[\\/][^\\/]*$/, '') || '/' : src.path);
 const sepOf = (app, p) => app.sepFor(p);
 const withSep = (app, p) => (p.endsWith('/') || p.endsWith('\\') ? p : p + sepOf(app, p));
 
@@ -239,7 +243,7 @@ function copyDialog(app, { move, same, items }) {
       busy = true;
       try {
         let t;
-        try { t = await go.Jobs.ParseTarget(text, items.length, src.path); } catch (e) { err(errText(e)); return; }
+        try { t = await go.Jobs.ParseTarget(text, items.length, fromOf(src, items)); } catch (e) { err(errText(e)); return; }
         // Like TC, refuse a folder into itself here, before asking to make (and so making) a target inside it.
         const self = items.filter((e) => e.dir && insidePath(app, t.dir, src.fullPath(e.name)));
         if (self.length && self.length === items.length) {
@@ -284,7 +288,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
   let a;
   if (!same && !opt(app, 'confirmCopy')) {
     // no dialog (Configuration: confirmCopy off): straight to the other panel with the default options
-    const t = await go.Jobs.ParseTarget(withSep(app, dst.path), items.length, src.path);
+    const t = await go.Jobs.ParseTarget(withSep(app, dst.path), items.length, fromOf(src, items));
     a = { text: '', t, queued: false, filter: '', overwrite: opt(app, 'overwriteDefault'), verify: opt(app, 'verify'), dates: opt(app, 'copyTimes'),
       perms: opt(app, 'copyPermissions'), owner: opt(app, 'copyOwner'), attrs: opt(app, 'copyAttributes'), links: !opt(app, 'followLinks'),
       bigfile: opt(app, 'bigFileMode'), ignoreErrors: opt(app, 'ignoreErrors') };

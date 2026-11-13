@@ -44,7 +44,8 @@ async function updateInfo(p) {
   }
   const what = info.kind === 'archive' ? (info.format || 'archive').toUpperCase() : info.kind.toUpperCase();
   badge.textContent = info.readOnly ? `${what} · read-only` : what;
-  badge.title = info.kind === 'archive'
+  badge.title = info.kind === 'results' ? 'Search results (Feed to listbox): file commands work on the real files. ".." goes back.'
+    : info.kind === 'archive'
     ? `Inside the archive ${info.archive}${info.readOnly ? ' (it can be read, not changed)' : ''}. ".." leaves it.`
     : `On a server${info.readOnly ? ' (read-only)' : ''}.`;
 }

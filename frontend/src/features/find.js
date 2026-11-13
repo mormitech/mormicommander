@@ -452,10 +452,16 @@ async function gotoFile() {
 }
 
 // view / edit run the viewer and editor commands with the result paths (args.path, args.paths), F-540.
-function viewEdit(cmd) {
+// A file found inside an archive is viewed from a temporary copy (cm_List unpacks it through FS.LocalCopy); it can't be
+// edited from here yet. The result list gets the keys back when the Lister or the editor call is done.
+async function viewEdit(cmd) {
   const files = targets().filter((x) => !x.f);
   if (!files.length) { theApp.flash('Folders can\'t be viewed; choose a file.', 'err'); return; }
-  theApp.run(cmd, { path: files[0].p, paths: files.map((x) => x.p), from: 'find' });
+  if (cmd === 'cm_Edit' && files[0].a) { theApp.flash('Editing a file inside an archive is not ready yet. View it (F3), or use Go to file.', 'err'); return; }
+  const box = S.box;
+  await theApp.run(cmd, { path: files[0].p, paths: files.map((x) => x.p), from: 'find' });
+  const a = document.activeElement;
+  if (box && S.box === box && (!a?.closest('.mc-modal') || box.contains(a))) box.querySelector('.mc-find-list')?.focus({ preventScroll: true });
 }
 
 async function feed() {

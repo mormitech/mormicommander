@@ -45,7 +45,7 @@ func vfsIsLocal(r *vfs.Router, p string) bool { return r == nil || r.Kind(p) == 
 
 // PathInfo describes the place a panel shows, for its path bar badge and the commands that depend on it.
 type PathInfo struct {
-	Kind     string `json:"kind"`     // local, archive, ftp, sftp, other, unknown
+	Kind     string `json:"kind"`     // local, archive, ftp, sftp, results (find://), other, unknown
 	Format   string `json:"format"`   // archive format ("zip", "tar.gz", "7z", ...) inside an archive
 	Archive  string `json:"archive"`  // the panel path of the archive itself
 	Inner    string `json:"inner"`    // the folder inside the archive ("" at its root)
@@ -58,6 +58,10 @@ type PathInfo struct {
 func (f *FS) PathInfo(path string) PathInfo {
 	if f.router == nil {
 		return PathInfo{Kind: "local"}
+	}
+	if findFeedPath(path) {
+		// Feed to listbox: the names stand for real files, which every file command works on (not a server, not read-only)
+		return PathInfo{Kind: "results"}
 	}
 	kind := vfsPathKind(f.router, path)
 	info := PathInfo{Kind: kind, Remote: kind == "ftp" || kind == "sftp" || strings.Contains(path, "://")}

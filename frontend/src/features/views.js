@@ -589,7 +589,10 @@ async function readFolders(p, path) {
   const sep = theApp.sepFor(l.path);
   const join = (n) => (l.path.endsWith(sep) || l.path.endsWith('/') ? l.path + n : l.path + sep + n);
   const coll = new Intl.Collator(undefined, { sensitivity: 'base', numeric: !!theApp.setting('naturalSort', true) });
-  return (l.entries || []).filter((r) => (r[3] & 1) && (theApp.showHidden || !(r[3] & 4)))
+  // hidden folders stay out unless shown, except the ones on the way to the folder the panel was in (macOS hides
+  // /private, which holds every temp folder), so the tree can always reach and select that folder
+  const keep = vsOf(p).tree?.keep;
+  return (l.entries || []).filter((r) => (r[3] & 1) && (theApp.showHidden || !(r[3] & 4) || keep?.has(join(r[0]).toLowerCase())))
     .map((r) => r[0]).sort((a, b) => coll.compare(a, b)).map((n) => ({ name: n, path: join(n) }));
 }
 
@@ -620,7 +623,8 @@ async function enterTree(p) {
   const startPath = p.path, startName = p.cur?.up ? null : p.cur?.name;
   let root;
   try { root = await go.FS.Root(p.path); } catch { root = splitPath(p.path)[0]?.path || p.path; }
-  const tree = { root: { name: root, path: root, depth: 0, open: false, kids: null, parentNode: null }, nodes: [], at: 0, back: { path: startPath, focus: startName }, sync: 0 };
+  const chain = splitPath(startPath).map((x) => x.path).filter((x) => x.length > root.length);
+  const tree = { root: { name: root, path: root, depth: 0, open: false, kids: null, parentNode: null }, nodes: [], at: 0, back: { path: startPath, focus: startName }, sync: 0, keep: new Set(chain.map((x) => x.toLowerCase())) };
   vs.prev = { mode: vs.mode, set: vs.set };
   stopThumbs(p);
   vs.mode = 'tree';
@@ -629,7 +633,6 @@ async function enterTree(p) {
   // open the way down to the folder the panel shows
   let node = tree.root;
   await expand(p, node);
-  const chain = splitPath(startPath).map((x) => x.path).filter((x) => x.length > root.length);
   for (const want of chain) {
     const k = node.kids?.find((c) => c.path === want || c.path.toLowerCase() === want.toLowerCase());
     if (!k) break;
@@ -809,7 +812,7 @@ async function editComment(app) {
   try { text = await go.Views.Comment(p.path, e.name); } catch (err) { app.flash(errText(err), 'err'); return false; }
   const r = await formDialog('Change comment',
     `<div class="mc-row"><label for="comment">Comment for ${esc(e.name)}:</label><textarea id="comment" class="mc-views-ta" rows="4" spellcheck="false" autofocus data-select="0,${text.length}">${esc(text)}</textarea></div>`,
-    (box) => box.querySelector('#comment').value,
+    (box) => ({ text: box.querySelector('#comment').value }), // (a bare string would be read as a validation error)
     (box) => {
       const ta = box.querySelector('#comment');
       // Ctrl+Enter / Cmd+Enter saves, like the OK button (Enter makes a new line)
@@ -817,11 +820,12 @@ async function editComment(app) {
     },
     { kind: 'edit-comment' });
   if (r === null) return false;
-  try { await go.Views.SetComment(p.path, e.name, r); } catch (err) { app.flash(errText(err), 'err'); return false; }
+  const ctext = r.text;
+  try { await go.Views.SetComment(p.path, e.name, ctext); } catch (err) { app.flash(errText(err), 'err'); return false; }
   // (the reread brings descript.ion in or out of the list and new cells; the other panel may show the same folder)
   for (const q of app.panels) if (q !== p && q.path === p.path && isColumnMode(q)) requestCells(q, true);
   await p.reload();
-  app.flash(r.trim() ? `Comment saved for ${e.name}.` : `Comment removed from ${e.name}.`);
+  app.flash(ctext.trim() ? `Comment saved for ${e.name}.` : `Comment removed from ${e.name}.`);
   return true;
 }
 

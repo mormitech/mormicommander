@@ -42,6 +42,8 @@ async function openLister(app, { path, names = [], dir = '', panel = null, inter
     await lister.show(path);
     return;
   }
+  // (focus goes back where it was when the Lister closes: the panel, or the dialog it was opened from, like Find files)
+  const before = document.activeElement;
   const view = new ListerView(app, { internalOnly });
   try {
     await view.open(path, mode);
@@ -119,7 +121,8 @@ async function openLister(app, { path, names = [], dir = '', panel = null, inter
     window.removeEventListener('keydown', onKey, true);
     view.destroy();
     lister = null;
-    (state.panel || app.cur)?.$.list.focus({ preventScroll: true });
+    if (before && before !== document.body && before.isConnected && !state.box?.contains(before)) before.focus({ preventScroll: true });
+    else (state.panel || app.cur)?.$.list.focus({ preventScroll: true });
   }
 }
 
@@ -127,10 +130,15 @@ async function openLister(app, { path, names = [], dir = '', panel = null, inter
 // list. A folder gets its size counted instead (TC does that, and shows it in place of <DIR>).
 async function view(app, args = {}) {
   const p = app.cur;
-  if (args.path) { // control mode, or "Open with another app" in the Lister
-    if (args.external) return external(app, args.path);
-    const sep = app.sepFor(args.path);
-    return openLister(app, { path: args.path, names: [fileOf(args.path, sep)], dir: args.path.slice(0, args.path.lastIndexOf(sep)) || sep, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
+  if (args.path) { // control mode, Find files results, or "Open with another app" in the Lister
+    // a file inside an archive or on a server (a Find files result in an archive) is viewed from a temporary copy
+    let path = args.path;
+    try { path = await go.FS.LocalCopy(args.path) || args.path; } catch (err) {
+      if (!/is not available/.test(errText(err))) { app.flash(errText(err), 'err'); return; } // (no vfs feature: as it is)
+    }
+    if (args.external) return external(app, path);
+    const sep = app.sepFor(path);
+    return openLister(app, { path, names: [fileOf(path, sep)], dir: path.slice(0, path.lastIndexOf(sep)) || sep, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
   }
   const e = p.cur;
   if (!e || e.up) return;
