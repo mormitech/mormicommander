@@ -16,6 +16,7 @@ import { modal, messageDialog, formDialog, inputDialog, esc } from '../core/dial
 import { addControlCommand } from '../core/control.js';
 import { attr } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { maskKey } from './select-mask-keys.js';
 import './selection.css';
 
 const markDirs = (app) => !!app.setting('markDirectories', false);
@@ -152,6 +153,7 @@ const TITLES = {
 function groupDialog(app, select, kind) {
   const history = app.setting('selectHistory', []) || [];
   const value = history[0] || '*.*';
+  let onKey = () => false; // set once the box is built
   return modal((box, done) => {
     box.innerHTML = `<h2>${esc(TITLES[select][kind])}</h2>
       <div class="mc-row"><label for="mask">${select ? 'Select' : 'Unselect'} the ${kind === 'both' ? 'files and folders' : kind} that match:</label>
@@ -184,22 +186,19 @@ function groupDialog(app, select, kind) {
     const pick = (i) => { if (items[i]) { input.value = items[i].text; input.select(); } openList(false); input.focus(); };
     box.querySelector('.mc-select-drop').onclick = () => { openList(list.hidden); input.focus(); };
     list.onmousedown = (ev) => { const li = ev.target.closest('li[data-i]'); if (li) { ev.preventDefault(); pick(+li.dataset.i); } };
-    input.addEventListener('keydown', (ev) => {
-      const down = ev.key === 'ArrowDown', up = ev.key === 'ArrowUp';
-      if (down && ev.altKey) { ev.preventDefault(); openList(list.hidden); return; }
-      if (!list.hidden && items.length) {
-        if (down || up) { ev.preventDefault(); highlight(on < 0 ? 0 : on + (down ? 1 : -1)); return; }
-        if (ev.key === 'Enter' && on >= 0) { ev.preventDefault(); pick(on); return; }
-      } else if (down || up) {
-        // like TC's combo box: Up/Down step through the masks used before
-        const h = app.setting('selectHistory', []) || [];
-        if (!h.length) return;
-        ev.preventDefault();
-        at = Math.max(0, Math.min(h.length - 1, at + (down ? 1 : -1)));
-        input.value = h[at];
-        input.select();
-      }
-    });
+    // The mask box's keys (Alt+Down, Up/Down, Enter in the list) come through meta.onKey below: modal() stops key
+    // events before they reach the input, so a listener on the input itself would never run.
+    onKey = (ev) => {
+      if (ev.target !== input) return false;
+      const h = app.setting('selectHistory', []) || [];
+      const a = maskKey(ev, { listOpen: !list.hidden, count: items.length, on, at, historyLength: h.length });
+      if (!a) return false;
+      if (a.do === 'toggle') openList(list.hidden);
+      else if (a.do === 'highlight') highlight(a.index);
+      else if (a.do === 'pick') pick(a.index);
+      else if (a.do === 'step') { at = a.at; input.value = h[at]; input.select(); err.hidden = true; }
+      return true;
+    };
     input.addEventListener('input', () => { err.hidden = true; });
     box.querySelector('.mc-select-define').onclick = async () => {
       const r = await defineFilter(app, input.value.trim().startsWith('>') ? '' : input.value.trim());
@@ -216,7 +215,7 @@ function groupDialog(app, select, kind) {
       if (problem) { err.hidden = false; err.textContent = problem; input.focus(); return; }
       done(mask);
     };
-  }, null, { kind: select ? 'select-group' : 'unselect-group' });
+  }, null, { kind: select ? 'select-group' : 'unselect-group', onKey: (ev) => onKey(ev) });
 }
 
 // defineFilter saves a mask under a name (used as ">name" in the dialogs); an empty mask deletes the name. It answers
