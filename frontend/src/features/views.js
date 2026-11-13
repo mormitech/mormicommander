@@ -1,0 +1,1228 @@
+// Views and the listing (FEATURES.md sections 4, 5, 32 and 33): Brief (Ctrl+F1, names in newspaper columns), Full
+// (Ctrl+F2), Comments (Ctrl+Shift+F2, descript.ion), Thumbnails (Ctrl+Shift+F1), custom column sets (Shift+F1), the tree
+// in the panel (Ctrl+F8), size / date formats, sort by a custom column, natural sort and "folders always by name", the
+// left / right / target variants of every view and sort command, and Ctrl+Z (edit comment).
+//
+// The cells of the column views come from internal/listing (Go: Views.Cells), the pictures of the thumbnails view from
+// internal/thumbs (Views.Thumbs → "views-thumb" events). The panel itself is the core's: this module only replaces how
+// a panel draws its rows (renderRows, ensureVisible, pageSize on each panel object), never the core's files. With the
+// default Full view and default formats nothing is replaced, so the core's own drawing is used.
+//
+// Settings: "views" = {sizeFormat, dateFormat, attrFormat, namesWhole, thumbSize, columnSets: [{name, autoSwitch,
+// columns: [{title, template, width, align}]}], left: {mode, set}, right: {mode, set}}; plus the core's "naturalSort"
+// and "dirsLikeFiles".
+
+import './views.css';
+import { command } from '../core/registry.js';
+import { go, on, errText } from '../core/go.js';
+import { Panel, splitPath } from '../core/panel.js';
+import { esc, modal, formDialog, messageDialog } from '../core/dialogs.js';
+import { showList } from '../core/popup.js';
+import { addKeyHandler } from '../core/keyboard.js';
+import { addControlCommand } from '../core/control.js';
+import { bytes, date, attr, size as shortSize } from '../core/format.js';
+import { app as theApp } from '../core/app.js';
+
+// ---- settings ----
+
+const DEFAULTS = { sizeFormat: 'bytes', dateFormat: '', attrFormat: '', namesWhole: false, thumbSize: 96, columnSets: [] };
+const cfg = () => ({ ...DEFAULTS, ...(theApp.setting('views', {}) || {}) });
+function saveCfg(patch) {
+  const next = { ...cfg(), ...patch };
+  return theApp.setSetting('views', next);
+}
+const sets = () => (Array.isArray(cfg().columnSets) ? cfg().columnSets : []);
+const findSet = (name) => sets().find((s) => s.name === name) || null;
+
+const SIZE_FORMATS = [['bytes', 'Bytes (1,234,567)'], ['k', 'Kilobytes (1,206 k)'], ['M', 'Megabytes (1.2 M)'], ['G', 'Gigabytes (0.01 G)'], ['dynamic', 'Dynamic (1.18 M)']];
+const DATE_FORMATS = [['', 'yyyy-MM-dd HH:mm (default)'], ['yyyy-MM-dd HH:mm:ss', 'yyyy-MM-dd HH:mm:ss'], ['dd.MM.yyyy HH:mm', 'dd.MM.yyyy HH:mm'],
+  ['dd.MM.yy HH:mm', 'dd.MM.yy HH:mm'], ['MM/dd/yyyy hh:mm tt', 'MM/dd/yyyy hh:mm tt'], ['dd/MM/yyyy HH:mm', 'dd/MM/yyyy HH:mm']];
+const ATTR_FORMATS = [['', 'As the system shows them'], ['unix', 'Unix (drwxr-xr-x)'], ['octal', 'Octal (0755)'], ['win', 'Windows (rahs)'], ['winfull', 'Windows, all (rahsce)']];
+
+const defaultFormats = (c = cfg()) => (!c.sizeFormat || c.sizeFormat === 'bytes') && !c.dateFormat && !c.attrFormat && !c.namesWhole;
+const thumbSize = () => Math.max(32, Math.min(512, Number(cfg().thumbSize) || 96));
+
+// ---- per-panel state (p.vs, swapped with the panel by Ctrl+U) ----
+
+const MODES = ['brief', 'full', 'comments', 'custom', 'thumbs', 'tree'];
+
+function vsOf(p) {
+  if (!p.vs) p.vs = { mode: 'full', set: '', manual: { mode: 'full', set: '' }, auto: false, cells: null, cellsSig: '', thumbs: null, tree: null, prev: null };
+  return p.vs;
+}
+const modeOf = (p) => vsOf(p).mode;
+const isColumnMode = (p) => { const m = modeOf(p); return m === 'comments' || m === 'custom' || (m === 'full' && !defaultFormats()); };
+
+// columns is the list of columns after the name for a column view: [{title, template, width, align, sort}] (sort: the
+// core sort key a click on the header uses; none means "sort by this column" through the engine).
+function columns(p) {
+  const vs = vsOf(p), c = cfg();
+  if (vs.mode === 'comments') return { ext: false, nameW: 'minmax(140px, 38%)', cols: [{ title: 'Comment', template: '[=tc.comment]', width: 0, align: 'left' }] };
+  if (vs.mode === 'custom') {
+    const s = findSet(vs.set);
+    if (s) return { ext: false, nameW: 'minmax(120px, 1fr)', cols: (s.columns || []).map((x) => ({ title: x.title || '', template: x.template || '', width: +x.width || 0, align: x.align || 'left' })) };
+  }
+  const dw = Math.max(100, Math.round(((c.dateFormat || 'yyyy-MM-dd HH:mm').length) * 7.2) + 10);
+  return {
+    ext: !c.namesWhole, nameW: 'minmax(90px, 1fr)',
+    cols: [
+      { title: 'Size', template: '[=tc.size]', width: 96, align: 'right', sort: 'size' },
+      { title: 'Date', template: '[=tc.writedate]', width: dw, align: 'left', sort: 'date' },
+      { title: 'Attr', template: '[=tc.attributestr]', width: c.attrFormat === 'winfull' ? 60 : 84, align: 'left' },
+    ],
+  };
+}
+
+// ---- drawing ----
+
+const coreHeader = new WeakMap();   // panel element → the core's header html
+const ids = new WeakMap();          // p.all → a number, so a reread is noticed
+let idSeq = 0;
+const allId = (a) => { if (!ids.has(a)) ids.set(a, ++idSeq); return ids.get(a); };
+
+let measureCtx = null;
+function textWidth(list, entries) {
+  if (!measureCtx) measureCtx = document.createElement('canvas').getContext('2d');
+  const cs = getComputedStyle(list);
+  measureCtx.font = cs.font || '13px system-ui';
+  let w = 0;
+  const n = Math.min(entries.length, 5000); // (a huge folder is measured by its first 5,000 names: close enough)
+  for (let i = 0; i < n; i++) w = Math.max(w, measureCtx.measureText(entries[i].name).width * (entries[i].dir ? 1.08 : 1));
+  return w;
+}
+
+function rowClass(p, e, i) {
+  let cls = 'row';
+  if (i === p.cursor) cls += ' cur';
+  if (e.up) return cls + ' up dir';
+  if (e.dir) cls += ' dir';
+  if (p.selected.has(e.name)) cls += ' sel';
+  if (e.hidden) cls += ' hid';
+  if (e.link) cls += ' link';
+  if (e.broken) cls += ' broken';
+  if (e.exec && !e.dir) cls += ' exe';
+  return cls;
+}
+
+// brief geometry: rows per column and the column width
+function briefGeo(p) {
+  const list = p.$.list, vs = vsOf(p);
+  const rows = Math.max(1, Math.floor(list.clientHeight / p.rowH));
+  if (!vs.brief || vs.brief.entries !== p.entries || vs.brief.font !== p.rowH) {
+    const w = textWidth(list, p.entries);
+    vs.brief = { entries: p.entries, font: p.rowH, textW: w };
+  }
+  const cap = Math.max(160, list.clientWidth * 0.9);
+  const colW = Math.round(Math.max(90, Math.min(cap, vs.brief.textW + 44)));
+  return { rows, colW, cols: Math.ceil(p.entries.length / rows) };
+}
+
+// thumbnails geometry: tiles per row, tile size
+function thumbGeo(p) {
+  const list = p.$.list, s = thumbSize();
+  const cols = Math.max(1, Math.floor(list.clientWidth / (s + 20)));
+  const tileW = Math.floor(list.clientWidth / cols) || s + 20;
+  const tileH = s + 50;
+  return { cols, tileW, tileH, rows: Math.ceil(p.entries.length / cols), s };
+}
+
+function renderBrief(p) {
+  const { list, rows, spacer } = p.$;
+  const g = briefGeo(p);
+  spacer.style.height = '1px';
+  spacer.style.width = `${g.cols * g.colW}px`;
+  const first = Math.max(0, Math.floor(list.scrollLeft / g.colW) - 1);
+  const last = Math.min(g.cols, Math.ceil((list.scrollLeft + (list.clientWidth || 800)) / g.colW) + 1);
+  const active = p.isActive;
+  let html = '';
+  for (let c = first; c < last; c++) {
+    for (let r = 0; r < g.rows; r++) {
+      const i = c * g.rows + r;
+      if (i >= p.entries.length) break;
+      const e = p.entries[i];
+      const tip = ` title="${esc(e.name)}"`;
+      html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(e.name)}</b></span></div>`;
+    }
+  }
+  rows.style.transform = '';
+  rows.style.width = `${g.cols * g.colW}px`;
+  rows.innerHTML = html;
+}
+
+function renderThumbs(p) {
+  const { list, rows, spacer } = p.$;
+  const g = thumbGeo(p), vs = vsOf(p), t = vs.thumbs || {};
+  spacer.style.width = '1px';
+  spacer.style.height = `${g.rows * g.tileH}px`;
+  const first = Math.max(0, Math.floor(list.scrollTop / g.tileH) - 1);
+  const last = Math.min(g.rows, Math.ceil((list.scrollTop + (list.clientHeight || 600)) / g.tileH) + 1);
+  const active = p.isActive;
+  let html = '';
+  const visible = [];
+  for (let r = first; r < last; r++) {
+    for (let c = 0; c < g.cols; c++) {
+      const i = r * g.cols + c;
+      if (i >= p.entries.length) break;
+      const e = p.entries[i];
+      const url = t.urls?.get(e.name);
+      const icon = t.icons?.names?.[e.name];
+      const svg = icon ? t.icons.svg[icon] : '';
+      const pic = url ? `<img src="${url}" alt="" draggable="false">` : svg ? `<img class="icon" src="${svg}" alt="" draggable="false">` : '<i class="ic"></i>';
+      const dims = t.dims?.get(e.name);
+      if (!e.up && !e.dir && !url) visible.push(e.name);
+      html += `<div class="${rowClass(p, e, i)} mc-views-tile" data-i="${i}" style="left:${c * g.tileW}px;top:${r * g.tileH}px;width:${g.tileW}px;height:${g.tileH}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}>`
+        + `<div class="mc-views-pic" style="height:${g.s}px">${pic}</div><div class="mc-views-cap" title="${esc(e.name)}">${esc(e.name)}</div>`
+        + `<div class="mc-views-sub">${dims ? `${dims[0]} × ${dims[1]}` : e.up ? '' : e.dir ? (e.dirSize != null ? esc(shortSize(e.dirSize)) : '') : esc(shortSize(e.size))}</div></div>`;
+    }
+  }
+  rows.style.transform = '';
+  rows.style.width = '';
+  rows.innerHTML = html;
+  if (visible.length && t.gen) {
+    clearTimeout(t.firstTimer);
+    t.firstTimer = setTimeout(() => go.Views.ThumbsFirst(p.side, visible).catch(() => {}), 80);
+  }
+}
+
+function renderColumns(p) {
+  const { list, rows } = p.$;
+  const h = p.rowH, vs = vsOf(p), def = columns(p);
+  const first = Math.max(0, Math.floor(list.scrollTop / h) - 3);
+  const last = Math.min(p.entries.length, first + Math.ceil((list.clientHeight || 600) / h) + 7);
+  const active = p.isActive, plat = p.app.platform;
+  const cells = vs.cells?.path === p.path ? vs.cells.map : null;
+  const full = vs.mode === 'full';
+  let html = '';
+  for (let i = first; i < last; i++) {
+    const e = p.entries[i];
+    const name = def.ext ? (e.dir ? e.name : e.base) : e.name;
+    const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
+    let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(name)}</b></span>`;
+    if (def.ext) row += `<span class="e">${esc(e.ext)}</span>`;
+    let c = cells?.get(e.name);
+    if (!c && full) c = e.up ? ['&lt;DIR&gt;', '', ''] : null; // (".." is not in the engine's rows)
+    if (!c && full && !e.up) c = [e.dir ? (e.dirSize != null ? bytes(e.dirSize) : '<DIR>') : bytes(e.size), date(e.mtime), attr(e.mode, e.flags, plat)];
+    def.cols.forEach((col, k) => {
+      const txt = c ? c[k] ?? '' : '';
+      const raw = e.up && full && k === 0 ? txt : esc(txt);
+      row += `<span class="mc-views-c${col.align === 'right' ? ' r' : col.align === 'center' ? ' c' : ''}"${txt.length > 24 ? ` title="${esc(txt)}"` : ''}>${raw}</span>`;
+    });
+    html += row + '</div>';
+  }
+  rows.style.transform = `translateY(${first * h}px)`;
+  rows.style.width = '';
+  rows.innerHTML = html;
+}
+
+// ---- the header ----
+
+function renderHeader(p) {
+  const { header } = p.$;
+  const vs = vsOf(p);
+  const el = p.el;
+  el.dataset.view = vs.mode;
+  if (vs.mode === 'tree') { header.hidden = true; return; }
+  header.hidden = false;
+  if (!isColumnMode(p)) {
+    el.style.removeProperty('--cols');
+    if (header.dataset.views) { header.innerHTML = coreHeader.get(el); delete header.dataset.views; }
+    markCoreHeader(p);
+    return;
+  }
+  const def = columns(p);
+  const tpl = [def.nameW];
+  if (def.ext) tpl.push('56px');
+  for (const c of def.cols) tpl.push(c.width ? `${c.width}px` : 'minmax(60px, 1fr)');
+  el.style.setProperty('--cols', tpl.join(' '));
+  let html = `<span data-vcol="name" title="Sort by name">Name</span>`;
+  if (def.ext) html += `<span data-vcol="ext" title="Sort by extension">Ext</span>`;
+  def.cols.forEach((c, k) => { html += `<span data-vcol="${k}" class="${c.align === 'right' ? 'r' : ''}" title="Sort by ${esc(c.title.toLowerCase() || `column ${k + 1}`)}">${esc(c.title)}</span>`; });
+  header.innerHTML = html;
+  header.dataset.views = '1';
+  const s = p.sort;
+  header.querySelectorAll('[data-vcol]').forEach((sp) => {
+    const v = sp.dataset.vcol;
+    const col = def.cols[+v];
+    const on = v === s.key || (col && (col.sort ? col.sort === s.key : s.key === `col${+v + 1}`));
+    sp.classList.toggle('sorted', !!on);
+    sp.classList.toggle('desc', !!on && s.desc);
+  });
+}
+
+function markCoreHeader(p) {
+  p.$.header.querySelectorAll('[data-col]').forEach((s) => {
+    const on = s.dataset.col === p.sort.key;
+    s.classList.toggle('sorted', on);
+    s.classList.toggle('desc', on && p.sort.desc);
+  });
+}
+
+// ---- the overrides of each panel ----
+
+function install(p) {
+  const core = {
+    renderRows: p.renderRows.bind(p), ensureVisible: p.ensureVisible.bind(p), pageSize: p.pageSize.bind(p),
+    rebuild: p.rebuild.bind(p), render: p.render.bind(p), targets: p.targets.bind(p),
+  };
+  coreHeader.set(p.el, p.$.header.innerHTML);
+  vsOf(p);
+  p.renderRows = () => {
+    const m = modeOf(p);
+    if (m === 'brief') return renderBrief(p);
+    if (m === 'thumbs') return renderThumbs(p);
+    if (m === 'tree') return renderTree(p);
+    if (isColumnMode(p)) return renderColumns(p);
+    return core.renderRows();
+  };
+  p.render = () => { core.render(); renderHeader(p); if (modeOf(p) === 'tree') renderTreeStatus(p); };
+  p.pageSize = () => {
+    const m = modeOf(p);
+    if (m === 'brief') return briefGeo(p).rows;
+    if (m === 'thumbs') { const g = thumbGeo(p); return Math.max(1, Math.floor(p.$.list.clientHeight / g.tileH)) * g.cols; }
+    return core.pageSize();
+  };
+  p.ensureVisible = (center = false) => {
+    const m = modeOf(p), list = p.$.list;
+    if (m === 'brief') {
+      const g = briefGeo(p);
+      const x = Math.floor(p.cursor / g.rows) * g.colW, view = list.clientWidth;
+      if (view) {
+        if (center && (x < list.scrollLeft || x + g.colW > list.scrollLeft + view)) list.scrollLeft = Math.max(0, x - view / 2);
+        else if (x < list.scrollLeft) list.scrollLeft = x;
+        else if (x + g.colW > list.scrollLeft + view) list.scrollLeft = x + g.colW - view;
+      }
+      return renderBrief(p);
+    }
+    if (m === 'thumbs') {
+      const g = thumbGeo(p);
+      const y = Math.floor(p.cursor / g.cols) * g.tileH, view = list.clientHeight;
+      if (view) {
+        if (center && (y < list.scrollTop || y + g.tileH > list.scrollTop + view)) list.scrollTop = Math.max(0, y - view / 2);
+        else if (y < list.scrollTop) list.scrollTop = y;
+        else if (y + g.tileH > list.scrollTop + view) list.scrollTop = y + g.tileH - view;
+      }
+      return renderThumbs(p);
+    }
+    if (m === 'tree') return treeEnsureVisible(p, center);
+    return core.ensureVisible(center);
+  };
+  p.rebuild = (focusName = p.cur?.name, fallbackIndex = p.cursor) => {
+    core.rebuild(focusName, fallbackIndex);
+    afterRebuild(p, focusName);
+  };
+  // in the tree, a file command works on the folder chosen in the tree (never on what the hidden list has)
+  p.targets = () => {
+    if (modeOf(p) !== 'tree') return core.targets();
+    const n = vsOf(p).tree?.nodes[vsOf(p).tree.at];
+    if (!n || n.depth === 0) return [];
+    const e = p.cur;
+    return e && !e.up && e.name === n.name && treeParent(n)?.path === p.path ? [e] : [];
+  };
+  // the header of a column view sorts by its columns; right-click lists the column sets
+  p.$.header.addEventListener('click', (ev) => {
+    const c = ev.target.closest('[data-vcol]')?.dataset.vcol;
+    if (c === undefined) return;
+    p.app.setActive(p);
+    sortByHeader(p, c);
+  });
+  p.$.header.addEventListener('contextmenu', (ev) => {
+    ev.preventDefault();
+    p.app.setActive(p);
+    columnSetMenu(p.app, p, { x: ev.clientX, y: ev.clientY });
+  });
+  // Brief scrolls sideways with the wheel; Ctrl+wheel changes the size of thumbnails
+  p.$.list.addEventListener('wheel', (ev) => {
+    const m = modeOf(p);
+    if (m === 'brief' && !ev.shiftKey && Math.abs(ev.deltaY) > Math.abs(ev.deltaX)) {
+      ev.preventDefault();
+      p.$.list.scrollLeft += ev.deltaY;
+    } else if (m === 'thumbs' && (ev.ctrlKey || ev.metaKey)) {
+      ev.preventDefault();
+      setThumbSize(thumbSize() + (ev.deltaY < 0 ? 16 : -16));
+    }
+  }, { passive: false });
+  p.$.list.addEventListener('mousedown', (ev) => treeMouse(p, ev));
+  p.$.list.addEventListener('dblclick', (ev) => { if (modeOf(p) === 'tree' && ev.target.closest('.mc-views-node')) treeEnter(p); });
+}
+
+function sortByHeader(p, c) {
+  const def = columns(p);
+  if (c === 'name') return p.app.run('cm_SrcByName');
+  if (c === 'ext') return p.app.run('cm_SrcByExt');
+  const col = def.cols[+c];
+  if (!col) return;
+  if (col.sort) return p.sortBy(col.sort);
+  return p.sortBy(`col${+c + 1}`);
+}
+
+// afterRebuild puts the entries in the order of a custom column (the engine sorted them) and asks for new cells when
+// the folder, its folder sizes or the view changed.
+function afterRebuild(p, focusName) {
+  const vs = vsOf(p);
+  if (vs.mode === 'tree') return;
+  const m = /^col(\d+)$/.exec(p.sort.key || '');
+  if (isColumnMode(p)) requestCells(p);
+  if (!m || !vs.cells?.order || vs.cells.path !== p.path || vs.cells.sortKey !== p.sort.key || vs.cells.desc !== p.sort.desc) return;
+  const rank = new Map(vs.cells.order.map((n, i) => [n, i]));
+  const up = p.entries.filter((e) => e.up);
+  const rest = p.entries.filter((e) => !e.up);
+  const big = vs.cells.order.length;
+  rest.sort((a, b) => ((a.dir ? 0 : 1) - (b.dir ? 0 : 1)) || ((rank.get(a.name) ?? big) - (rank.get(b.name) ?? big)));
+  p.entries = [...up, ...rest];
+  p.index = new Map(p.entries.map((e, i) => [e.name, i]));
+  const i = focusName != null ? p.index.get(focusName) : undefined;
+  if (i !== undefined) p.cursor = i;
+  p.renderRows();
+  p.ensureVisible(true);
+}
+
+// ---- cells from the engine ----
+
+function cellsSig(p) {
+  const def = columns(p), c = cfg();
+  const ds = [...p.dirSizes].sort().join('|');
+  const m = /^col(\d+)$/.exec(p.sort.key || '');
+  return JSON.stringify([p.path, allId(p.all), def.cols.map((x) => x.template), c.sizeFormat, c.dateFormat, c.attrFormat, ds, m ? p.sort.key : '', m ? p.sort.desc : false, !!theApp.setting('naturalSort', true)]);
+}
+
+let cellsSeq = 0;
+async function requestCells(p, force = false) {
+  const vs = vsOf(p);
+  if (!p.path || !isColumnMode(p)) return;
+  const sig = cellsSig(p);
+  if (!force && sig === vs.cellsSig) return;
+  vs.cellsSig = sig;
+  const def = columns(p), c = cfg();
+  const m = /^col(\d+)$/.exec(p.sort.key || '');
+  const req = {
+    path: p.path, columns: def.cols.map(({ title, template, width, align }) => ({ title, template, width, align })),
+    format: { size: c.sizeFormat || 'bytes', date: c.dateFormat || '', attr: c.attrFormat || '' },
+    dirSizes: Object.fromEntries(p.dirSizes), sortCol: m ? +m[1] - 1 : -1, desc: !!p.sort.desc, natural: !!theApp.setting('naturalSort', true),
+  };
+  const seq = ++cellsSeq;
+  vs.cellsSeq = seq;
+  let r;
+  try {
+    r = await go.Views.Cells(req);
+  } catch (e) {
+    if (vs.cellsSeq === seq) p.app.flash(errText(e), 'err');
+    return;
+  }
+  if (vs.cellsSeq !== seq || p.vs !== vs || r.path !== p.path) return; // a newer request, or the panels were swapped
+  vs.cells = { path: r.path, map: new Map(Object.entries(r.cells || {})), order: r.order || null, sortKey: m ? p.sort.key : '', desc: !!p.sort.desc, titles: r.titles, local: r.local };
+  if (m && r.order) p.rebuild(); // re-sort by the column (the signature stays the same, so this asks for nothing new)
+  else p.renderRows();
+}
+
+// ---- switching views ----
+
+// save remembers the views both panels were set to (not the ones a folder rule chose).
+function save() {
+  if (theApp.demo) return;
+  saveCfg({ left: vsOf(theApp.left).manual, right: vsOf(theApp.right).manual });
+}
+
+// applyView draws a panel again after its view changed.
+function applyView(p) {
+  const vs = vsOf(p), { list, spacer, rows } = p.$;
+  if (vs.mode !== 'thumbs') stopThumbs(p);
+  spacer.style.width = '';
+  rows.style.width = '';
+  if (vs.mode !== 'brief') list.scrollLeft = 0;
+  if (vs.mode === 'brief') list.scrollTop = 0;
+  rows.innerHTML = '';
+  const m = /^col(\d+)$/.exec(p.sort.key || '');
+  if (m && !(vs.mode === 'custom' || vs.mode === 'comments')) p.sort = { key: 'name', desc: false };
+  vs.cellsSig = '';
+  p.rebuild();
+  if (vs.mode === 'thumbs') startThumbs(p);
+  p.app.panelChanged(p, { moved: false });
+}
+
+// setMode switches a panel to a view; choosing the view it is in does nothing (TC), except a different column set.
+function setMode(p, mode, set = '') {
+  const vs = vsOf(p);
+  if (vs.mode === 'tree' && mode !== 'tree') return leaveTree(p, { mode, set, toNode: true });
+  if (mode === 'custom') {
+    if (!findSet(set)) { p.app.flash(`There is no column set "${set}".`, 'err'); return false; }
+    if (vs.mode === 'custom' && vs.set === set) return false;
+  } else if (vs.mode === mode) return false;
+  vs.mode = mode;
+  vs.set = mode === 'custom' ? set : '';
+  vs.manual = { mode, set: vs.set };
+  vs.auto = false;
+  applyView(p);
+  save();
+  return true;
+}
+
+function customByNumber(p, n) {
+  const s = sets()[n - 1];
+  if (!s) { p.app.flash(sets().length ? `There is no column set ${n}.` : 'There are no column sets yet. Make one in Configuration > Custom columns.', 'err'); return false; }
+  return setMode(p, 'custom', s.name);
+}
+
+function stepCustom(p, d) {
+  const all = sets();
+  if (!all.length) { p.app.flash('There are no column sets yet. Make one in Configuration > Custom columns.', 'err'); return false; }
+  const vs = vsOf(p);
+  const i = vs.mode === 'custom' ? all.findIndex((s) => s.name === vs.set) : (d > 0 ? -1 : all.length);
+  return setMode(p, 'custom', all[(i + d + all.length) % all.length].name);
+}
+
+// the Shift+F1 popup and the header's right-click menu
+async function columnSetMenu(app, p, anchor) {
+  const vs = vsOf(p);
+  const items = [{ label: 'Full (default)', detail: vs.mode === 'full' ? '✓' : '', value: { mode: 'full' }, key: '0' }];
+  sets().forEach((s, i) => items.push({ label: s.name, detail: vs.mode === 'custom' && vs.set === s.name ? '✓' : '', value: { mode: 'custom', set: s.name }, key: i < 9 ? String(i + 1) : '' }));
+  items.push({ sep: true }, { label: 'Configure custom columns…', value: { config: true } });
+  const r = await showList({ title: 'Column sets', items, anchor: anchor || p.$.header, kind: 'column-sets' });
+  if (!r) return false;
+  if (r.item.value.config) return app.run('cm_CustomColumnConfig');
+  return setMode(p, r.item.value.mode, r.item.value.set);
+}
+
+// folder rules: a column set with a folder mask is chosen when such a folder is shown (F-668)
+let autoSeq = 0;
+async function autoSwitch(p) {
+  const vs = vsOf(p);
+  if (vs.mode === 'tree') return;
+  const all = sets().filter((s) => (s.autoSwitch || '').trim());
+  if (!all.length && !vs.auto) return;
+  const seq = ++autoSeq;
+  vs.autoSeq = seq;
+  let i = -1;
+  if (all.length) { try { i = await go.Views.AutoColumnSet(p.path, all.map((s) => s.autoSwitch)); } catch { i = -1; } }
+  if (vs.autoSeq !== seq || p.vs !== vs) return;
+  if (i >= 0) {
+    if (vs.mode === 'custom' && vs.set === all[i].name) return;
+    vs.mode = 'custom';
+    vs.set = all[i].name;
+    vs.auto = true;
+    applyView(p);
+  } else if (vs.auto) {
+    vs.mode = vs.manual.mode;
+    vs.set = vs.manual.set;
+    vs.auto = false;
+    applyView(p);
+  }
+}
+
+// ---- thumbnails ----
+
+// stopThumbs forgets a panel's thumbnails; tellGo stops the work in Go too (not needed when a new batch follows at
+// once: Views.Thumbs stops the one before, and a separate stop could arrive after the new start).
+function stopThumbs(p, tellGo = true) {
+  const vs = vsOf(p);
+  if (!vs.thumbs) return;
+  clearTimeout(vs.thumbs.firstTimer);
+  vs.thumbs = null;
+  if (tellGo) go.Views.ThumbsStop(p.side).catch(() => {});
+}
+
+async function startThumbs(p) {
+  const vs = vsOf(p);
+  if (vs.mode !== 'thumbs' || !p.path) return;
+  const s = thumbSize();
+  const key = JSON.stringify([p.path, allId(p.all), s, p.side]);
+  if (vs.thumbs?.key === key) return;
+  stopThumbs(p, false);
+  const t = { key, gen: 0, urls: new Map(), dims: new Map(), icons: null };
+  vs.thumbs = t;
+  const names = p.entries.filter((e) => !e.up && !e.dir).map((e) => e.name);
+  try {
+    const [icons, gen] = await Promise.all([
+      go.Views.Icons(p.entries.map((e) => e.name), p.entries.map((e) => !!e.dir), Math.min(s, 128)),
+      go.Views.Thumbs(p.side, p.path, names, s),
+    ]);
+    if (vs.thumbs !== t) return;
+    t.icons = icons;
+    t.gen = gen;
+    for (const [n, th] of pending.get(gen) || []) addThumb(t, n, th);
+    pending.delete(gen);
+    p.renderRows();
+  } catch (e) {
+    p.app.flash(errText(e), 'err');
+  }
+}
+
+const pending = new Map(); // gen → [[name, thumb]] that came before Thumbs() answered
+function addThumb(t, name, th) {
+  if (th.url) t.urls.set(name, th.url);
+  if (th.width && th.height) t.dims.set(name, [th.width, th.height]);
+}
+
+let thumbRaf = 0;
+const dirtyPanels = new Set();
+function onThumb(th) {
+  for (const p of theApp.panels) {
+    const t = vsOf(p).thumbs;
+    if (!t) continue;
+    if (t.gen === 0 && th.key === p.side) { // Thumbs() has not answered yet: keep it for when it does
+      if (!pending.has(th.gen)) pending.set(th.gen, []);
+      pending.get(th.gen).push([th.name, th]);
+      if (pending.size > 8) pending.delete(pending.keys().next().value);
+      return;
+    }
+    if (t.gen !== th.gen) continue;
+    addThumb(t, th.name, th);
+    dirtyPanels.add(p);
+  }
+  if (!thumbRaf) thumbRaf = requestAnimationFrame(() => { thumbRaf = 0; for (const p of dirtyPanels) if (modeOf(p) === 'thumbs') p.renderRows(); dirtyPanels.clear(); });
+}
+
+function setThumbSize(n) {
+  n = Math.max(32, Math.min(512, Math.round(n / 8) * 8));
+  if (n === thumbSize()) return;
+  saveCfg({ thumbSize: n });
+  for (const p of theApp.panels) if (modeOf(p) === 'thumbs') { p.rebuild(); startThumbs(p); }
+  theApp.flash(`Thumbnails: ${n} × ${n} pixels.`);
+}
+
+// ---- the tree in the panel (Ctrl+F8) ----
+
+const treeParent = (n) => n.parentNode || null;
+let treeSeq = 0;
+
+async function readFolders(p, path) {
+  const l = await go.FS.List(`views-tree-${p.side}-${++treeSeq}`, path);
+  const sep = theApp.sepFor(l.path);
+  const join = (n) => (l.path.endsWith(sep) || l.path.endsWith('/') ? l.path + n : l.path + sep + n);
+  const coll = new Intl.Collator(undefined, { sensitivity: 'base', numeric: !!theApp.setting('naturalSort', true) });
+  return (l.entries || []).filter((r) => (r[3] & 1) && (theApp.showHidden || !(r[3] & 4)))
+    .map((r) => r[0]).sort((a, b) => coll.compare(a, b)).map((n) => ({ name: n, path: join(n) }));
+}
+
+function flatten(tree) {
+  const out = [];
+  const walk = (n) => { out.push(n); if (n.open && n.kids) for (const k of n.kids) walk(k); };
+  walk(tree.root);
+  tree.nodes = out;
+}
+
+async function expand(p, n) {
+  if (!n.kids) {
+    n.loading = true;
+    try {
+      const kids = await readFolders(p, n.path);
+      n.kids = kids.map((k) => ({ ...k, depth: n.depth + 1, parentNode: n, open: false, kids: null }));
+    } catch (e) {
+      n.kids = [];
+      p.app.flash(errText(e), 'err');
+    }
+    n.loading = false;
+  }
+  n.open = true;
+}
+
+async function enterTree(p) {
+  const vs = vsOf(p);
+  const startPath = p.path, startName = p.cur?.up ? null : p.cur?.name;
+  let root;
+  try { root = await go.FS.Root(p.path); } catch { root = splitPath(p.path)[0]?.path || p.path; }
+  const tree = { root: { name: root, path: root, depth: 0, open: false, kids: null, parentNode: null }, nodes: [], at: 0, back: { path: startPath, focus: startName }, sync: 0 };
+  vs.prev = { mode: vs.mode, set: vs.set };
+  stopThumbs(p);
+  vs.mode = 'tree';
+  vs.tree = tree;
+  p.clearSelection();
+  // open the way down to the folder the panel shows
+  let node = tree.root;
+  await expand(p, node);
+  const chain = splitPath(startPath).map((x) => x.path).filter((x) => x.length > root.length);
+  for (const want of chain) {
+    const k = node.kids?.find((c) => c.path === want || c.path.toLowerCase() === want.toLowerCase());
+    if (!k) break;
+    node = k;
+    if (want !== chain[chain.length - 1]) await expand(p, node);
+  }
+  flatten(tree);
+  tree.at = Math.max(0, tree.nodes.indexOf(node));
+  p.$.list.scrollLeft = 0;
+  p.$.spacer.style.width = '';
+  renderHeader(p);
+  p.render();
+  treeEnsureVisible(p, true);
+  treeSync(p, true);
+  p.app.panelChanged(p, { moved: false });
+}
+
+// leaveTree goes back to the list: into the folder chosen in the tree (Enter), or back where the panel was (Ctrl+F8).
+async function leaveTree(p, { mode, set = '', toNode = false } = {}) {
+  const vs = vsOf(p), tree = vs.tree;
+  if (!tree) return false;
+  const n = tree.nodes[tree.at];
+  const prev = vs.prev || { mode: 'full', set: '' };
+  vs.mode = mode || prev.mode;
+  vs.set = vs.mode === 'custom' ? (set || prev.set) : '';
+  if (vs.mode === 'custom' && !findSet(vs.set)) { vs.mode = 'full'; vs.set = ''; }
+  if (mode) vs.manual = { mode: vs.mode, set: vs.set };
+  vs.tree = null;
+  vs.prev = null;
+  clearTimeout(tree.syncTimer);
+  p.$.rows.innerHTML = '';
+  renderHeader(p);
+  if (toNode && n) await p.go(n.path);
+  else await p.go(tree.back.path, { focus: tree.back.focus, history: false });
+  applyView(p);
+  save();
+  return true;
+}
+
+// treeSync shows, under the tree, the folder above the chosen one with the cursor on it, so F5, F6 and F8 work on the
+// folder chosen in the tree.
+function treeSync(p, now = false) {
+  const tree = vsOf(p).tree;
+  if (!tree) return;
+  clearTimeout(tree.syncTimer);
+  const run = () => {
+    const n = tree.nodes[tree.at];
+    if (!n || vsOf(p).tree !== tree) return;
+    const par = treeParent(n);
+    if (!par) p.go(n.path, { history: false });
+    else p.go(par.path, { focus: n.name, history: false });
+  };
+  if (now) run(); else tree.syncTimer = setTimeout(run, 150);
+}
+
+function renderTree(p) {
+  const { list, rows, spacer } = p.$;
+  const tree = vsOf(p).tree;
+  if (!tree) { rows.innerHTML = ''; return; }
+  const h = p.rowH;
+  spacer.style.height = `${tree.nodes.length * h}px`;
+  spacer.style.width = '1px';
+  const first = Math.max(0, Math.floor(list.scrollTop / h) - 3);
+  const last = Math.min(tree.nodes.length, first + Math.ceil((list.clientHeight || 600) / h) + 7);
+  let html = '';
+  for (let i = first; i < last; i++) {
+    const n = tree.nodes[i];
+    const tw = n.loading ? '…' : n.kids && n.kids.length === 0 ? '' : n.open ? '▾' : '▸';
+    html += `<div class="mc-views-node dir${i === tree.at ? ' cur' : ''}" data-t="${i}" style="padding-left:${8 + n.depth * 16}px"${i === tree.at && p.isActive ? ' aria-selected="true"' : ''}><span class="mc-views-tw" data-tw="${i}">${tw}</span><i class="ic"></i><b>${esc(n.depth === 0 ? n.path : n.name)}</b></div>`;
+  }
+  rows.style.transform = `translateY(${first * h}px)`;
+  rows.style.width = '';
+  rows.innerHTML = html;
+}
+
+function renderTreeStatus(p) {
+  const tree = vsOf(p).tree;
+  const n = tree?.nodes[tree.at];
+  if (n) p.$.status.textContent = `Tree: ${n.path}  (Enter opens it, Ctrl+F8 goes back)`;
+}
+
+function treeEnsureVisible(p, center = false) {
+  const tree = vsOf(p).tree, list = p.$.list, h = p.rowH;
+  if (!tree) return;
+  const y = tree.at * h, view = list.clientHeight;
+  if (view) {
+    if (center && (y < list.scrollTop || y + h > list.scrollTop + view)) list.scrollTop = Math.max(0, y - view / 2);
+    else if (y < list.scrollTop) list.scrollTop = y;
+    else if (y + h > list.scrollTop + view) list.scrollTop = y + h - view;
+  }
+  renderTree(p);
+}
+
+function treeMove(p, i) {
+  const tree = vsOf(p).tree;
+  i = Math.max(0, Math.min(tree.nodes.length - 1, i));
+  if (i === tree.at) return;
+  tree.at = i;
+  treeEnsureVisible(p);
+  renderTreeStatus(p);
+  treeSync(p);
+}
+
+async function treeToggle(p, n, open) {
+  const tree = vsOf(p).tree;
+  if (open) { n.loading = true; renderTree(p); await expand(p, n); } else n.open = false;
+  if (vsOf(p).tree !== tree) return;
+  const cur = tree.nodes[tree.at];
+  flatten(tree);
+  tree.at = Math.max(0, tree.nodes.indexOf(cur));
+  treeEnsureVisible(p);
+}
+
+function treeEnter(p) {
+  return leaveTree(p, { toNode: true });
+}
+
+function treeKey(ev, combo) {
+  const p = theApp.cur;
+  if (!p || modeOf(p) !== 'tree') return false;
+  const ae = document.activeElement;
+  if (ae && ae !== document.body && ae !== p.$.list) return false;
+  const tree = vsOf(p).tree;
+  if (!tree) return false;
+  const n = tree.nodes[tree.at];
+  const page = Math.max(1, Math.floor(p.$.list.clientHeight / p.rowH) - 1);
+  switch (combo) {
+    case 'Up': treeMove(p, tree.at - 1); return true;
+    case 'Down': treeMove(p, tree.at + 1); return true;
+    case 'PgUp': treeMove(p, tree.at - page); return true;
+    case 'PgDn': treeMove(p, tree.at + page); return true;
+    case 'Home': treeMove(p, 0); return true;
+    case 'End': treeMove(p, tree.nodes.length - 1); return true;
+    case 'Left':
+      if (n.open && n.kids?.length) treeToggle(p, n, false);
+      else if (treeParent(n)) treeMove(p, tree.nodes.indexOf(treeParent(n)));
+      return true;
+    case 'Backspace':
+      if (treeParent(n)) treeMove(p, tree.nodes.indexOf(treeParent(n)));
+      return true;
+    case 'Right':
+      if (!n.open) treeToggle(p, n, true);
+      else if (n.kids?.length) treeMove(p, tree.at + 1);
+      return true;
+    case 'Space': treeToggle(p, n, !n.open); return true;
+    case 'Enter': treeEnter(p); return true;
+    default: break;
+  }
+  // a letter jumps to the next folder whose name starts with it (quick search in the tree)
+  if (ev.key && ev.key.length === 1 && !ev.ctrlKey && !ev.metaKey && !ev.altKey && ev.key !== ' ') {
+    const c = ev.key.toLowerCase(), len = tree.nodes.length;
+    for (let j = 1; j <= len; j++) {
+      const k = (tree.at + j) % len;
+      if (tree.nodes[k].name.toLowerCase().startsWith(c)) { treeMove(p, k); break; }
+    }
+    return true;
+  }
+  return false;
+}
+
+function treeMouse(p, ev) {
+  if (modeOf(p) !== 'tree' || ev.button !== 0) return;
+  const tree = vsOf(p).tree;
+  const el = ev.target.closest('.mc-views-node');
+  if (!tree || !el) return;
+  const i = +el.dataset.t;
+  if (ev.target.closest('[data-tw]')) { const n = tree.nodes[i]; treeToggle(p, n, !n.open); return; }
+  treeMove(p, i);
+}
+
+// ---- comments (Ctrl+Z) ----
+
+async function editComment(app) {
+  const p = app.cur, e = p.cur;
+  if (!e || e.up) { app.flash('Put the cursor on a file or folder to comment on.'); return false; }
+  let text;
+  try { text = await go.Views.Comment(p.path, e.name); } catch (err) { app.flash(errText(err), 'err'); return false; }
+  const r = await formDialog('Change comment',
+    `<div class="mc-row"><label for="comment">Comment for ${esc(e.name)}:</label><textarea id="comment" class="mc-views-ta" rows="4" spellcheck="false" autofocus data-select="0,${text.length}">${esc(text)}</textarea></div>`,
+    (box) => box.querySelector('#comment').value,
+    (box) => {
+      const ta = box.querySelector('#comment');
+      // Ctrl+Enter / Cmd+Enter saves, like the OK button (Enter makes a new line)
+      ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); box.requestSubmit(); } });
+    },
+    { kind: 'edit-comment' });
+  if (r === null) return false;
+  try { await go.Views.SetComment(p.path, e.name, r); } catch (err) { app.flash(errText(err), 'err'); return false; }
+  // (the reread brings descript.ion in or out of the list and new cells; the other panel may show the same folder)
+  for (const q of app.panels) if (q !== p && q.path === p.path && isColumnMode(q)) requestCells(q, true);
+  await p.reload();
+  app.flash(r.trim() ? `Comment saved for ${e.name}.` : `Comment removed from ${e.name}.`);
+  return true;
+}
+
+// ---- options dialogs ----
+
+const opt = (list, v) => list.map(([k, l]) => `<option value="${esc(k)}"${k === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
+
+async function viewOptions(app) {
+  const c = cfg();
+  const known = DATE_FORMATS.some(([k]) => k === (c.dateFormat || ''));
+  const html = `
+    <div class="mc-row"><label for="sizeFormat">File sizes</label><select id="sizeFormat">${opt(SIZE_FORMATS, c.sizeFormat || 'bytes')}</select></div>
+    <div class="mc-row"><label for="dateFormat">Dates</label><select id="dateFormat">${opt([...DATE_FORMATS, ['custom', 'Custom…']], known ? c.dateFormat || '' : 'custom')}</select></div>
+    <div class="mc-row" id="mc-views-custom-date"${known ? ' hidden' : ''}><label for="datePicture">Custom date format (d, M, yyyy, H, hh, mm, ss, tt)</label><input id="datePicture" type="text" spellcheck="false" value="${esc(known ? '' : c.dateFormat)}"></div>
+    <div class="mc-row"><label for="attrFormat">Attributes</label><select id="attrFormat">${opt(ATTR_FORMATS, c.attrFormat || '')}</select></div>
+    <label class="mc-check"><input type="checkbox" id="separateExt"${c.namesWhole ? '' : ' checked'}> Show the extension in its own column</label>
+    <label class="mc-check"><input type="checkbox" id="naturalSort"${app.setting('naturalSort', true) ? ' checked' : ''}> Natural sorting (file2 before file10)</label>
+    <label class="mc-check"><input type="checkbox" id="dirsByName"${app.setting('dirsLikeFiles', false) ? '' : ' checked'}> Sort folders always by name</label>
+    <div class="mc-row"><label for="thumbSize">Thumbnail size in pixels (32 to 512)</label><input id="thumbSize" type="text" inputmode="numeric" value="${thumbSize()}"></div>`;
+  const r = await formDialog('View options', html, (box) => {
+    const v = (id) => box.querySelector(`#${id}`);
+    let date = v('dateFormat').value;
+    if (date === 'custom') {
+      date = v('datePicture').value.trim();
+      if (!date) return 'Type a date format, for example dd.MM.yyyy HH:mm.';
+    }
+    const ts = parseInt(v('thumbSize').value, 10);
+    if (!(ts >= 32 && ts <= 512)) return 'The thumbnail size must be between 32 and 512 pixels.';
+    return { sizeFormat: v('sizeFormat').value, dateFormat: date, attrFormat: v('attrFormat').value, namesWhole: !v('separateExt').checked, thumbSize: ts, natural: v('naturalSort').checked, dirsByName: v('dirsByName').checked };
+  }, (box) => {
+    const sel = box.querySelector('#dateFormat');
+    sel.addEventListener('change', () => { box.querySelector('#mc-views-custom-date').hidden = sel.value !== 'custom'; });
+  }, { kind: 'view-options' });
+  if (!r) return false;
+  const { natural, dirsByName, ...views } = r;
+  await saveCfg(views);
+  await app.setSetting('naturalSort', natural);
+  await app.setSetting('dirsLikeFiles', !dirsByName);
+  refreshAll(app);
+  return true;
+}
+
+function refreshAll(app) {
+  for (const p of app.panels) {
+    const vs = vsOf(p);
+    if (vs.mode === 'tree') continue;
+    vs.thumbs && (vs.thumbs.key = '');
+    applyView(p);
+  }
+}
+
+// the column set list (Configuration > Custom columns, cm_CustomColumnConfig)
+async function customColumnConfig(app) {
+  let list = sets().map((s) => ({ ...s, columns: (s.columns || []).map((c) => ({ ...c })) }));
+  const ok = await modal((box, done) => {
+    const draw = (sel = 0) => {
+      box.innerHTML = `<h2>Custom columns</h2>
+        <div class="mc-views-sets">
+          <select id="sets" size="8" aria-label="Column sets">${list.map((s, i) => `<option value="${i}"${i === sel ? ' selected' : ''}>${esc(s.name)}${s.autoSwitch ? `  (for ${esc(s.autoSwitch)})` : ''}</option>`).join('')}</select>
+          <div class="mc-views-side"><button type="button" data-a="new">New…</button><button type="button" data-a="copy">Copy…</button><button type="button" data-a="edit">Edit…</button>
+          <button type="button" data-a="delete">Delete</button><button type="button" data-a="up">Up</button><button type="button" data-a="down">Down</button></div>
+        </div>
+        <p class="mc-note">${list.length ? 'Shift+F1 or a right-click on the column titles chooses a set for a panel.' : 'No column sets yet: New… makes one.'}</p>
+        <p class="mc-err" hidden></p>
+        <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+      box.querySelector('.cancel').onclick = () => done(false);
+      box.querySelectorAll('[data-a]').forEach((b) => { b.onclick = () => act(b.dataset.a); });
+      box.querySelector('#sets').addEventListener('dblclick', () => act('edit'));
+    };
+    const at = () => { const v = box.querySelector('#sets').value; return v === '' ? -1 : +v; };
+    const act = async (a) => {
+      const i = at();
+      if (a === 'new') {
+        const s = await editSet({ name: uniqueName(list, 'Columns'), autoSwitch: '', columns: [{ title: 'Size', template: '[=tc.size]', width: 90, align: 'right' }, { title: 'Date', template: '[=tc.writedate]', width: 130, align: 'left' }] }, list, -1);
+        if (s) { list.push(s); draw(list.length - 1); }
+      } else if (i < 0) {
+        if (a !== 'up' && a !== 'down') { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = 'Choose a column set first.'; }
+      } else if (a === 'copy') {
+        const s = await editSet({ ...list[i], name: uniqueName(list, `${list[i].name} copy`), columns: list[i].columns.map((c) => ({ ...c })) }, list, -1);
+        if (s) { list.push(s); draw(list.length - 1); }
+      } else if (a === 'edit') {
+        const s = await editSet(list[i], list, i);
+        if (s) { list[i] = s; draw(i); }
+      } else if (a === 'delete') {
+        list.splice(i, 1);
+        draw(Math.min(i, list.length - 1));
+      } else if (a === 'up' && i > 0) {
+        [list[i - 1], list[i]] = [list[i], list[i - 1]];
+        draw(i - 1);
+      } else if (a === 'down' && i < list.length - 1) {
+        [list[i + 1], list[i]] = [list[i], list[i + 1]];
+        draw(i + 1);
+      }
+    };
+    box.onsubmit = (ev) => { ev.preventDefault(); done(true); };
+    draw();
+  }, false, { kind: 'custom-columns' });
+  if (!ok) return false;
+  // panels showing a set that was renamed or deleted fall back to Full
+  const names = new Set(list.map((s) => s.name));
+  await saveCfg({ columnSets: list });
+  for (const p of app.panels) {
+    const vs = vsOf(p);
+    if (vs.manual.mode === 'custom' && !names.has(vs.manual.set)) vs.manual = { mode: 'full', set: '' };
+    if (vs.mode === 'custom' && !names.has(vs.set)) { vs.mode = vs.manual.mode; vs.set = vs.manual.set; vs.auto = false; }
+  }
+  save();
+  refreshAll(app);
+  for (const p of app.panels) autoSwitch(p);
+  return true;
+}
+
+function uniqueName(list, base) {
+  let n = base, k = 2;
+  while (list.some((s) => s.name === n)) n = `${base} ${k++}`;
+  return n;
+}
+
+let fieldCache = null;
+async function fieldList() {
+  if (!fieldCache) fieldCache = await go.Views.Fields().catch(() => []);
+  return fieldCache || [];
+}
+
+// editSet is the "Modify custom columns view" dialog: the set's name, the folder mask that picks it, and one line per
+// column (title, field contents, width, alignment). The name column always comes first and is not listed.
+function editSet(set, list, index) {
+  let cols = set.columns.map((c) => ({ ...c }));
+  return modal((box, done) => {
+    const read = () => {
+      cols = cols.map((c, i) => ({
+        title: box.querySelector(`#title-${i}`).value, template: box.querySelector(`#template-${i}`).value,
+        width: parseInt(box.querySelector(`#width-${i}`).value, 10) || 0, align: box.querySelector(`#align-${i}`).value,
+      }));
+    };
+    const draw = () => {
+      const name = box.querySelector('#name')?.value ?? set.name, auto = box.querySelector('#auto')?.value ?? (set.autoSwitch || '');
+      box.innerHTML = `<h2>${index < 0 ? 'New column set' : 'Edit column set'}</h2>
+        <div class="mc-row"><label for="name">Name of the column set</label><input id="name" type="text" spellcheck="false" value="${esc(name)}" autofocus></div>
+        <div class="mc-row"><label for="auto">Use it for these folders (optional, e.g. Pictures;*/photos/*)</label><input id="auto" type="text" spellcheck="false" value="${esc(auto)}"></div>
+        <div class="mc-views-grid"><span>Title</span><span>Field contents</span><span>Width</span><span>Align</span><span></span>
+        ${cols.map((c, i) => `<input id="title-${i}" type="text" spellcheck="false" value="${esc(c.title)}" aria-label="Title of column ${i + 1}">
+          <span class="mc-views-tpl"><input id="template-${i}" type="text" spellcheck="false" value="${esc(c.template)}" aria-label="Contents of column ${i + 1}"><button type="button" data-f="${i}" title="Add a field">…</button></span>
+          <input id="width-${i}" type="text" inputmode="numeric" value="${c.width || ''}" placeholder="auto" aria-label="Width of column ${i + 1}">
+          <select id="align-${i}" aria-label="Alignment of column ${i + 1}">${opt([['left', 'Left'], ['right', 'Right'], ['center', 'Center']], c.align || 'left')}</select>
+          <button type="button" data-del="${i}" title="Remove this column">−</button>`).join('')}
+        </div>
+        <div class="mc-views-gridbtns"><button type="button" data-add="1">+ Add column</button><span class="mc-note">Fields look like [=tc.size.k] or [=tc.writedate.dd.MM.yyyy]; text around them is shown as it is.</span></div>
+        <p class="mc-err" hidden></p>
+        <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+      box.querySelector('.cancel').onclick = () => done(null);
+      box.querySelector('[data-add]').onclick = () => { read(); cols.push({ title: 'Column', template: '[=tc.size]', width: 90, align: 'left' }); draw(); box.querySelector(`#title-${cols.length - 1}`)?.focus(); };
+      box.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { read(); cols.splice(+b.dataset.del, 1); draw(); }; });
+      box.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => chooseField(box, +b.dataset.f, b); });
+    };
+    const err = (t) => { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = t; };
+    box.onsubmit = async (ev) => {
+      ev.preventDefault();
+      read();
+      const name = box.querySelector('#name').value.trim();
+      if (!name) return err('Give the column set a name.');
+      if (list.some((s, i) => i !== index && s.name === name)) return err(`There is already a column set called "${name}".`);
+      if (!cols.length) return err('Add at least one column.');
+      const problem = await go.Views.CheckColumns(cols).catch((e) => errText(e));
+      if (problem) return err(problem);
+      done({ name, autoSwitch: box.querySelector('#auto').value.trim(), columns: cols });
+    };
+    draw();
+  }, null, { kind: 'edit-column-set' });
+}
+
+async function chooseField(box, i, anchor) {
+  const fields = await fieldList();
+  const items = fields.map((f) => ({ label: `[=${f.name}]`, detail: f.help + (f.units?.length ? ` (units: ${f.units.join(', ')})` : ''), value: f.name }));
+  const r = await showList({ title: 'Fields', items, anchor, kind: 'column-fields' });
+  if (!r) return;
+  const input = box.querySelector(`#template-${i}`);
+  if (!input) return;
+  input.value = (input.value ? `${input.value} ` : '') + `[=${r.item.value}]`;
+  input.focus();
+}
+
+// Configuration > Thumbnails: size and the cache
+async function thumbnailsConfig(app) {
+  let info = { dir: '', entries: 0, bytes: 0 };
+  try { info = await go.Views.ThumbCache(); } catch { /* the size can still be set */ }
+  const r = await formDialog('Thumbnails',
+    `<div class="mc-row"><label for="thumbSize">Thumbnail size in pixels (32 to 512)</label><input id="thumbSize" type="text" inputmode="numeric" value="${thumbSize()}" autofocus></div>
+     <p class="mc-note">Cache: ${esc(info.dir || 'none')} — ${info.entries} ${info.entries === 1 ? 'picture' : 'pictures'}, ${esc(shortSize(info.bytes))}.</p>
+     <div class="mc-btns mc-views-left"><button type="button" id="mc-views-clear">Delete thumbnail cache…</button></div>`,
+    (box) => {
+      const ts = parseInt(box.querySelector('#thumbSize').value, 10);
+      if (!(ts >= 32 && ts <= 512)) return 'The thumbnail size must be between 32 and 512 pixels.';
+      return { thumbSize: ts };
+    },
+    (box) => { box.querySelector('#mc-views-clear').onclick = async () => { if (await clearThumbCache(app)) box.querySelector('.mc-note').textContent = 'The thumbnail cache is empty.'; }; },
+    { kind: 'thumbnails-config' });
+  if (!r) return false;
+  setThumbSize(r.thumbSize);
+  return true;
+}
+
+async function clearThumbCache(app) {
+  const a = await messageDialog({ Title: 'Delete thumbnail cache', Message: 'Delete every saved thumbnail? They are made again when they are needed.', Buttons: ['Delete', 'Cancel'], Kind: 'clear-thumbs' });
+  if (a !== 'Delete') return false;
+  try { await go.Views.ClearThumbCache(); } catch (e) { app.flash(errText(e), 'err'); return false; }
+  app.flash('The thumbnail cache was deleted.');
+  for (const p of app.panels) if (modeOf(p) === 'thumbs') { vsOf(p).thumbs && (vsOf(p).thumbs.key = ''); startThumbs(p); }
+  return true;
+}
+
+// ---- commands ----
+
+const PANELS = { Src: (app) => app.cur, Left: (app) => app.left, Right: (app) => app.right, Trg: (app) => app.other };
+const SIDE_WORD = { Src: '', Left: ' (left panel)', Right: ' (right panel)', Trg: ' (other panel)' };
+
+for (const [pre, pick] of Object.entries(PANELS)) {
+  const w = SIDE_WORD[pre];
+  const view = (suffix, mode, label) => command({
+    name: `cm_${pre}${suffix}`, label: label + w, checked: (app) => modeOf(pick(app)) === mode,
+    run: (app) => (mode === 'tree' ? toggleTree(pick(app)) : setMode(pick(app), mode)),
+  });
+  view('Short', 'brief', 'Brief');
+  view('Long', 'full', 'Full');
+  view('Comments', 'comments', 'Comments');
+  view('Thumbs', 'thumbs', 'Thumbnails');
+  view('Tree', 'tree', 'Tree');
+  command({ name: `cm_${pre}CustomViewMenu`, label: `Custom columns…${w}`, checked: (app) => modeOf(pick(app)) === 'custom', run: (app) => columnSetMenu(app, pick(app)) });
+  for (let n = 1; n <= 9; n++) command({ name: `cm_${pre}CustomView${n}`, label: `Column set ${n}${w}`, run: (app) => customByNumber(pick(app), n) });
+  command({ name: `cm_${pre}NextCustomView`, label: `Next column set${w}`, run: (app) => stepCustom(pick(app), 1) });
+  command({ name: `cm_${pre}PrevCustomView`, label: `Previous column set${w}`, run: (app) => stepCustom(pick(app), -1) });
+  if (pre !== 'Src') { // (the Src sort commands are the sorting feature's)
+    const sort = (suffix, key, label) => command({ name: `cm_${pre}${suffix}`, label: label + w, checked: (app) => pick(app).sort.key === key, run: (app) => pick(app).sortBy(key) });
+    sort('ByName', 'name', 'Sort by name');
+    sort('ByExt', 'ext', 'Sort by extension');
+    sort('ByDateTime', 'date', 'Sort by date');
+    sort('BySize', 'size', 'Sort by size');
+    command({ name: `cm_${pre}Unsorted`, label: `Unsorted${w}`, checked: (app) => pick(app).sort.key === 'none', run: (app) => pick(app).sortBy('none', false) });
+    command({ name: `cm_${pre}NegOrder`, label: `Reverse order${w}`, run: (app) => { const p = pick(app); p.sortBy(p.sort.key, !p.sort.desc); } });
+  }
+  if (pre !== 'Trg') {
+    for (let n = 1; n <= 99; n++) {
+      command({
+        name: `cm_${pre}SortByCol${n}`, label: `Sort by column ${n}${w}`,
+        run: (app) => sortByColumn(pick(app), n),
+      });
+    }
+  }
+}
+
+// sortByColumn sorts by column n of the panel's view (1 = name); again reverses (F-790).
+function sortByColumn(p, n) {
+  if (modeOf(p) === 'tree') return false;
+  const cols = isColumnMode(p) ? columns(p) : { ext: !cfg().namesWhole && modeOf(p) === 'full', cols: modeOf(p) === 'full' ? columns(p).cols : [] };
+  const keys = ['name'];
+  if (cols.ext) keys.push('ext');
+  cols.cols.forEach((c, k) => keys.push(c.sort || (isColumnMode(p) ? `col${k + 1}` : null)));
+  const key = keys[n - 1];
+  if (!key) { p.app.flash(`The view has no column ${n} to sort by.`); return false; }
+  p.sortBy(key);
+  return true;
+}
+
+function toggleTree(p) {
+  if (modeOf(p) === 'tree') return leaveTree(p, {});
+  return enterTree(p);
+}
+
+command({ name: 'cm_EditComment', label: 'Edit comment…', run: editComment });
+command({
+  name: 'cm_SwitchDirSort', label: 'Sort folders always by name', checked: (app) => !app.setting('dirsLikeFiles', false), menu: 'Show', menuAfter: 'cm_SrcNegOrder',
+  run: async (app) => { await app.setSetting('dirsLikeFiles', !app.setting('dirsLikeFiles', false)); for (const p of app.panels) { p.rebuild(); app.panelChanged(p, { moved: false }); } },
+});
+command({
+  // ours: TC has this only as a setting (Configuration > Display > Sorting method)
+  name: 'cm_SwitchNaturalSort', label: 'Natural sorting (file2 before file10)', checked: (app) => !!app.setting('naturalSort', true), menu: 'Show', menuAfter: 'cm_SrcNegOrder',
+  run: async (app) => { await app.setSetting('naturalSort', !app.setting('naturalSort', true)); for (const p of app.panels) { vsOf(p).cellsSig = ''; p.rebuild(); app.panelChanged(p, { moved: false }); } },
+});
+command({ name: 'cm_ViewOptions', label: 'View options…', menu: 'Show', menuAfter: 'cm_ZoomOut', run: viewOptions }); // ours
+command({ name: 'cm_CustomColumnConfig', label: 'Custom columns…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: customColumnConfig });
+command({ name: 'cm_ThumbnailsConfig', label: 'Thumbnails…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: thumbnailsConfig });
+command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)
+
+// The cursor keys, view-aware: in Brief, Left/Right move a column and PgUp/PgDn to the top / bottom of the column; in
+// Thumbnails, Up/Down move a row of tiles. Registered in init() so they replace the plain ones of navigation.js.
+function cursorCommands() {
+  command({
+    name: 'cm_CursorUp', label: 'Cursor up',
+    run: (app) => { const p = app.cur; if (modeOf(p) === 'thumbs') { const c = thumbGeo(p).cols; if (p.cursor - c >= 0) p.setCursor(p.cursor - c); } else p.moveCursor(-1); },
+  });
+  command({
+    name: 'cm_CursorDown', label: 'Cursor down',
+    run: (app) => {
+      const p = app.cur;
+      if (modeOf(p) === 'thumbs') {
+        const c = thumbGeo(p).cols, n = p.entries.length;
+        if (Math.floor(p.cursor / c) < Math.floor((n - 1) / c)) p.setCursor(Math.min(n - 1, p.cursor + c));
+      } else p.moveCursor(1);
+    },
+  });
+  command({
+    name: 'cm_CursorLeft', label: 'Cursor left',
+    run: (app) => { const p = app.cur, m = modeOf(p); if (m === 'brief') p.setCursor(Math.max(0, p.cursor - briefGeo(p).rows)); else if (m === 'thumbs') p.moveCursor(-1); },
+  });
+  command({
+    name: 'cm_CursorRight', label: 'Cursor right',
+    run: (app) => { const p = app.cur, m = modeOf(p); if (m === 'brief') p.setCursor(Math.min(p.entries.length - 1, p.cursor + briefGeo(p).rows)); else if (m === 'thumbs') p.moveCursor(1); },
+  });
+  command({
+    name: 'cm_PageUp', label: 'Page up',
+    run: (app) => {
+      const p = app.cur;
+      if (modeOf(p) === 'brief') { const r = briefGeo(p).rows; const top = p.cursor - (p.cursor % r); p.setCursor(p.cursor === top ? Math.max(0, top - r) : top); } else p.moveCursor(-p.pageSize());
+    },
+  });
+  command({
+    name: 'cm_PageDown', label: 'Page down',
+    run: (app) => {
+      const p = app.cur;
+      if (modeOf(p) === 'brief') {
+        const r = briefGeo(p).rows, n = p.entries.length;
+        const bottom = Math.min(n - 1, p.cursor - (p.cursor % r) + r - 1);
+        p.setCursor(p.cursor === bottom ? Math.min(n - 1, bottom + r) : bottom);
+      } else p.moveCursor(p.pageSize());
+    },
+  });
+}
+
+// ---- control mode ----
+
+function viewInfo(p) {
+  const vs = vsOf(p);
+  const out = { side: p.side, mode: vs.mode, set: vs.set, auto: vs.auto, columns: [], rows: [] };
+  if (isColumnMode(p)) out.columns = [...p.$.header.querySelectorAll('[data-vcol]')].map((s) => s.textContent);
+  else if (vs.mode !== 'tree') out.columns = [...p.$.header.querySelectorAll('[data-col]')].map((s) => s.textContent);
+  if (vs.mode === 'tree') {
+    const t = vs.tree;
+    out.tree = t ? { at: t.at, path: t.nodes[t.at]?.path ?? '', nodes: t.nodes.slice(0, 200).map((n) => ({ name: n.depth ? n.name : n.path, path: n.path, depth: n.depth, open: !!n.open })) } : null;
+    return out;
+  }
+  for (const el of p.$.rows.children) {
+    const i = +el.dataset.i;
+    const e = p.entries[i];
+    if (!e) continue;
+    const r = { i, name: e.name };
+    if (vs.mode === 'thumbs') {
+      r.thumb = !!vs.thumbs?.urls.has(e.name);
+      r.icon = !!vs.thumbs?.icons?.names?.[e.name];
+      r.text = el.querySelector('.mc-views-sub')?.textContent || '';
+    } else if (vs.mode === 'brief') {
+      const s = el.style;
+      r.left = parseInt(s.left, 10);
+      r.top = parseInt(s.top, 10);
+    } else r.cells = [...el.children].map((c) => c.textContent);
+    out.rows.push(r);
+  }
+  out.rows.sort((a, b) => a.i - b.i);
+  if (vs.mode === 'brief') { const g = briefGeo(p); out.brief = { rows: g.rows, columns: g.cols, columnWidth: g.colW }; }
+  if (vs.mode === 'thumbs') { const g = thumbGeo(p); out.thumbs = { columns: g.cols, size: g.s, gen: vs.thumbs?.gen ?? 0, done: vs.thumbs?.urls.size ?? 0 }; }
+  return out;
+}
+
+addControlCommand('views', async () => ({ ok: true, left: viewInfo(theApp.left), right: viewInfo(theApp.right), settings: cfg() }));
+
+// ---- start ----
+
+export function init(app) {
+  Panel.STATE_KEYS.push('vs');
+  for (const p of app.panels) install(p);
+  cursorCommands();
+  addKeyHandler(treeKey);
+  on('views-thumb', onThumb);
+  // the views the panels had last time (the tree is not kept)
+  const c = cfg();
+  if (!app.demo) {
+    for (const p of app.panels) {
+      const saved = c[p.side];
+      if (!saved || !MODES.includes(saved.mode) || saved.mode === 'tree') continue;
+      if (saved.mode === 'custom' && !findSet(saved.set)) continue;
+      const vs = vsOf(p);
+      vs.mode = saved.mode;
+      vs.set = saved.mode === 'custom' ? saved.set : '';
+      vs.manual = { mode: vs.mode, set: vs.set };
+      renderHeader(p);
+    }
+  }
+  for (const p of app.panels) if (/^col\d+$/.test(p.sort.key || '') && !(vsOf(p).mode === 'custom' || vsOf(p).mode === 'comments')) p.sort = { key: 'name', desc: false };
+  app.on('panel', (p, info = {}) => {
+    const vs = vsOf(p);
+    if (vs.mode === 'tree') return;
+    if (info.moved) autoSwitch(p);
+    if (isColumnMode(p)) requestCells(p);
+    if (vs.mode === 'thumbs') startThumbs(p);
+  });
+  app.on('exchange', () => {
+    for (const p of app.panels) {
+      const vs = vsOf(p);
+      if (vs.thumbs) vs.thumbs.key = '';
+      vs.cellsSig = '';
+      applyView(p);
+    }
+    save();
+  });
+}
