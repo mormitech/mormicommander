@@ -4,6 +4,12 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## 0.9.6 – 2026-11-13
+
+### Fixed
+
+- Resized column widths were lost when a panel changed folder.
+
 ## 0.9.5 – 2026-11-13
 
 ### Added

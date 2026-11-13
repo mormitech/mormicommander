@@ -19,12 +19,13 @@ const sig = (header) => spans(header).map((s) => s.dataset.col || s.dataset.vcol
 // apply lays the saved widths over the panel's column template (the name column stays flexible).
 function apply(panel) {
   const header = panel.$.header;
-  if (!header || header.hidden) return;
+  if (!header || header.hidden || header.classList.contains('mc-col-dragging')) return;
   const w = all()[sig(header)];
   if (!Array.isArray(w)) return;
   const tpl = [`minmax(${NAME_MIN}px, 1fr)`, ...w.slice(1).map((px) => `${Math.max(MIN, Math.round(px))}px`)];
   if (tpl.length !== spans(header).length) return; // the columns changed since the widths were saved
-  panel.el.style.setProperty('--cols', tpl.join(' '));
+  const want = tpl.join(' ');
+  if (panel.el.style.getPropertyValue('--cols').trim() !== want) panel.el.style.setProperty('--cols', want);
 }
 
 // borderAt finds the column whose left border is under the pointer (never the name column, which has none to drag).
@@ -86,8 +87,11 @@ function wire(app, panel) {
     setSetting('columnWidths', rest);
     for (const p of app.panels) if (sig(p.$.header) === s) { p.el.style.removeProperty('--cols'); p.renderHeader?.(); app.emit('panel', p, { moved: false }); }
   });
-  // Views and column sets redraw the header; lay the saved widths over whatever they set.
+  // Views and column sets redraw the header, and the views feature resets the panel's column template on every folder
+  // change (without touching the titles); lay the saved widths over whatever they set, whenever either happens.
   new MutationObserver(() => apply(panel)).observe(header, { childList: true });
+  new MutationObserver(() => apply(panel)).observe(panel.el, { attributes: true, attributeFilter: ['style'] });
+  app.on('panel', (p) => { if (p === panel) queueMicrotask(() => apply(panel)); });
   apply(panel);
 }
 
