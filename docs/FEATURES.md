@@ -204,17 +204,17 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-136 Right mouse button selection mode (TC classic) — — — option: right button selects, long press opens context menu
 - [ ] F-137 Selection count/size shown in status bar — — — status bar shows count and total size of selected files
 - [ ] F-138 Copy names to clipboard (cm_CopyNamesToClip) — — — selected file names (one per line) copied to clipboard
-- [ ] F-139 Copy full names with path (cm_CopyFullNamesToClip) — — (assignable; Cmd+Alt+C on macOS) — full paths copied, one per line
+- [x] F-139 Copy full names with path (cm_CopyFullNamesToClip) — — (assignable; Cmd+Alt+C on macOS) — full paths copied, one per line
 - [ ] F-140 Copy names with details (cm_CopyDetailsToClip / cm_CopyFullDetailsToClip) — — — names plus size/date/attributes, tab-separated
-- [ ] F-141 Copy path of current folder (cm_CopySrcPathToClip) — — — current folder path copied
-- [ ] F-142 Copy names as Unix/URL paths, network names (cm_CopyNetNamesToClip) — — — variants supported where meaningful
+- [x] F-141 Copy path of current folder (cm_CopySrcPathToClip) — — (assignable; Cmd+Alt+Shift+C on macOS, ours) — current folder path copied
+- [x] F-142 Copy names as Unix/URL paths, network names (cm_CopyNetNamesToClip) — — — variants supported where meaningful: network names, Unix paths (cm_CopyUnixNamesToClip), file URLs (cm_CopyURLNamesToClip) and full paths in double quotes (cm_CopyFullNamesQuotedToClip, ours; shell-escaped outside Windows)
 - [~] F-143 Select same names as in other panel (cm_SelectFromOtherPanel, ours) — — — files whose names are selected in the other panel get selected here
 - [ ] F-791 Select group including folders (cm_SelectBoth) — Shift+Num + — like Num +, but selects files and folders when Num + selects only files (and the other way round)
 - [ ] F-792 Unselect group from files only (cm_UnselectFiles) — Shift+Num - — removes the selection from matching files only; folders stay selected
 - [ ] F-793 Select all including folders (cm_SelectAllBoth) — Ctrl+Shift+Num + — files and folders selected when Ctrl+Num + selects only files
 - [ ] F-794 Unselect all files only (cm_ClearFiles) — Ctrl+Shift+Num - — files lose selection, folders keep it
 - [ ] F-795 Invert files only / folders only, unselect folders only (cm_ExchangeSelFiles, cm_ExchangeSelFolders, cm_ClearFolders) — — — each command acts on the named kind only
-- [ ] F-796 Copy target panel path to clipboard (cm_CopyTrgPathToClip) — — — path of the other panel's folder copied
+- [x] F-796 Copy target panel path to clipboard (cm_CopyTrgPathToClip) — — — path of the other panel's folder copied
 - [~] F-797 Option: Space selects only, without counting folder size (Operation > Selection with Space) — Space — with the option off, Space on a folder selects it without calculating the size
 
 ## 7. Function keys and F-key commands

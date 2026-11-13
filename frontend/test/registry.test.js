@@ -40,6 +40,9 @@ test('Mac keys only on macOS', () => {
   expect(reg.commandForKey('Cmd+C')).toBe('cm_CopyToClipboard');
   expect(reg.commandForKey('Shift+Cmd+.')).toBe('cm_SwitchHidSys');
   expect(reg.commandForKey('Ctrl+C')).toBe('cm_CopyToClipboard'); // TC keys stay on macOS
+  // Finder's copy-path keys (#5): Option+Cmd+C copies the full names, Option+Shift+Cmd+C the folder's path
+  expect(reg.commandForKey('Alt+Cmd+C')).toBe('cm_CopyFullNamesToClip');
+  expect(reg.commandForKey('Alt+Shift+Cmd+C')).toBe('cm_CopySrcPathToClip');
 });
 
 test('run passes the app and args; unknown names reject with NotReady', async () => {

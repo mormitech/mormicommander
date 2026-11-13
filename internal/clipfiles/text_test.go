@@ -65,6 +65,7 @@ func TestCommandKind(t *testing.T) {
 	for cm, want := range map[string]TextKind{
 		"cm_CopyNamesToClip": Names, "cm_CopyFullNamesToClip": FullNames, "cm_CopyDetailsToClip": Details,
 		"cm_CopyFullDetailsToClip": FullDetails, "cm_CopyNetNamesToClip": NetNames,
+		"cm_CopyFullNamesQuotedToClip": QuotedNames,
 	} {
 		if got, ok := CommandKind(cm); !ok || got != want {
 			t.Errorf("CommandKind(%s) = %v, %v", cm, got, ok)
@@ -72,6 +73,27 @@ func TestCommandKind(t *testing.T) {
 	}
 	if _, ok := CommandKind("cm_Nope"); ok {
 		t.Error("unknown command accepted")
+	}
+}
+
+func TestQuotePath(t *testing.T) {
+	for _, c := range []struct{ in, goos, want string }{
+		{"/Users/me/My Files/a.txt", "darwin", `"/Users/me/My Files/a.txt"`},
+		{`/tmp/say "hi" $HOME ` + "`x`" + ` a\b`, "linux", `"/tmp/say \"hi\" \$HOME \` + "`x\\`" + ` a\\b"`},
+		{"/tmp/it's", "darwin", `"/tmp/it's"`},
+		{`C:\Program Files\x`, "windows", `"C:\Program Files\x"`},
+	} {
+		if got := QuotePath(c.in, c.goos); got != c.want {
+			t.Errorf("QuotePath(%q, %s) = %q, want %q", c.in, c.goos, got, c.want)
+		}
+	}
+	// FormatText quotes every line on its own
+	got := FormatText(QuotedNames, []Entry{{Path: string(filepath.Separator) + "a b"}, {Path: string(filepath.Separator) + "c"}}, Format{Newline: "\n"})
+	sep := string(filepath.Separator)
+	if runtime.GOOS != "windows" && sep == "/" {
+		if want := "\"/a b\"\n\"/c\""; got != want {
+			t.Errorf("quoted text = %q, want %q", got, want)
+		}
 	}
 }
 

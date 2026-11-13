@@ -57,6 +57,7 @@ export const MAC_KEYS = {
   'Cmd+T': 'cm_OpenNewTab', 'Cmd+W': 'cm_CloseCurrentTab', 'Cmd+Q': 'cm_Exit', 'Cmd+,': 'cm_Config', 'Cmd+Backspace': 'cm_Delete',
   'Shift+Cmd+.': 'cm_SwitchHidSys', 'Cmd+R': 'cm_RereadSource', 'Cmd+Up': 'cm_GoToParent', 'Cmd+Down': 'cm_Enter', 'Cmd+I': 'cm_Properties',
   'Cmd+L': 'cm_EditPath', 'Cmd+F': 'cm_SearchFor', 'Shift+Cmd+G': 'cm_EditPath', 'Alt+Cmd+C': 'cm_CopyFullNamesToClip',
+  'Alt+Shift+Cmd+C': 'cm_CopySrcPathToClip',
   'Alt+Cmd+Left': 'cm_TransferLeft', 'Alt+Cmd+Right': 'cm_TransferRight', 'Alt+Cmd+Up': 'cm_OpenDirInNewTab',
   'Cmd+=': 'cm_ZoomIn', 'Cmd+-': 'cm_ZoomOut', 'Cmd+[': 'cm_GoToPreviousDir', 'Cmd+]': 'cm_GoToNextDir',
 };

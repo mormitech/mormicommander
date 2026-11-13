@@ -4,10 +4,12 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 
+	"mormicommander/internal/clipfiles"
 	"mormicommander/internal/vfs"
 )
 
@@ -105,6 +107,11 @@ func TestSelectFileAndClipboard(t *testing.T) {
 	}
 	if text != want {
 		t.Errorf("full names: %q, want %q", text, want)
+	}
+	// the quoted variant (#5): every full path in double quotes, one per line
+	text, err = s.CopyNames("cm_CopyFullNamesQuotedToClip", dir, []SelectEntry{{Name: "my file.txt"}})
+	if err != nil || text != clipfiles.QuotePath(filepath.Join(dir, "my file.txt"), runtime.GOOS) || !strings.HasPrefix(text, `"`) {
+		t.Errorf("quoted names: %q %v", text, err)
 	}
 	text, _ = s.CopyNames("cm_CopyDetailsToClip", dir, rows)
 	if !strings.HasPrefix(text, "a.go\t3\t2024-05-01 12:00\trw-r--r--") || !strings.Contains(text, "docs\t<DIR>") {

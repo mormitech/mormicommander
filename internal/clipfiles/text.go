@@ -3,7 +3,9 @@
 // cm_CopyDetailsToClip and cm_CopyFullDetailsToClip add size, date and attributes separated by tabs (so the text
 // pastes into a spreadsheet as columns), cm_CopyNetNamesToClip turns mapped drive letters into \\server\share names
 // on Windows, and cm_CopySrcPathToClip / cm_CopyTrgPathToClip copy a panel's folder. TC also offers forward-slash and
-// file:// URL variants, which help when pasting into a shell or a browser. In the other direction,
+// file:// URL variants, which help when pasting into a shell or a browser, and cm_CopyFullNamesQuotedToClip (ours)
+// copies full paths in double quotes, so a path with spaces pastes into a shell or a Windows prompt as one argument.
+// In the other direction,
 // cm_LoadSelectionFromClip and the multi-rename tool's "load names from clipboard" read lines of text; ParseNameList
 // and Lines do that, tolerating CRLF, quotes and file:// URIs. Formatting is pure so the UI can preview it and the
 // tests can check it without touching the real clipboard.
@@ -105,17 +107,19 @@ const (
 	NetNames                    // full paths with mapped drives as UNC names on Windows (cm_CopyNetNamesToClip)
 	UnixPaths                   // full paths with forward slashes
 	URLs                        // file:// URLs
+	QuotedNames                 // full native paths in double quotes (cm_CopyFullNamesQuotedToClip, ours)
 )
 
 // commands maps TC command names to text kinds so the UI's command registry can look them up.
 var commands = map[string]TextKind{
-	"cm_CopyNamesToClip":       Names,
-	"cm_CopyFullNamesToClip":   FullNames,
-	"cm_CopyDetailsToClip":     Details,
-	"cm_CopyFullDetailsToClip": FullDetails,
-	"cm_CopyNetNamesToClip":    NetNames,
-	"cm_CopyUnixNamesToClip":   UnixPaths,
-	"cm_CopyURLNamesToClip":    URLs,
+	"cm_CopyNamesToClip":           Names,
+	"cm_CopyFullNamesToClip":       FullNames,
+	"cm_CopyDetailsToClip":         Details,
+	"cm_CopyFullDetailsToClip":     FullDetails,
+	"cm_CopyNetNamesToClip":        NetNames,
+	"cm_CopyUnixNamesToClip":       UnixPaths,
+	"cm_CopyURLNamesToClip":        URLs,
+	"cm_CopyFullNamesQuotedToClip": QuotedNames,
 }
 
 // CommandKind returns the text kind for a TC command name such as "cm_CopyNamesToClip".
@@ -156,6 +160,8 @@ func formatLine(kind TextKind, e Entry, f Format) string {
 			p += "/"
 		}
 		return p
+	case QuotedNames:
+		return QuotePath(e.Path+suffix, runtime.GOOS)
 	case URLs:
 		u := FileURI(e.Path)
 		if f.DirSuffix && e.IsDir {
@@ -189,6 +195,27 @@ func formatLine(kind TextKind, e Entry, f Format) string {
 		return n + suffix + "\t" + size + "\t" + date + "\t" + attr
 	}
 	return e.Path
+}
+
+// QuotePath puts a path in double quotes for pasting into a shell. On Windows a path can't hold a double quote, so the
+// quotes are all it needs, as Explorer's "Copy as path" does. Elsewhere the characters a POSIX shell still treats
+// specially inside double quotes (backslash, double quote, dollar and backquote) get a backslash in front, so the
+// pasted text always names exactly this path.
+func QuotePath(p, goos string) string {
+	if goos == "windows" {
+		return `"` + p + `"`
+	}
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range p {
+		switch r {
+		case '\\', '"', '$', '`':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(r)
+	}
+	b.WriteByte('"')
+	return b.String()
 }
 
 // FolderPath formats a panel folder for cm_CopySrcPathToClip and cm_CopyTrgPathToClip. TC copies the folder with a

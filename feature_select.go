@@ -223,7 +223,7 @@ func (s *Select) SaveFile(path, dir string, names []string, full bool) error {
 
 // CopyNames puts the rows on the clipboard as text: cmd is the TC command (cm_CopyNamesToClip, cm_CopyFullNamesToClip,
 // cm_CopyDetailsToClip, cm_CopyFullDetailsToClip, cm_CopyNetNamesToClip, cm_CopyUnixNamesToClip,
-// cm_CopyURLNamesToClip). It returns the text it copied.
+// cm_CopyURLNamesToClip, and our cm_CopyFullNamesQuotedToClip). It returns the text it copied.
 func (s *Select) CopyNames(cmd, dir string, entries []SelectEntry) (string, error) {
 	kind, ok := clipfiles.CommandKind(cmd)
 	if !ok {

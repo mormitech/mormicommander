@@ -385,6 +385,8 @@ copyNames('cm_CopyFullDetailsToClip', 'Copy full names with details', { menu: 'M
 copyNames('cm_CopyNetNamesToClip', 'Copy names with network path', { menu: 'Mark', menuAfter: 'cm_CopyFullDetailsToClip' });
 copyNames('cm_CopyUnixNamesToClip', 'Copy names as Unix paths', { menu: 'Mark', menuAfter: 'cm_CopyNetNamesToClip' });
 copyNames('cm_CopyURLNamesToClip', 'Copy names as file URLs', { menu: 'Mark', menuAfter: 'cm_CopyUnixNamesToClip' });
+// ours: full paths in double quotes, one per line, for pasting into a shell (no default key; assignable)
+copyNames('cm_CopyFullNamesQuotedToClip', 'Copy names with full path, quoted', { menu: 'Mark', menuAfter: 'cm_CopyURLNamesToClip' });
 
 async function copyPath(app, p) {
   try { const t = await go.Select.CopyPath(p.path); app.flash(`Copied ${t} to the clipboard.`); return true; }
