@@ -51,12 +51,13 @@ type block struct {
 type File struct {
 	path string
 
-	mu    sync.Mutex
-	f     *os.File
-	info  os.FileInfo
-	size  int64
-	lru   *list.List // of *block, most recently used first
-	index map[int64]*list.Element
+	mu     sync.Mutex
+	f      *os.File // nil while no handle is held (always, between reads, on Windows)
+	closed bool
+	info   os.FileInfo
+	size   int64
+	lru    *list.List // of *block, most recently used first
+	index  map[int64]*list.Element
 }
 
 // Open opens path for lazy reading. Nothing beyond the file header of the
@@ -74,6 +75,10 @@ func Open(path string) (*File, error) {
 	if info.IsDir() {
 		f.Close()
 		return nil, errors.New("lister: " + path + " is a folder")
+	}
+	if !keepOpen {
+		f.Close()
+		f = nil
 	}
 	return &File{path: path, f: f, info: info, size: info.Size(), lru: list.New(), index: map[int64]*list.Element{}}, nil
 }
@@ -99,11 +104,15 @@ func (f *File) Info() os.FileInfo {
 func (f *File) Close() error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.f == nil {
+	if f.closed {
 		return nil
 	}
-	err := f.f.Close()
-	f.f = nil
+	f.closed = true
+	var err error
+	if f.f != nil {
+		err = f.f.Close()
+		f.f = nil
+	}
 	f.lru.Init()
 	clear(f.index)
 	return err
@@ -118,16 +127,18 @@ func (f *File) ReadAt(p []byte, off int64) (int, error) {
 	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.f == nil {
+	if f.closed {
 		return 0, os.ErrClosed
 	}
+	lh := lazyHandle{f: f}
+	defer lh.release()
 	n := 0
 	for n < len(p) {
 		pos := off + int64(n)
 		if pos >= f.size {
 			return n, io.EOF
 		}
-		b, err := f.blockLocked(pos / blockSize)
+		b, err := f.blockLocked(pos/blockSize, &lh)
 		if err != nil {
 			return n, err
 		}
@@ -145,13 +156,21 @@ func (f *File) ReadAt(p []byte, off int64) (int, error) {
 // search) use it so they do not evict the blocks on screen.
 func (f *File) readDirect(p []byte, off int64) (int, error) {
 	f.mu.Lock()
-	h, size := f.f, f.size
+	h, size, closed := f.f, f.size, f.closed
 	f.mu.Unlock()
-	if h == nil {
+	if closed {
 		return 0, os.ErrClosed
 	}
 	if off >= size {
 		return 0, io.EOF
+	}
+	if h == nil {
+		nh, err := openShared(f.path)
+		if err != nil {
+			return 0, err
+		}
+		defer nh.Close()
+		h = nh
 	}
 	if rem := size - off; int64(len(p)) > rem {
 		p = p[:rem]
@@ -164,10 +183,14 @@ func (f *File) readDirect(p []byte, off int64) (int, error) {
 	return h.ReadAt(p, off)
 }
 
-func (f *File) blockLocked(idx int64) ([]byte, error) {
+func (f *File) blockLocked(idx int64, lh *lazyHandle) ([]byte, error) {
 	if e, ok := f.index[idx]; ok {
 		f.lru.MoveToFront(e)
 		return e.Value.(*block).data, nil
+	}
+	h, err := lh.get()
+	if err != nil {
+		return nil, err
 	}
 	start := idx * blockSize
 	n := int64(blockSize)
@@ -185,7 +208,7 @@ func (f *File) blockLocked(idx int64) ([]byte, error) {
 		buf = make([]byte, blockSize)
 	}
 	buf = buf[:n]
-	m, err := f.f.ReadAt(buf, start)
+	m, err := h.ReadAt(buf, start)
 	if m == 0 && err != nil {
 		return nil, err
 	}
@@ -201,7 +224,7 @@ func (f *File) blockLocked(idx int64) ([]byte, error) {
 func (f *File) Reload() (Change, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if f.f == nil {
+	if f.closed {
 		return Change{}, os.ErrClosed
 	}
 	ch := Change{OldSize: f.size, NewSize: f.size}
@@ -219,12 +242,23 @@ func (f *File) Reload() (Change, error) {
 			nf.Close()
 			return ch, err
 		}
-		f.f.Close()
-		f.f, f.info, f.size = nf, ni, ni.Size()
+		if f.f != nil {
+			f.f.Close()
+			f.f = nf
+		} else {
+			nf.Close() // Windows: hold no handle between reads
+		}
+		f.info, f.size = ni, ni.Size()
 		ch.Replaced = true
 		ch.NewSize = f.size
 	} else {
-		ni, err := f.f.Stat()
+		lh := lazyHandle{f: f}
+		h, err := lh.get()
+		if err != nil {
+			return ch, err
+		}
+		ni, err := h.Stat()
+		lh.release()
 		if err != nil {
 			return ch, err
 		}
@@ -248,6 +282,38 @@ func (f *File) Reload() (Change, error) {
 		}
 	}
 	return ch, nil
+}
+
+// lazyHandle hands out the File's open handle, or on platforms where none is
+// kept between reads opens one on first use; release closes it again. The
+// caller holds f.mu.
+type lazyHandle struct {
+	f   *File
+	h   *os.File
+	own bool
+}
+
+func (l *lazyHandle) get() (*os.File, error) {
+	if l.h != nil {
+		return l.h, nil
+	}
+	if l.f.f != nil {
+		l.h = l.f.f
+		return l.h, nil
+	}
+	h, err := openShared(l.f.path)
+	if err != nil {
+		return nil, err
+	}
+	l.h, l.own = h, true
+	return h, nil
+}
+
+func (l *lazyHandle) release() {
+	if l.own && l.h != nil {
+		l.h.Close()
+	}
+	l.h, l.own = nil, false
 }
 
 // memSource wraps an io.ReaderAt with a fixed size.

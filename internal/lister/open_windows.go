@@ -9,6 +9,14 @@ import (
 	"golang.org/x/sys/windows"
 )
 
+// keepOpen is false on Windows: even with FILE_SHARE_DELETE, MoveFileEx
+// refuses to rename another file over one that is still open ("Access is
+// denied"), so an editor saving via rename or a log rotation would fail for
+// as long as the lister shows the file. A File therefore holds no handle
+// between reads there: each cache fill, direct scan or Reload opens the path
+// and closes it again. Reload still notices the replacement by file identity.
+const keepOpen = false
+
 // openShared opens path for reading with FILE_SHARE_DELETE in addition to the
 // read/write sharing os.Open grants. Without it the viewer's handle would
 // stop other programs from renaming the file, replacing it (log rotation,
