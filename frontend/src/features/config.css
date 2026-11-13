@@ -81,3 +81,9 @@ body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not
 body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not(.mc-views-cols) .row > .e { display: none; }
 body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not(.mc-views-cols) .header,
 body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not(.mc-views-cols) .row { grid-template-columns: var(--cols, minmax(90px, 1fr) 96px 128px 76px); }
+
+/* Search filter (options.js): only matching options are shown, under their page titles; a page whose title matches is
+   shown whole. Notes and other page content are left out of the filtered view. */
+.mc-config-filtering .mc-config-page:not(.mc-config-whole) > :not(h3):not(.mc-config-hit) { display: none; }
+.mc-config-filtering .mc-config-hit { background: none; outline: none; }
+.mc-config-filtering .mc-config-page + .mc-config-page:not([hidden]) { margin-top: 14px; }

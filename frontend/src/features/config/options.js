@@ -196,23 +196,67 @@ async function showDialog(app, startPage) {
       box.querySelectorAll('.mc-config-page').forEach((s) => { s.hidden = s.dataset.page !== id; });
       $('.mc-config-main').scrollTop = 0;
     };
-    pageSel.addEventListener('change', () => show(pageSel.value));
+    pageSel.addEventListener('change', () => { if (!filtering) show(pageSel.value); }); // (while searching, the filter handles it)
     show(startPage);
 
-    // search (F-827)
+    // search (F-827): typing filters the dialog down to what matches. Every page with a match is shown at once (under
+    // its title), and inside it only the matching options; a page whose own title matches is shown whole. The page
+    // list keeps only the pages with a match (rebuilt, as WebKit ignores hidden <option>s); choosing one scrolls to it.
+    // An empty search goes back to the normal one-page view.
+    const allOptions = pageSel.innerHTML;
+    const main = $('.mc-config-main');
+    const none = document.createElement('p');
+    none.className = 'mc-note mc-config-none';
+    none.textContent = 'No options match.';
+    none.hidden = true;
+    main.append(none);
+    let filtering = false;
+    const endFilter = () => {
+      if (!filtering) return;
+      filtering = false;
+      const cur = pageSel.value;
+      box.classList.remove('mc-config-filtering');
+      box.querySelectorAll('.mc-config-hit, .mc-config-whole').forEach((e) => e.classList.remove('mc-config-hit', 'mc-config-whole'));
+      none.hidden = true;
+      pageSel.innerHTML = allOptions;
+      show(cur);
+    };
+    pageSel.addEventListener('change', () => {
+      if (!filtering) return;
+      box.querySelector(`.mc-config-page[data-page="${CSS.escape(pageSel.value)}"]`)?.scrollIntoView({ block: 'start' });
+    });
     $('#cfg-search').addEventListener('input', async (ev) => {
       const q = ev.target.value.trim();
-      box.querySelectorAll('.mc-config-hit').forEach((e) => e.classList.remove('mc-config-hit'));
-      if (!q) { [...pageSel.options].forEach((o) => { o.hidden = false; }); return; }
+      if (!q) { endFilter(); return; }
       const r = await go.Configuration.Search(q).catch(() => ({ pages: [], fields: [] }));
       if (ev.target.value.trim() !== q) return;
       const words = q.toLowerCase().split(/\s+/);
-      const hitPages = new Set(r.pages || []);
-      for (const [id, x] of Object.entries(EXTRA_PAGES)) if (words.every((w) => (x.title + ' ' + x.words).toLowerCase().includes(w))) hitPages.add(id);
-      for (const n of r.fields || []) box.querySelector(`.mc-config-field[data-field="${CSS.escape(n)}"]`)?.classList.add('mc-config-hit');
-      [...pageSel.options].forEach((o) => { o.hidden = !hitPages.has(o.value); });
-      const first = pages.find((p) => hitPages.has(p.id));
-      if (first && !hitPages.has(pageSel.value)) show(first.id);
+      const titleHits = new Set();
+      for (const p of pages) if (words.every((w) => p.title.toLowerCase().includes(w))) titleHits.add(p.id);
+      for (const [id, x] of Object.entries(EXTRA_PAGES)) if (words.every((w) => (x.title + ' ' + x.words).toLowerCase().includes(w))) titleHits.add(id);
+      const hitPages = new Set(titleHits);
+      box.querySelectorAll('.mc-config-hit, .mc-config-whole').forEach((e) => e.classList.remove('mc-config-hit', 'mc-config-whole'));
+      for (const n of r.fields || []) {
+        const el = box.querySelector(`.mc-config-field[data-field="${CSS.escape(n)}"]`);
+        if (!el) continue;
+        el.classList.add('mc-config-hit');
+        const page = el.closest('.mc-config-page');
+        if (page) hitPages.add(page.dataset.page);
+      }
+      // (pages the Go search found by their own words, without a field of ours matching, are shown whole)
+      for (const id of r.pages || []) if (!hitPages.has(id)) { hitPages.add(id); titleHits.add(id); }
+      filtering = true;
+      box.classList.add('mc-config-filtering');
+      box.querySelectorAll('.mc-config-page').forEach((sec) => {
+        const id = sec.dataset.page;
+        sec.hidden = !hitPages.has(id);
+        sec.classList.toggle('mc-config-whole', titleHits.has(id));
+      });
+      const shown = pages.filter((p) => hitPages.has(p.id));
+      pageSel.innerHTML = shown.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('');
+      if (shown.length) pageSel.value = shown[0].id;
+      none.hidden = shown.length > 0;
+      main.scrollTop = 0;
     });
 
     // ---- Colors page ----

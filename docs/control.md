@@ -87,6 +87,7 @@ A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cu
 | `scroll` | `side`, `row` or `top` | scrolls a panel's list |
 | `dialog` | | the open page dialog: `kind`, `title`, `message`, `buttons`, `fields` (by id), `error` |
 | `dialog_answer` | `button`, `fields` | fills fields and presses a button by its text; `"Esc"` cancels, no button submits |
+| `dialog_fill` | `fields` | fills fields of the open dialog (input and change events, as typing does) without pressing a button |
 | `popup` / `popup_choose` | — / `index` or `label`, `shift` | the open popup list (drives, history, hotlist); choose an item (`null` closes it) |
 | `wait` / `idle` | `ms`, `timeout` | waits, then until the app is idle |
 

@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.12 – 2026-11-13
+
+### Changed
+
+- Searching in Options filters the dialog: only the matching options are shown, under their page titles, and the page
+  list keeps only the pages with a match. A page whose name matches is shown whole.
+
 ## 0.9.11 – 2026-11-13
 
 ### Fixed
