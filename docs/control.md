@@ -164,3 +164,22 @@ connection…, New URL…, Duplicate…, New folder…, Edit…, Delete, Master 
 `net-master-new` (`value`, `confirm`), `net-hostkey` (buttons Accept and save, Accept once, Cancel), `net-command`,
 `net-reply`, `net-log`. Run commands with args: `cm_FtpNew {"url": "ftp://…"}`, `cm_FtpTransferMode {"mode": "ascii"}`,
 `cm_FtpSendCommand {"command": "SITE HELP"}`, `cm_FtpDisconnect {"path": "ftp://…"}`.
+
+## Viewer: Lister, quick view, editor (features/viewer.js)
+
+The Lister window is a page dialog of kind `lister`: `dialog` shows its title (`Lister – <path>`) and its menu buttons
+(File, Edit, Options, Image, Encoding; pressing one opens a popup of kind `lister-menu`, or `lister-encoding`), and
+`dialog_answer` with button `Esc` closes it. Keys go to it through `key` like any key press (1-7, A, S, U, V, W, N, P, F2,
+F3, Shift+F3, F7, Ctrl+A, Ctrl+C, Ctrl+G, Ctrl+S, +, -, L, R, F, I, Q, Esc). Its dialogs: `lister-find` (fields
+`mc-viewer-find`, `mc-viewer-find-words`, `-case`, `-hex`, `-back`, `-regex`, `-enc`; button Find), `lister-notfound`,
+`lister-goto` (field `mc-input`, button Go), `lister-saveas` (field `mc-input`, button Save), `lister-replace`,
+`lister-info`, `lister-error`, `lister-newfile` (Shift+F4: field `mc-input`, button Edit), `lister-options`.
+
+| Command | Answer |
+| --- | --- |
+| `{"cmd": "lister"}` | `open`, `lister` (path, name, mode, asText, encoding, forcedEncoding, wrap, top, line, percent, atEnd, rows: the visible rows as text, selection, match, media, mediaShown, mediaLoaded, docShown, fit, zoom, rotate, follow, status, list: the N/P names), `quickView` (the same plus side, folder, note), `sessions` (files open in Go), `settings` |
+| `{"cmd": "lister_select", "start": 0, "end": 10, "quick": false}` | sets the selection by bytes (for checks of copy and save) |
+| `{"cmd": "lister_menu", "menu": "File", "item": "Follow file (auto-reload)"}` | chooses a Lister menu item by its label |
+
+`cm_List` (and `cm_ListInternalOnly`, `cm_ListExternal`) also take `{"path": "/full/path"}` from `run`, to view one file
+directly; `cm_EditNewFile` takes `{"name": "x.txt"}` and then asks nothing.

@@ -1,0 +1,63 @@
+/* The Lister window, its view, and quick view (features/viewer.js, features/viewer/view.js). Theme tokens only. */
+
+/* A menu opened from a dialog (the Lister's menu bar) must be drawn over that dialog, not under it. */
+.mc-modal ~ .mc-popup { z-index: 55; }
+
+.mc-box.mc-viewer-box { width: 96vw; height: 92vh; max-width: none; max-height: none; padding: 0; display: flex; flex-direction: column; overflow: hidden; }
+.mc-viewer-head { display: flex; align-items: center; gap: 10px; padding: 6px 10px 5px 12px; border-bottom: 1px solid var(--line); }
+.mc-viewer-head h2 { flex: 1; min-width: 0; margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-viewer-menus { display: flex; gap: 2px; flex: none; }
+.mc-viewer-menu { border: 0; background: transparent; padding: 2px 9px; border-radius: 4px; }
+.mc-viewer-menu:hover { background: var(--hover); }
+
+.mc-viewer { --mc-viewer-fs: 12px; flex: 1; min-height: 0; display: flex; flex-direction: column; background: var(--bg); outline: none; }
+.mc-viewer-main { flex: 1; min-height: 0; position: relative; display: flex; }
+.mc-viewer-text { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 2px 6px; cursor: text; }
+.mc-viewer-text[hidden], .mc-viewer-sb[hidden], .mc-viewer-media[hidden], .mc-viewer-doc[hidden], .mc-viewer-note[hidden] { display: none; }
+.mc-viewer-rows { font: var(--mono); font-size: var(--mc-viewer-fs); line-height: var(--mc-viewer-lh, 17px); width: max-content; min-width: 100%; user-select: none; }
+.mc-viewer-variable .mc-viewer-rows { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
+.mc-viewer-rows.mc-viewer-wrap { width: auto; }
+.mc-viewer-ln { white-space: pre; height: var(--mc-viewer-lh, 17px); }
+.mc-viewer-probe { position: absolute; display: inline-block; visibility: hidden; white-space: pre; }
+.mc-viewer-sel { background: var(--accent); color: var(--accent-text); }
+.mc-viewer-hit { background: color-mix(in srgb, var(--sel) 45%, transparent); }
+.mc-viewer-off { color: var(--muted); }
+.mc-viewer-chr { color: color-mix(in srgb, var(--text) 85%, var(--muted)); }
+.mc-viewer[data-mode="hex"] .mc-viewer-rows, .mc-viewer[data-mode="binary"] .mc-viewer-rows { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+
+.mc-viewer-sb { flex: 0 0 11px; position: relative; background: color-mix(in srgb, var(--line) 45%, transparent); border-left: 1px solid var(--line); }
+.mc-viewer-thumb { position: absolute; left: 2px; right: 2px; top: 0; border-radius: 4px; background: color-mix(in srgb, var(--muted) 60%, transparent); }
+.mc-viewer-thumb:hover { background: var(--accent); }
+
+.mc-viewer-media { position: absolute; inset: 0; overflow: auto; display: flex; align-items: safe center; justify-content: safe center; padding: 4px;
+  background: repeating-conic-gradient(color-mix(in srgb, var(--line) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
+.mc-viewer-media img { flex: none; image-rendering: auto; }
+.mc-viewer-media video, .mc-viewer-media embed { max-width: 100%; max-height: 100%; }
+.mc-viewer-media embed { width: 100%; height: 100%; }
+.mc-viewer-big { color: var(--muted); text-align: center; line-height: 1.6; }
+
+.mc-viewer-doc { position: absolute; inset: 0; overflow: auto; user-select: text; }
+.mc-viewer-dochost { min-height: 100%; }
+
+.mc-viewer-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); padding: 16px; text-align: center; }
+.mc-viewer-folder { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.mc-viewer-folder b { color: var(--text); font-size: 15px; overflow-wrap: anywhere; }
+
+.mc-viewer-status { display: flex; gap: 12px; justify-content: space-between; padding: 2px 10px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); white-space: nowrap; }
+.mc-viewer-status span { overflow: hidden; text-overflow: ellipsis; }
+.mc-viewer-st-r { flex: none; font-variant-numeric: tabular-nums; }
+.mc-viewer-msg { color: var(--text); }
+
+/* quick view: the other panel's file list gives way to the view */
+.panel.mc-viewer-qv-on > .header, .panel.mc-viewer-qv-on > .list { display: none; }
+.mc-viewer-qv { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mc-viewer:focus-visible { outline: none; }
+.mc-viewer-quick:focus-visible, .mc-viewer-quick:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* dialogs */
+.mc-viewer-findopts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-bottom: 8px; }
+.mc-viewer-opts { min-width: 460px; }
+.mc-viewer-optrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
+.mc-viewer-info { border-collapse: collapse; font-size: 12px; user-select: text; }
+.mc-viewer-info th { text-align: left; color: var(--muted); font-weight: normal; padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
+.mc-viewer-info td { padding: 2px 0; overflow-wrap: anywhere; }
