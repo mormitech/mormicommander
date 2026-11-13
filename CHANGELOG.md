@@ -4,6 +4,13 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## 0.9.4 – 2026-11-13
+
+### Changed
+
+- Rows are no longer highlighted under the mouse. Options > Display > "Highlight the row under the mouse" turns it
+  back on (off by default).
+
 ## 0.9.3 – 2026-11-13
 
 ### Changed

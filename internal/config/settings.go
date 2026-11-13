@@ -100,6 +100,7 @@ type DisplayPage struct {
 	ShowSeconds        bool   `ini:"Configuration:ShowSeconds" def:"0" label:"Show seconds in file times"`
 	ShowParentInRoot   bool   `ini:"Configuration:ShowParentDirInRoot" def:"0" label:"Show .. in root folders"`
 	FullRowSelect      bool   `ini:"Configuration:FullRowSelect" def:"1" label:"Cursor bar across all columns"`
+	HoverHighlight     bool   `ini:"Configuration:HoverHighlight" def:"0" label:"Highlight the row under the mouse"`
 	ThousandsSeparator bool   `ini:"Configuration:ThousandsSeparator" def:"1" label:"Thousands separator in sizes"`
 	LongNames          bool   `ini:"Configuration:UseLongNames" def:"1" label:"Show long names"`
 }

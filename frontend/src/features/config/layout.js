@@ -151,6 +151,7 @@ export function applyDisplay() {
     seconds: on('Display.ShowSeconds'),
   });
   document.body.classList.toggle('mc-config-no-ext', !on('Display.SeparateExt'));
+  document.body.classList.toggle('mc-hover-rows', on('Display.HoverHighlight'));
   relayout();
 }
 

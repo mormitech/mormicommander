@@ -76,7 +76,8 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 .row .n b { font-weight: inherit; overflow: hidden; text-overflow: ellipsis; }
 .row .s, .row .d, .row .a { font-variant-numeric: tabular-nums; color: var(--muted); }
 .row .a { font: var(--mono); line-height: var(--row-h); }
-.row:hover { background: var(--hover); }
+/* The row under the mouse is highlighted only with Options > Display > "Highlight the row under the mouse" (off). */
+.mc-hover-rows .row:hover { background: var(--hover); }
 .row.cur { background: var(--cur-off); box-shadow: inset 0 0 0 1px var(--accent); }
 .panel.active .row.cur { background: var(--cur); box-shadow: none; }
 .panel:not(.active) .row.cur { background: transparent; box-shadow: inset 0 0 0 1px var(--cur-off); }
