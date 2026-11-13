@@ -11,6 +11,7 @@ import { run, commandList, keysFor, allKeys, hasCommand } from './registry.js';
 import { eventInit, normalizeCombo } from './keys.js';
 import { idle, isBusy } from './busy.js';
 import { currentDialog, answerDialog } from './dialogs.js';
+import { pingDialogWindow } from './mirror.js';
 import { currentPopup, choosePopup } from './popup.js';
 import { cmdline } from './cmdline.js';
 import { allSettings } from './settings.js';
@@ -191,6 +192,8 @@ async function ctlRun(m) {
       await settle(m.wait || 50);
       return state();
     }
+    case 'dialog_ping': // {n}: input round trips with the top dialog window, in milliseconds (mirror.js)
+      return { ok: true, ...(await pingDialogWindow(m.n || 20)) };
     case 'popup': return { ok: true, popup: currentPopup() };
     case 'popup_choose': { // {index} or {label}, shift: true for Shift+Enter; null closes
       choosePopup(m.index ?? m.label ?? null, !!m.shift);

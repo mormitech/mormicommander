@@ -464,7 +464,7 @@ func (lw *ListerWindows) answer(v *listerWin, s string) (map[string]any, error) 
 }
 
 // windowList describes every window of the app for control mode's "windows": its name and kind ("main", "about",
-// "lister"), whether it is on the screen, where it is, its title (Lister windows) and the file it shows.
+// "lister", "dialog"), whether it is on the screen, where it is, its title (Lister windows) and the file it shows.
 func (a *App) windowList() []map[string]any {
 	out := []map[string]any{}
 	if a.wapp == nil {
@@ -495,6 +495,9 @@ func (a *App) windowList() []map[string]any {
 				}
 			}
 			lw.mu.Unlock()
+		}
+		if isDialogWindow(name) && dialogWindows != nil {
+			dialogWindows.dialogWindowInfo(name, e)
 		}
 		out = append(out, e)
 	}
