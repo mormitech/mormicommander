@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.23 – 2026-11-13
+
+### Fixed
+
+- Function key bar: the shifted, Alt and Ctrl labels no longer stay stuck after the key is released. Modifiers are now
+  tracked even while a dialog is open, are corrected from mouse and wheel events, and are cleared when the window
+  loses focus, is hidden or is minimised (for example after Cmd+Tab). Cmd now shows as the ⌘ symbol on macOS.
+
 ## 0.9.22 – 2026-11-13
 
 ### Changed
