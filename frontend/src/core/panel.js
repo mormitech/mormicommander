@@ -127,6 +127,7 @@ export class Panel {
 
   fullPath(name) {
     if (name === '..') return this.parent;
+    for (const h of Panel.pathHooks) { const r = h(this, name); if (r) return r; } // virtual folders (search results)
     const sep = this.app.sepFor(this.path);
     return this.path.endsWith(sep) || this.path.endsWith('/') ? this.path + name : this.path + sep + name;
   }
@@ -468,6 +469,9 @@ export class Panel {
     this.$.driveinfo.textContent = v.total ? `[${name}]  ${size(v.free)} free of ${size(v.total)}` : `[${name}]`;
   }
 }
+
+// Features with virtual folders (Feed to listbox) map a name to the real file: hook(panel, name) → full path or ''.
+Panel.pathHooks = [];
 
 Panel.STATE_KEYS = ['path', 'parent', 'all', 'entries', 'index', 'cursor', 'selected', 'sort', 'back', 'fwd', 'lastCursor', 'filter', 'filterLabel', 'dirSizes', 'error'];
 
