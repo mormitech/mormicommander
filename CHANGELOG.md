@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.8 – 2026-11-13
+
+### Changed
+
+- CI builds pushes to main again only (the temporary v3 branch trigger is gone).
+
 ## 0.9.7 – 2026-11-13
 
 ### Added
