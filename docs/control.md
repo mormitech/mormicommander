@@ -118,3 +118,22 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## File operations (F5–F8, background transfers)
+
+Every box of the file operations is a page dialog, so `dialog` reads it and `dialog_answer` answers it. Kinds:
+`copy` / `move` (fields `target`, `filter`, `overwrite`, `verify`, `dates`, `perms`, `owner`, `attrs`, `links`,
+`bigfile`, `ignoreErrors`; buttons OK, F2 Queue, Tree, Options, Cancel), `make-target` (Make it / Cancel), `mkdir`
+(field `name`), `delete` / `wipe` (the confirmation), `job` (progress: Background, Pause/Continue, Cancel),
+`overwrite` (Overwrite, Overwrite all, Skip, Skip all, Cancel, Overwrite all older, Rename…, Compare, and under More
+options: Auto-rename, Auto-rename all, Rename target, Rename all targets, Copy all larger, Copy all smaller, Append,
+Resume — only those the engine offers), `rename-target` (field `mc-input`), `overwrite-readonly`, `job-error`
+(Retry, Skip, Skip all, Delete permanently, Cancel), `no-space`, `delete-folder` and `delete-readonly` (Yes, All,
+Skip, Skip all, Cancel), `transfers` (the background transfer window: fields `limitOn`, `limit` in KB/s; buttons
+Pause/Continue, Start now, Stop job, Clear finished, Close).
+
+| Command | Answer |
+|---|---|
+| `{"cmd": "rename_editor"}` | the inline rename editor of Shift+F6: `open`, `name`, `value`, `selection` [start, end], `mode` (0 name, 1 extension, 2 all), `side`. Type into it with `key` / `type`; Enter renames, Esc cancels |
+| `{"cmd": "transfers"}` | every job the page knows (Progress fields plus `title`, `background`, `sources`) |
+| `{"cmd": "jobs"}` | (Go side) the engine's list of jobs |
