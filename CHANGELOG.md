@@ -8,6 +8,12 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- The engines are wired into the app (one feature module per area, all built on the command registry): copy, move,
+  delete, wipe, new folder and rename with background transfers and the transfer window; archives and FTP/SFTP
+  servers as folders with Pack and Unpack; viewer and editor; Find files; Synchronize folders and Compare by content;
+  Multi-rename; selection by mask, Compare folders; panel views and sorting; tabs and the folder hotlist; tools
+  (checksums, split and combine, properties, command line and launching); the Options dialog; system features.
+  Items stay "partly done" in docs/FEATURES.md until QA checks them.
 - Engine for starting programs (internal/launch): open with the default app, "Open with…" lists, running programs
   with Total Commander parameter placeholders, command line parsing and history, external viewer/editor, terminal
   here, reveal in Finder/Explorer, internal associations and shortcut files (.lnk, .url, .webloc, .desktop).

@@ -2,7 +2,7 @@
 
 This document lists every UI-free engine package under `internal/` so that the UI agents know what exists and where to wire it. Each section names the package's purpose, links its README (the API summary), and lists the `docs/FEATURES.md` IDs it backs (taken from the README). Detailed Total Commander behaviour specs live in `docs/spec/area-1.md` to `area-8.md`.
 
-All packages pass `go vet` and `go test`, and cross-compile with `GOOS=windows` and `GOOS=linux`. Integration status: engines are merged, but none is wired into the app scaffold yet.
+All packages pass `go vet` and `go test`, and cross-compile with `GOOS=windows` and `GOOS=linux`. Integration status: the engines are wired into the UI through the ui/* feature branches (merged); each is reachable through registered cm_* commands (about 1000 are registered) and a few still lack a command (tree views, printing, the command browser, internal associations, the source-filter commands). Wiring is marked `[~]` in FEATURES.md until QA has checked it.
 
 ## Core (from the work-in-progress snapshot)
 
