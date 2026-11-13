@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.17 – 2026-11-13
+
+### Added
+
+- While hidden files are shown, each panel's status line ends with "Hidden: shown". Option Layout.HiddenMarker
+  (Options > Layout, on by default) turns the marker off.
+- Find files (Alt+F7) has an "Include hidden files" checkbox on the General tab, kept in sync with "Skip hidden
+  files" on the Advanced tab. It starts as the last search had it; setting FindFiles.HiddenFromPanel (off by
+  default) makes new searches follow the panel's hidden-files state instead.
+- The Show menu entry reads "Hidden files (Ctrl+H)": commands can now show their key in the native menu label.
+
 ## 0.9.16 – 2026-11-13
 
 ### Added
