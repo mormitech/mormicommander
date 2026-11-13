@@ -13,13 +13,14 @@ func TestBaseMenu(t *testing.T) {
 		{Label: "Help", Items: []MenuItem{{Label: "About mormiCommander", Cmd: "cm_About"}}},
 	}
 	m := baseMenu(&App{}, spec)
+	items := menuItems(m)
 	var labels []string
-	for _, it := range m.Items {
-		labels = append(labels, it.Label)
+	for _, it := range items {
+		labels = append(labels, it.Label())
 	}
 	want := []string{"Files", "Show", "Help"}
 	if runtime.GOOS == "darwin" {
-		want = []string{"mormiCommander", "", "Files", "Show", "", "Help​"} // Edit and Window are system role menus, without a label of ours
+		want = []string{"mormiCommander", "Edit", "Files", "Show", "Window", "Help​"} // Edit and Window are the system's role menus
 	}
 	if len(labels) != len(want) {
 		t.Fatalf("menus %q, want %q", labels, want)
@@ -29,17 +30,33 @@ func TestBaseMenu(t *testing.T) {
 			t.Fatalf("menus %q, want %q", labels, want)
 		}
 	}
-	var files, show = m.Items[0], m.Items[1]
+	files, show := items[0], items[1]
 	if runtime.GOOS == "darwin" {
-		files, show = m.Items[2], m.Items[3]
+		files, show = items[2], items[3]
 	}
-	if n := len(files.SubMenu.Items); n != 3 || !files.SubMenu.Items[2].Disabled {
-		t.Errorf("files menu %d items", n)
+	if fi := menuItems(files.GetSubmenu()); len(fi) != 3 || fi[2].Enabled() || !fi[1].IsSeparator() {
+		t.Errorf("files menu %d items", len(fi))
 	}
-	if hid := show.SubMenu.Items[0]; !hid.Checked {
+	si := menuItems(show.GetSubmenu())
+	if !si[0].IsCheckbox() || !si[0].Checked() {
 		t.Error("check mark lost")
 	}
-	if sub := show.SubMenu.Items[1]; sub.SubMenu == nil || len(sub.SubMenu.Items) != 1 {
+	if sub := si[1].GetSubmenu(); sub == nil || len(menuItems(sub)) != 1 {
 		t.Error("submenu lost")
+	}
+	if tree := nativeMenuTree(m); len(tree) != len(want) {
+		t.Errorf("native menu tree has %d menus", len(tree))
+	}
+}
+
+func TestServices(t *testing.T) {
+	if err := servicesOK(); err != nil {
+		t.Fatal(err)
+	}
+	a := NewApp(startOpts{})
+	for _, s := range services(a) {
+		if s.Instance() == nil {
+			t.Fatal("a service without its object")
+		}
 	}
 }

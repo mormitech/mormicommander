@@ -1,34 +1,34 @@
 //go:build darwin
 
+// The number macOS gives the file manager's window, which `screencapture -l` takes (control mode's "screenshot"). Wails
+// v3 hands out the window's NSWindow, so the number is asked of the window itself: with the About box in the same
+// process, "the first window of this process" (what the v2 shell used) could be the wrong one.
 package main
 
 /*
-#cgo LDFLAGS: -framework CoreGraphics -framework CoreFoundation
-#include <CoreGraphics/CoreGraphics.h>
-#include <CoreFoundation/CoreFoundation.h>
+#cgo CFLAGS: -x objective-c
+#cgo LDFLAGS: -framework Cocoa
+#import <Cocoa/Cocoa.h>
 
-// The number of the first normal window of the process, which `screencapture -l` takes.
-static int windowOfPid(int pid) {
-	CFArrayRef list = CGWindowListCopyWindowInfo(kCGWindowListOptionOnScreenOnly | kCGWindowListExcludeDesktopElements, kCGNullWindowID);
-	if (!list) return 0;
-	int found = 0;
-	for (CFIndex i = 0; i < CFArrayGetCount(list) && !found; i++) {
-		CFDictionaryRef w = CFArrayGetValueAtIndex(list, i);
-		int owner = 0, layer = -1, number = 0;
-		CFNumberRef o = CFDictionaryGetValue(w, kCGWindowOwnerPID), l = CFDictionaryGetValue(w, kCGWindowLayer), n = CFDictionaryGetValue(w, kCGWindowNumber);
-		if (o) CFNumberGetValue(o, kCFNumberIntType, &owner);
-		if (l) CFNumberGetValue(l, kCFNumberIntType, &layer);
-		if (n) CFNumberGetValue(n, kCFNumberIntType, &number);
-		if (owner == pid && layer == 0) found = number;
-	}
-	CFRelease(list);
-	return found;
+static int windowNumberOf(void *w) {
+	if (!w) return 0;
+	NSWindow *win = (__bridge NSWindow *)w;
+	if (![win isVisible]) return 0;
+	return (int)[win windowNumber];
 }
 */
 import "C"
 
-import "os"
+import "github.com/wailsapp/wails/v3/pkg/application"
 
-// windowID is the number of the window of this program on the screen, for `screencapture -l ID file.png` (0 when
-// there is none).
-func windowID() int { return int(C.windowOfPid(C.int(os.Getpid()))) }
+// windowID is the number of the main window on the screen, for `screencapture -l ID file.png` (0 when it is not on
+// the screen).
+func (a *App) windowID() int { return windowNumber(a.mainWindow()) }
+
+// windowNumber is the number of a window on the screen (0 when it is not on the screen).
+func windowNumber(w *application.WebviewWindow) int {
+	if w == nil {
+		return 0
+	}
+	return application.InvokeSyncWithResult(func() int { return int(C.windowNumberOf(w.NativeWindow())) })
+}

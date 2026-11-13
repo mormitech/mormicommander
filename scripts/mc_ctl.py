@@ -68,7 +68,7 @@ class MC:
         reads or changes the user's real settings."""
         exe = executable(app)
         if not os.path.exists(exe):
-            raise MCError("no program at %s: build it first (wails build)" % exe)
+            raise MCError("no program at %s: build it first (scripts/build.sh)" % exe)
         own_file = control_file is None
         if own_file:
             fd, control_file = tempfile.mkstemp(prefix="mc-control-", suffix=".json")

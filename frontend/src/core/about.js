@@ -1,4 +1,5 @@
-// The About window (F-453): the app started with --about shows only this. Links open in the system's browser.
+// The About window (F-453): a window of its own (window.go), which the page knows by App.Mode() == "about". Links open
+// in the system's browser (core/go.js).
 
 import { go } from './go.js';
 import { esc } from './dialogs.js';

@@ -1,8 +1,9 @@
 # How mormiCommander is built, and how to add a feature
 
-mormiCommander is one small native program: Go + [Wails v2](https://wails.io) for the window and everything that
-touches the system, and a plain JavaScript page (Vite, no framework) that draws the panels and owns the keyboard. The
-same stack as mormiView and mormiDiskFree.
+mormiCommander is one small native program: Go + [Wails v3](https://v3.wails.io) (pinned to v3.1.0) for the windows
+and everything that touches the system, and a plain JavaScript page (Vite, no framework) that draws the panels and owns
+the keyboard. It is built with `scripts/build.sh` (frontend, then `go build`, then the macOS bundle / Windows resources);
+there is no Wails CLI in the build.
 
 The whole design serves one rule: **features are modules**. A feature adds files; it does not rewrite shared ones. Many
 agents can build features at the same time, and their branches merge without conflicts.
@@ -10,8 +11,11 @@ agents can build features at the same time, and their branches merge without con
 ## The map
 
 ```
-main.go               start-up: flags, window options, wails.Run with boundObjects(app) — never edited for a feature
+main.go               start-up: flags, application.New with every bound object as a v3 service — never edited for a feature
 app.go                the App object: version, platform, start folders, title, quit, About window
+window.go             the windows: "main" (the file manager) and "about" (a second window of the same process)
+feature_viewer_window.go  Lister windows (F3): "lister-<n>", one made hidden in advance; control commands "windows", "viewer…"
+shell.go              helpers the features use instead of Wails: emit, clipboard, file and folder dialogs
 features.go           where Go features register (bound objects, start-up/shut-down hooks, control commands)
 args.go               the command line (TC's /L= /R= /P= too)
 menu.go               builds the native menu from the tree the page sends
@@ -19,7 +23,7 @@ control.go            control mode server (docs/control.md)
 settings.go           settings.json: one key per feature
 feature_fs.go         FS: listing, volumes, free space, open with the system      (a feature, registered like any other)
 feature_jobs.go       Jobs: copy / move / delete / trash jobs with progress and questions
-winstate.go, window.go, configdir.go, reexec*.go, hide_*.go, windowid_*.go, version.go   window and platform plumbing
+winstate.go, configdir.go, reexec*.go, hide_*.go, windowid_*.go, version.go   window and platform plumbing
 internal/vfs          file systems for the panels: Local, Mock (demo); Register(scheme, fs) for archives, FTP…
 internal/disk         volumes and free space, per platform (volumes_darwin.go, _linux, _windows, _other)
 internal/fileops      the job engine: queue, progress events, cancel, overwrite questions (no UI)
@@ -27,10 +31,12 @@ internal/trash        Trash / Recycle Bin per platform
 
 frontend/index.html   the layout: #toolbar, two .panel sections, #splitter, #vbar, #cmdline, #fkeys, #flash
 frontend/src/main.js  start-up of the page; imports every file of src/features/ automatically
+frontend/viewer.html  a Lister window's page (a second Vite entry); src/viewer-window.js starts it with the viewer feature
 frontend/src/core/    the core (see the list below) — shared, change carefully, add rather than rewrite
 frontend/src/features/ one file per feature: navigation.js, selection.js, sorting.js, drives.js, cmdline.js, window.js…
 frontend/test/        vitest unit tests of the pure core modules
 
+scripts/build.sh      the build: build/bin/mormicommander.app (macOS), .exe (Windows), binary (Linux)
 scripts/mc_ctl.py     control-mode client = the QA harness
 scripts/qa_nav.py     QA of the core through control mode;  scripts/qa_smoke.sh builds and runs everything
 docs/FEATURES.md      the parity checklist (F-IDs);  docs/spec/ TC behaviour specs (on spec/* branches);  docs/control.md
@@ -110,8 +116,12 @@ func (h *Hotlist) Import(path string) ([]hotlist.Entry, error) { return hotlist.
 ```
 
 The page calls it as `go.Hotlist.Import(path)` (`import { go } from '../core/go.js'`), which is
-`window.go.main.Hotlist.Import`. The generated `frontend/wailsjs` folder is not used and not committed, so two features
-adding bound objects never conflict. Rules: type names unique; every exported method has a one-line doc comment in
+`window.go.main.Hotlist.Import`: go.js calls the Go method by name through `@wailsio/runtime` (`Call.ByName
+("main.Hotlist.Import", ...)`), so no binding files are generated and two features adding bound objects never conflict.
+go.js is the only file of the page that knows about Wails; events (`on`), files dropped from other apps (`onFileDrop`)
+and the clipboard (`setClipboardText`) go through it too. On the Go side a feature never calls Wails either: it uses
+`a.emit`, `a.clipboardSetText`, `a.openFileDialog` and the other helpers of shell.go. A method whose first parameter is a
+`context.Context` gets the calling window from Wails (`App.Mode` uses that); the page does not pass it. Rules: type names unique; every exported method has a one-line doc comment in
 plain words; errors are plain sentences ("The folder /x is not there."), they reach the user as they are.
 
 Platform splits go by file name: `x_windows.go`, `x_darwin.go`, `x_linux.go`, `x_unix.go` (`//go:build !windows`),
@@ -132,7 +142,8 @@ A file system for the panels (archives, FTP, SFTP) implements `vfs.FS` and regis
   `mc.key(...)`, `mc.run(...)`, `mc.state()`, `mc.dialog()`, `mc.answer(...)`, `mc.shot(...)`; always `mc.quit()` in a
   `finally`. Name the F-IDs in each check.
 - In a fresh checkout or worktree, build the page once before `go vet`/`go test` (`main.go` embeds it):
-  `cd frontend && npm install && npm run build`.
+  `cd frontend && npm install && npm run build`. The app itself: `scripts/build.sh` (Linux needs libgtk-4-dev and
+  libwebkitgtk-6.0-dev: Wails v3 is GTK 4 with WebKitGTK 6.0 there).
 
 ### 4. Docs and status
 
@@ -188,7 +199,7 @@ Import from `../core/…`. These are stable interfaces; extend them by adding, n
 | `popup.js` | `showList({title, items, anchor, index, kind})` — keyboard-driven popup lists |
 | `jobs.js` | `runJob({kind, sources, target, rename, overwrite}, {title})` — copy/move/delete with progress and the overwrite question |
 | `cmdline.js` | `cmdline.text/insert/add/clear/focus`, `addCmdlineHandler(async (text, {shift}) => handled)` |
-| `go.js` | `go.<Type>.<Method>(…)`, `on(event, fn)`, `errText(e)` |
+| `go.js` | `go.<Type>.<Method>(…)`, `on(event, fn)`, `onFileDrop(fn)`, `setClipboardText(text)`, `errText(e)` |
 | `format.js` | `size`, `bytes`, `date`, `attr`, `splitExt`, `plural`, `F` (entry flags) |
 | `control.js` | `addControlCommand(name, async (m) => result)` |
 | `settings.js`, `busy.js`, `menus.js`, `fkeys.js`, `splitter.js`, `tooltip.js`, `about.js` | core plumbing |
@@ -210,6 +221,8 @@ don't add colours), everything in `frontend/src/core/`. Styles of a feature go i
   "ours" in FEATURES.md.
 - **Safety:** deleting goes to the Trash unless the user chose permanent delete; nothing is overwritten without asking
   (or a rule the user set); tests run in temporary folders only.
-- **Version:** only in wails.json (`info.productVersion`); `--version`, About and control mode read it from there.
+- **Version:** only in wails.json (`info.productVersion`); `--version`, About and control mode read it from there, and
+  scripts/build.sh puts it in the macOS Info.plist and the Windows file properties. (Wails v3 itself does not read
+  wails.json; the name stayed.)
 - **Commits:** clear messages ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never push, never
   publish.

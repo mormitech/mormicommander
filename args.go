@@ -18,7 +18,7 @@ import (
 // session are there before the new ones; /S: which side is active decides which folder goes where) they stay empty and
 // TCLeft/TCRight carry them; the configuration feature applies them once the page is ready (feature_config_start.go).
 type startOpts struct {
-	About       bool   // show the About window (the app starts itself with this; one window per process)
+	About       bool   // --about: show just the About window (the app opens it as a window of its own otherwise)
 	Demo        bool   // --demo / --mock: fictional files, settings of its own, control mode on
 	Theme       string // --theme light|dark, instead of the system's setting (for screenshots)
 	Control     string // --control PORT ("0" = a free port); "" = off

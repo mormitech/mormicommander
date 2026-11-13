@@ -19,8 +19,6 @@ import (
 	"sync"
 	"time"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
-
 	"mormicommander/internal/config"
 	"mormicommander/internal/launch"
 )
@@ -539,14 +537,14 @@ func (t *TabsHotlist) ChooseFile(save bool, title, start, ext string) (string, e
 			os.MkdirAll(dir, 0o755)
 		}
 	}
-	filters := []wruntime.FileFilter{}
+	filters := []fileFilter{}
 	if ext != "" {
-		filters = append(filters, wruntime.FileFilter{DisplayName: strings.ToUpper(ext) + " files (*." + ext + ")", Pattern: "*." + ext})
+		filters = append(filters, fileFilter{DisplayName: strings.ToUpper(ext) + " files (*." + ext + ")", Pattern: "*." + ext})
 	}
 	if save {
-		return wruntime.SaveFileDialog(t.app.ctx, wruntime.SaveDialogOptions{Title: title, DefaultDirectory: dir, DefaultFilename: name, Filters: filters})
+		return t.app.saveFileDialog(title, dir, name, filters)
 	}
-	return wruntime.OpenFileDialog(t.app.ctx, wruntime.OpenDialogOptions{Title: title, DefaultDirectory: dir, Filters: filters})
+	return t.app.openFileDialog(title, dir, filters)
 }
 
 // ---- favourite tabs ----

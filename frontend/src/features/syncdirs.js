@@ -18,7 +18,7 @@
 
 import './syncdirs.css';
 import { command } from '../core/registry.js';
-import { go, on, errText } from '../core/go.js';
+import { go, on, errText, setClipboardText } from '../core/go.js';
 import { esc, modal, messageDialog, inputDialog, formDialog } from '../core/dialogs.js';
 import { addControlCommand } from '../core/control.js';
 import { size, bytes, date, plural } from '../core/format.js';
@@ -47,7 +47,7 @@ function wildcard(pattern, ci) {
 
 async function clip(text) {
   try {
-    if (window.runtime?.ClipboardSetText) { await window.runtime.ClipboardSetText(text); return true; }
+    if (await setClipboardText(text)) return true;
     await navigator.clipboard.writeText(text);
     return true;
   } catch { return false; }

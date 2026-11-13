@@ -19,8 +19,6 @@ import (
 
 	"mormicommander/internal/config"
 	"mormicommander/internal/launch"
-
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Configuration is what the page calls for the Options dialog (window.go.main.Configuration).
@@ -516,18 +514,18 @@ func (c *Configuration) ChooseFile(title string, save bool, name string, pattern
 	if c.app.ctx == nil {
 		return "", errors.New("The file dialog is not available.")
 	}
-	var filters []wruntime.FileFilter
+	var filters []fileFilter
 	if pattern != "" {
-		filters = []wruntime.FileFilter{{DisplayName: pattern, Pattern: pattern}}
+		filters = []fileFilter{{DisplayName: pattern, Pattern: pattern}}
 	}
 	dir := ""
 	if info, err := c.Info(); err == nil {
 		dir, _ = info["dir"].(string)
 	}
 	if save {
-		return wruntime.SaveFileDialog(c.app.ctx, wruntime.SaveDialogOptions{Title: title, DefaultFilename: name, DefaultDirectory: dir, Filters: filters})
+		return c.app.saveFileDialog(title, dir, name, filters)
 	}
-	return wruntime.OpenFileDialog(c.app.ctx, wruntime.OpenDialogOptions{Title: title, DefaultDirectory: dir, Filters: filters})
+	return c.app.openFileDialog(title, dir, filters)
 }
 
 // SavePosition saves the window's place and size now (cm_ConfigSavePos, F-439).

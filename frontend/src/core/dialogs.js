@@ -16,10 +16,10 @@ export { esc };
 const open = []; // the dialogs on screen, last = top
 
 // Dialogs can be moved like windows: drag the title (or any empty part of the box). They are boxes in the page, not
-// separate windows (Wails v2 has one window per process), so the box is shifted with a transform and kept inside the
-// app window. Where a kind of dialog was left is remembered for the session, so Options or the copy dialog open where
-// you put them last; double-clicking the title puts it back in the middle. Popup menus drawn as boxes (position:
-// fixed, placed at the pointer) are not draggable.
+// separate windows (Wails v2 had one window per process; boxes also stay answerable by control mode), so the box is
+// shifted with a transform and kept inside the app window. Where a kind of dialog was left is remembered for the
+// session, so Options or the copy dialog open where you put them last; double-clicking the title puts it back in the
+// middle. Popup menus drawn as boxes (position: fixed, placed at the pointer) are not draggable.
 const placed = new Map(); // dialog kind → {x, y} offset from the centred position
 const KEEP = 40; // pixels of the box that always stay inside the window, so it can be grabbed again
 

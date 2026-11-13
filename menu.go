@@ -3,9 +3,7 @@ package main
 import (
 	"runtime"
 
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/menu/keys"
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // The menu bar is the native one on every system, but its contents come from the page: the page knows the commands
@@ -17,6 +15,9 @@ import (
 // Items carry no keyboard shortcuts: the page owns the keyboard (the user can change every key), and a shortcut in the
 // menu would take the key away from it. The exceptions are the system's own: Cmd+Q, Cmd+H and the Edit menu on macOS
 // (Cut, Copy, Paste in text fields).
+//
+// With Wails v3 the menu bar is the application's on macOS and the main window's own on Windows and Linux, so SetMenu
+// puts the new tree in both places.
 
 // MenuItem is one entry of the menu tree the page sends.
 type MenuItem struct {
@@ -30,20 +31,46 @@ type MenuItem struct {
 
 // SetMenu replaces the menu bar with the given tree (top-level items are the menus).
 func (a *App) SetMenu(spec []MenuItem) {
-	if a.ctx == nil || a.mode != "" {
+	if a.wapp == nil {
 		return
 	}
+	m := baseMenu(a, spec)
 	a.mu.Lock()
-	a.menuBar = baseMenu(a, spec)
-	m := a.menuBar
+	a.menuBar = m
 	a.mu.Unlock()
-	wruntime.MenuSetApplicationMenu(a.ctx, m)
+	a.applyMenu(m)
+}
+
+// applyMenu shows the menu bar: the application's menu on macOS (set on the main thread, as AppKit wants), the main
+// window's menu elsewhere.
+func (a *App) applyMenu(m *application.Menu) {
+	if runtime.GOOS == "darwin" {
+		application.InvokeSync(func() { a.wapp.Menu.Set(m) })
+		return
+	}
+	a.wapp.Menu.Set(m)
+	if w := a.mainWindow(); w != nil {
+		w.SetMenu(m)
+	}
+}
+
+// menuItems is the items of a menu, for the control mode's "menus" and the tests.
+func menuItems(m *application.Menu) []*application.MenuItem {
+	var out []*application.MenuItem
+	for i := 0; m != nil; i++ {
+		it := m.ItemAt(i)
+		if it == nil {
+			break
+		}
+		out = append(out, it)
+	}
+	return out
 }
 
 // baseMenu builds the menu bar: on macOS the application menu, Edit, the page's menus, Window and Help (the Help title
 // ends in a zero-width space, or macOS adds its own Search field to it); elsewhere just the page's menus.
-func baseMenu(a *App, spec []MenuItem) *menu.Menu {
-	m := menu.NewMenu()
+func baseMenu(a *App, spec []MenuItem) *application.Menu {
+	m := application.NewMenu()
 	var help *MenuItem
 	var rest []MenuItem
 	for i := range spec {
@@ -55,18 +82,22 @@ func baseMenu(a *App, spec []MenuItem) *menu.Menu {
 	}
 	if runtime.GOOS == "darwin" {
 		app := m.AddSubmenu("mormiCommander")
-		app.AddText("About mormiCommander", nil, func(*menu.CallbackData) { a.ShowAbout() })
+		app.Add("About mormiCommander").OnClick(func(*application.Context) { a.ShowAbout() })
 		app.AddSeparator()
-		app.AddText("Hide mormiCommander", keys.CmdOrCtrl("h"), func(*menu.CallbackData) { wruntime.Hide(a.ctx) })
+		app.Add("Hide mormiCommander").SetAccelerator("CmdOrCtrl+h").OnClick(func(*application.Context) {
+			if a.wapp != nil {
+				application.InvokeSync(a.wapp.Hide)
+			}
+		})
 		app.AddSeparator()
-		app.AddText("Quit mormiCommander", keys.CmdOrCtrl("q"), func(*menu.CallbackData) { a.emit("menu", "cm_Exit") })
-		m.Append(menu.EditMenu())
+		app.Add("Quit mormiCommander").SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { a.emit("menu", "cm_Exit") })
+		m.AddRole(application.EditMenu)
 		for _, it := range rest {
 			addItems(a, m.AddSubmenu(it.Label), it.Items)
 		}
-		m.Append(menu.WindowMenu())
+		m.AddRole(application.WindowMenu)
 		if help != nil {
-			addItems(a, m.AddSubmenu("Help​"), help.Items)
+			addItems(a, m.AddSubmenu("Help\u200b"), help.Items)
 		}
 		return m
 	}
@@ -76,12 +107,12 @@ func baseMenu(a *App, spec []MenuItem) *menu.Menu {
 	if help != nil {
 		addItems(a, m.AddSubmenu("Help"), help.Items)
 	} else {
-		m.AddSubmenu("Help").AddText("About mormiCommander", nil, func(*menu.CallbackData) { a.ShowAbout() })
+		m.AddSubmenu("Help").Add("About mormiCommander").OnClick(func(*application.Context) { a.ShowAbout() })
 	}
 	return m
 }
 
-func addItems(a *App, m *menu.Menu, items []MenuItem) {
+func addItems(a *App, m *application.Menu, items []MenuItem) {
 	for _, it := range items {
 		switch {
 		case it.Sep:
@@ -90,14 +121,13 @@ func addItems(a *App, m *menu.Menu, items []MenuItem) {
 			addItems(a, m.AddSubmenu(it.Label), it.Items)
 		default:
 			cmd := it.Cmd
-			cb := func(*menu.CallbackData) { a.emit("menu", cmd) }
-			var mi *menu.MenuItem
+			var mi *application.MenuItem
 			if it.Checked != nil {
-				mi = m.AddCheckbox(it.Label, *it.Checked, nil, cb)
+				mi = m.AddCheckbox(it.Label, *it.Checked)
 			} else {
-				mi = m.AddText(it.Label, nil, cb)
+				mi = m.Add(it.Label)
 			}
-			mi.Disabled = it.Disabled
+			mi.SetEnabled(!it.Disabled).OnClick(func(*application.Context) { a.emit("menu", cmd) })
 		}
 	}
 }

@@ -2,7 +2,7 @@
 // the "Overwrite?" question, paths of the selection, remembered dialog choices, the clipboard. Not a feature module of
 // its own (main.js only imports src/features/*.js); features/tools.js and its parts import it.
 
-import { go, on, errText } from '../../core/go.js';
+import { go, on, errText, setClipboardText } from '../../core/go.js';
 import { modal, messageDialog, esc } from '../../core/dialogs.js';
 import { size, plural } from '../../core/format.js';
 import { track } from '../../core/busy.js';
@@ -150,8 +150,7 @@ export function deselect(p, names) {
 
 // copyText puts text on the clipboard.
 export async function copyText(text) {
-  const rt = globalThis.window?.runtime;
-  if (rt?.ClipboardSetText) { if (await rt.ClipboardSetText(text)) return true; }
+  if (await setClipboardText(text)) return true;
   try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
 }
 

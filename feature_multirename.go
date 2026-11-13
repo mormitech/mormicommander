@@ -20,8 +20,6 @@ import (
 
 	"mormicommander/internal/launch"
 	"mormicommander/internal/multirename"
-
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // MultiRename is what the page calls for the Multi-Rename tool (window.go.main.MultiRename).
@@ -350,8 +348,8 @@ func (m *MultiRename) LoadNamesFile() (int, error) {
 	if m.app.ctx == nil {
 		return -1, errors.New("There is no window to ask in.")
 	}
-	path, err := wruntime.OpenFileDialog(m.app.ctx, wruntime.OpenDialogOptions{Title: "Load names from file",
-		Filters: []wruntime.FileFilter{{DisplayName: "Text files", Pattern: "*.txt;*.lst;*.csv"}, {DisplayName: "All files", Pattern: "*"}}})
+	path, err := m.app.openFileDialog("Load names from file", "",
+		[]fileFilter{{DisplayName: "Text files", Pattern: "*.txt;*.lst;*.csv"}, {DisplayName: "All files", Pattern: "*"}})
 	if err != nil {
 		return -1, err
 	}
@@ -375,7 +373,7 @@ func (m *MultiRename) LoadNamesClipboard() (int, error) {
 	if m.app.ctx == nil {
 		return -1, errors.New("The clipboard can't be read here.")
 	}
-	text, err := wruntime.ClipboardGetText(m.app.ctx)
+	text, err := m.app.clipboardText()
 	if err != nil {
 		return -1, errors.New("The clipboard can't be read.")
 	}

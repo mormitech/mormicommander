@@ -1,63 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- The Info.plist of build/bin/mormicommander.app. scripts/build.sh fills in the @...@ values from wails.json. -->
 <plist version="1.0">
     <dict>
         <key>CFBundlePackageType</key>
         <string>APPL</string>
         <key>CFBundleName</key>
-        <string>{{.Info.ProductName}}</string>
+        <string>@PRODUCT_NAME@</string>
+        <key>CFBundleDisplayName</key>
+        <string>@PRODUCT_NAME@</string>
         <key>CFBundleExecutable</key>
-        <string>{{.OutputFilename}}</string>
+        <string>mormicommander</string>
         <key>CFBundleIdentifier</key>
-        <string>com.wails.{{safeBundleID .Name}}</string>
+        <string>com.wails.mormicommander</string>
         <key>CFBundleVersion</key>
-        <string>{{.Info.ProductVersion}}</string>
+        <string>@VERSION@</string>
         <key>CFBundleGetInfoString</key>
-        <string>{{.Info.Comments}}</string>
+        <string>@COMMENTS@</string>
         <key>CFBundleShortVersionString</key>
-        <string>{{.Info.ProductVersion}}</string>
+        <string>@VERSION@</string>
         <key>CFBundleIconFile</key>
         <string>iconfile</string>
         <key>LSMinimumSystemVersion</key>
-        <string>10.13.0</string>
+        <string>13.0.0</string>
         <key>NSHighResolutionCapable</key>
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
-        <string>{{.Info.Copyright}}</string>
-        {{if .Info.FileAssociations}}
-        <key>CFBundleDocumentTypes</key>
-        <array>
-          {{range .Info.FileAssociations}}
-          <dict>
-            <key>CFBundleTypeExtensions</key>
-            <array>
-              <string>{{.Ext}}</string>
-            </array>
-            <key>CFBundleTypeName</key>
-            <string>{{.Name}}</string>
-            <key>CFBundleTypeRole</key>
-            <string>{{.Role}}</string>
-            <key>CFBundleTypeIconFile</key>
-            <string>{{.IconName}}</string>
-          </dict>
-          {{end}}
-        </array>
-        {{end}}
-        {{if .Info.Protocols}}
-        <key>CFBundleURLTypes</key>
-        <array>
-          {{range .Info.Protocols}}
-            <dict>
-                <key>CFBundleURLName</key>
-                <string>com.wails.{{.Scheme}}</string>
-                <key>CFBundleURLSchemes</key>
-                <array>
-                    <string>{{.Scheme}}</string>
-                </array>
-                <key>CFBundleTypeRole</key>
-                <string>{{.Role}}</string>
-            </dict>
-          {{end}}
-        </array>
-        {{end}}
+        <string>@COPYRIGHT@</string>
     </dict>
 </plist>

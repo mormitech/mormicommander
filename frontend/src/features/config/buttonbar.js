@@ -13,7 +13,7 @@ import { modal, messageDialog, inputDialog, esc } from '../../core/dialogs.js';
 import { showList } from '../../core/popup.js';
 import { addControlCommand } from '../../core/control.js';
 import { track } from '../../core/busy.js';
-import { go, errText } from '../../core/go.js';
+import { go, errText, onFileDrop } from '../../core/go.js';
 import { app as theApp } from '../../core/app.js';
 import { on, fillSelect, applyOptions } from './util.js';
 import { svg, iconName } from './icons.js';
@@ -384,12 +384,12 @@ export function initButtonBar(app) {
   app.on('ready', renderBars);
   app.on('settings', renderBars);
   // Wails' own file drop (when the window has it on) gives real paths
-  window.runtime?.OnFileDrop?.((x, y, paths) => {
+  onFileDrop((x, y, paths) => {
     const el = document.elementFromPoint(x, y);
     const bar = el?.closest?.('#toolbar, #vbar');
     if (!bar) return;
     const btn = el.closest('.mc-config-btn');
     track(dropOn(barOf(bar), btn ? +btn.dataset.i : -1, paths || []).catch((e) => app.flash(errText(e), 'err')));
-  }, false);
+  });
   return loadBars();
 }

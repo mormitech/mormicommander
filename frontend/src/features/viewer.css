@@ -61,3 +61,10 @@
 .mc-viewer-info { border-collapse: collapse; font-size: 12px; user-select: text; }
 .mc-viewer-info th { text-align: left; color: var(--muted); font-weight: normal; padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
 .mc-viewer-info td { padding: 2px 0; overflow-wrap: anywhere; }
+
+/* A Lister window of its own (viewer.html, src/viewer-window.js): the menu buttons on top, the view below, filling the
+   window. */
+body.mc-viewer-window { margin: 0; height: 100vh; }
+#viewer-app { height: 100vh; display: flex; flex-direction: column; }
+#viewer-app .mc-viewer-head { padding: 3px 8px; }
+#viewer-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }

@@ -238,7 +238,7 @@ func (n *Net) setSiteExtra(id string, e *netSiteExtra) {
 	} else {
 		all[id] = *e
 	}
-	n.app.settings.Set("netSites", all)
+	n.app.settings.put("netSites", all)
 }
 
 // listHasHidden says whether a list command asks for hidden files ("LIST -a", "LIST -la").

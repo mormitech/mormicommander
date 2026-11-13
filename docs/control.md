@@ -30,7 +30,7 @@ or change your settings. `--demo` does the same by itself.
 |---|---|
 | `POST /cmd` | one command, a JSON object with `"cmd"`; the answer is JSON, `{"error": "…"}` when it failed |
 | `POST /batch` | a JSON list of commands, done one after the other; stops at the first error (`?continue=1` goes on) |
-| `GET /info` | version, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`), `title`, `demo`, Go `features` |
+| `GET /info` | version, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`, `maximised`), `title`, `demo`, Go `features`, `windows` (the open windows by name: `main`, `about`) |
 
 Commands that change something wait until the app is idle (folders read, the screen painted) and answer with the same
 object as `state`, so a script can check the result at once.
@@ -42,9 +42,12 @@ object as `state`, so a script can check the result at once.
 | cmd | arguments | does |
 |---|---|---|
 | `info` | | see above |
-| `window` | `w`, `h`, `x`, `y`, `max` | size and place of the window (centred without `x`); `max: true/false` maximises or restores |
-| `screenshot` | `path` | the window as a PNG (macOS: `screencapture -l`; elsewhere `mc_ctl.py shot()` makes it) |
+| `window` | `w`, `h`, `x`, `y`, `max`, `window` | size and place of the window (centred without `x`); `max: true/false` maximises or restores; `window: "lister-2"` sizes another window and answers its `windows` entry |
+| `windows` | | every window of the app: `{windows: [{name, kind ("main", "about", "lister"), visible, focused, x, y, w, h, title, path, side, spare, ready}]}`; a hidden Lister window with `spare: true` is the one made in advance |
+| `screenshot` | `path`, `window` | the window as a PNG (macOS: `screencapture -l`; elsewhere `mc_ctl.py shot()` makes it); `window: "lister-2"` takes another window of the app |
 | `menu` | `name` | does what choosing the menu item of that cm_* command does (the native menu can't be clicked from outside) |
+| `nativemenu` | | the native menu bar as built from the page's tree: `{menus: [{label, items, checked, disabled, sep}]}` (`menus`, a page command, is the tree the page sent) |
+| `about` | `close` | opens the About window (a second window of the same process since Wails v3; `close: true` closes it); answers `windows` and the About window's `windowId` (macOS) |
 | `answer` / `asked` | `kind`, `value` / `values` | queue answers for system dialogs (kind `folder`: the folder picker); `asked` lists the questions asked |
 | `jobs` | | the file jobs (copy, move, delete) and their progress |
 | `sleep` | `ms` | a pause |
@@ -167,7 +170,35 @@ connection…, New URL…, Duplicate…, New folder…, Edit…, Delete, Master 
 
 ## Viewer: Lister, quick view, editor (features/viewer.js)
 
-The Lister window is a page dialog of kind `lister`: `dialog` shows its title (`Lister – <path>`) and its menu buttons
+### Lister windows (F3, feature_viewer_window.go, src/viewer-window.js)
+
+F3 opens the Lister in a real window of its own (setting `viewerInWindow`, on by default), named `lister-<n>`. The file
+manager's page can't see into another window, so these commands go through Go to the Lister window's page. `window`
+names the Lister window; without it the one opened last is meant. Each answer has `window`, `title` ("Lister – <name>")
+and `shown`.
+
+| cmd | arguments | does |
+|---|---|---|
+| `viewer` | `window` | the window's state: `open`, `list` (the N/P names), `dir`, `side`, `lister` (as `lister` below: path, mode, rows, media, mediaLoaded, selection, match, status…), `dialog`, `popup`, `documentTitle`, `theme` |
+| `viewer_key` | `window`, `keys` | key presses in that window (1-7, N, P, F7, W, Esc…); a key that closes it answers `{closed: true}` |
+| `viewer_menu` | `window`, `menu`, `item` | chooses a Lister menu item by its label |
+| `viewer_select` | `window`, `start`, `end` | sets the selection by bytes |
+| `viewer_dialog` | `window`, `button`, `fields` | answers a dialog of that window (`lister-find`, `lister-goto`…; button `Esc` cancels) |
+| `viewer_popup` | `window`, `index` / `label` | chooses an item of that window's open popup (a Lister menu) |
+| `viewer_close` | `window` | closes it like its close button (answers the remaining `windows`) |
+
+```
+python3 -c 'import sys; sys.path.insert(0, "scripts"); from mc_ctl import MC
+mc = MC.start("build/bin/mormicommander.app", "-L=/tmp/a", "-R=/tmp/b")
+mc.cursor("left", name="notes.txt"); mc.key("F3")
+print(mc.cmd("windows")["windows"]); print(mc.cmd("viewer")["lister"]["rows"][:3])
+mc.cmd("screenshot", path="/tmp/lister.png", window=mc.cmd("viewer")["window"])
+mc.cmd("viewer_key", keys="Esc"); mc.quit()'
+```
+
+### The Lister over the panels (`viewerInWindow: false`)
+
+With `viewerInWindow` off (or a build without Lister windows) the Lister window is a page dialog of kind `lister`: `dialog` shows its title (`Lister – <path>`) and its menu buttons
 (File, Edit, Options, Image, Encoding; pressing one opens a popup of kind `lister-menu`, or `lister-encoding`), and
 `dialog_answer` with button `Esc` closes it. Keys go to it through `key` like any key press (1-7, A, S, U, V, W, N, P, F2,
 F3, Shift+F3, F7, Ctrl+A, Ctrl+C, Ctrl+G, Ctrl+S, +, -, L, R, F, I, Q, Esc). Its dialogs: `lister-find` (fields

@@ -8,13 +8,16 @@
 //   Ctrl+Q cm_SrcQuickView  quick view: the other panel shows the file under the cursor (cm_SrcQuickInternalOnly: text only)
 //   F4 cm_Edit, Shift+F4 cm_EditNewFile   the editor (configured, or the system's text editor)
 //
-// The Lister is a window over the panels (a page dialog, so control mode sees it as the dialog of kind "lister" and
-// closes it with dialog_answer "Esc"); viewer/view.js is the view inside it, shared with quick view. Settings: "lister"
-// (see LISTER_DEFAULTS in viewer/view.js) and "editor" (the F4 line; "" = the system's text editor).
+// The Lister opens in a real window of its own (setting "viewerInWindow", on unless false): Go makes the window
+// (feature_viewer_window.go) and its page, viewer.html with src/viewer-window.js, shows the file. With the setting off
+// the Lister is a window over the panels (a page dialog, so control mode sees it as the dialog of kind "lister" and
+// closes it with dialog_answer "Esc"). viewer/view.js is the view inside either, shared with quick view. Settings:
+// "lister" (see LISTER_DEFAULTS in viewer/view.js), "editor" (the F4 line; "" = the system's text editor) and
+// "viewerInWindow".
 
 import './viewer.css';
 import { command } from '../core/registry.js';
-import { go, errText } from '../core/go.js';
+import { go, on, errText } from '../core/go.js';
 import { modal, esc, messageDialog, inputDialog, formDialog } from '../core/dialogs.js';
 import { popupOpen } from '../core/popup.js';
 import { addKeyHandler } from '../core/keyboard.js';
@@ -22,7 +25,7 @@ import { addControlCommand } from '../core/control.js';
 import { comboFromEvent } from '../core/keys.js';
 import { size as fmtSize, bytes as fmtBytes } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
-import { ListerView, listerSettings, saveListerSettings, LISTER_DEFAULTS } from './viewer/view.js';
+import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...]}
@@ -31,7 +34,30 @@ const remote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 
 // panelCtx describes a panel for the placeholders of an external program (%P, %N, %S...).
 const panelCtx = (p) => ({ Dir: p.path, Current: p.cur && !p.cur.up ? p.cur.name : '', Selected: p.selectedEntries().map((e) => e.name) });
-const paramCtx = (app) => ({ Source: panelCtx(app.cur), Target: panelCtx(app.other), File: '' });
+// (a Lister window has no panels: its placeholders are empty)
+const noPanel = { Dir: '', Current: '', Selected: [] };
+const paramCtx = (app) => ({ Source: app.cur ? panelCtx(app.cur) : noPanel, Target: app.other ? panelCtx(app.other) : noPanel, File: '' });
+
+// ---- the Lister in a window of its own ----
+
+// The setting "viewerInWindow" (on unless it is false): F3 opens a real window (feature_viewer_window.go,
+// src/viewer-window.js) instead of the dialog over the panels below. The dialog stays as the fallback.
+const inWindowSetting = (app) => app.setting('viewerInWindow', true) !== false;
+const inListerWindow = () => !!globalThis.document?.body?.classList.contains('mc-viewer-window');
+
+// openViewer opens the Lister on a file: in a window when the setting says so and Go has Lister windows, else over the
+// panels.
+async function openViewer(app, o) {
+  if (inWindowSetting(app) && !inListerWindow() && !lister) {
+    try {
+      await go.ListerWindows.Open({ path: o.path, names: o.names || [], dir: o.dir || '', side: o.panel?.side || '', internalOnly: !!o.internalOnly, mode: o.mode || 'auto' });
+      return;
+    } catch (e) {
+      if (!/is not available/.test(errText(e))) { app.flash(errText(e), 'err'); return; }
+    }
+  }
+  return openLister(app, o);
+}
 
 // ---- the Lister window ----
 
@@ -138,7 +164,7 @@ async function view(app, args = {}) {
     }
     if (args.external) return external(app, path);
     const sep = app.sepFor(path);
-    return openLister(app, { path, names: [fileOf(path, sep)], dir: path.slice(0, path.lastIndexOf(sep)) || sep, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
+    return openViewer(app, { path, names: [fileOf(path, sep)], dir: path.slice(0, path.lastIndexOf(sep)) || sep, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
   }
   const e = p.cur;
   if (!e || e.up) return;
@@ -150,7 +176,7 @@ async function view(app, args = {}) {
   if (remote(p.path)) { app.flash('Viewing files inside archives or on servers is not ready yet.', 'err'); return; }
   const names = sel.length ? sel.map((x) => x.name) : p.entries.filter((x) => !x.dir && !x.up).map((x) => x.name);
   if (sel.length && first !== e) p.focusName(first.name);
-  await openLister(app, { path: p.fullPath(first.name), names, dir: p.path, panel: p, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
+  await openViewer(app, { path: p.fullPath(first.name), names, dir: p.path, panel: p, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
 }
 
 async function folderSize(app, p, e) {
@@ -304,6 +330,7 @@ command({
       ${chk('lo-html', 'Show HTML and Markdown rendered', s.renderHTML)}
       ${chk('lo-wrap', 'Wrap text', s.wrap)}
       ${chk('lo-fit', 'Fit images to the window', s.fitImage)}
+      ${!inListerWindow() ? chk('lo-window', 'Open the Lister in a window of its own', inWindowSetting(app)) : ''}
       <div class="mc-viewer-optrow">
         <div class="mc-row"><label for="lo-tab">Tab width</label><input id="lo-tab" type="text" value="${esc(s.tabWidth)}"></div>
         <div class="mc-row"><label for="lo-bin">Binary width</label><input id="lo-bin" type="text" value="${esc(s.binaryWidth)}"></div>
@@ -322,18 +349,16 @@ command({
       if (fs == null) return 'The font size must be a number from 8 to 32.';
       return { defaultMode: v('lo-mode').value, defaultCharset: v('lo-charset').value, autoHex: v('lo-hex').checked, showMedia: v('lo-media').checked,
         renderHTML: v('lo-html').checked, wrap: v('lo-wrap').checked, fitImage: v('lo-fit').checked, tabWidth: tab, binaryWidth: bin, fontSize: fs,
-        font: v('lo-font').value, viewer: v('lo-viewer').value.trim(), editor: v('lo-editor').value.trim() };
+        font: v('lo-font').value, viewer: v('lo-viewer').value.trim(), editor: v('lo-editor').value.trim(), inWindow: v('lo-window') ? v('lo-window').checked : null };
     }, null, { okLabel: 'Save', kind: 'lister-options' });
     if (!r) return;
-    const { editor, ...lo } = r;
+    const { editor, inWindow, ...lo } = r;
     await saveListerSettings(app, lo);
     await app.setSetting('editor', editor);
-    for (const v of [lister?.view, qv?.view].filter(Boolean)) { // the open views take the new options at once
-      Object.assign(v, { wrap: lo.wrap, variable: lo.font === 'variable', fontSize: lo.fontSize, fit: lo.fitImage });
-      v.applyFont();
-      v.layout();
-      if (v.id && v.isTextMode()) v.queue(() => v.applyOptions());
-    }
+    if (inWindow !== null) await app.setSetting('viewerInWindow', inWindow);
+    // the open views take the new options at once (those of other windows hear of it through the "setting" event)
+    for (const v of [lister?.view, qv?.view].filter(Boolean)) applyListerOptions(v, lo);
+    app.emit('lister-options', lo);
   },
 });
 
@@ -376,4 +401,11 @@ export function init(app) {
   });
   // A folder change in the quick view panel (Ctrl+U, the tree...) leaves it a file panel again.
   app.on('exchange', () => { if (qv) qvUpdate(app, true); });
+  // Lister windows: N / P in one moves the cursor of the panel its list came from (when it still shows that folder),
+  // and once the panels are up Go makes the first window in advance, so the first F3 is quick.
+  on('lister-cursor', (d) => {
+    const p = d?.side && app.panel(d.side);
+    if (p && p.path === d.dir) p.focusName(d.name);
+  });
+  app.on('ready', () => { if (inWindowSetting(app)) go.ListerWindows.Prepare().catch(() => {}); });
 }

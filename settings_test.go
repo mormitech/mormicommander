@@ -12,16 +12,16 @@ func TestSettings(t *testing.T) {
 	if s.Get("keymap") != nil {
 		t.Fatal("empty settings have a keymap")
 	}
-	if err := s.Set("keymap", map[string]string{"Ctrl+K": "cm_Copy"}); err != nil {
+	if err := s.put("keymap", map[string]string{"Ctrl+K": "cm_Copy"}); err != nil {
 		t.Fatal(err)
 	}
-	s.Set("hidden", true)
+	s.put("hidden", true)
 	s2 := loadSettings(p)
 	km, _ := s2.Get("keymap").(map[string]any)
 	if km["Ctrl+K"] != "cm_Copy" || s2.Get("hidden") != true {
 		t.Errorf("reloaded: %v", s2.All())
 	}
-	s2.Set("hidden", nil)
+	s2.put("hidden", nil)
 	if _, ok := loadSettings(p).All()["hidden"]; ok {
 		t.Error("nil did not remove the key")
 	}

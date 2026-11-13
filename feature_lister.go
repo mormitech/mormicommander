@@ -21,8 +21,6 @@ import (
 
 	"mormicommander/internal/dirsize"
 	"mormicommander/internal/lister"
-
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Lister is what the page calls for the viewer (window.go.main.Lister).
@@ -619,7 +617,7 @@ func (l *Lister) Copy(id int, start, end int64, asHex bool) (int64, error) {
 	if l.app.ctx == nil {
 		return 0, errors.New("There is no window to copy from.")
 	}
-	if err := wruntime.ClipboardSetText(l.app.ctx, t); err != nil {
+	if err := l.app.clipboardSetText(t); err != nil {
 		return 0, fmt.Errorf("Can't copy to the clipboard: %v", err)
 	}
 	return end - start, nil

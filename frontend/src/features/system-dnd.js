@@ -15,7 +15,7 @@
 
 import { addControlCommand } from '../core/control.js';
 import { cmdline } from '../core/cmdline.js';
-import { go, errText } from '../core/go.js';
+import { go, errText, onFileDrop } from '../core/go.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal, quoteArg, transferFiles } from './system-lib.js';
@@ -182,7 +182,7 @@ export function init(app) {
   document.addEventListener('dragleave', (ev) => { if (!ev.relatedTarget) { light(null); stopSpring(); } });
   document.addEventListener('drop', (ev) => {
     const types = [...(ev.dataTransfer?.types || [])];
-    if (!types.includes(MIME)) { light(null); stopSpring(); return; } // files from other apps come through OnFileDrop
+    if (!types.includes(MIME)) { light(null); stopSpring(); return; } // files from other apps come through onFileDrop
     ev.preventDefault();
     const d = drag;
     const t = targetAt(app, ev.target);
@@ -192,15 +192,14 @@ export function init(app) {
     performDrop(app, d.paths, t, op, d.from);
   });
 
-  // files from Finder / Explorer / other apps, with their real paths (Wails, main.go DragAndDrop)
-  const rt = globalThis.window?.runtime;
-  rt?.OnFileDrop?.((x, y, paths) => {
+  // files from Finder / Explorer / other apps, with their real paths (Wails, window.go EnableFileDrop)
+  onFileDrop((x, y, paths) => {
     light(null);
     stopSpring();
     if (drag || Date.now() - dragEnded < 1500 || !paths?.length) return; // our own drag, seen by the system too
     const t = targetAt(app, document.elementFromPoint(x, y)) || { kind: 'folder', panel: app.cur, path: app.cur.path, el: null };
     performDrop(app, paths, t, 'copy', null);
-  }, false);
+  });
 }
 
 // ---- control mode: drops without a mouse ----
