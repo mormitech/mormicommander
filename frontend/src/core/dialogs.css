@@ -1,0 +1,20 @@
+.mc-modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: #0006; animation: fade .12s ease-out; }
+.mc-box { min-width: 340px; max-width: min(620px, 92vw); max-height: 88vh; overflow: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 18px 14px; box-shadow: 0 14px 44px #0008; position: relative; }
+.mc-box h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
+.mc-msg { margin: 0 0 14px; line-height: 1.45; user-select: text; overflow-wrap: anywhere; }
+.mc-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.mc-row label { color: var(--muted); font-size: 12px; }
+.mc-row input[type=text], .mc-row select { width: 100%; padding: 5px 7px; }
+.mc-check { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+.mc-note { color: var(--muted); font-size: 12px; margin: 0 0 8px; }
+.mc-err { color: var(--danger); margin: 0 0 8px; }
+.mc-err[hidden] { display: none; }
+.mc-btns { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+.mc-btns button { padding: 5px 14px; }
+.mc-btns .primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.mc-btns .danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+.mc-close { position: absolute; right: 8px; top: 6px; border: 0; background: transparent; font-size: 20px; line-height: 1; padding: 2px 8px; color: var(--muted); }
+.mc-progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 6px 0 10px; }
+.mc-progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+@media (prefers-reduced-motion: reduce) { .mc-modal { animation: none; } .mc-progress i { transition: none; } }

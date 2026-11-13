@@ -1,0 +1,20 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "mormicommander",
+  "outputfilename": "mormicommander",
+  "frontend:install": "npm install",
+  "frontend:build": "npm run build",
+  "frontend:dev:watcher": "npm run dev",
+  "frontend:dev:serverUrl": "auto",
+  "author": {
+    "name": "Peter Jenei",
+    "email": "peter.jenei@mormitech.com"
+  },
+  "info": {
+    "companyName": "Mormitech",
+    "productName": "mormiCommander",
+    "productVersion": "0.1.0",
+    "copyright": "Copyright (c) 2026 mormiCommander contributors",
+    "comments": "Two-panel file manager."
+  }
+}

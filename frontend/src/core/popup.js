@@ -1,0 +1,113 @@
+// Popup lists: the drive list (Alt+F1/Alt+F2), the folder history (Alt+Down), the hotlist (Ctrl+D), right-click menus.
+// Keys: Up/Down/PgUp/PgDn/Home/End move, Enter chooses (Shift+Enter too: the caller can open in a new tab), Esc closes,
+// a letter jumps to the next item that starts with it (or whose `key` is that letter), and chooses it when it is the
+// only one. Control mode reads and chooses
+// with currentPopup() / choosePopup().
+//
+//   const r = await showList({title, items: [{label, detail, value, key, disabled} | {sep: true}], anchor, index});
+//   r → {item, index, shift} or null
+
+import { esc } from './dialogs.js';
+import { waitForUser } from './busy.js';
+
+let current = null;
+
+export const popupOpen = () => !!current;
+
+export function showList({ title = '', items, anchor = null, index = 0, kind = 'list' }) {
+  current?.close(null);
+  return waitForUser(new Promise((resolve) => {
+    const el = document.createElement('div');
+    el.className = 'mc-popup';
+    el.setAttribute('role', 'listbox');
+    el.innerHTML = (title ? `<div class="t">${esc(title)}</div>` : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
+      : `<div class="it${it.disabled ? ' off' : ''}" data-i="${i}" role="option"><span>${esc(it.label)}</span>${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
+    document.body.append(el);
+    const usable = (i) => items[i] && !items[i].sep && !items[i].disabled;
+    let at = usable(index) ? index : items.findIndex((_, i) => usable(i));
+    const paint = () => {
+      el.querySelectorAll('.it').forEach((d) => d.classList.toggle('on', +d.dataset.i === at));
+      el.querySelector('.it.on')?.scrollIntoView({ block: 'nearest' });
+    };
+    // place: below the anchor element, or at a point, kept on screen
+    const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor ? { left: anchor.x, bottom: anchor.y, top: anchor.y } : { left: innerWidth / 2 - 150, bottom: innerHeight / 3, top: innerHeight / 3 };
+    const w = el.offsetWidth, h = el.offsetHeight;
+    el.style.left = `${Math.max(6, Math.min(innerWidth - w - 6, r.left))}px`;
+    el.style.top = `${r.bottom + h + 6 < innerHeight ? r.bottom + 2 : Math.max(6, r.top - h - 2)}px`;
+    paint();
+
+    const close = (v) => {
+      if (current !== api) return;
+      current = null;
+      el.remove();
+      window.removeEventListener('keydown', key, true);
+      window.removeEventListener('mousedown', outside, true);
+      resolve(v);
+    };
+    const choose = (i, shift = false) => { if (usable(i)) close({ item: items[i], index: i, shift }); };
+    const move = (d) => {
+      let i = at;
+      for (let n = 0; n < items.length; n++) {
+        i = Math.max(0, Math.min(items.length - 1, i + d));
+        if (usable(i)) { at = i; break; }
+        if (i === 0 || i === items.length - 1) break;
+      }
+      paint();
+    };
+    const key = (ev) => {
+      ev.stopImmediatePropagation();
+      const k = ev.key;
+      if (k === 'Escape' || (k === 'F4' && ev.altKey)) { ev.preventDefault(); close(null); return; }
+      if (k === 'Enter') { ev.preventDefault(); choose(at, ev.shiftKey); return; }
+      if (k === 'ArrowDown') { ev.preventDefault(); move(1); return; }
+      if (k === 'ArrowUp') { ev.preventDefault(); move(-1); return; }
+      if (k === 'PageDown') { ev.preventDefault(); move(8); return; }
+      if (k === 'PageUp') { ev.preventDefault(); move(-8); return; }
+      if (k === 'Home') { ev.preventDefault(); at = -1; move(1); return; }
+      if (k === 'End') { ev.preventDefault(); at = items.length; move(-1); return; }
+      if (k.length === 1 && !ev.ctrlKey && !ev.metaKey) {
+        ev.preventDefault();
+        const c = (ev.code?.startsWith('Key') ? ev.code.slice(3) : k).toLowerCase();
+        const n = items.length;
+        // the only item with that letter (or accelerator) is chosen at once, like a drive letter in Total Commander
+        const hits = items.map((it, i) => i).filter((i) => usable(i) && ((items[i].key || '').toLowerCase() === c || String(items[i].label).toLowerCase().startsWith(c)));
+        if (hits.length === 1) { choose(hits[0]); return; }
+        for (let j = 1; j <= n; j++) {
+          const i = (at + j) % n;
+          const it = items[i];
+          if (usable(i) && ((it.key || '').toLowerCase() === c || String(it.label).toLowerCase().startsWith(c))) {
+            at = i;
+            paint();
+            if (it.key && it.key.toLowerCase() === c) choose(i); // an accelerator letter chooses at once
+            return;
+          }
+        }
+      }
+    };
+    const outside = (ev) => { if (!el.contains(ev.target)) close(null); };
+    el.addEventListener('mousemove', (ev) => { const d = ev.target.closest('.it'); if (d && usable(+d.dataset.i) && at !== +d.dataset.i) { at = +d.dataset.i; paint(); } });
+    el.addEventListener('click', (ev) => { const d = ev.target.closest('.it'); if (d) choose(+d.dataset.i, ev.shiftKey); });
+    window.addEventListener('keydown', key, true);
+    setTimeout(() => window.addEventListener('mousedown', outside, true), 0);
+    const api = { close, choose, kind, title, items, get at() { return at; } };
+    current = api;
+  }));
+}
+
+// currentPopup describes the open popup for control mode.
+export function currentPopup() {
+  if (!current) return null;
+  return { kind: current.kind, title: current.title, at: current.at, items: current.items.map((it) => (it.sep ? { sep: true } : { label: it.label, detail: it.detail || '', disabled: !!it.disabled })) };
+}
+
+// choosePopup picks an item by index or by label (exact, or the first that starts with it); null closes the popup.
+export function choosePopup(which, shift = false) {
+  if (!current) throw new Error('no popup is open');
+  if (which === null || which === undefined) { current.close(null); return; }
+  let i = typeof which === 'number' ? which : current.items.findIndex((it) => it.label === which);
+  if (i < 0 && typeof which === 'string') i = current.items.findIndex((it) => String(it.label).toLowerCase().startsWith(which.toLowerCase()));
+  if (i < 0 || !current.items[i] || current.items[i].sep) throw new Error(`the popup has no item ${JSON.stringify(which)}`);
+  current.choose(i, shift);
+}
+
+export const closePopup = () => current?.close(null);

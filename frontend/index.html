@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>mormiCommander</title>
+</head>
+<body>
+<!-- The layout of the file manager. Features fill the empty bars (#toolbar, .tabbar, #vbar); every element has an id or
+     class that docs/ARCHITECTURE.md lists, so features can find their place without changing this file. -->
+<div id="app" hidden>
+    <div id="toolbar" class="bar" role="toolbar" aria-label="Button bar" hidden></div>
+    <main id="panels">
+        <section class="panel" data-side="left" aria-label="Left panel"></section>
+        <div id="splitter" role="separator" aria-orientation="vertical" aria-label="Panel width" title="Drag to change the panel widths · double-click for half and half"></div>
+        <div id="vbar" class="bar" role="toolbar" aria-label="Middle button bar" hidden></div>
+        <section class="panel" data-side="right" aria-label="Right panel"></section>
+    </main>
+    <div id="cmdline"><label id="prompt" for="cmd"></label><input id="cmd" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Command line"></div>
+    <div id="fkeys" role="toolbar" aria-label="Function keys"></div>
+    <div id="flash" role="status" aria-live="polite" hidden></div>
+</div>
+<div id="about" hidden></div>
+<div id="menu" role="menu" hidden></div>
+<script src="./src/main.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,209 @@
+name: build
+
+# Every push builds and tests on the three systems. Pushing a tag like v0.5.0 also attaches the packages to a GitHub
+# release: a zipped .app (macOS arm64), an Inno Setup installer and a zip (Windows x64), a tar.gz and a .deb (Linux x64).
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artifact: mormicommander-macos
+          - os: ubuntu-latest
+            artifact: mormicommander-linux
+          - os: windows-latest
+            artifact: mormicommander-windows
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
+      - run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+      # The Go code embeds the built frontend, so it has to exist before `go vet` and `go test`.
+      - run: npm ci && npm run build && npm test
+        working-directory: frontend
+      - name: Tags
+        id: tags
+        shell: bash
+        run: echo "tags=${{ runner.os == 'Linux' && 'webkit2_41' || '' }}" >> "$GITHUB_OUTPUT"
+      - run: go vet -tags "${{ steps.tags.outputs.tags }}" ./...
+      - run: go test -tags "${{ steps.tags.outputs.tags }}" ./...
+      - run: wails build -tags "${{ steps.tags.outputs.tags }}"
+      - name: Version
+        id: version
+        shell: bash
+        run: |
+          v=$(node -p "require('./wails.json').info.productVersion")
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          # a release tag has to match the version in wails.json
+          if [[ "$GITHUB_REF" == refs/tags/v* && "$GITHUB_REF_NAME" != "v$v" ]]; then
+            echo "tag $GITHUB_REF_NAME does not match wails.json version $v"; exit 1
+          fi
+      - name: Package (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          mkdir dist
+          # the `mormicommander` command: a launcher in the app (the Homebrew cask links to it), see packaging/macos
+          mkdir -p build/bin/mormicommander.app/Contents/Resources/bin
+          cp packaging/macos/mormicommander build/bin/mormicommander.app/Contents/Resources/bin/mormicommander
+          chmod +x build/bin/mormicommander.app/Contents/Resources/bin/mormicommander
+          # ad-hoc signature, so the bundle is at least internally consistent; it is not notarized
+          codesign --force --deep -s - build/bin/mormicommander.app
+          ditto -c -k --keepParent build/bin/mormicommander.app "dist/mormicommander-${{ steps.version.outputs.version }}-macos-arm64.zip"
+      - name: Package (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          mkdir dist
+          cp packaging/linux/mormicommander.desktop packaging/linux/install.sh build/appicon.png build/bin/
+          tar -czf "dist/mormicommander-${{ steps.version.outputs.version }}-linux-x64.tar.gz" -C build/bin mormicommander mormicommander.desktop install.sh appicon.png -C "$PWD" LICENSE
+      # A .deb for Debian and Ubuntu: `sudo apt install ./mormicommander_<version>_amd64.deb` installs GTK and WebKitGTK
+      # from the distribution along with it. dpkg-shlibdeps reads the binary and names the packages it needs.
+      - name: Package (Linux .deb)
+        if: runner.os == 'Linux'
+        run: |
+          v='${{ steps.version.outputs.version }}'
+          pkg="$RUNNER_TEMP/deb"
+          install -Dm755 build/bin/mormicommander "$pkg/usr/bin/mormicommander"
+          install -Dm644 LICENSE "$pkg/usr/share/doc/mormicommander/copyright"
+          install -Dm644 packaging/linux/mormicommander.desktop "$pkg/usr/share/applications/mormicommander.desktop"
+          command -v convert >/dev/null || sudo apt-get install -y imagemagick
+          for s in 64 128 256 512; do
+            mkdir -p "$pkg/usr/share/icons/hicolor/${s}x${s}/apps"
+            convert build/appicon.png -resize ${s}x${s} "$pkg/usr/share/icons/hicolor/${s}x${s}/apps/mormicommander.png"
+          done
+          # dpkg-shlibdeps wants a debian/control to sit next to it
+          work="$RUNNER_TEMP/shlibs" && mkdir -p "$work/debian" && printf 'Source: mormicommander\n\nPackage: mormicommander\nArchitecture: amd64\n' > "$work/debian/control"
+          deps=$(cd "$work" && dpkg-shlibdeps -O "$pkg/usr/bin/mormicommander" | sed 's/^shlibs:Depends=//')
+          echo "Depends: $deps"
+          mkdir -p "$pkg/DEBIAN"
+          cat > "$pkg/DEBIAN/control" <<EOF
+          Package: mormicommander
+          Version: $v
+          Architecture: amd64
+          Maintainer: Mormitech <accounts@mormitech.com>
+          Depends: $deps
+          Section: utils
+          Priority: optional
+          Homepage: https://github.com/mormitech/mormicommander
+          Installed-Size: $(du -sk "$pkg/usr" | cut -f1)
+          Description: Two-panel file manager
+           mormiCommander is a two-panel file manager in the spirit of Total Commander: copy, move, rename and
+           delete files between two folders side by side, with Total Commander's keys.
+          EOF
+          dpkg-deb --build --root-owner-group "$pkg" "dist/mormicommander_${v}_amd64.deb"
+          dpkg-deb --info "dist/mormicommander_${v}_amd64.deb"
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $v = '${{ steps.version.outputs.version }}'
+          New-Item -ItemType Directory dist | Out-Null
+          Compress-Archive -Path build\bin\mormicommander.exe, LICENSE -DestinationPath "dist\mormicommander-$v-windows-x64.zip"
+          choco install innosetup -y --no-progress
+          (Get-Content packaging\windows\installer.iss -Raw).Replace('__VERSION__', $v) | Set-Content packaging\windows\installer.generated.iss
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q packaging\windows\installer.generated.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed with $LASTEXITCODE" }
+          Get-ChildItem dist | Format-Table Name, Length
+      # The installer is what winget runs, so test it for real: silent install, Start menu entry, the app starts and
+      # stays up, silent uninstall, nothing left behind.
+      - name: Test the Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $setup = Get-ChildItem dist\mormicommander-setup-*.exe | Select-Object -First 1
+          if (-not $setup) { throw 'no installer in dist' }
+          $p = Start-Process $setup.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru
+          if (-not $p.WaitForExit(180000)) { throw 'installer did not finish in 3 minutes' }
+          if ($p.ExitCode -ne 0) { throw "installer exit code $($p.ExitCode)" }
+          $dir = Join-Path $env:LOCALAPPDATA 'Programs\mormicommander'
+          $exe = Join-Path $dir 'mormicommander.exe'
+          foreach ($f in 'mormicommander.exe', 'LICENSE') {
+            if (-not (Test-Path (Join-Path $dir $f))) { throw "missing $f after install" }
+          }
+          $lnk = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\mormiCommander.lnk'
+          if (-not (Test-Path $lnk)) { throw 'no Start menu entry' }
+          Write-Host 'installed: files and Start menu entry are there'
+          # The app has to start and keep running (a missing WebView2 runtime, for one, makes it exit at once).
+          $app = Start-Process $exe -PassThru
+          Start-Sleep -Seconds 10
+          if ($app.HasExited) { throw "mormicommander exited right after starting (exit code $($app.ExitCode))" }
+          Write-Host 'mormicommander is running'
+          Stop-Process -Id $app.Id -Force
+          $uninstaller = Get-ChildItem (Join-Path $dir 'unins*.exe') | Select-Object -First 1
+          $u = Start-Process $uninstaller.FullName -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -PassThru
+          if (-not $u.WaitForExit(120000)) { throw 'uninstaller did not finish in 2 minutes' }
+          # The uninstaller hands over to a temporary copy of itself and exits, so wait for the files to go.
+          $deadline = (Get-Date).AddSeconds(60)
+          while ((Test-Path $exe) -and ((Get-Date) -lt $deadline)) { Start-Sleep -Seconds 2 }
+          if (Test-Path $exe) { throw 'files left after uninstall' }
+          if (Test-Path $lnk) { throw 'Start menu entry left after uninstall' }
+          Write-Host 'install, start and uninstall all work'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: dist/*
+          if-no-files-found: error
+
+  # The .deb installed the way a user would, on a clean Ubuntu with no GTK or WebKitGTK: apt has to bring them, and the
+  # app has to start.
+  deb:
+    needs: build
+    runs-on: ubuntu-latest
+    container: ubuntu:24.04
+    env:
+      DEBIAN_FRONTEND: noninteractive   # no questions from apt (time zone and the like)
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mormicommander-linux
+          path: dist
+      - name: Install the .deb with apt
+        run: |
+          apt-get update
+          if ldconfig -p | grep -E 'libwebkit2gtk|libgtk-3'; then echo 'the system already has GTK or WebKitGTK'; exit 1; fi
+          apt-get install -y ./dist/mormicommander_*_amd64.deb
+          apt-get install -y --no-install-recommends xvfb xauth
+          dpkg -L mormicommander
+      - name: The app starts and keeps running (demo files, virtual display)
+        run: |
+          set +e
+          timeout 20 xvfb-run -a mormicommander --demo > /tmp/app.log 2>&1
+          code=$?
+          cat /tmp/app.log
+          if [ $code -ne 124 ]; then echo "mormicommander exited with $code before the 20 s were up"; exit 1; fi
+          echo 'mormicommander ran for 20 s'
+      - name: Removed cleanly
+        run: |
+          apt-get remove -y mormicommander
+          if [ -e /usr/bin/mormicommander ] || [ -e /usr/share/applications/mormicommander.desktop ]; then echo 'files left after removal'; exit 1; fi
+
+  # Pushing a tag like v0.5.0 attaches every package to a GitHub release.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, deb]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: mormicommander-{macos,linux,windows}
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes

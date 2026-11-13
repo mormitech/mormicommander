@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=mormiCommander
+GenericName=File Manager
+Comment=Two-panel file manager
+Exec=mormicommander %F
+Icon=mormicommander
+Terminal=false
+Categories=System;Utility;FileManager;FileTools;
+Keywords=files;folders;commander;two panel;copy;move;
+StartupWMClass=mormicommander
+MimeType=inode/directory;

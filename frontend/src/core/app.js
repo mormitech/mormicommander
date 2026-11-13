@@ -1,0 +1,184 @@
+// The app object: the two panels, which one is active, app-wide state (hidden files, volumes), messages to the user,
+// and small events features listen to. Every command gets it as its first argument:
+//
+//   command({name: 'cm_MatchSrc', label: 'Target = source', run: (app) => app.other.go(app.cur.path)});
+//
+// app.cur is the active ("source") panel, app.other the other ("target") one; app.left / app.right by side.
+// Events: app.on('panel', (panel, {moved}) => …) after a folder was read or re-sorted; 'cursor' (panel); 'selection'
+// (panel); 'active' (panel); 'ready' once start-up is done.
+
+import { go, errText } from './go.js';
+import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js';
+import { getSetting, setSetting } from './settings.js';
+import { label as keyLabel } from './keys.js';
+
+const listeners = new Map();
+let flashTimer = 0;
+let sessionTimer = 0;
+
+export const app = {
+  platform: 'darwin',
+  sep: '/',
+  home: '/',
+  demo: false,
+  panels: [],
+  active: 0,
+  showHidden: false,
+  volumes: [],
+  lastMessage: '',
+  // openHandlers decide what Enter on a file does before the system opens it (archives as folders, .url files...):
+  // app.openHandlers.push(async (panel, entry, path) => true when handled)
+  openHandlers: [],
+
+  get cur() { return this.panels[this.active]; },
+  get other() { return this.panels[1 - this.active]; },
+  get left() { return this.panels[0]; },
+  get right() { return this.panels[1]; },
+
+  // panel finds a panel by "left", "right", "active"/"source", "other"/"target" (default: active).
+  panel(which) {
+    switch (which) {
+      case 'left': return this.panels[0];
+      case 'right': return this.panels[1];
+      case 'other': case 'target': return this.other;
+      default: return this.cur;
+    }
+  },
+
+  on(event, fn) {
+    if (!listeners.has(event)) listeners.set(event, new Set());
+    listeners.get(event).add(fn);
+    return () => listeners.get(event).delete(fn);
+  },
+
+  emit(event, ...args) {
+    for (const fn of listeners.get(event) || []) {
+      try { fn(...args); } catch (e) { console.error(e); }
+    }
+  },
+
+  setting: getSetting,
+  setSetting,
+
+  // setActive makes a panel the active one (and gives it the keyboard focus).
+  setActive(p, { focus = true } = {}) {
+    const i = typeof p === 'number' ? p : this.panels.indexOf(p);
+    if (i < 0) return;
+    const changed = i !== this.active;
+    this.active = i;
+    for (const panel of this.panels) {
+      panel.el.classList.toggle('active', panel === this.cur);
+      panel.renderRows();
+    }
+    if (focus && !document.querySelector('.mc-modal')) {
+      const ae = document.activeElement;
+      if (!ae || ae === document.body || ae.closest?.('.panel') || ae.id === 'cmd') this.cur.$.list.focus({ preventScroll: true });
+    }
+    if (changed) { this.updateTitle(); this.emit('active', this.cur); this.saveSession(); }
+  },
+
+  // run runs a command and turns a failure into a message (never an alert). opts.quiet: no "not ready" message.
+  async run(name, args = {}, opts = {}) {
+    try {
+      return await runCommand(name, args);
+    } catch (e) {
+      if (e instanceof NotReady) {
+        if (!opts.quiet) this.flash(`${commandTitle(name)} is not ready yet.`);
+      } else {
+        console.error(e);
+        this.flash(errText(e), 'err');
+      }
+      return false;
+    }
+  },
+
+  // flash shows a short message above the function keys for a few seconds.
+  flash(msg, kind = '') {
+    const el = document.getElementById('flash');
+    this.lastMessage = msg;
+    if (!el) return;
+    el.textContent = msg;
+    el.className = kind;
+    el.hidden = false;
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => { el.hidden = true; }, kind === 'err' ? 6000 : 3000);
+  },
+
+  // sepFor is the separator of a path: "\" for Windows paths, "/" for the rest (URLs and the demo too).
+  sepFor(p) { return /^[a-z]:\\/i.test(p || '') || (p || '').startsWith('\\\\') ? '\\' : '/'; },
+
+  // resolvePath makes a typed path absolute: "~" is home, a relative path is taken from the folder `from`.
+  resolvePath(p, from) {
+    p = p.trim();
+    if (p === '~' || p.startsWith('~/') || p.startsWith('~\\')) return p;
+    if (/^[a-z][a-z0-9+.-]*:\/\//i.test(p) || p.startsWith('/') || /^[a-z]:[\\/]?/i.test(p) || p.startsWith('\\\\')) return p;
+    if (this.platform === 'windows' && p.startsWith('\\')) return from.slice(0, 2) + p; // "\x" is the root of this drive
+    const sep = this.sepFor(from);
+    return from.endsWith(sep) || from.endsWith('/') ? from + p : from + sep + p;
+  },
+
+  // volumeFor is the volume a path is on (the longest mount path that contains it), for the drive bar.
+  volumeFor(p) {
+    let best = null;
+    for (const v of this.volumes) {
+      if (v.kind === 'home') continue;
+      const root = v.path;
+      const within = p === root || p.startsWith(root.endsWith('/') || root.endsWith('\\') ? root : root + this.sepFor(root));
+      const winWithin = this.platform === 'windows' && p.toLowerCase().startsWith(root.toLowerCase());
+      if ((within || winWithin) && (!best || root.length > best.path.length)) best = v;
+    }
+    return best;
+  },
+
+  async loadVolumes() {
+    try { this.volumes = (await go.FS.Volumes()) || []; } catch { this.volumes = []; }
+    for (const p of this.panels) p.renderDrives(this.volumes);
+  },
+
+  // panelChanged is called by a panel after it read a folder or re-sorted (features listen to 'panel').
+  panelChanged(p, info = {}) {
+    if (info.moved) {
+      p.renderDrives(this.volumes);
+      go.FS.VolumeOf(p.path).then((v) => p.renderDriveInfo(v), () => p.renderDriveInfo(null));
+    }
+    if (p === this.cur) this.updateTitle();
+    this.emit('panel', p, info);
+    this.saveSession();
+  },
+
+  updateTitle() {
+    const p = this.cur;
+    if (!p?.path) return;
+    // (the prompt is right-to-left so a long path loses its start, not its end; <bdi> keeps the text itself left-to-right)
+    const pr = document.getElementById('prompt');
+    pr.replaceChildren(Object.assign(document.createElement('bdi'), { textContent: p.path + '>' }));
+    pr.title = p.path;
+    go.App.SetTitle(`mormiCommander – ${p.path}`).catch(() => {});
+  },
+
+  // saveSession remembers the folders, sorts and the active panel, so the next start comes back to them.
+  saveSession() {
+    if (this.demo || !this.panels.length) return;
+    clearTimeout(sessionTimer);
+    sessionTimer = setTimeout(() => {
+      const s = (p) => ({ path: p.path, sort: p.sort });
+      setSetting('session', { left: s(this.left), right: s(this.right), active: this.active, showHidden: this.showHidden, split: this.split ?? 0.5 });
+    }, 400);
+  },
+
+  keyLabel(name) {
+    const k = keysFor(name)[0];
+    return k ? keyLabel(k, this.platform) : '';
+  },
+};
+
+// commandTitle is a command's label without "…", for messages ("Copy (F5) is not ready yet.").
+export function commandTitle(name) {
+  const c = getCommand(name);
+  const label = (c?.label || LABELS[name] || name).replace(/…$/, '');
+  const k = app.keyLabel(name);
+  return k ? `${label} (${k})` : label;
+}
+
+// Labels of commands that no feature registered yet, from the menu layout (menus.js fills this).
+export const LABELS = {};

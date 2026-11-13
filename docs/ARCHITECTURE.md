@@ -1,0 +1,215 @@
+# How mormiCommander is built, and how to add a feature
+
+mormiCommander is one small native program: Go + [Wails v2](https://wails.io) for the window and everything that
+touches the system, and a plain JavaScript page (Vite, no framework) that draws the panels and owns the keyboard. The
+same stack as mormiView and mormiDiskFree.
+
+The whole design serves one rule: **features are modules**. A feature adds files; it does not rewrite shared ones. Many
+agents can build features at the same time, and their branches merge without conflicts.
+
+## The map
+
+```
+main.go               start-up: flags, window options, wails.Run with boundObjects(app) — never edited for a feature
+app.go                the App object: version, platform, start folders, title, quit, About window
+features.go           where Go features register (bound objects, start-up/shut-down hooks, control commands)
+args.go               the command line (TC's /L= /R= /P= too)
+menu.go               builds the native menu from the tree the page sends
+control.go            control mode server (docs/control.md)
+settings.go           settings.json: one key per feature
+feature_fs.go         FS: listing, volumes, free space, open with the system      (a feature, registered like any other)
+feature_jobs.go       Jobs: copy / move / delete / trash jobs with progress and questions
+winstate.go, window.go, configdir.go, reexec*.go, hide_*.go, windowid_*.go, version.go   window and platform plumbing
+internal/vfs          file systems for the panels: Local, Mock (demo); Register(scheme, fs) for archives, FTP…
+internal/disk         volumes and free space, per platform (volumes_darwin.go, _linux, _windows, _other)
+internal/fileops      the job engine: queue, progress events, cancel, overwrite questions (no UI)
+internal/trash        Trash / Recycle Bin per platform
+
+frontend/index.html   the layout: #toolbar, two .panel sections, #splitter, #vbar, #cmdline, #fkeys, #flash
+frontend/src/main.js  start-up of the page; imports every file of src/features/ automatically
+frontend/src/core/    the core (see the list below) — shared, change carefully, add rather than rewrite
+frontend/src/features/ one file per feature: navigation.js, selection.js, sorting.js, drives.js, cmdline.js, window.js…
+frontend/test/        vitest unit tests of the pure core modules
+
+scripts/mc_ctl.py     control-mode client = the QA harness
+scripts/qa_nav.py     QA of the core through control mode;  scripts/qa_smoke.sh builds and runs everything
+docs/FEATURES.md      the parity checklist (F-IDs);  docs/spec/ TC behaviour specs (on spec/* branches);  docs/control.md
+```
+
+## Adding a feature
+
+Say the feature is the directory hotlist (Ctrl+D, F-651…).
+
+### 1. The page side: `frontend/src/features/hotlist.js`
+
+Create the file. That is all it takes to load it: `main.js` imports every file in `src/features/` with
+`import.meta.glob`, so there is no list to edit.
+
+```js
+// The directory hotlist (Ctrl+D, FEATURES.md section 31): favourite folders in a popup.
+import { command } from '../core/registry.js';
+import { showList } from '../core/popup.js';
+import { addControlCommand } from '../core/control.js';
+import { app as theApp } from '../core/app.js';
+
+command({
+  name: 'cm_DirectoryHotlist',          // TC's name; Ctrl+D is already mapped to it in core/keymap.js
+  label: 'Folder hotlist',              // menu / command browser text; "…" when a dialog follows
+  run: async (app, args) => {           // app: see "The app object"; args: {} from keys, anything from control mode
+    const list = app.setting('hotlist', []);
+    const r = await showList({ title: 'Hotlist', items: list.map((p) => ({ label: p, value: p })), anchor: app.cur.$.pathbar, kind: 'hotlist' });
+    if (r) await app.cur.go(r.item.value);
+  },
+});
+
+export function init(app) {             // optional: runs once, after the panels exist
+  const star = document.createElement('button');
+  star.textContent = '★';
+  star.title = 'Folder hotlist (Ctrl+D)';
+  star.onclick = () => app.run('cm_DirectoryHotlist');
+  for (const p of app.panels) p.$.pbtns.append(star.cloneNode(true));   // .pbtns: room for buttons in the path bar
+}
+
+addControlCommand('hotlist', async () => ({ ok: true, hotlist: theApp.setting('hotlist', []) }));   // optional
+```
+
+What you get for free once `cm_DirectoryHotlist` is registered:
+
+- its **key** works: every Total Commander default key is already in `core/keymap.js` (key → cm_* name), also for
+  commands nobody wrote yet (pressing them says "… is not ready yet"). Don't add TC keys anywhere else. A command of our
+  own (no TC key) may declare `keys: ['Ctrl+Alt+K']` in `command({...})`; it is used when the key is free.
+- its **menu item** turns on: `core/menus.js` lays out Total Commander's menus with their cm_* names, greyed out until
+  registered. A command that is not in that layout can put itself in a menu with `menu: 'Show'` (and `menuAfter:
+  'cm_SrcLong'`). A toggle gives `checked: (app) => bool` and gets a check mark; `enabled: (app) => bool` greys it out.
+- its **function key button** (if it is on F3–F8, also with Shift/Alt/Ctrl) is live; `short: 'Hotlist'` sets the text.
+- the **command line** runs it when the user types `cm_DirectoryHotlist`, and control mode runs it with
+  `{"cmd": "run", "name": "cm_DirectoryHotlist"}`.
+
+### 2. The Go side (only if the feature needs the system): `feature_hotlist.go` + `internal/hotlist/`
+
+Put the logic in a UI-free package under `internal/` (it cross-compiles and tests alone), and a thin bound object in
+`feature_<name>.go` in the root package:
+
+```go
+package main
+
+// The directory hotlist: reading and writing the list, importing TC's [DirMenu].
+import "mormicommander/internal/hotlist"
+
+// Hotlist is what the page calls for the hotlist (window.go.main.Hotlist).
+type Hotlist struct{ app *App }
+
+func init() {
+	registerFeature("hotlist", func(a *App) []any { return []any{&Hotlist{app: a}} })
+	registerControl("hotlist-import", func(a *App, m map[string]any) (map[string]any, error) { ... }) // optional
+	onStartup(func(a *App) { ... })                                                                  // optional
+}
+
+// Import reads a TC wincmd.ini and returns its hotlist entries.
+func (h *Hotlist) Import(path string) ([]hotlist.Entry, error) { return hotlist.ImportINI(path) }
+```
+
+The page calls it as `go.Hotlist.Import(path)` (`import { go } from '../core/go.js'`), which is
+`window.go.main.Hotlist.Import`. The generated `frontend/wailsjs` folder is not used and not committed, so two features
+adding bound objects never conflict. Rules: type names unique; every exported method has a one-line doc comment in
+plain words; errors are plain sentences ("The folder /x is not there."), they reach the user as they are.
+
+Platform splits go by file name: `x_windows.go`, `x_darwin.go`, `x_linux.go`, `x_unix.go` (`//go:build !windows`),
+`x_other.go`. Helper programs on Windows get `hideWindow(cmd)` so no console flashes. Paths always travel as separate
+arguments or environment variables, never inside script text.
+
+A file system for the panels (archives, FTP, SFTP) implements `vfs.FS` and registers a scheme in an `init` function:
+`vfs.Register("ftp", myFS)`. The panels then show `ftp://host/path` like any folder (`FS.List` picks the FS by scheme).
+
+### 3. Tests
+
+- **Go:** `go test ./...` — one `_test.go` per file, plain `testing`, `t.TempDir()` for every file test. Never the user's
+  files, never the network beyond servers you start on 127.0.0.1.
+- **Page:** pure logic (parsers, masks, formatting) goes in a module without DOM use and gets a test in
+  `frontend/test/<name>.test.js` (vitest: `cd frontend && npm test`).
+- **The real app:** through control mode, in fresh temporary folders. Start from `scripts/qa_nav.py` (copy a suite
+  function): `MC.start(app, "-L=" + tmp_left, "-R=" + tmp_right)` gives the app its own control file and settings folder;
+  `mc.key(...)`, `mc.run(...)`, `mc.state()`, `mc.dialog()`, `mc.answer(...)`, `mc.shot(...)`; always `mc.quit()` in a
+  `finally`. Name the F-IDs in each check.
+- In a fresh checkout or worktree, build the page once before `go vet`/`go test` (`main.go` embeds it):
+  `cd frontend && npm install && npm run build`.
+
+### 4. Docs and status
+
+- Add your control commands to `docs/control.md` (a row in the table, or a short section of your own at the end).
+- CHANGELOG.md: a line under `## Unreleased` (feature branches never change the version; the integrator does).
+- docs/FEATURES.md: set your items to `[~]`. Only QA sets `[x]`, after checking the acceptance criterion in the app.
+
+## The core, for features
+
+Import from `../core/…`. These are stable interfaces; extend them by adding, not by changing what exists.
+
+### The app object (`core/app.js`, passed to every command)
+
+| | |
+|---|---|
+| `app.cur`, `app.other`, `app.left`, `app.right`, `app.panel('left'/'right'/'active'/'other')` | the panels; `cur` is the active (source) one |
+| `app.setActive(panel)` | makes a panel active |
+| `app.run(name, args)` | runs a command; failures become a message, never an exception |
+| `app.flash(text, 'err'?)` | a short message above the function keys (errors stay longer) |
+| `app.on(event, fn)` / `app.emit(event, …)` | events: `panel` (folder read or re-sorted: `(panel, {moved})`), `cursor`, `selection`, `active`, `exchange`, `space-select`, `ready` |
+| `app.setting(key, default)` / `app.setSetting(key, value)` | settings.json; use one top-level key per feature |
+| `app.openHandlers.push(async (panel, entry, path) => handled)` | what Enter on a file does before the system opens it (archives, .url files) |
+| `app.platform`, `app.sep`, `app.home`, `app.demo`, `app.showHidden`, `app.volumes` | facts |
+| `app.resolvePath(text, from)`, `app.sepFor(path)`, `app.volumeFor(path)`, `app.loadVolumes()` | path helpers |
+
+### A panel (`core/panel.js`)
+
+| | |
+|---|---|
+| `p.path`, `p.parent`, `p.entries` (shown, sorted, ".." first), `p.all` (as read), `p.cur`, `p.cursor`, `p.side` | state; an entry is `{name, base, ext, size, mtime, flags, mode, dir, link, hidden, exec, broken, up, dirSize}` |
+| `await p.go(path, {focus, history})` → true/false | shows a folder (false: it couldn't be read; the reason was shown) |
+| `p.reload()`, `p.goBack()`, `p.goForward()` | reread, history |
+| `p.setCursor(i)`, `p.moveCursor(d)`, `p.focusName(name)`, `p.pageSize()` | cursor |
+| `p.targets()` | what a file command works on: the selection, or the entry under the cursor (never "..") |
+| `p.selectedEntries()`, `p.isSelected(e)`, `p.select(e, on)`, `p.toggle(e)`, `p.selectWhere(fn, on)`, `p.clearSelection()`, `p.selectionChanged()` | selection (call `selectionChanged()` after `select`/`toggle`) |
+| `p.saveSelection()`, `p.saved` | kept names for Num / (file-job features call `saveSelection()` before a job) |
+| `p.sortBy(key, desc)`, `p.sort` | sort (`name`, `ext`, `size`, `date`, `none`) |
+| `p.setFilter(fn, label)` | show only entries `fn` accepts (quick filter, Ctrl+F11, Ctrl+F12) |
+| `p.dirSizes.set(name, bytes); p.rebuild()` | show a calculated folder size instead of `<DIR>` |
+| `p.fullPath(name)`, `p.editPath()` | helpers |
+| `p.$.pathbar`, `p.$.pbtns`, `p.$.tabbar`, `p.$.drives`, `p.$.list`, `p.$.status`, `p.el` | places in the panel for features (`.tabbar` is empty and hidden: the tabs feature fills it) |
+| `Panel.STATE_KEYS` | fields swapped by Ctrl+U; a feature with more per-panel state (tabs) pushes its field names |
+
+### Other core modules
+
+| module | for |
+|---|---|
+| `registry.js` | `command({...})`, `run(name, args)`, `hasCommand`, `getCommand`, `commandList`, `keysFor(name)`, `bindKey(combo, name)` |
+| `keymap.js` | the default TC keys and the macOS extras — owned by the core: ask before changing a default key |
+| `keys.js` | combos as text ("Ctrl+Shift+F5"): `comboFromEvent`, `normalizeCombo`, `label` (⌃⌥⇧⌘ on macOS) |
+| `keyboard.js` | `addKeyHandler((ev, combo) => handled)`: keys before the keymap (quick search, inline rename) |
+| `dialogs.js` | `messageDialog`, `inputDialog`, `formDialog`, `infoDialog`, `modal` — page dialogs, readable and answerable by control mode (give them a `kind`) |
+| `popup.js` | `showList({title, items, anchor, index, kind})` — keyboard-driven popup lists |
+| `jobs.js` | `runJob({kind, sources, target, rename, overwrite}, {title})` — copy/move/delete with progress and the overwrite question |
+| `cmdline.js` | `cmdline.text/insert/add/clear/focus`, `addCmdlineHandler(async (text, {shift}) => handled)` |
+| `go.js` | `go.<Type>.<Method>(…)`, `on(event, fn)`, `errText(e)` |
+| `format.js` | `size`, `bytes`, `date`, `attr`, `splitExt`, `plural`, `F` (entry flags) |
+| `control.js` | `addControlCommand(name, async (m) => result)` |
+| `settings.js`, `busy.js`, `menus.js`, `fkeys.js`, `splitter.js`, `tooltip.js`, `about.js` | core plumbing |
+
+### Shared files
+
+These belong to the core. A feature should not need to change them; when it really must, keep the change small and
+additive (a new export, a new event), and say so in the commit message: `main.go`, `app.go`, `features.go`, `menu.go`,
+`control.go`, `frontend/index.html`, `frontend/src/main.js`, `frontend/src/style.css` (tokens at the top: use them,
+don't add colours), everything in `frontend/src/core/`. Styles of a feature go in a CSS file next to its module
+(`import './hotlist.css'`), with classes prefixed by the feature name.
+
+## Conventions
+
+- **Words:** plain, short, everyday English in the UI, messages and comments ("image", not "picture"; "folder", not
+  "directory" in the UI). Sentence case, "…" on items that open a dialog. Errors say what happened and what to do.
+- **Comments** explain why, in full sentences, wrapped at about 120 columns; every Go file opens with a paragraph.
+- **Names:** cm_* commands use Total Commander's names (docs/FEATURES.md); our own get a cm_* name too and are marked
+  "ours" in FEATURES.md.
+- **Safety:** deleting goes to the Trash unless the user chose permanent delete; nothing is overwritten without asking
+  (or a rule the user set); tests run in temporary folders only.
+- **Version:** only in wails.json (`info.productVersion`); `--version`, About and control mode read it from there.
+- **Commits:** clear messages ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Never push, never
+  publish.
