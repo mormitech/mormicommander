@@ -435,7 +435,7 @@ export class Panel {
       const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
       const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
-      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep ? esc(e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;

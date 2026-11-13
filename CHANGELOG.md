@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.11 – 2026-11-13
+
+### Fixed
+
+- A calculated folder size is shown in full: folders have no extension (a dot in a folder name is part of the name),
+  so the size also uses the empty Ext column.
+
 ## 0.9.10 – 2026-11-13
 
 ### Added
