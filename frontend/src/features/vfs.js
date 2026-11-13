@@ -10,7 +10,7 @@
 
 import { command, commandForKey, hasCommand } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
-import { runJob, jobBackends } from '../core/jobs.js';
+import { runJob, jobBackends, holdProgress } from '../core/jobs.js';
 import { formDialog, infoDialog, esc } from '../core/dialogs.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
@@ -98,7 +98,12 @@ async function askPassword(q) {
   const where = q.entry ? `${base(q.archive)} (${q.entry})` : base(q.archive);
   const html = `<p class="mc-msg">${esc(q.attempt > 1 ? `The password was wrong. Try again for ${where}.` : `${where} is encrypted. Enter its password.`)}</p>
     <div class="mc-row"><label for="mc-password">Password</label><input id="mc-password" type="password" class="mc-vfs-pw" autofocus></div>`;
-  const r = await formDialog('Password', html, (box) => ({ pw: box.querySelector('#mc-password').value }), null, { kind: 'password' });
+  // (a job's progress box must not open over the question: the job waits for it)
+  const release = holdProgress();
+  let r;
+  try {
+    r = await formDialog('Password', html, (box) => ({ pw: box.querySelector('#mc-password').value }), null, { kind: 'password' });
+  } finally { release(); }
   go.FS.AnswerPassword(q.id, r ? r.pw : '', !!r).catch(() => {});
 }
 
@@ -117,10 +122,23 @@ export function sizeBytes(text) {
   return Math.floor(parseFloat(m[1]) * mult);
 }
 
+// the extensions each packer is known by, longest first: "tar.gz" and "tgz" are both TGZ
+const EXT_ALIASES = { 'tar.gz': ['tgz'], 'tar.bz2': ['tbz', 'tbz2', 'tb2'], 'tar.xz': ['txz'], 'tar.zst': ['tzst'] };
+function packerExts(list) {
+  const out = [];
+  for (const p of list) for (const e of new Set([p.ext, p.name, ...(EXT_ALIASES[p.name] || [])])) if (e) out.push([e.toLowerCase(), p]);
+  return out.sort((a, b) => b[0].length - a[0].length);
+}
+
+// packerOfName is the packer a typed archive name asks for by its extension (null: no known extension).
+function packerOfName(path, list) {
+  const lower = base(path).toLowerCase();
+  return packerExts(list).find(([e]) => lower.endsWith(`.${e}`))?.[1] || null;
+}
+
 function withExt(path, ext, list) {
-  const exts = list.map((p) => p.ext).sort((a, b) => b.length - a.length);
   const lower = path.toLowerCase();
-  for (const e of exts) if (lower.endsWith(`.${e}`)) return `${path.slice(0, -(e.length + 1))}.${ext}`;
+  for (const [e] of packerExts(list)) if (lower.endsWith(`.${e}`)) return `${path.slice(0, -(e.length + 1))}.${ext}`;
   return `${path}.${ext}`;
 }
 
@@ -202,10 +220,22 @@ async function pack(app, args = {}) {
     };
     const read = (box) => {
       const $ = (s) => box.querySelector(s);
-      const target = $('#mc-pack-target').value.trim();
+      let target = $('#mc-pack-target').value.trim();
       if (!target) return 'Type the name of the archive.';
-      const f = list.find((x) => x.name === $('#mc-pack-format').value);
+      let f = list.find((x) => x.name === $('#mc-pack-format').value);
+      // the typed extension and the packer list must agree: a known extension picks its packer ("mv.zip" is a ZIP even
+      // when TGZ was chosen last time), a name without one gets the packer's extension
+      const byName = packerOfName(target, list);
+      if (byName && byName !== f) {
+        if (!byName.available) return byName.note || `The ${byName.label} packer is not available, so ${base(target)} can't be made.`;
+        f = byName;
+        $('#mc-pack-format').value = f.name;
+      } else if (!byName && f) {
+        target = `${target}.${f.ext}`;
+      }
       if (!f?.available) return f?.note || 'This packer is not available.';
+      if ($('#mc-pack-encrypt').checked && !f.encrypt) return `${f.label} archives can't be encrypted; choose ZIP or 7Z.`;
+      if ($('#mc-pack-split').checked && !f.volumes) return `${f.label} archives can't be split into parts; choose ZIP or 7Z.`;
       const out = { target, format: f.name, level: Number($('#mc-pack-level').value) || 0, noPaths: !$('#mc-pack-paths').checked,
         noRecurse: !$('#mc-pack-recurse').checked, move: $('#mc-pack-move').checked, separate: $('#mc-pack-separate').checked,
         password: '', encryption: $('#mc-pack-cipher').value, volumeSize: 0, partSize: $('#mc-pack-size').value };
@@ -228,6 +258,10 @@ async function pack(app, args = {}) {
     Object.assign(req, r);
     app.setSetting('packer', { format: r.format, level: r.level, noPaths: r.noPaths, noRecurse: r.noRecurse, encryption: r.encryption, partSize: r.partSize });
     delete req.partSize;
+  }
+  if (args.noDialog && !args.format) { // (a scripted pack: the name's extension picks the packer, as in the dialog)
+    const byName = packerOfName(req.target, list);
+    if (byName?.available) req.format = byName.name;
   }
   p.saveSelection?.();
   const final = await runJob(req, { title: 'Packing' });

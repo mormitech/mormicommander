@@ -57,6 +57,9 @@ func newFS(a *App) *FS {
 		r.Archives.Password = func(req vfs.PasswordRequest) (string, bool) {
 			return vfsAskPassword(a, req.Archive, req.Entry, req.Attempt)
 		}
+		// The panels' router also answers vfs.For for server URLs, so the connection layer (feature_net.go) puts its
+		// Configure hooks (password, saved-site settings, transfer mode, log) on the sessions the panels use.
+		r.RegisterSchemes()
 		f.router = r
 	}
 	fsByApp.Store(a, f)

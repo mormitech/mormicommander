@@ -37,12 +37,22 @@ func (j *Jobs) ParseTarget(input string, sources int, from string) (FileopsTarge
 	if in == "" {
 		return FileopsTarget{}, errors.New("Type the folder to copy to.")
 	}
-	if strings.Contains(in, "://") {
-		return FileopsTarget{}, errors.New("Copying to " + in + " is not possible yet: only folders on this computer can be a target.")
-	}
+	r := vfsRouter(j.app)
 	in = fileopsExpandHome(in)
-	if !filepath.IsAbs(in) && from != "" && !strings.Contains(from, "://") {
-		in = filepath.Join(from, in) + fileopsTrailingSep(in)
+	if !strings.Contains(in, "://") && !filepath.IsAbs(in) && from != "" {
+		if strings.Contains(from, "://") {
+			if r == nil {
+				return FileopsTarget{}, fmt.Errorf("%s is not a full path.", input)
+			}
+			in = r.Join(from, in) + fileopsTrailingSep(in)
+		} else {
+			in = filepath.Join(from, in) + fileopsTrailingSep(in)
+		}
+	}
+	if strings.Contains(in, "://") || fileopsArchiveTarget(r, in) {
+		// a server folder or a folder inside an archive: the vfs router says what is there (VfsJobs or the network
+		// transfers do the copy)
+		return fileopsParseVFS(r, in, sources, from)
 	}
 	if !filepath.IsAbs(in) {
 		return FileopsTarget{}, fmt.Errorf("%s is not a full path.", input)
@@ -66,6 +76,100 @@ func (j *Jobs) ParseTarget(input string, sources int, from string) (FileopsTarge
 		t.SameVolume = fileops.SameVolume(from, dir)
 	}
 	return t, nil
+}
+
+// fileopsArchiveTarget says whether the typed target is in an archive: a path below an archive file, or the archive
+// file itself written as a folder (with a separator at the end, as the copy dialog fills it in for a panel that shows
+// the archive's root).
+func fileopsArchiveTarget(r *vfs.Router, in string) bool {
+	if r == nil || in == "" {
+		return false
+	}
+	if r.Kind(in) == vfs.KindArchive {
+		return true
+	}
+	if fileopsTrailingSep(in) == "" {
+		return false
+	}
+	return fileopsIsArchiveFile(r, r.Clean(in))
+}
+
+// fileopsIsArchiveFile says whether p is a local file a panel can open as an archive.
+func fileopsIsArchiveFile(r *vfs.Router, p string) bool {
+	fi, err := os.Stat(p)
+	return err == nil && fi.Mode().IsRegular() && (r.Archives.IsArchive(filepath.Base(p)) || vfsEngineOf(p) != "")
+}
+
+// fileopsParseVFS reads a copy/move target on a server or in an archive with TC's rules (see fileops.ParseTarget).
+func fileopsParseVFS(r *vfs.Router, in string, sources int, from string) (FileopsTarget, error) {
+	var fsys vfs.FS = r
+	if r == nil {
+		fsys = vfs.For(in, nil)
+	}
+	if fsys == nil {
+		return FileopsTarget{}, fmt.Errorf("%s can't be a target: nothing here serves that kind of address.", in)
+	}
+	isDir := func(p string) (exists, dir bool) {
+		if r != nil && !strings.Contains(p, "://") && r.Kind(p) == vfs.KindLocal {
+			// the archive file itself: its root
+			if fi, err := os.Stat(p); err == nil {
+				return true, fi.IsDir() || fileopsIsArchiveFile(r, p)
+			}
+			return false, false
+		}
+		e, err := fsys.Stat(p)
+		if err != nil {
+			return false, false
+		}
+		return true, e.Flags&vfs.FlagDir != 0
+	}
+	t := FileopsTarget{}
+	clean := fsys.Clean(in)
+	if ex, d := isDir(clean); fileopsTrailingSep(in) != "" || (ex && d) {
+		t.Dir = clean
+	} else {
+		base := fileopsLastPart(clean)
+		if base != "" && (strings.ContainsAny(base, "*?") || sources == 1) {
+			t.Dir, t.Rename = fsys.Parent(clean), base
+		} else {
+			t.Dir = clean
+		}
+	}
+	ex, d := isDir(t.Dir)
+	if ex && !d {
+		return t, fmt.Errorf("%s is a file, not a folder.", t.Dir)
+	}
+	t.DirExists = ex
+	// a move within one archive or one server is a rename there
+	if from != "" && r != nil {
+		t.SameVolume = vfsSamePlace(r, fsys.Join(from, "x"), fsys.Join(t.Dir, "x"))
+	}
+	return t, nil
+}
+
+// fileopsLastPart is the last name of a path or URL.
+func fileopsLastPart(p string) string {
+	p = strings.TrimRight(p, `/\`)
+	if i := strings.LastIndexAny(p, `/\`); i >= 0 {
+		return p[i+1:]
+	}
+	return p
+}
+
+// fileopsVFSPath says whether a path a panel shows (or an item in it) must go through the vfs router: a server URL or
+// a place inside an archive. folder: p is a folder a panel shows, so the archive file itself counts as its root.
+func fileopsVFSPath(a *App, p string, folder bool) (*vfs.Router, bool) {
+	r := vfsRouter(a)
+	if strings.Contains(p, "://") {
+		return r, true
+	}
+	if r == nil {
+		return nil, false
+	}
+	if folder {
+		return r, vfsPathKind(r, p) == "archive"
+	}
+	return r, r.Kind(p) == vfs.KindArchive
 }
 
 // fileopsTrailingSep keeps a separator the user typed at the end (it says "this is a folder"), which Join drops.
@@ -102,8 +206,8 @@ func (j *Jobs) MkDir(parent, name string) (string, error) {
 	if name == "" {
 		return "", errors.New("Type a name for the new folder.")
 	}
-	if strings.Contains(parent, "://") {
-		return fileopsMkdirVFS(j.app, parent, name)
+	if r, ok := fileopsVFSPath(j.app, parent, true); ok {
+		return fileopsMkdirVFS(j.app, r, parent, name)
 	}
 	name = fileopsExpandHome(name)
 	full := name
@@ -135,27 +239,38 @@ func (j *Jobs) MkDir(parent, name string) (string, error) {
 	return "", nil
 }
 
-func fileopsMkdirVFS(a *App, parent, name string) (string, error) {
-	fsys := vfs.For(parent, a.fs)
+// fileopsMkdirVFS makes a folder on a server or inside an archive (through the panels' router when there is one).
+func fileopsMkdirVFS(a *App, r *vfs.Router, parent, name string) (string, error) {
+	var fsys vfs.FS = vfs.For(parent, a.fs)
+	if r != nil {
+		fsys = r
+		parent = r.Clean(parent)
+	}
 	parts := strings.FieldsFunc(name, func(r rune) bool { return r == '/' || r == '\\' })
 	if len(parts) == 0 {
 		return "", errors.New("Type a name for the new folder.")
 	}
-	p := parent
 	for _, part := range parts {
 		if err := fileopsCheckName(part); err != nil {
 			return "", err
 		}
-		p = fsys.Join(p, part)
 	}
-	if err := vfs.Mkdir(context.Background(), fsys, p); err != nil {
+	// one level at a time ("a/b/c"): levels that are already there are fine, except the last one
+	p := parent
+	for i, part := range parts {
+		p = fsys.Join(p, part)
+		last := i == len(parts)-1
+		err := vfs.Mkdir(context.Background(), fsys, p)
+		if err == nil || (!last && errors.Is(err, fs.ErrExist)) {
+			continue
+		}
 		if errors.Is(err, fs.ErrExist) {
-			return "", fmt.Errorf("The folder %s is already there.", parts[len(parts)-1])
+			return "", fmt.Errorf("The folder %s is already there.", part)
 		}
 		if errors.Is(err, vfs.ErrUnsupported) || errors.Is(err, vfs.ErrReadOnly) {
 			return "", errors.New("Folders can't be made here.")
 		}
-		return "", fmt.Errorf("Can't make the folder %s: %s.", parts[len(parts)-1], fileopsPlain(err))
+		return "", fmt.Errorf("Can't make the folder %s: %s", part, vfsErrText(err))
 	}
 	return parts[0], nil
 }
@@ -204,8 +319,15 @@ func (j *Jobs) Rename(path, newName string) (string, error) {
 	if strings.ContainsAny(newName, `/\`) {
 		return "", errors.New("A name can't contain / or \\. To move the file to another folder, use F6.")
 	}
-	if strings.Contains(path, "://") {
-		fsys := vfs.For(path, j.app.fs)
+	if r, ok := fileopsVFSPath(j.app, path, false); ok {
+		var fsys vfs.FS = vfs.For(path, j.app.fs)
+		if r != nil {
+			fsys = r
+			path = r.Clean(path)
+		}
+		if err := fileopsCheckName(newName); err != nil {
+			return "", err
+		}
 		dst := fsys.Join(fsys.Parent(path), newName)
 		if err := vfs.Rename(context.Background(), fsys, path, dst); err != nil {
 			if errors.Is(err, fs.ErrExist) {
@@ -214,7 +336,7 @@ func (j *Jobs) Rename(path, newName string) (string, error) {
 			if errors.Is(err, vfs.ErrUnsupported) || errors.Is(err, vfs.ErrReadOnly) {
 				return "", errors.New("Files can't be renamed here.")
 			}
-			return "", fmt.Errorf("Can't rename %s: %s.", filepath.Base(path), fileopsPlain(err))
+			return "", fmt.Errorf("Can't rename %s: %s", fileopsLastPart(path), vfsErrText(err))
 		}
 		return dst, nil
 	}

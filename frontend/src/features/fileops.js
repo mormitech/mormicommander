@@ -284,7 +284,6 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
   const src = app.cur, dst = app.other;
   const items = targetsOf(app);
   if (!items.length) return false;
-  if (isRemote(src.path)) { app.flash(`${move ? 'Moving' : 'Copying'} from ${src.path} is not possible yet.`, 'err'); return false; }
   let a;
   if (!same && !opt(app, 'confirmCopy')) {
     // no dialog (Configuration: confirmCopy off): straight to the other panel with the default options
@@ -334,6 +333,14 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     return final;
   };
   const title = move ? (t.sameVolume ? 'Moving' : 'Moving (copy, then delete)') : 'Copying';
+  // to, from or between servers: the network transfers (features/net.js runNetJob: progress, overwrite with Resume)
+  const onServer = app.isRemote || (() => false);
+  if (app.netJob && (onServer(src.path) || onServer(t.dir))) {
+    const NET_POLICY = { overwrite: 'overwrite', skip: 'skip', older: 'older' };
+    if (!t.dirExists && onServer(t.dir)) await go.FS.Mkdir(t.dir).catch(() => {}); // ("Make it?" was answered)
+    const final = await app.netJob({ kind: req.kind, sources: req.sources, target: t.dir, rename, overwrite: NET_POLICY[overwrite] || '' }, { title });
+    return after(final);
+  }
   const job = runJob(req, { title, background });
   if (background) {
     // the command ends once the job has started (a refusal shows as its error); the job goes on and the panels
@@ -351,16 +358,29 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
   const src = app.cur;
   const items = targetsOf(app);
   if (!items.length) return false;
-  if (isRemote(src.path)) { app.flash(`Deleting in ${src.path} is not possible yet.`, 'err'); return false; }
+  // inside an archive or on a server there is no trash: the entries are removed for good (VfsJobs), as TC asks
+  let place = isRemote(src.path) ? 'server' : '';
+  if (!place && !isFeed(src.path)) {
+    const info = await go.FS.PathInfo(src.path).catch(() => null);
+    if (info?.kind === 'archive') place = 'archive';
+  }
+  if (place && wipe) { app.flash(`Wiping works only for files on this computer, not in ${place === 'archive' ? 'an archive' : 'a server folder'}.`, 'err'); return false; }
   const useTrash = !!opt(app, 'useTrash');
-  const trashOK = await go.Jobs.TrashSupported().catch(() => false);
-  let toTrash = !wipe && (useTrash ? !permanent : permanent); // F-810: with the trash off, Shift+F8 is the trash
+  const trashOK = place ? false : await go.Jobs.TrashSupported().catch(() => false);
+  let toTrash = !place && !wipe && (useTrash ? !permanent : permanent); // F-810: with the trash off, Shift+F8 is the trash
   const noTrash = toTrash && !trashOK;
   if (noTrash) toTrash = false;
   const T = trashWord(app);
   const what = describe(items);
   let title, msg, button;
-  if (wipe) {
+  if (place) {
+    title = 'Delete';
+    const them = items.length === 1 ? 'It' : 'They';
+    msg = place === 'archive'
+      ? `Delete ${what} from the archive?\n\n${them} will be removed from the archive for good: there is no ${T} for files in an archive.`
+      : `Delete ${what} from the server?\n\n${them} will be deleted for good: there is no ${T} on a server.`;
+    button = 'Delete';
+  } else if (wipe) {
     title = 'Wipe';
     msg = `Wipe ${what}?\n\nThe contents are overwritten before they are deleted, so they can't be brought back, not even with recovery tools.`;
     button = 'Wipe';

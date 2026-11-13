@@ -15,9 +15,11 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"mormicommander/internal/archive"
 	"mormicommander/internal/archive/arcapi"
@@ -412,7 +414,30 @@ func vfsPack(ctx context.Context, target string, sources []string, o vfsPackOpts
 		if _, err := os.Stat(target); err == nil && !pk.Single {
 			return tarfmt.Modify(ctx, target, tarfmt.Changes{Add: sources, AddOptions: co, Level: o.Level, Progress: tp})
 		}
-		return tarfmt.Create(ctx, target, sources, co)
+		if err := tarfmt.Create(ctx, target, sources, co); err != nil {
+			return err
+		}
+		vfsNewFilePerm(target)
+		return nil
+	}
+}
+
+// vfsNewFilePerm gives a newly packed archive the permissions any new file gets in its folder (rw-r--r-- with the
+// usual umask), like a ZIP gets: tarfmt writes through a private temporary file (rw-------) and renames it.
+func vfsNewFilePerm(file string) {
+	if runtime.GOOS == "windows" {
+		return
+	}
+	probe := filepath.Join(filepath.Dir(file), ".mc-perm-"+strconv.FormatInt(time.Now().UnixNano(), 36))
+	f, err := os.OpenFile(probe, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o666)
+	if err != nil {
+		return
+	}
+	fi, err := f.Stat()
+	f.Close()
+	os.Remove(probe)
+	if err == nil {
+		_ = os.Chmod(file, fi.Mode().Perm())
 	}
 }
 

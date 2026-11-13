@@ -502,7 +502,105 @@ export function runNetJob(req, { title } = {}) {
   })());
 }
 
+// ---- the download list (F-381): server files queued to be fetched later, one after the other ----
+// Kept in the setting "netDownloadList" as [{src, target}] (target: the local folder), so it survives a restart. The
+// dialog (kind "net-download-list") adds the selection of the server panel (to the other panel's folder), starts,
+// removes and reorders; Start runs the transfers one by one with runNetJob and drops each one that is done.
+
+const dlList = (app) => (app.setting('netDownloadList', []) || []).filter((x) => x && x.src && x.target);
+const dlSave = (app, list) => app.setSetting('netDownloadList', list);
+
+// addToDownloadList queues the selection (or the file under the cursor) of the server panel; true when added.
+function addToDownloadList(app) {
+  const p = isRemote(app.cur.path) ? app.cur : remotePanel(app);
+  if (!p) { app.flash('Files can be added to the download list from a panel that shows a server.'); return false; }
+  const o = p === app.left ? app.right : app.left;
+  if (isRemote(o.path)) { app.flash('The other panel must show a folder on this computer: the files are downloaded there.'); return false; }
+  const items = p.targets();
+  if (!items.length) { app.flash('No files selected.'); return false; }
+  const list = dlList(app);
+  const have = new Set(list.map((x) => `${x.src}\n${x.target}`));
+  let n = 0;
+  for (const e of items) {
+    const it = { src: p.fullPath(e.name), target: o.path };
+    if (have.has(`${it.src}\n${it.target}`)) continue;
+    list.push(it);
+    n++;
+  }
+  dlSave(app, list);
+  app.flash(n ? `Added ${plural(n, 'item')} to the download list.` : 'Those files are on the download list already.');
+  return n > 0;
+}
+
+// runDownloadList fetches the queued items in order; it stops at the first one that fails or is stopped.
+async function runDownloadList(app) {
+  let done = 0;
+  for (;;) {
+    const list = dlList(app);
+    if (!list.length) break;
+    const it = list[0];
+    const final = await runNetJob({ kind: 'copy', sources: [it.src], target: it.target, rename: '', overwrite: '' }, { title: `Downloading ${base(it.src)}` });
+    if (final.state !== 'done') { app.flash(`The download list stopped at ${base(it.src)}; it stays on the list.`, 'err'); return done; }
+    dlSave(app, dlList(app).filter((x) => !(x.src === it.src && x.target === it.target)));
+    done++;
+  }
+  if (done) app.flash(`Downloaded ${plural(done, 'item')} from the download list.`);
+  return done;
+}
+
+async function downloadList(app) {
+  const start = await modal((box, done) => {
+    box.classList.add('mc-net-dlbox');
+    box.innerHTML = `<h2>Download list</h2><p class="mc-msg"></p>
+      <div class="mc-net-mgr"><select id="items" class="mc-net-list" size="10" aria-label="Files to download"></select>
+        <div class="mc-net-side"><button type="button" class="add" title="The selection of the server panel, to the other panel's folder">Add selected</button>
+          <button type="button" class="up">Up</button><button type="button" class="down">Down</button><button type="button" class="remove">Remove</button></div></div>
+      <div class="mc-btns"><button type="button" class="close">Close</button><button type="submit" class="primary">Start</button></div>`;
+    const $ = (q) => box.querySelector(q);
+    const sel = $('#items');
+    const paint = (at = sel.selectedIndex) => {
+      const list = dlList(app);
+      sel.innerHTML = list.map((x, i) => `<option value="${i}">${esc(base(x.src))}  →  ${esc(x.target)}</option>`).join('');
+      if (list.length) sel.selectedIndex = Math.max(0, Math.min(list.length - 1, at < 0 ? 0 : at));
+      $('.mc-msg').textContent = list.length ? `${plural(list.length, 'item')} to download. Start fetches them one after the other.`
+        : 'The list is empty. Select files in a server panel and press "Add selected".';
+      for (const c of ['.up', '.down', '.remove']) $(c).disabled = !list.length;
+      box.querySelector('button[type=submit]').disabled = !list.length;
+    };
+    const move = (d) => {
+      const list = dlList(app), i = sel.selectedIndex, j = i + d;
+      if (i < 0 || j < 0 || j >= list.length) return;
+      [list[i], list[j]] = [list[j], list[i]];
+      dlSave(app, list);
+      paint(j);
+    };
+    $('.add').onclick = () => { addToDownloadList(app); paint(dlList(app).length - 1); };
+    $('.up').onclick = () => move(-1);
+    $('.down').onclick = () => move(1);
+    $('.remove').onclick = () => {
+      const i = sel.selectedIndex;
+      if (i < 0) return;
+      dlSave(app, dlList(app).filter((_, k) => k !== i));
+      paint(i);
+    };
+    $('.close').onclick = () => done(false);
+    box.onsubmit = (ev) => { ev.preventDefault(); if (dlList(app).length) done(true); };
+    paint(0);
+  }, false, {
+    kind: 'net-download-list',
+    onKey: (ev) => {
+      if (ev.key === 'Delete' && ev.target.id === 'items') { document.querySelector('.mc-net-dlbox .remove')?.click(); return true; }
+      return false;
+    },
+  });
+  if (!start) return false;
+  return runDownloadList(app);
+}
+
 // ---- commands ----
+
+command({ name: 'cm_FtpDownloadList', label: 'Download list…', run: (app) => downloadList(app) });
+command({ name: 'cm_FtpAddToList', label: 'Add to download list', run: (app) => addToDownloadList(app) });
 
 command({ name: 'cm_FtpConnect', label: 'FTP connect…', short: 'FTP', run: (app, args) => manager(app, args) });
 command({ name: 'cm_FtpNew', label: 'New FTP connection…', run: (app, args) => quickConnect(app, args) });

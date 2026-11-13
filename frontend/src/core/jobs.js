@@ -162,6 +162,16 @@ function finishedInBackground(r) {
 
 // ---- the progress box of a foreground job ----
 
+// holdProgress keeps new progress boxes from opening while a question a job waits for is on screen (the password of
+// an encrypted archive): the box would cover the question, and keys and control mode would go to the box. It returns
+// the function that ends the hold.
+let holds = 0;
+export function holdProgress() {
+  holds++;
+  let ended = false;
+  return () => { if (!ended) { ended = true; holds--; } };
+}
+
 function foreground(r) {
   let box = null, closeBox = null, shown = false;
   const ui = {
@@ -170,9 +180,10 @@ function foreground(r) {
     showNow: () => { if (!shown) { clearTimeout(timer); show(); } },
   };
   r.ui = ui;
-  const timer = setTimeout(() => show(), 400);
+  let timer = setTimeout(() => show(), 400);
   function show() {
     if (shown || r.done) return;
+    if (holds > 0) { timer = setTimeout(show, 300); return; } // a question is open: it stays on top
     shown = true;
     modal((b, done) => {
       box = b;
