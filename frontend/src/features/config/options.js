@@ -165,8 +165,13 @@ async function showDialog(app, startPage) {
   let colorsDirty = false;
   let ucs = (ucList || []).map((u) => ({ ...u }));
   let ucDirty = false;
+  // Changes are applied as they are made (no Apply button); Cancel, Esc or closing puts back what was there when the
+  // dialog opened. These are the values to put back.
+  const opened = { fields: { ...initial }, keys: { ...userKeymap() }, colors: pendingColors ? JSON.parse(JSON.stringify(pendingColors)) : null,
+    ucs: (ucList || []).map((u) => ({ ...u })) };
+  const touched = { fields: false, keys: false, colors: false, ucs: false };
 
-  return modal((box, done) => {
+  const result = await modal((box, done) => {
     box.classList.add('mc-config-box');
     const byPage = (id) => schema.fields.filter((f) => f.pageId === id);
     const sections = pages.map((p) => {
@@ -186,7 +191,7 @@ async function showDialog(app, startPage) {
         <div class="mc-config-main">${sections}</div>
       </div>
       <p class="mc-err" hidden></p>
-      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="button" class="apply">Apply</button><button type="submit" class="primary">OK</button></div>`;
+      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
     const $ = (s) => box.querySelector(s);
     const err = $('.mc-err');
     const pageSel = $('#cfg-page');
@@ -481,6 +486,11 @@ async function showDialog(app, startPage) {
       err.hidden = true;
       try {
         const changes = collect();
+        if (!Object.keys(changes).length && !keysDirty && !colorsDirty && !ucDirty) return true;
+        if (Object.keys(changes).length) touched.fields = true;
+        if (keysDirty) touched.keys = true;
+        if (colorsDirty) touched.colors = true;
+        if (ucDirty) touched.ucs = true;
         if (ucDirty) {
           const bad = ucs.find((u) => !/^em_[A-Za-z0-9_]+$/.test(u.name));
           if (bad) { show('UserCommands'); throw new Error(`"${bad.name}" is not a user command name: it starts with em_ and has letters, digits and _ only.`); }
@@ -504,10 +514,50 @@ async function showDialog(app, startPage) {
         saving = false;
       }
     };
+    // Live: every change is applied a moment after it is made (typing waits for a short pause), so the effect shows
+    // at once. Changes arriving while one is being applied are applied right after it.
+    let timer = 0, again = false;
+    const live = (delay) => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        if (saving) { again = true; return; }
+        await save();
+        if (again) { again = false; live(0); }
+      }, delay);
+    };
+    box.addEventListener('change', (ev) => { if (ev.target.id !== 'cfg-search' && ev.target.id !== 'cfg-page') live(30); });
+    box.addEventListener('input', (ev) => { if (ev.target.id !== 'cfg-search' && ev.target.matches('input[type="text"], input[type="number"], textarea')) live(500); });
+    box.addEventListener('click', (ev) => { if (ev.target.closest('button') && !ev.target.closest('.mc-btns')) live(60); }); // (list editors: hotkeys, colours, user commands)
     $('.cancel').onclick = () => done(null);
-    $('.apply').onclick = () => track(save());
-    box.onsubmit = (ev) => { ev.preventDefault(); track(save().then((ok) => { if (ok) done(null); })); };
+    box.onsubmit = (ev) => { ev.preventDefault(); clearTimeout(timer); track(save().then((ok) => { if (ok) done('ok'); })); };
   }, null, { kind: 'config' });
+  if (result === null) await revertOptions(app, opened, touched);
+  return result === 'ok' ? null : result;
+}
+
+// revertOptions puts back the values the Options dialog opened with, for whatever was changed (Cancel, Esc, close).
+async function revertOptions(app, opened, touched) {
+  if (!Object.values(touched).some(Boolean)) return;
+  try {
+    if (touched.fields) {
+      const back = {};
+      for (const [n, v] of Object.entries(opened.fields)) if (currentValue(app, n) !== v) back[n] = v;
+      if (Object.keys(back).length) {
+        await go.Configuration.Apply(back);
+        for (const n of Object.keys(back)) await BRIDGE[n]?.set(app, back[n]);
+      }
+    }
+    if (touched.keys) await saveKeymap(app, opened.keys);
+    if (touched.colors && opened.colors) await go.Configuration.SetColors(opened.colors.light, opened.colors.dark);
+    if (touched.ucs) { await go.ConfigBar.SaveUserCommands(opened.ucs); await registerUserCommands(app); }
+    await loadValues(app);
+    await loadColors();
+    applyAll(app.startTheme);
+    app.emit('config', []);
+    app.emit('settings');
+  } catch (e) {
+    app.flash(`The options could not all be put back: ${e?.message || e}`, 'err');
+  }
 }
 
 // ---- commands ----

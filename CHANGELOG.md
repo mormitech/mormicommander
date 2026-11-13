@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.15 – 2026-11-13
+
+### Changed
+
+- Options apply as you change them, so you see the effect at once; there is no Apply button any more. OK keeps the
+  changes, Cancel (or Esc, or closing) puts back what was there when the dialog opened.
+
 ## 0.9.14 – 2026-11-13
 
 ### Fixed
