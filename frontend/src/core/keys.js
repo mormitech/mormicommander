@@ -8,7 +8,7 @@
 
 const CODE_NAMES = {
   ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', PageUp: 'PgUp', PageDown: 'PgDn',
-  Home: 'Home', End: 'End', Insert: 'Ins', Delete: 'Delete', Backspace: 'Backspace', Enter: 'Enter', NumpadEnter: 'Enter',
+  Home: 'Home', End: 'End', Insert: 'Ins', Help: 'Ins', Delete: 'Delete', Backspace: 'Backspace', Enter: 'Enter', NumpadEnter: 'Enter',
   Tab: 'Tab', Escape: 'Esc', Space: 'Space', Backslash: '\\', IntlBackslash: '<', IntlRo: '\\', IntlYen: '\\',
   NumpadAdd: 'Num+', NumpadSubtract: 'Num-', NumpadMultiply: 'Num*', NumpadDivide: 'Num/', NumpadDecimal: 'Num.',
   Minus: '-', Equal: '=', BracketLeft: '[', BracketRight: ']', Semicolon: ';', Quote: "'", Backquote: '`', Comma: ',',
@@ -18,6 +18,8 @@ const CODE_NAMES = {
 const KEY_NAMES = { // KeyboardEvent.key → our name, for events without a usable code
   ArrowUp: 'Up', ArrowDown: 'Down', ArrowLeft: 'Left', ArrowRight: 'Right', PageUp: 'PgUp', PageDown: 'PgDn', Insert: 'Ins',
   Escape: 'Esc', ' ': 'Space', ContextMenu: 'Apps', Del: 'Delete', Esc: 'Esc',
+  Help: 'Ins', // (macOS reports a PC keyboard's Insert key as Help)
+  Delete: 'Delete', Home: 'Home', End: 'End',
 };
 
 const MODS = ['Ctrl', 'Alt', 'Shift', 'Cmd'];
@@ -32,6 +34,8 @@ export function keyName(ev) {
   const c = ev.code || '';
   if (/^Key[A-Z]$/.test(c)) return c.slice(3);
   if (/^Digit\d$/.test(c)) return c.slice(5);
+  // With Num Lock off the numpad keys are Insert, Delete, Home, End and the arrows: take what the key says then.
+  if (/^Numpad(\d|Decimal)$/.test(c) && ev.key && !/^[\d.,]$/.test(ev.key) && (KEY_NAMES[ev.key] || CODE_NAMES[ev.key])) return KEY_NAMES[ev.key] || CODE_NAMES[ev.key];
   if (/^Numpad\d$/.test(c)) return 'Num' + c.slice(6);
   if (/^F\d{1,2}$/.test(c)) return c;
   if (CODE_NAMES[c]) return CODE_NAMES[c];

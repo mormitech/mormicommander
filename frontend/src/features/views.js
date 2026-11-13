@@ -223,6 +223,7 @@ function renderHeader(p) {
   el.dataset.view = vs.mode;
   if (vs.mode === 'tree') { header.hidden = true; return; }
   header.hidden = false;
+  el.classList.toggle('mc-views-cols', isColumnMode(p)); // (custom columns: the no-extension layout doesn't apply)
   if (!isColumnMode(p)) {
     el.style.removeProperty('--cols');
     if (header.dataset.views) { header.innerHTML = coreHeader.get(el); delete header.dataset.views; }

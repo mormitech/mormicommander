@@ -4,6 +4,17 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## 0.9.5 – 2026-11-13
+
+### Added
+
+- Columns can be resized: drag the line between two column titles (double-click it for the default width). The
+  widths are saved in the settings right away, per set of columns, and both panels share them.
+
+### Fixed
+
+- The Insert key selects on Mac with a PC keyboard (macOS reports it as Help) and as numpad 0 with Num Lock off.
+
 ## 0.9.4 – 2026-11-13
 
 ### Changed

@@ -146,3 +146,6 @@ body.about-mode { overflow: auto; }
 
 @keyframes fade { from { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #flash, .mc-popup { animation: none; } .panel.loading .list .rows { transition: none; } }
+/* Column resizing (features/columns.js): the pointer shows a resize cursor on a border between two titles. */
+.header.mc-col-edge, .header.mc-col-edge > span, .header.mc-col-dragging, .header.mc-col-dragging > span { cursor: col-resize; }
+.header.mc-col-dragging > span { pointer-events: none; }
