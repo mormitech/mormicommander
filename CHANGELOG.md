@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.24 – 2026-11-13
+
+### Fixed
+
+- Select files (Num+ / Num-) mask box: Up and Down, and Alt+Down, work again. Alt+Down opens or closes the list of
+  earlier masks, Up and Down move through it (or step through earlier masks when it is closed), and Enter takes the
+  highlighted mask. They did nothing before because the dialog swallowed the keys before the box saw them.
+
 ## 0.9.23 – 2026-11-13
 
 ### Fixed
