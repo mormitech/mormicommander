@@ -118,3 +118,16 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## Archives and server folders (features/vfs.js)
+
+| Command | Answer |
+|---|---|
+| `{"cmd": "vfs"}` | `left` / `right`: what each panel shows (`kind`: local, archive, ftp, sftp; `format`, `archive`, `inner`, `readOnly`, `remote`, `nested`), and `packers` (the Pack dialog's list with what each can do) |
+
+Dialog kinds: `pack` (fields `mc-pack-target`, `mc-pack-format`, `mc-pack-level`, `mc-pack-paths`, `mc-pack-recurse`,
+`mc-pack-split`, `mc-pack-size`, `mc-pack-move`, `mc-pack-separate`, `mc-pack-encrypt`, `mc-pack-cipher`,
+`mc-pack-password`, `mc-pack-password2`), `unpack` (`mc-unpack-target`, `mc-unpack-mask`, `mc-unpack-paths`,
+`mc-unpack-overwrite`, `mc-unpack-separate`), `password` (`mc-password`, asked by encrypted archives), `test-report`.
+`cm_PackFiles`, `cm_UnpackFiles` also take their options as run arguments with `"noDialog": true` (for example
+`{"cmd": "run", "name": "cm_PackFiles", "args": {"noDialog": true, "format": "tar.gz", "target": "/tmp/x/a.tgz"}}`).

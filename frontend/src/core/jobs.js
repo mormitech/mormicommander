@@ -16,6 +16,13 @@ import { track } from './busy.js';
 import { app } from './app.js';
 
 const jobs = new Map(); // id → {resolve, update(p), close()}
+
+// Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
+// job number, or 0 when the job is not theirs (then it goes to Go's Jobs as before); cancel(id) and answer(id, a) of the
+// same backend serve its jobs. Their jobs send the same "job", "job-ask" and "job-done" events.
+export const jobBackends = [];
+const backendOf = new Map(); // job number → backend
+const early = new Map(); // job number → final progress that came before runJob knew the number
 let listening = false;
 
 function listen() {
@@ -25,7 +32,7 @@ function listen() {
   on('job-ask', (p) => { jobs.get(p.id)?.update(p); ask(p); });
   on('job-done', (p) => {
     const j = jobs.get(p.id);
-    if (!j) return;
+    if (!j) { early.set(p.id, p); return; } // (a quick job can end before its start call has answered)
     jobs.delete(p.id);
     j.close();
     j.resolve(p);
@@ -45,20 +52,28 @@ async function ask(p) {
     if (v === null) answer.choice = 'skip';
     else answer.newName = v;
   }
-  go.Jobs.Answer(p.id, answer).catch(() => {});
+  const be = backendOf.get(p.id);
+  (be ? be.answer(p.id, answer) : go.Jobs.Answer(p.id, answer)).catch(() => {});
 }
 
-const VERB = { copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash' };
+const VERB = { copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash', pack: 'Packing', unpack: 'Unpacking', test: 'Testing archives' };
 
 // runJob starts a job and resolves with its final Progress. Errors starting it reject with a sentence.
 export function runJob(req, { title } = {}) {
   listen();
   return track((async () => {
-    const id = await go.Jobs.Start(req).catch((e) => { throw new Error(errText(e)); });
+    let id = 0, backend = null;
+    for (const b of jobBackends) {
+      id = await b.start(req).catch((e) => { throw new Error(errText(e)); });
+      if (id) { backend = b; backendOf.set(id, b); break; }
+    }
+    if (!id) id = await go.Jobs.Start(req).catch((e) => { throw new Error(errText(e)); });
+    const cancelJob = () => (backend ? backend.cancel(id) : go.Jobs.Cancel(id));
     let p = { id, kind: req.kind, state: 'running', files: 0, filesDone: 0, bytes: 0, bytesDone: 0, current: '' };
     let close = () => {};
     let paint = () => {};
     const result = new Promise((resolve) => jobs.set(id, { resolve, update: (np) => { p = np; paint(); }, close: () => close() }));
+    if (early.has(id)) { const fin = early.get(id); early.delete(id); const j = jobs.get(id); jobs.delete(id); j.resolve(fin); }
     // the dialog only shows for jobs that take a moment, so a small copy doesn't flash a box
     const showTimer = setTimeout(() => {
       modal((box, done) => {
@@ -73,11 +88,12 @@ export function runJob(req, { title } = {}) {
           note.textContent = `${p.filesDone} of ${plural(p.files, 'file')}${p.bytes ? ` · ${size(p.bytesDone)} of ${size(p.bytes)}` : ''}`;
         };
         paint();
-        box.querySelector('.cancel').onclick = () => go.Jobs.Cancel(id);
+        box.querySelector('.cancel').onclick = () => cancelJob();
         box.onsubmit = (ev) => ev.preventDefault();
-      }, undefined, { kind: 'job' }).then(() => go.Jobs.Cancel(id).catch(() => {}));
+      }, undefined, { kind: 'job' }).then(() => Promise.resolve(cancelJob()).catch(() => {}));
     }, 400);
     const final = await result;
+    backendOf.delete(id);
     clearTimeout(showTimer);
     close();
     await Promise.all(app.panels.map((pn) => pn.reload()));

@@ -1,7 +1,10 @@
 package main
 
 // Files and folders for the panels: listing, volumes, free space, opening a file with its app. Everything goes through
-// a vfs.FS, so the demo's fictional files (--demo) and future archive or FTP file systems work the same way.
+// one vfs.Router (internal/vfs/router.go), so a panel shows a local folder, the inside of an archive
+// (/x/backup.zip/docs, nested archives too) or an FTP/SFTP folder the same way: Enter on an archive lists it, ".."
+// leaves it. The demo (--demo) uses the fictional vfs.Mock instead. Other features reach the router with vfsRouter(a)
+// (for example the connection manager, to set Router.FTP.Configure); archive jobs live in feature_vfs_jobs.go.
 
 import (
 	"context"
@@ -16,16 +19,19 @@ import (
 	"strings"
 	"sync"
 
+	"mormicommander/internal/archive"
+	"mormicommander/internal/archive/sevenrar"
 	"mormicommander/internal/disk"
 	"mormicommander/internal/vfs"
 )
 
 // FS is what the page calls for files and folders (window.go.main.FS).
 type FS struct {
-	app *App
-	mu  sync.Mutex
-	gen map[string]listing // the listing in progress per panel ("left", "right", or any key)
-	seq int
+	app    *App
+	router *vfs.Router // nil in the demo
+	mu     sync.Mutex
+	gen    map[string]listing // the listing in progress per panel ("left", "right", or any key)
+	seq    int
 }
 
 type listing struct {
@@ -35,11 +41,50 @@ type listing struct {
 
 func init() {
 	registerFeature("fs", func(a *App) []any { return []any{newFS(a)} })
+	onShutdown(func(a *App) {
+		if f := fsOf(a); f != nil && f.router != nil {
+			f.router.Close() // disconnects servers, closes archives, removes temp copies
+		}
+	})
 }
 
-func newFS(a *App) *FS { return &FS{app: a, gen: map[string]listing{}} }
+var fsByApp sync.Map // *App → *FS
 
-func (f *FS) fsFor(p string) vfs.FS { return vfs.For(p, f.app.fs) }
+func newFS(a *App) *FS {
+	f := &FS{app: a, gen: map[string]listing{}}
+	if a.mock == nil {
+		r := vfs.NewRouter()
+		r.Archives.Password = func(req vfs.PasswordRequest) (string, bool) {
+			return vfsAskPassword(a, req.Archive, req.Entry, req.Attempt)
+		}
+		f.router = r
+	}
+	fsByApp.Store(a, f)
+	return f
+}
+
+// fsOf is the FS object of an app (nil before the features were bound).
+func fsOf(a *App) *FS {
+	if v, ok := fsByApp.Load(a); ok {
+		return v.(*FS)
+	}
+	return nil
+}
+
+// vfsRouter is the router every panel path goes through (nil in the demo), for features that need archives or servers.
+func vfsRouter(a *App) *vfs.Router {
+	if f := fsOf(a); f != nil {
+		return f.router
+	}
+	return nil
+}
+
+func (f *FS) fsFor(p string) vfs.FS {
+	if f.router != nil {
+		return f.router
+	}
+	return vfs.For(p, f.app.fs)
+}
 
 // List reads a folder for a panel. key names the panel: a new listing for the same key cancels the one before (a fast
 // typist going through folders never waits for a slow one). The answer has the entries as compact rows (see vfs.Rows).
@@ -88,6 +133,18 @@ func listError(p string, err error) string {
 		return p + " is a file, not a folder."
 	case errors.Is(err, fs.ErrNotExist):
 		return "The folder " + p + " is not there."
+	case errors.Is(err, archive.ErrBadPassword), errors.Is(err, sevenrar.ErrWrongPassword):
+		return "The password for " + p + " is wrong."
+	case errors.Is(err, archive.ErrCanceled), errors.Is(err, sevenrar.ErrPasswordCancelled):
+		return p + " needs a password to be opened."
+	case errors.Is(err, archive.ErrPasswordRequired), errors.Is(err, sevenrar.ErrPasswordRequired):
+		return p + " needs a password to be opened."
+	case errors.Is(err, archive.ErrMissingVolume), errors.Is(err, sevenrar.ErrMissingVolume):
+		return "A part of the multi-volume archive " + p + " is missing."
+	case errors.Is(err, archive.ErrFormat):
+		return p + " is not a valid archive, or it is damaged."
+	case errors.Is(err, vfs.ErrUnsupported):
+		return "mormiCommander can't open " + p + ": this kind of address is not supported."
 	case errors.Is(err, fs.ErrPermission):
 		msg := "You don't have permission to open " + p + "."
 		if runtime.GOOS == "darwin" {
@@ -124,6 +181,9 @@ func (f *FS) Stat(path string) (Entry, error) {
 func (f *FS) LinkTarget(path string) string {
 	if f.app.mock != nil {
 		return f.app.mock.LinkTarget(path)
+	}
+	if f.router != nil && f.router.Kind(path) != vfs.KindLocal {
+		return "" // links inside archives and on servers are shown, not followed by path
 	}
 	t, err := os.Readlink(path)
 	if err != nil {
@@ -232,10 +292,18 @@ func pathWithin(p, root string) bool {
 	return strings.HasPrefix(p, root)
 }
 
-// OpenFile opens a file with the app the system uses for it (Enter on a file). In the demo nothing is opened.
+// OpenFile opens a file with the app the system uses for it (Enter on a file). A file inside an archive or on a server
+// is unpacked or downloaded to a temporary copy first. In the demo nothing is opened.
 func (f *FS) OpenFile(path string) error {
 	if f.app.mock != nil {
 		return errors.New("This is the demo: its files are not real, so they can't be opened.")
+	}
+	if f.router != nil && !vfsIsLocal(f.router, path) {
+		local, err := f.LocalCopy(path)
+		if err != nil {
+			return err
+		}
+		path = local
 	}
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
