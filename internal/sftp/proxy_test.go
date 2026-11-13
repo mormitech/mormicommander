@@ -184,7 +184,7 @@ func TestProxies(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer c.Close()
-			if _, err := c.ReadDir(s.Root); err != nil {
+			if _, err := c.ReadDir(s.R); err != nil {
 				t.Fatal(err)
 			}
 			if p.used.Load() != 1 {

@@ -62,7 +62,7 @@ type File struct {
 // Open opens path for lazy reading. Nothing beyond the file header of the
 // OS is read until the first ReadAt.
 func Open(path string) (*File, error) {
-	f, err := os.Open(path)
+	f, err := openShared(path)
 	if err != nil {
 		return nil, err
 	}
@@ -210,7 +210,7 @@ func (f *File) Reload() (Change, error) {
 		return ch, err
 	}
 	if !os.SameFile(pathInfo, f.info) {
-		nf, err := os.Open(f.path)
+		nf, err := openShared(f.path)
 		if err != nil {
 			return ch, err
 		}

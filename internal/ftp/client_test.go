@@ -138,7 +138,13 @@ func TestConnectErrors(t *testing.T) {
 func TestNavigation(t *testing.T) {
 	srv := newTestServer(t)
 	srv.write("pub/sub dir/a.txt", "a")
-	srv.write(`odd "quote"/x`, "x")
+	// Windows file systems forbid '"' in names, so the test server (which
+	// serves a real folder) cannot hold such a directory there. The doubled
+	// quote parsing of the 257 reply is covered by TestParseHelpers on every OS.
+	quoteOK := runtime.GOOS != "windows"
+	if quoteOK {
+		srv.write(`odd "quote"/x`, "x")
+	}
 	c := dialT(t, srv.cfg())
 	ctx := context.Background()
 
@@ -151,7 +157,12 @@ func TestNavigation(t *testing.T) {
 		{func() error { return c.Cd(ctx, "sub dir") }, "/pub/sub dir"},
 		{func() error { return c.CdUp(ctx) }, "/pub"},
 		{func() error { return c.Cd(ctx, "/") }, "/"},
-		{func() error { return c.Cd(ctx, `odd "quote"`) }, `/odd "quote"`},
+	}
+	if quoteOK {
+		steps = append(steps, struct {
+			do   func() error
+			want string
+		}{func() error { return c.Cd(ctx, `odd "quote"`) }, `/odd "quote"`})
 	}
 	for i, s := range steps {
 		if err := s.do(); err != nil {

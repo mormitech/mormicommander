@@ -41,7 +41,8 @@ type testServer struct {
 	ln        net.Listener
 	Addr      string
 	Port      int
-	Root      string
+	Root      string // the served folder as a local path
+	R         string // the same folder as the client sees it (remotePath)
 	HostKey   ssh.Signer
 	conf      *ssh.ServerConfig
 	mu        sync.Mutex
@@ -116,6 +117,7 @@ func newKeyPEM(t *testing.T, passphrase string) ([]byte, ssh.PublicKey) {
 func newTestServer(t *testing.T, opts ...serverOpt) *testServer {
 	t.Helper()
 	s := &testServer{t: t, Root: t.TempDir()}
+	s.R = remotePath(s.Root)
 	for _, o := range opts {
 		o(s)
 	}
@@ -365,6 +367,7 @@ func (s *testServer) scp(ch ssh.Channel, args []string) int {
 			target = args[i]
 		}
 	}
+	target = localPath(target)
 	br := bufio.NewReader(ch)
 	if sink {
 		return scpSink(ch, br, target)

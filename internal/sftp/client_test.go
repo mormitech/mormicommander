@@ -36,10 +36,10 @@ func TestDialAndBasicInfo(t *testing.T) {
 	if !c.HasSFTP() {
 		t.Fatal("HasSFTP = false")
 	}
-	if c.Home() != s.Root {
-		t.Errorf("Home = %q, want %q", c.Home(), s.Root)
+	if c.Home() != s.R {
+		t.Errorf("Home = %q, want %q", c.Home(), s.R)
 	}
-	if c.StartDir() != s.Root {
+	if c.StartDir() != s.R {
 		t.Errorf("StartDir = %q", c.StartDir())
 	}
 	if !strings.HasPrefix(c.ServerVersion(), "SSH-2.0-") {
@@ -80,7 +80,7 @@ func TestStartDirRelative(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
-	if got := c.StartDir(); got != filepath.ToSlash(filepath.Join(s.Root, "sub")) {
+	if got := c.StartDir(); got != s.R+"/sub" {
 		t.Errorf("StartDir = %q", got)
 	}
 }
@@ -88,21 +88,22 @@ func TestStartDirRelative(t *testing.T) {
 func TestMetadataOperations(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
-	root := s.Root
+	root := s.Root // local path, for checking the result on disk
+	rr := s.R      // the same folder as a remote path
 	writeFile(t, filepath.Join(root, "a.txt"), "hello")
 	writeFile(t, filepath.Join(root, "dir", "inner.txt"), "x")
 
 	// Mkdir / MkdirAll
-	if err := c.Mkdir(root + "/new"); err != nil {
+	if err := c.Mkdir(rr + "/new"); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Mkdir(root + "/new"); err == nil {
+	if err := c.Mkdir(rr + "/new"); err == nil {
 		t.Error("Mkdir on existing folder succeeded")
 	}
-	if err := c.MkdirAll(root + "/deep/er/est"); err != nil {
+	if err := c.MkdirAll(rr + "/deep/er/est"); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.MkdirAll(root + "/deep/er"); err != nil {
+	if err := c.MkdirAll(rr + "/deep/er"); err != nil {
 		t.Errorf("MkdirAll on existing: %v", err)
 	}
 
@@ -114,12 +115,15 @@ func TestMetadataOperations(t *testing.T) {
 		t.Fatal("relative mkdir did not land in home:", err)
 	}
 
-	// Symlinks: to a file, to a folder, dangling.
-	if runtime.GOOS != "windows" {
-		if err := c.Symlink(root+"/dir", root+"/link-dir"); err != nil {
+	// Symlinks: to a file, to a folder, dangling. Creating them on Windows
+	// needs a privilege (or developer mode) the test cannot count on, so
+	// every link check below runs only where links can be made.
+	links := runtime.GOOS != "windows"
+	if links {
+		if err := c.Symlink(rr+"/dir", rr+"/link-dir"); err != nil {
 			t.Fatal(err)
 		}
-		if err := c.Symlink(root+"/nowhere", root+"/link-broken"); err != nil {
+		if err := c.Symlink(rr+"/nowhere", rr+"/link-broken"); err != nil {
 			t.Fatal(err)
 		}
 		// pkg/sftp's server makes relative link targets absolute, so make
@@ -129,11 +133,14 @@ func TestMetadataOperations(t *testing.T) {
 		}
 	}
 
-	list, err := c.ReadDir(root)
+	list, err := c.ReadDir(rr)
 	if err != nil {
 		t.Fatal(err)
 	}
 	want := []string{"a.txt", "deep", "dir", "link-broken", "link-dir", "link-file", "new", "rel"}
+	if !links {
+		want = []string{"a.txt", "deep", "dir", "new", "rel"}
+	}
 	if got := names(list); strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("ReadDir = %v, want %v", got, want)
 	}
@@ -150,10 +157,13 @@ func TestMetadataOperations(t *testing.T) {
 		{"a.txt", false, false, false, 5, ""},
 		{"dir", true, false, false, -1, ""},
 		{"link-file", false, true, false, 5, "a.txt"},
-		{"link-dir", true, true, false, -1, root + "/dir"},
-		{"link-broken", false, true, true, -1, root + "/nowhere"},
+		{"link-dir", true, true, false, -1, rr + "/dir"},
+		{"link-broken", false, true, true, -1, rr + "/nowhere"},
 	}
 	for _, tc := range tests {
+		if tc.isLink && !links {
+			continue
+		}
 		e := byName[tc.name]
 		if e.IsDir != tc.isDir || e.IsLink != tc.isLink || e.LinkBroken != tc.broke {
 			t.Errorf("%s: IsDir=%v IsLink=%v Broken=%v", tc.name, e.IsDir, e.IsLink, e.LinkBroken)
@@ -164,66 +174,70 @@ func TestMetadataOperations(t *testing.T) {
 		if e.LinkTarget != tc.target {
 			t.Errorf("%s: LinkTarget=%q want %q", tc.name, e.LinkTarget, tc.target)
 		}
-		if e.Path != root+"/"+tc.name {
+		if e.Path != rr+"/"+tc.name {
 			t.Errorf("%s: Path=%q", tc.name, e.Path)
 		}
 	}
 
 	// Stat follows links, Lstat does not.
-	st, err := c.Stat(root + "/link-dir")
-	if err != nil || !st.IsDir || st.IsLink {
-		t.Errorf("Stat(link-dir) = %+v, %v", st, err)
+	if links {
+		st, err := c.Stat(rr + "/link-dir")
+		if err != nil || !st.IsDir || st.IsLink {
+			t.Errorf("Stat(link-dir) = %+v, %v", st, err)
+		}
+		lst, err := c.Lstat(rr + "/link-dir")
+		if err != nil || !lst.IsLink || !lst.IsDir || lst.LinkTarget != rr+"/dir" {
+			t.Errorf("Lstat(link-dir) = %+v, %v", lst, err)
+		}
+		if tgt, err := c.ReadLink(rr + "/link-file"); err != nil || tgt != "a.txt" {
+			t.Errorf("ReadLink = %q, %v", tgt, err)
+		}
 	}
-	lst, err := c.Lstat(root + "/link-dir")
-	if err != nil || !lst.IsLink || !lst.IsDir || lst.LinkTarget != root+"/dir" {
-		t.Errorf("Lstat(link-dir) = %+v, %v", lst, err)
-	}
-	if tgt, err := c.ReadLink(root + "/link-file"); err != nil || tgt != "a.txt" {
-		t.Errorf("ReadLink = %q, %v", tgt, err)
-	}
-	if _, err := c.Stat(root + "/missing"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := c.Stat(rr + "/missing"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("Stat(missing) err = %v, want ErrNotExist", err)
 	}
-	if ok, err := c.Exists(root + "/a.txt"); !ok || err != nil {
+	if ok, err := c.Exists(rr + "/a.txt"); !ok || err != nil {
 		t.Errorf("Exists(a.txt) = %v, %v", ok, err)
 	}
-	if ok, err := c.Exists(root + "/missing"); ok || err != nil {
+	if ok, err := c.Exists(rr + "/missing"); ok || err != nil {
 		t.Errorf("Exists(missing) = %v, %v", ok, err)
 	}
-	if ok, _ := c.Exists(root + "/link-broken"); !ok {
+	if ok, _ := c.Exists(rr + "/link-broken"); links && !ok {
 		t.Error("Exists(dangling link) should be true")
 	}
 
 	// RealPath
-	if rp, err := c.RealPath(root + "/dir/../a.txt"); err != nil || !strings.HasSuffix(rp, "/a.txt") {
+	if rp, err := c.RealPath(rr + "/dir/../a.txt"); err != nil || !strings.HasSuffix(rp, "/a.txt") {
 		t.Errorf("RealPath = %q, %v", rp, err)
 	}
 
 	// Chmod / Chtimes / Truncate / Chown (to our own ids, which must work)
-	if err := c.Chmod(root+"/a.txt", 0o600); err != nil {
+	if err := c.Chmod(rr+"/a.txt", 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if fi, _ := os.Stat(filepath.Join(root, "a.txt")); fi.Mode().Perm() != 0o600 {
+	// Windows keeps no Unix mode bits (only the read-only flag), so the
+	// exact mode can be checked only elsewhere.
+	if fi, _ := os.Stat(filepath.Join(root, "a.txt")); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Errorf("mode after Chmod = %v", fi.Mode().Perm())
 	}
 	mt := time.Date(2001, 2, 3, 4, 5, 6, 0, time.UTC)
-	if err := c.Chtimes(root+"/a.txt", mt, mt); err != nil {
+	if err := c.Chtimes(rr+"/a.txt", mt, mt); err != nil {
 		t.Fatal(err)
 	}
-	if e, _ := c.Stat(root + "/a.txt"); !e.ModTime.Equal(mt) {
+	if e, _ := c.Stat(rr + "/a.txt"); !e.ModTime.Equal(mt) {
 		t.Errorf("ModTime after Chtimes = %v", e.ModTime)
 	}
-	if err := c.Truncate(root+"/a.txt", 2); err != nil {
+	if err := c.Truncate(rr+"/a.txt", 2); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(root, "a.txt")); got != "he" {
 		t.Errorf("after Truncate: %q", got)
 	}
 	if runtime.GOOS != "windows" {
-		if err := c.Chown(root+"/a.txt", os.Getuid(), os.Getgid()); err != nil {
+		if err := c.Chown(rr+"/a.txt", os.Getuid(), os.Getgid()); err != nil {
 			t.Errorf("Chown to self: %v", err)
 		}
-		e, _ := c.Stat(root + "/a.txt")
+		e, _ := c.Stat(rr + "/a.txt")
 		if int(e.UID) != os.Getuid() {
 			t.Errorf("UID = %d, want %d", e.UID, os.Getuid())
 		}
@@ -231,16 +245,16 @@ func TestMetadataOperations(t *testing.T) {
 
 	// Rename fails on existing target; RenameOverwrite replaces it.
 	writeFile(t, filepath.Join(root, "b.txt"), "bee")
-	if err := c.Rename(root+"/b.txt", root+"/a.txt"); !errors.Is(err, fs.ErrExist) {
+	if err := c.Rename(rr+"/b.txt", rr+"/a.txt"); !errors.Is(err, fs.ErrExist) {
 		t.Errorf("Rename onto existing file = %v, want ErrExist", err)
 	}
-	if err := c.RenameOverwrite(root+"/b.txt", root+"/a.txt"); err != nil {
+	if err := c.RenameOverwrite(rr+"/b.txt", rr+"/a.txt"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(root, "a.txt")); got != "bee" {
 		t.Errorf("after RenameOverwrite: %q", got)
 	}
-	if err := c.Rename(root+"/a.txt", root+"/new/moved.txt"); err != nil {
+	if err := c.Rename(rr+"/a.txt", rr+"/new/moved.txt"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(root, "new", "moved.txt")); got != "bee" {
@@ -249,45 +263,47 @@ func TestMetadataOperations(t *testing.T) {
 
 	// Hard link
 	if c.HasExtension("hardlink@openssh.com") {
-		if err := c.Link(root+"/new/moved.txt", root+"/hard.txt"); err != nil {
+		if err := c.Link(rr+"/new/moved.txt", rr+"/hard.txt"); err != nil {
 			t.Errorf("Link: %v", err)
 		}
 	}
 
 	// Remove: file, link (not its target), empty folder, non-empty fails.
-	if err := c.Remove(root + "/link-dir"); err != nil {
-		t.Fatal(err)
+	if links {
+		if err := c.Remove(rr + "/link-dir"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if _, err := os.Stat(filepath.Join(root, "dir", "inner.txt")); err != nil {
 		t.Fatal("removing a link deleted the target's content")
 	}
-	if err := c.Remove(root + "/rel"); err != nil {
+	if err := c.Remove(rr + "/rel"); err != nil {
 		t.Fatal(err)
 	}
-	if err := c.Remove(root + "/dir"); err == nil {
+	if err := c.Remove(rr + "/dir"); err == nil {
 		t.Error("Remove on non-empty folder succeeded")
 	}
-	if err := c.Remove(root + "/missing"); !errors.Is(err, fs.ErrNotExist) {
+	if err := c.Remove(rr + "/missing"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("Remove(missing) = %v", err)
 	}
 
 	// RemoveAll with progress callback
 	var removed []string
-	if err := c.RemoveAll(t.Context(), root+"/deep", func(p string) { removed = append(removed, p) }); err != nil {
+	if err := c.RemoveAll(t.Context(), rr+"/deep", func(p string) { removed = append(removed, p) }); err != nil {
 		t.Fatal(err)
 	}
-	if len(removed) != 3 || removed[len(removed)-1] != root+"/deep" {
+	if len(removed) != 3 || removed[len(removed)-1] != rr+"/deep" {
 		t.Errorf("RemoveAll visited %v", removed)
 	}
 	if _, err := os.Stat(filepath.Join(root, "deep")); !os.IsNotExist(err) {
 		t.Error("deep still exists")
 	}
-	if err := c.RemoveAll(t.Context(), root+"/does-not-exist", nil); err != nil {
+	if err := c.RemoveAll(t.Context(), rr+"/does-not-exist", nil); err != nil {
 		t.Errorf("RemoveAll(missing) = %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := c.RemoveAll(ctx, root+"/dir", nil); !errors.Is(err, context.Canceled) {
+	if err := c.RemoveAll(ctx, rr+"/dir", nil); !errors.Is(err, context.Canceled) {
 		t.Errorf("RemoveAll(cancelled) = %v", err)
 	}
 }
@@ -301,7 +317,7 @@ func TestChmodAllAndTreeSize(t *testing.T) {
 	writeFile(t, filepath.Join(s.Root, "t", "a"), "12345")
 	writeFile(t, filepath.Join(s.Root, "t", "sub", "b"), "123")
 	os.Symlink("a", filepath.Join(s.Root, "t", "ln"))
-	if err := c.ChmodAll(t.Context(), s.Root+"/t", 0o600, 0o750); err != nil {
+	if err := c.ChmodAll(t.Context(), s.R+"/t", 0o600, 0o750); err != nil {
 		t.Fatal(err)
 	}
 	for p, want := range map[string]fs.FileMode{"t": 0o750, "t/sub": 0o750, "t/a": 0o600, "t/sub/b": 0o600} {
@@ -310,7 +326,7 @@ func TestChmodAllAndTreeSize(t *testing.T) {
 			t.Errorf("%s: mode %v, want %v (%v)", p, fi.Mode().Perm(), want, err)
 		}
 	}
-	files, dirs, size, err := c.TreeSize(t.Context(), s.Root+"/t")
+	files, dirs, size, err := c.TreeSize(t.Context(), s.R+"/t")
 	if err != nil || files != 3 || dirs != 2 || size != 8 {
 		t.Errorf("TreeSize = %d files, %d dirs, %d bytes, %v", files, dirs, size, err)
 	}
@@ -322,11 +338,11 @@ func TestWalkSkipDir(t *testing.T) {
 	writeFile(t, filepath.Join(s.Root, "w", "keep", "k"), "")
 	writeFile(t, filepath.Join(s.Root, "w", "skip", "s"), "")
 	var seen []string
-	err := c.Walk(t.Context(), s.Root+"/w", func(e remotefs.Entry, err error) error {
+	err := c.Walk(t.Context(), s.R+"/w", func(e remotefs.Entry, err error) error {
 		if err != nil {
 			return err
 		}
-		seen = append(seen, strings.TrimPrefix(e.Path, s.Root+"/"))
+		seen = append(seen, strings.TrimPrefix(e.Path, s.R+"/"))
 		if e.Name == "skip" {
 			return fs.SkipDir
 		}
@@ -340,13 +356,13 @@ func TestWalkSkipDir(t *testing.T) {
 		t.Errorf("walk saw %s", got)
 	}
 	// Walking a missing root reports the error through fn.
-	err = c.Walk(t.Context(), s.Root+"/nope", func(e remotefs.Entry, err error) error { return err })
+	err = c.Walk(t.Context(), s.R+"/nope", func(e remotefs.Entry, err error) error { return err })
 	if !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("walk missing = %v", err)
 	}
 	// An error from fn stops the walk.
 	stop := errors.New("stop")
-	err = c.Walk(t.Context(), s.Root+"/w", func(e remotefs.Entry, err error) error { return stop })
+	err = c.Walk(t.Context(), s.R+"/w", func(e remotefs.Entry, err error) error { return stop })
 	if !errors.Is(err, stop) {
 		t.Errorf("walk stop = %v", err)
 	}
@@ -355,13 +371,19 @@ func TestWalkSkipDir(t *testing.T) {
 func TestSpace(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
+	if runtime.GOOS == "windows" {
+		// pkg/sftp's server advertises statvfs@openssh.com but answers
+		// "operation not supported" on Windows, so the test server has
+		// nothing to measure; the client side is the same on every OS.
+		t.Skip("the pkg/sftp test server does not implement statvfs on Windows")
+	}
 	if !c.HasExtension("statvfs@openssh.com") {
-		if _, err := c.Space(s.Root); err == nil {
+		if _, err := c.Space(s.R); err == nil {
 			t.Error("Space without extension should fail")
 		}
 		return
 	}
-	sp, err := c.Space(s.Root)
+	sp, err := c.Space(s.R)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -373,7 +395,7 @@ func TestSpace(t *testing.T) {
 func TestOpenCreate(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
-	w, err := c.Create(s.Root + "/created.txt")
+	w, err := c.Create(s.R + "/created.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,7 +403,7 @@ func TestOpenCreate(t *testing.T) {
 	if err := w.Close(); err != nil {
 		t.Fatal(err)
 	}
-	r, err := c.Open(s.Root + "/created.txt")
+	r, err := c.Open(s.R + "/created.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -395,7 +417,7 @@ func TestOpenCreate(t *testing.T) {
 	if string(b) != "tent" {
 		t.Errorf("read %q", b)
 	}
-	if _, err := c.Open(s.Root + "/none"); !errors.Is(err, fs.ErrNotExist) {
+	if _, err := c.Open(s.R + "/none"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("Open(missing) = %v", err)
 	}
 }
@@ -486,7 +508,7 @@ func TestServerDisconnectDetected(t *testing.T) {
 	case <-time.After(5 * time.Second):
 		t.Fatal("disconnect not noticed")
 	}
-	if _, err := c.Stat(s.Root); err == nil {
+	if _, err := c.Stat(s.R); err == nil {
 		t.Error("Stat after disconnect succeeded")
 	}
 }
@@ -503,7 +525,7 @@ func TestIdleTimeout(t *testing.T) {
 	// Activity keeps it alive.
 	for i := 0; i < 5; i++ {
 		time.Sleep(50 * time.Millisecond)
-		if _, err := c.Stat(s.Root); err != nil {
+		if _, err := c.Stat(s.R); err != nil {
 			t.Fatalf("connection dropped while active: %v", err)
 		}
 	}
@@ -515,7 +537,7 @@ func TestIdleTimeout(t *testing.T) {
 	if !errors.Is(c.Err(), ErrIdleTimeout) {
 		t.Errorf("Err = %v, want ErrIdleTimeout", c.Err())
 	}
-	if _, err := c.ReadDir(s.Root); !errors.Is(err, ErrClosed) {
+	if _, err := c.ReadDir(s.R); !errors.Is(err, ErrClosed) {
 		t.Errorf("ReadDir after idle = %v", err)
 	}
 }
@@ -535,7 +557,7 @@ func TestNoSFTPSubsystem(t *testing.T) {
 	// SCP still works.
 	local := filepath.Join(t.TempDir(), "f.txt")
 	writeFile(t, local, "via scp")
-	if _, err := c.SCPUpload(t.Context(), local, s.Root+"/f.txt", SCPOptions{}); err != nil {
+	if _, err := c.SCPUpload(t.Context(), local, s.R+"/f.txt", SCPOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(s.Root, "f.txt")); got != "via scp" {

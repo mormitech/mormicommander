@@ -63,7 +63,7 @@ func TestDownloadTreeBackslashName(t *testing.T) {
 	if err := os.MkdirAll(local, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.DownloadTree(t.Context(), s.Root+"/r", local, TreeOptions{}); err != nil {
+	if _, err := c.DownloadTree(t.Context(), s.R+"/r", local, TreeOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(local, "r", evil)); got != "evil" {
@@ -133,10 +133,10 @@ func TestRenameCaseOnly(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
 	writeFile(t, filepath.Join(s.Root, "case.txt"), "data")
-	if err := c.Rename(s.Root+"/case.txt", s.Root+"/CASE.txt"); err != nil {
+	if err := c.Rename(s.R+"/case.txt", s.R+"/CASE.txt"); err != nil {
 		t.Fatalf("case-only rename: %v", err)
 	}
-	es, err := c.ReadDir(s.Root)
+	es, err := c.ReadDir(s.R)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -147,7 +147,7 @@ func TestRenameCaseOnly(t *testing.T) {
 		t.Fatalf("content = %q", got)
 	}
 	// RenameOverwrite must not delete the file as an "existing target".
-	if err := c.RenameOverwrite(s.Root+"/CASE.txt", s.Root+"/Case.txt"); err != nil {
+	if err := c.RenameOverwrite(s.R+"/CASE.txt", s.R+"/Case.txt"); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(s.Root, "Case.txt")); got != "data" {
@@ -161,7 +161,7 @@ func TestRenameCaseOnly(t *testing.T) {
 	if readFile(t, filepath.Join(s.Root, "x.txt")) == "upper" {
 		return // case-insensitive file system: the second write hit the first file
 	}
-	if err := c.Rename(s.Root+"/x.txt", s.Root+"/X.txt"); !os.IsExist(err) {
+	if err := c.Rename(s.R+"/x.txt", s.R+"/X.txt"); !os.IsExist(err) {
 		t.Fatalf("rename onto a distinct file = %v, want exists", err)
 	}
 }

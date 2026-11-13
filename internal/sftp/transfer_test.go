@@ -30,8 +30,8 @@ func TestDownloadUpload(t *testing.T) {
 	sizes := []int{0, 1, 1000, 32 * 1024, 700*1024 + 13} // around pkg/sftp's packet size
 	for _, n := range sizes {
 		data := randomData(n)
-		remote := filepath.Join(s.Root, "src.bin")
-		os.WriteFile(remote, data, 0o644)
+		remote := s.R + "/src.bin"
+		os.WriteFile(localPath(remote), data, 0o644)
 
 		var last remotefs.Progress
 		dst := filepath.Join(local, "dl.bin")
@@ -50,7 +50,7 @@ func TestDownloadUpload(t *testing.T) {
 			t.Errorf("download %d: last progress %+v", n, last)
 		}
 
-		up := filepath.Join(s.Root, "up.bin")
+		up := s.R + "/up.bin"
 		got, err = c.Upload(t.Context(), dst, up, remotefs.TransferOptions{
 			Progress: func(p remotefs.Progress) { last = p }})
 		if err != nil {
@@ -59,7 +59,7 @@ func TestDownloadUpload(t *testing.T) {
 		if got != int64(n) || last.Done != int64(n) {
 			t.Errorf("upload %d: returned %d, progress %+v", n, got, last)
 		}
-		if b, _ := os.ReadFile(up); !bytes.Equal(b, data) {
+		if b, _ := os.ReadFile(localPath(up)); !bytes.Equal(b, data) {
 			t.Fatalf("upload %d: content differs", n)
 		}
 	}
@@ -78,28 +78,28 @@ func TestTransferErrors(t *testing.T) {
 		run  func() error
 		want error
 	}{
-		{"download missing", func() error { _, err := c.Download(t.Context(), s.Root+"/none", local+"/x", o); return err }, os.ErrNotExist},
-		{"download folder", func() error { _, err := c.Download(t.Context(), s.Root+"/adir", local+"/x", o); return err }, nil},
-		{"download onto local folder", func() error { _, err := c.Download(t.Context(), s.Root+"/f", local, o); return err }, nil},
+		{"download missing", func() error { _, err := c.Download(t.Context(), s.R+"/none", local+"/x", o); return err }, os.ErrNotExist},
+		{"download folder", func() error { _, err := c.Download(t.Context(), s.R+"/adir", local+"/x", o); return err }, nil},
+		{"download onto local folder", func() error { _, err := c.Download(t.Context(), s.R+"/f", local, o); return err }, nil},
 		{"download no overwrite", func() error {
-			_, err := c.Download(t.Context(), s.Root+"/f", local+"/f", remotefs.TransferOptions{NoOverwrite: true})
+			_, err := c.Download(t.Context(), s.R+"/f", local+"/f", remotefs.TransferOptions{NoOverwrite: true})
 			return err
 		}, remotefs.ErrExists},
-		{"upload missing", func() error { _, err := c.Upload(t.Context(), local+"/none", s.Root+"/x", o); return err }, os.ErrNotExist},
-		{"upload folder", func() error { _, err := c.Upload(t.Context(), local, s.Root+"/x", o); return err }, nil},
-		{"upload onto remote folder", func() error { _, err := c.Upload(t.Context(), local+"/f", s.Root+"/adir", o); return err }, nil},
+		{"upload missing", func() error { _, err := c.Upload(t.Context(), local+"/none", s.R+"/x", o); return err }, os.ErrNotExist},
+		{"upload folder", func() error { _, err := c.Upload(t.Context(), local, s.R+"/x", o); return err }, nil},
+		{"upload onto remote folder", func() error { _, err := c.Upload(t.Context(), local+"/f", s.R+"/adir", o); return err }, nil},
 		{"upload no overwrite", func() error {
-			_, err := c.Upload(t.Context(), local+"/f", s.Root+"/f", remotefs.TransferOptions{NoOverwrite: true})
+			_, err := c.Upload(t.Context(), local+"/f", s.R+"/f", remotefs.TransferOptions{NoOverwrite: true})
 			return err
 		}, remotefs.ErrExists},
-		{"copy same file", func() error { _, err := c.CopyRemote(t.Context(), s.Root+"/f", s.Root+"/f", o); return err }, nil},
-		{"copy folder", func() error { _, err := c.CopyRemote(t.Context(), s.Root+"/adir", s.Root+"/b", o); return err }, nil},
+		{"copy same file", func() error { _, err := c.CopyRemote(t.Context(), s.R+"/f", s.R+"/f", o); return err }, nil},
+		{"copy folder", func() error { _, err := c.CopyRemote(t.Context(), s.R+"/adir", s.R+"/b", o); return err }, nil},
 		{"copy no overwrite", func() error {
-			_, err := c.CopyRemote(t.Context(), s.Root+"/f", s.Root+"/f2", o)
+			_, err := c.CopyRemote(t.Context(), s.R+"/f", s.R+"/f2", o)
 			if err != nil {
 				return err
 			}
-			_, err = c.CopyRemote(t.Context(), s.Root+"/f", s.Root+"/f2", remotefs.TransferOptions{NoOverwrite: true})
+			_, err = c.CopyRemote(t.Context(), s.R+"/f", s.R+"/f2", remotefs.TransferOptions{NoOverwrite: true})
 			return err
 		}, remotefs.ErrExists},
 	}
@@ -127,8 +127,8 @@ func TestResume(t *testing.T) {
 	data := randomData(300*1024 + 7)
 
 	t.Run("download", func(t *testing.T) {
-		remote := filepath.Join(s.Root, "big.bin")
-		os.WriteFile(remote, data, 0o644)
+		remote := s.R + "/big.bin"
+		os.WriteFile(localPath(remote), data, 0o644)
 		dst := filepath.Join(local, "big.bin")
 		os.WriteFile(dst, data[:100000], 0o644)
 		var first remotefs.Progress
@@ -170,8 +170,8 @@ func TestResume(t *testing.T) {
 	t.Run("upload", func(t *testing.T) {
 		src := filepath.Join(local, "up.bin")
 		os.WriteFile(src, data, 0o644)
-		remote := filepath.Join(s.Root, "up.bin")
-		os.WriteFile(remote, data[:54321], 0o644)
+		remote := s.R + "/up.bin"
+		os.WriteFile(localPath(remote), data[:54321], 0o644)
 		n, err := c.Upload(t.Context(), src, remote, remotefs.TransferOptions{Resume: true})
 		if err != nil {
 			t.Fatal(err)
@@ -179,13 +179,13 @@ func TestResume(t *testing.T) {
 		if n != int64(len(data)-54321) {
 			t.Errorf("transferred %d", n)
 		}
-		if b, _ := os.ReadFile(remote); !bytes.Equal(b, data) {
+		if b, _ := os.ReadFile(localPath(remote)); !bytes.Equal(b, data) {
 			t.Fatal("resumed upload differs")
 		}
 		if n, err := c.Upload(t.Context(), src, remote, remotefs.TransferOptions{Resume: true}); n != 0 || err != nil {
 			t.Errorf("complete resume: %d %v", n, err)
 		}
-		os.WriteFile(remote, append(data, 'x'), 0o644)
+		os.WriteFile(localPath(remote), append(data, 'x'), 0o644)
 		if _, err := c.Upload(t.Context(), src, remote, remotefs.TransferOptions{Resume: true}); err == nil {
 			t.Error("resume onto larger remote succeeded")
 		}
@@ -196,8 +196,8 @@ func TestCancelThenResume(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
 	data := randomData(2 * 1024 * 1024)
-	remote := filepath.Join(s.Root, "c.bin")
-	os.WriteFile(remote, data, 0o644)
+	remote := s.R + "/c.bin"
+	os.WriteFile(localPath(remote), data, 0o644)
 	dst := filepath.Join(t.TempDir(), "c.bin")
 
 	ctx, cancel := context.WithCancel(t.Context())
@@ -221,7 +221,7 @@ func TestCancelThenResume(t *testing.T) {
 	}
 
 	// Upload cancellation too.
-	up := filepath.Join(s.Root, "c-up.bin")
+	up := s.R + "/c-up.bin"
 	ctx, cancel = context.WithCancel(t.Context())
 	_, err = c.Upload(ctx, dst, up, remotefs.TransferOptions{Progress: func(p remotefs.Progress) {
 		if p.Done > 256*1024 {
@@ -234,11 +234,11 @@ func TestCancelThenResume(t *testing.T) {
 	if _, err := c.Upload(t.Context(), dst, up, remotefs.TransferOptions{Resume: true}); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(up); !bytes.Equal(b, data) {
+	if b, _ := os.ReadFile(localPath(up)); !bytes.Equal(b, data) {
 		t.Fatal("upload cancel+resume differs")
 	}
 	// The connection is still usable after a cancelled transfer.
-	if _, err := c.ReadDir(s.Root); err != nil {
+	if _, err := c.ReadDir(s.R); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -250,10 +250,10 @@ func TestPreserve(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
 	mt := time.Date(2010, 5, 6, 7, 8, 9, 0, time.UTC)
-	remote := filepath.Join(s.Root, "p.txt")
-	writeFile(t, remote, "x")
-	os.Chmod(remote, 0o640)
-	os.Chtimes(remote, mt, mt)
+	remote := s.R + "/p.txt"
+	writeFile(t, localPath(remote), "x")
+	os.Chmod(localPath(remote), 0o640)
+	os.Chtimes(localPath(remote), mt, mt)
 	dst := filepath.Join(t.TempDir(), "p.txt")
 	opts := remotefs.TransferOptions{PreserveTimes: true, PreserveMode: true}
 	if _, err := c.Download(t.Context(), remote, dst, opts); err != nil {
@@ -267,20 +267,20 @@ func TestPreserve(t *testing.T) {
 	mt2 := time.Date(2012, 1, 1, 0, 0, 0, 0, time.UTC)
 	os.Chmod(dst, 0o604)
 	os.Chtimes(dst, mt2, mt2)
-	up := filepath.Join(s.Root, "p2.txt")
+	up := s.R + "/p2.txt"
 	if _, err := c.Upload(t.Context(), dst, up, opts); err != nil {
 		t.Fatal(err)
 	}
-	fi, _ = os.Stat(up)
+	fi, _ = os.Stat(localPath(up))
 	if !fi.ModTime().Equal(mt2) || fi.Mode().Perm() != 0o604 {
 		t.Errorf("upload preserve: %v %v", fi.ModTime(), fi.Mode().Perm())
 	}
 
-	cp := filepath.Join(s.Root, "p3.txt")
+	cp := s.R + "/p3.txt"
 	if _, err := c.CopyRemote(t.Context(), up, cp, opts); err != nil {
 		t.Fatal(err)
 	}
-	fi, _ = os.Stat(cp)
+	fi, _ = os.Stat(localPath(cp))
 	if !fi.ModTime().Equal(mt2) || fi.Mode().Perm() != 0o604 {
 		t.Errorf("copy preserve: %v %v", fi.ModTime(), fi.Mode().Perm())
 	}
@@ -292,7 +292,7 @@ func TestCopyRemote(t *testing.T) {
 	data := randomData(100000)
 	os.WriteFile(filepath.Join(s.Root, "a"), data, 0o644)
 	var last remotefs.Progress
-	n, err := c.CopyRemote(t.Context(), s.Root+"/a", s.Root+"/b", remotefs.TransferOptions{
+	n, err := c.CopyRemote(t.Context(), s.R+"/a", s.R+"/b", remotefs.TransferOptions{
 		Progress: func(p remotefs.Progress) { last = p }})
 	if err != nil || n != int64(len(data)) {
 		t.Fatalf("CopyRemote = %d, %v", n, err)
@@ -319,7 +319,7 @@ func TestTrees(t *testing.T) {
 	}
 
 	var files []string
-	n, err := c.UploadTree(t.Context(), src, s.Root+"/up", TreeOptions{
+	n, err := c.UploadTree(t.Context(), src, s.R+"/up", TreeOptions{
 		OnFile: func(srcP, dst string) error { files = append(files, dst); return nil }})
 	if err != nil {
 		t.Fatal(err)
@@ -335,6 +335,7 @@ func TestTrees(t *testing.T) {
 		t.Errorf("uploaded %d bytes, want %d", n, wantBytes)
 	}
 	up := filepath.Join(s.Root, "up", "tree")
+	rup := s.R + "/up/tree" // the same folder as a remote path
 	for p, want := range map[string]string{"a.txt": "A", "sub/b.txt": "BB", "sub/deeper/c.txt": "CCC"} {
 		if got := readFile(t, filepath.Join(up, filepath.FromSlash(p))); got != want {
 			t.Errorf("%s = %q", p, got)
@@ -355,7 +356,7 @@ func TestTrees(t *testing.T) {
 	// Download back, with a skip and SkipExisting.
 	dl := t.TempDir()
 	writeFile(t, filepath.Join(dl, "tree", "a.txt"), "existing")
-	n, err = c.DownloadTree(t.Context(), up, dl, TreeOptions{
+	n, err = c.DownloadTree(t.Context(), rup, dl, TreeOptions{
 		SkipExisting: true,
 		OnFile: func(srcP, dst string) error {
 			if filepath.Base(dst) == "c.txt" {
@@ -384,7 +385,7 @@ func TestTrees(t *testing.T) {
 		os.Symlink("a.txt", filepath.Join(up, "rlink"))
 		os.Symlink(filepath.Join(up, "sub"), filepath.Join(up, "rdirlink"))
 		dl2 := t.TempDir()
-		if _, err := c.DownloadTree(t.Context(), up, dl2, TreeOptions{}); err != nil {
+		if _, err := c.DownloadTree(t.Context(), rup, dl2, TreeOptions{}); err != nil {
 			t.Fatal(err)
 		}
 		if got := readFile(t, filepath.Join(dl2, "tree", "rlink")); got != "A" {
@@ -397,19 +398,19 @@ func TestTrees(t *testing.T) {
 
 	// A single file works as a tree root, and errors from OnFile stop.
 	single := t.TempDir()
-	if _, err := c.DownloadTree(t.Context(), filepath.Join(up, "a.txt"), single, TreeOptions{}); err != nil {
+	if _, err := c.DownloadTree(t.Context(), rup+"/a.txt", single, TreeOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(single, "a.txt")); got != "A" {
 		t.Errorf("single = %q", got)
 	}
 	stop := errors.New("stop")
-	if _, err := c.DownloadTree(t.Context(), up, t.TempDir(), TreeOptions{OnFile: func(_, _ string) error { return stop }}); !errors.Is(err, stop) {
+	if _, err := c.DownloadTree(t.Context(), rup, t.TempDir(), TreeOptions{OnFile: func(_, _ string) error { return stop }}); !errors.Is(err, stop) {
 		t.Errorf("OnFile error not propagated: %v", err)
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := c.UploadTree(ctx, src, s.Root+"/up", TreeOptions{}); !errors.Is(err, context.Canceled) {
+	if _, err := c.UploadTree(ctx, src, s.R+"/up", TreeOptions{}); !errors.Is(err, context.Canceled) {
 		t.Errorf("cancelled UploadTree = %v", err)
 	}
 }

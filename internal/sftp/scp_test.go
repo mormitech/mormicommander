@@ -31,7 +31,7 @@ func TestSCPFile(t *testing.T) {
 		OnFile: func(a, b string) { onFile = append(onFile, b) }}
 
 	// Upload to a new name.
-	n, err := c.SCPUpload(t.Context(), src, s.Root+"/renamed.bin", opts)
+	n, err := c.SCPUpload(t.Context(), src, s.R+"/renamed.bin", opts)
 	if err != nil || n != int64(len(data)) {
 		t.Fatalf("SCPUpload = %d, %v", n, err)
 	}
@@ -43,7 +43,7 @@ func TestSCPFile(t *testing.T) {
 	}
 	// Upload into an existing folder keeps the name.
 	os.Mkdir(filepath.Join(s.Root, "dir"), 0o755)
-	if _, err := c.SCPUpload(t.Context(), src, s.Root+"/dir", SCPOptions{}); err != nil {
+	if _, err := c.SCPUpload(t.Context(), src, s.R+"/dir", SCPOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(s.Root, "dir", "f.bin")); err != nil {
@@ -52,7 +52,7 @@ func TestSCPFile(t *testing.T) {
 
 	// Download to a new name and into a folder.
 	dst := filepath.Join(local, "back.bin")
-	n, err = c.SCPDownload(t.Context(), s.Root+"/renamed.bin", dst, opts)
+	n, err = c.SCPDownload(t.Context(), s.R+"/renamed.bin", dst, opts)
 	if err != nil || n != int64(len(data)) {
 		t.Fatalf("SCPDownload = %d, %v", n, err)
 	}
@@ -60,7 +60,7 @@ func TestSCPFile(t *testing.T) {
 		t.Fatal("download differs")
 	}
 	into := t.TempDir()
-	if _, err := c.SCPDownload(t.Context(), s.Root+"/renamed.bin", into, SCPOptions{}); err != nil {
+	if _, err := c.SCPDownload(t.Context(), s.R+"/renamed.bin", into, SCPOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(into, "renamed.bin")); err != nil {
@@ -70,7 +70,7 @@ func TestSCPFile(t *testing.T) {
 	// Names that need shell quoting survive.
 	odd := filepath.Join(local, "it's a file $(x).txt")
 	os.WriteFile(odd, []byte("q"), 0o644)
-	if _, err := c.SCPUpload(t.Context(), odd, s.Root+"/dir", SCPOptions{}); err != nil {
+	if _, err := c.SCPUpload(t.Context(), odd, s.R+"/dir", SCPOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if got := readFile(t, filepath.Join(s.Root, "dir", "it's a file $(x).txt")); got != "q" {
@@ -90,7 +90,7 @@ func TestSCPTreePreserve(t *testing.T) {
 	os.Chtimes(filepath.Join(src, "a.txt"), mt, mt)
 
 	os.Mkdir(filepath.Join(s.Root, "dest"), 0o755)
-	n, err := c.SCPUpload(t.Context(), src, s.Root+"/dest", SCPOptions{Preserve: true})
+	n, err := c.SCPUpload(t.Context(), src, s.R+"/dest", SCPOptions{Preserve: true})
 	if err != nil || n != 3 {
 		t.Fatalf("SCPUpload tree = %d, %v", n, err)
 	}
@@ -111,7 +111,7 @@ func TestSCPTreePreserve(t *testing.T) {
 
 	// Download the tree to a new name, preserving.
 	dl := filepath.Join(t.TempDir(), "copy")
-	n, err = c.SCPDownload(t.Context(), up, dl, SCPOptions{Preserve: true})
+	n, err = c.SCPDownload(t.Context(), s.R+"/dest/tree", dl, SCPOptions{Preserve: true})
 	if err != nil || n != 3 {
 		t.Fatalf("SCPDownload tree = %d, %v", n, err)
 	}
@@ -131,7 +131,7 @@ func TestSCPTreePreserve(t *testing.T) {
 
 	// Into an existing folder keeps the tree's name.
 	into := t.TempDir()
-	if _, err := c.SCPDownload(t.Context(), up, into, SCPOptions{}); err != nil {
+	if _, err := c.SCPDownload(t.Context(), s.R+"/dest/tree", into, SCPOptions{}); err != nil {
 		t.Fatal(err)
 	}
 	if readFile(t, filepath.Join(into, "tree", "a.txt")) != "A" {
@@ -142,18 +142,18 @@ func TestSCPTreePreserve(t *testing.T) {
 func TestSCPErrors(t *testing.T) {
 	s := newTestServer(t)
 	c := s.dial(t)
-	_, err := c.SCPDownload(t.Context(), s.Root+"/missing", filepath.Join(t.TempDir(), "x"), SCPOptions{})
+	_, err := c.SCPDownload(t.Context(), s.R+"/missing", filepath.Join(t.TempDir(), "x"), SCPOptions{})
 	var se *SCPError
 	if !errors.As(err, &se) || !strings.Contains(se.Message, "No such file") {
 		t.Errorf("missing file err = %v", err)
 	}
-	if _, err := c.SCPUpload(t.Context(), filepath.Join(t.TempDir(), "missing"), s.Root, SCPOptions{}); !errors.Is(err, os.ErrNotExist) {
+	if _, err := c.SCPUpload(t.Context(), filepath.Join(t.TempDir(), "missing"), s.R, SCPOptions{}); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("missing local err = %v", err)
 	}
 	// A remote command that does not exist.
 	local := filepath.Join(t.TempDir(), "f")
 	writeFile(t, local, "x")
-	if _, err := c.SCPUpload(t.Context(), local, s.Root, SCPOptions{Command: "noscp"}); err == nil {
+	if _, err := c.SCPUpload(t.Context(), local, s.R, SCPOptions{Command: "noscp"}); err == nil {
 		t.Error("bogus scp command succeeded")
 	}
 }
@@ -180,7 +180,7 @@ func TestSCPCancel(t *testing.T) {
 	src := filepath.Join(t.TempDir(), "big")
 	os.WriteFile(src, data, 0o644)
 	ctx, cancel := context.WithCancel(t.Context())
-	_, err := c.SCPUpload(ctx, src, s.Root+"/big", SCPOptions{Progress: func(p remotefs.Progress) {
+	_, err := c.SCPUpload(ctx, src, s.R+"/big", SCPOptions{Progress: func(p remotefs.Progress) {
 		if p.Done > 100000 {
 			cancel()
 		}
@@ -190,7 +190,7 @@ func TestSCPCancel(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(s.Root, "big2"), data, 0o644)
 	ctx, cancel = context.WithCancel(t.Context())
-	_, err = c.SCPDownload(ctx, s.Root+"/big2", filepath.Join(t.TempDir(), "b"), SCPOptions{Progress: func(p remotefs.Progress) {
+	_, err = c.SCPDownload(ctx, s.R+"/big2", filepath.Join(t.TempDir(), "b"), SCPOptions{Progress: func(p remotefs.Progress) {
 		if p.Done > 100000 {
 			cancel()
 		}
@@ -199,7 +199,7 @@ func TestSCPCancel(t *testing.T) {
 		t.Fatalf("download err = %v", err)
 	}
 	// Connection still fine.
-	if _, err := c.Stat(s.Root); err != nil {
+	if _, err := c.Stat(s.R); err != nil {
 		t.Fatal(err)
 	}
 }
