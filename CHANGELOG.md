@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.9 – 2026-11-13
+
+### Fixed
+
+- A right-click in the window while another app was active opened a context menu that ignored the mouse (no
+  highlight) until you clicked: the window now comes to the front on the right-click.
+
 ## 0.9.8 – 2026-11-13
 
 ### Changed
