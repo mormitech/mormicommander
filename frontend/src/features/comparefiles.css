@@ -1,0 +1,27 @@
+/* Compare by content */
+.mc-cmp-tools { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mc-cmp-tools .sep { width: 1px; align-self: stretch; background: var(--line); margin: 0 2px; }
+.mc-cmp-tools button { padding: 2px 9px; }
+.mc-cmp-paths { display: grid; grid-template-columns: 1fr auto 1fr auto; gap: 6px; }
+.mc-cmp-paths input { min-width: 0; }
+.mc-cmp-body { position: relative; flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); outline: none; }
+.mc-cmp-body:focus-visible { border-color: var(--accent); }
+.mc-cmp-spacer { width: 1px; }
+.mc-cmp-rows { position: absolute; inset: 0 0 auto 0; --cmp-x: 0; }
+.mc-cmp-row { position: absolute; left: 0; right: 0; height: 18px; display: grid; grid-template-columns: 4.5em 1fr 4.5em 1fr; font: var(--mono); line-height: 18px; cursor: default; }
+.mc-cmp-row.hex { grid-template-columns: 6em 1fr 6em 1fr; }
+.mc-cmp-n { color: var(--muted); text-align: right; padding-right: 8px; border-right: 1px solid var(--line); user-select: none; }
+.mc-cmp-t { white-space: pre; overflow: hidden; padding-left: 6px; tab-size: 4; text-indent: calc(var(--cmp-x) * -1ch); user-select: text; }
+.mc-cmp-row.hex .mc-cmp-t { text-indent: 0; }
+.mc-cmp-t.s0 { border-right: 1px solid var(--line); }
+.mc-cmp-row.k1 .s0, .mc-cmp-row.k2 .s1, .mc-cmp-row.k3 .mc-cmp-t { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.mc-cmp-row.k1 .s0, .mc-cmp-row.k2 .s1 { background: color-mix(in srgb, var(--sel) 16%, transparent); }
+.mc-cmp-t.pad { background: repeating-linear-gradient(135deg, transparent 0 4px, color-mix(in srgb, var(--line) 60%, transparent) 4px 5px) !important; }
+.mc-cmp-t mark { background: color-mix(in srgb, var(--sel) 38%, transparent); color: inherit; border-radius: 2px; }
+.mc-cmp-row.curblock .mc-cmp-n { color: var(--text); background: color-mix(in srgb, var(--accent) 30%, transparent); }
+.mc-cmp-row.cur { box-shadow: inset 0 0 0 1px var(--accent); }
+.mc-cmp-t.focus { background-color: var(--cur) !important; }
+.mc-cmp-input { position: absolute; z-index: 2; font: var(--mono); padding: 0 5px !important; border-radius: 0 !important; border-color: var(--accent) !important; }
+.mc-cmp-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.mc-cmp-status { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-cmp-foot .mc-btns { margin: 0; }
