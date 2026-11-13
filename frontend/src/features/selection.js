@@ -1,11 +1,22 @@
-// Selecting with the keyboard: Ins and Space, Shift with the cursor keys, select all, unselect all, invert, save and
-// restore (FEATURES.md section 6, behaviour from docs/spec area 3, section 1). Group selection by pattern (Num+ / Num-)
-// and selecting by extension are features of their own.
+// Selecting (FEATURES.md sections 6 and 13, behaviour from docs/spec area 3, sections 1 and 4): Ins and Space, Shift
+// with the cursor keys, select all, unselect all, invert, save and restore; the Select files / Unselect files dialogs
+// (Num + / Num -) with their mask history and saved filters; same extension / same name; selection files and the
+// clipboard; copying names to the clipboard; folder compare (Shift+F2). Which rows a mask, a name list or a compare
+// picks is decided in Go by internal/masks (feature_select.go), so the page never has mask rules of its own.
 //
-// The folder rule (setting "markDirectories", TC's MarkDirectories, default off): select all and invert touch files
-// only; the "Both" variants touch folders too.
+// The folder rule (setting "markDirectories", TC's MarkDirectories, default off): select all, invert and the group
+// dialogs touch files only; the "Both" variants (Shift) touch folders too, and the other way round when it is on.
+//
+// Settings: "selectHistory" (the masks used in the group dialogs, newest first, shared by select and unselect),
+// "selectFilters" ({name: mask}, used as ">name"), "compareIgnoreHourShift" (TC's 1hourdif).
 
 import { command } from '../core/registry.js';
+import { go, errText } from '../core/go.js';
+import { modal, messageDialog, formDialog, inputDialog, esc } from '../core/dialogs.js';
+import { addControlCommand } from '../core/control.js';
+import { attr } from '../core/format.js';
+import { app as theApp } from '../core/app.js';
+import './selection.css';
 
 const markDirs = (app) => !!app.setting('markDirectories', false);
 
@@ -83,6 +94,359 @@ command({
     const names = new Set(app.cur.saved);
     if (names.size) app.cur.selectWhere((e) => names.has(e.name));
   },
+});
+command({
+  // TC's "load selection": the saved names replace the selection (Num / adds them instead).
+  name: 'cm_LoadSelection', label: 'Load selection',
+  run: (app) => {
+    const p = app.cur;
+    const names = new Set(p.saved);
+    for (const e of p.entries) if (!e.up) p.select(e, names.has(e.name));
+    p.selectionChanged();
+  },
+});
+
+// ---- the rows as Go sees them ----
+
+// rows turns the shown entries of a panel into what feature_select.go gets; the indexes it answers with are indexes
+// into p.entries. withAttr adds the Attr column (only the details copy needs it).
+function rows(app, p, list = p.entries, withAttr = false) {
+  return list.map((e) => ({
+    name: e.name,
+    dir: !!e.dir,
+    size: e.dir ? (p.dirSizes?.get(e.name) ?? e.dirSize ?? -1) : e.size,
+    mtime: e.mtime || 0,
+    attr: withAttr && !e.up ? attr(e.mode, e.flags, app.platform) : '',
+  }));
+}
+
+// mark selects (on) or unselects the rows at the given indexes of p.entries.
+function mark(p, idx, on = true) {
+  for (const i of idx || []) { const e = p.entries[i]; if (e && !e.up) p.select(e, on); }
+  p.selectionChanged();
+  return (idx || []).length;
+}
+
+const groupKind = (app, shift) => (markDirs(app) !== shift ? 'both' : 'files');
+const filters = (app) => app.setting('selectFilters', {}) || {};
+const noFiles = () => messageDialog({ Title: 'mormiCommander', Message: 'No files selected.', Kind: 'select-none' });
+const join = (app, dir, name) => { const sep = app.sepFor(dir); return dir.endsWith(sep) || dir.endsWith('/') ? dir + name : dir + sep + name; };
+const isLocal = (path) => !/^[a-z][a-z0-9+.-]*:\/\//i.test(path || '');
+
+// ---- Select files / Unselect files (Num + / Num -) ----
+
+const HISTORY_MAX = 20;
+function remember(app, mask) {
+  const h = (app.setting('selectHistory', []) || []).filter((m) => m !== mask);
+  h.unshift(mask);
+  app.setSetting('selectHistory', h.slice(0, HISTORY_MAX));
+}
+
+const TITLES = {
+  true: { files: 'Select files', folders: 'Select folders', both: 'Select files and folders' },
+  false: { files: 'Unselect files', folders: 'Unselect folders', both: 'Unselect files and folders' },
+};
+
+// groupDialog asks for a mask (the history in a list under the box, saved filters after it) and answers the mask, or
+// null when cancelled. The mask is checked by Go before the dialog closes: a bad regular expression keeps it open.
+function groupDialog(app, select, kind) {
+  const history = app.setting('selectHistory', []) || [];
+  const value = history[0] || '*.*';
+  return modal((box, done) => {
+    box.innerHTML = `<h2>${esc(TITLES[select][kind])}</h2>
+      <div class="mc-row"><label for="mask">${select ? 'Select' : 'Unselect'} the ${kind === 'both' ? 'files and folders' : kind} that match:</label>
+        <div class="mc-select-combo"><input id="mask" type="text" spellcheck="false" autocomplete="off" value="${esc(value)}" autofocus data-select="0,${value.length}">
+        <button type="button" class="mc-select-drop" title="Masks used before (Alt+Down)" aria-label="Masks used before">▾</button></div></div>
+      <ul class="mc-select-list" role="listbox" hidden></ul>
+      <p class="mc-note">* and ? are wildcards; separate masks with spaces or ";"; after "|" come the masks to leave out (|*.bak); "dir\\" or "dir/" is a folder; "&lt;" starts a regular expression; "&gt;name" is a saved filter.</p>
+      <div class="mc-select-tools"><button type="button" class="mc-select-define" title="Save a mask under a name">Define…</button></div>
+      <p class="mc-err" hidden></p>
+      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+    const input = box.querySelector('#mask');
+    const list = box.querySelector('.mc-select-list');
+    const err = box.querySelector('.mc-err');
+    let at = -1; // history step with Up/Down while the list is closed
+    let items = [];
+    let on = -1;
+    const fill = () => {
+      const fl = Object.keys(filters(app)).sort((a, b) => a.localeCompare(b));
+      items = [...(app.setting('selectHistory', []) || []).map((m) => ({ text: m })), ...fl.map((n) => ({ text: `>${n}`, filter: true }))];
+      list.innerHTML = items.length
+        ? items.map((it, i) => `<li role="option" data-i="${i}" class="${it.filter ? 'mc-select-filter' : ''}">${esc(it.text)}</li>`).join('')
+        : '<li class="mc-select-empty">No masks used yet</li>';
+    };
+    const highlight = (i) => {
+      on = Math.max(0, Math.min(items.length - 1, i));
+      list.querySelectorAll('li').forEach((li, k) => li.classList.toggle('on', k === on));
+      list.querySelector('li.on')?.scrollIntoView({ block: 'nearest' });
+    };
+    const openList = (show) => { if (show) { fill(); on = -1; } list.hidden = !show; };
+    const pick = (i) => { if (items[i]) { input.value = items[i].text; input.select(); } openList(false); input.focus(); };
+    box.querySelector('.mc-select-drop').onclick = () => { openList(list.hidden); input.focus(); };
+    list.onmousedown = (ev) => { const li = ev.target.closest('li[data-i]'); if (li) { ev.preventDefault(); pick(+li.dataset.i); } };
+    input.addEventListener('keydown', (ev) => {
+      const down = ev.key === 'ArrowDown', up = ev.key === 'ArrowUp';
+      if (down && ev.altKey) { ev.preventDefault(); openList(list.hidden); return; }
+      if (!list.hidden && items.length) {
+        if (down || up) { ev.preventDefault(); highlight(on < 0 ? 0 : on + (down ? 1 : -1)); return; }
+        if (ev.key === 'Enter' && on >= 0) { ev.preventDefault(); pick(on); return; }
+      } else if (down || up) {
+        // like TC's combo box: Up/Down step through the masks used before
+        const h = app.setting('selectHistory', []) || [];
+        if (!h.length) return;
+        ev.preventDefault();
+        at = Math.max(0, Math.min(h.length - 1, at + (down ? 1 : -1)));
+        input.value = h[at];
+        input.select();
+      }
+    });
+    input.addEventListener('input', () => { err.hidden = true; });
+    box.querySelector('.mc-select-define').onclick = async () => {
+      const r = await defineFilter(app, input.value.trim().startsWith('>') ? '' : input.value.trim());
+      if (r) { input.value = `>${r}`; input.select(); }
+      if (!list.hidden) fill();
+      input.focus();
+    };
+    box.querySelector('.cancel').onclick = () => done(null);
+    box.onsubmit = async (ev) => {
+      ev.preventDefault();
+      const mask = input.value.trim();
+      if (!mask) { done(''); return; }
+      const problem = await go.Select.Check(mask, filters(app)).catch((e) => errText(e));
+      if (problem) { err.hidden = false; err.textContent = problem; input.focus(); return; }
+      done(mask);
+    };
+  }, null, { kind: select ? 'select-group' : 'unselect-group' });
+}
+
+// defineFilter saves a mask under a name (used as ">name" in the dialogs); an empty mask deletes the name. It answers
+// the name, or null.
+function defineFilter(app, mask) {
+  return formDialog('Saved filter',
+    `<div class="mc-row"><label for="filter-name">Name:</label><input id="filter-name" type="text" spellcheck="false" autofocus></div>
+     <div class="mc-row"><label for="filter-mask">Mask:</label><input id="filter-mask" type="text" spellcheck="false" value="${esc(mask)}"></div>
+     <p class="mc-note">Use it as "&gt;name" in Select files. An empty mask deletes the saved filter of that name.</p>`,
+    (box) => {
+      const name = box.querySelector('#filter-name').value.trim();
+      const m = box.querySelector('#filter-mask').value.trim();
+      if (!name) return 'Give the filter a name.';
+      if (/[\s;|"<>]/.test(name)) return 'A filter name cannot contain spaces or ; | " < >.';
+      return { name, mask: m };
+    },
+    null, { okLabel: 'Save', kind: 'select-filter' },
+  ).then(async (r) => {
+    if (!r) return null;
+    const all = { ...filters(app) };
+    for (const k of Object.keys(all)) if (k.toLowerCase() === r.name.toLowerCase()) delete all[k];
+    if (r.mask) {
+      const problem = await go.Select.Check(r.mask, all).catch((e) => errText(e));
+      if (problem) { app.flash(problem, 'err'); return null; }
+      all[r.name] = r.mask;
+    }
+    app.setSetting('selectFilters', all);
+    return r.mask ? r.name : null;
+  });
+}
+
+// group runs a select (select = true) or unselect group command; args.mask skips the dialog (control mode, buttons).
+async function group(app, args, select, kind) {
+  const p = app.cur;
+  let mask = typeof args?.mask === 'string' ? args.mask.trim() : null;
+  if (mask === null) mask = await groupDialog(app, select, kind);
+  if (!mask) return false; // cancelled, or empty: nothing happens, nothing is kept
+  let idx;
+  try { idx = await go.Select.Group(rows(app, p), mask, kind, filters(app)); }
+  catch (e) { app.flash(errText(e), 'err'); return false; }
+  remember(app, mask);
+  mark(p, idx, select);
+  return true;
+}
+
+command({ name: 'cm_SpreadSelection', label: 'Select group…', run: (app, a) => group(app, a, true, groupKind(app, false)) });
+command({ name: 'cm_SelectBoth', label: 'Select group, folders too…', run: (app, a) => group(app, a, true, groupKind(app, true)) });
+command({ name: 'cm_SelectFiles', label: 'Select a group of files…', run: (app, a) => group(app, a, true, 'files') });
+command({ name: 'cm_SelectFolders', label: 'Select a group of folders…', run: (app, a) => group(app, a, true, 'folders') });
+command({ name: 'cm_ShrinkSelection', label: 'Unselect group…', run: (app, a) => group(app, a, false, groupKind(app, false)) });
+command({ name: 'cm_UnselectFiles', label: 'Unselect a group of files…', run: (app, a) => group(app, a, false, 'files') });
+command({ name: 'cm_UnselectFolders', label: 'Unselect a group of folders…', run: (app, a) => group(app, a, false, 'folders') });
+
+// ---- same extension, same name (Alt+Num + / Alt+Num -) ----
+
+async function same(app, mode, on) {
+  const p = app.cur;
+  if (!p.cur || p.cur.up) return false;
+  const idx = await go.Select.Same(rows(app, p), p.cursor, mode, groupKind(app, false));
+  mark(p, idx, on);
+  return true;
+}
+command({ name: 'cm_SelectCurrentExtension', label: 'Select all with the same extension', run: (app) => same(app, 'ext', true) });
+command({ name: 'cm_UnselectCurrentExtension', label: 'Unselect all with the same extension', run: (app) => same(app, 'ext', false) });
+command({ name: 'cm_SelectCurrentName', label: 'Select all with the same name', run: (app) => same(app, 'name', true) });
+command({ name: 'cm_UnselectCurrentName', label: 'Unselect all with the same name', run: (app) => same(app, 'name', false), menu: 'Mark', menuAfter: 'cm_SelectCurrentName' });
+command({ name: 'cm_SelectCurrentNameExt', label: 'Select all with the same name and extension', run: (app) => same(app, 'nameext', true), menu: 'Mark', menuAfter: 'cm_UnselectCurrentName' });
+command({ name: 'cm_UnselectCurrentNameExt', label: 'Unselect all with the same name and extension', run: (app) => same(app, 'nameext', false), menu: 'Mark', menuAfter: 'cm_SelectCurrentNameExt' });
+command({
+  // ours (F-143): the names selected in the other panel get selected here
+  name: 'cm_SelectFromOtherPanel', label: 'Select the names selected in the other panel', menu: 'Mark', menuAfter: 'cm_UnselectCurrentNameExt',
+  enabled: (app) => app.other.selectedEntries().length > 0,
+  run: async (app) => {
+    const names = app.other.selectedEntries().map((e) => e.name);
+    if (!names.length) return false;
+    mark(app.cur, await go.Select.Names(rows(app, app.cur), names));
+    return true;
+  },
+});
+
+// ---- selection files and the clipboard ----
+
+const defaultFile = (app, p) => join(app, isLocal(p.path) ? p.path : app.home, 'selection.txt');
+
+command({
+  name: 'cm_SaveSelectionToFile', label: 'Save selection to file…',
+  run: async (app, args = {}) => {
+    const p = app.cur;
+    const names = p.selectedEntries().map((e) => e.name);
+    if (!names.length) { await noFiles(); return false; }
+    let r = args.path ? { path: args.path, full: !!args.full } : null;
+    if (!r) {
+      r = await formDialog('Save selection to file',
+        `<div class="mc-row"><label for="sel-file">Save the ${names.length === 1 ? 'selected name' : `${names.length} selected names`} to the file:</label>
+           <input id="sel-file" type="text" spellcheck="false" autofocus value="${esc(defaultFile(app, p))}"></div>
+         <label class="mc-check"><input id="sel-full" type="checkbox"> Full paths instead of names</label>
+         <p class="mc-note">One name per line. Load selection from file reads it back.</p>`,
+        (box) => {
+          const path = box.querySelector('#sel-file').value.trim();
+          return path ? { path, full: box.querySelector('#sel-full').checked } : 'Type the name of the file.';
+        }, null, { okLabel: 'Save', kind: 'select-save-file' });
+      if (!r) return false;
+    }
+    const path = app.resolvePath(r.path, isLocal(p.path) ? p.path : app.home);
+    if (!args.overwrite && await go.Select.Exists(path)) {
+      const a = await messageDialog({ Title: 'Save selection to file', Message: `The file ${path} is already there. Replace it?`, Buttons: ['Replace', 'Cancel'], Kind: 'select-overwrite' });
+      if (a !== 'Replace') return false;
+    }
+    try { await go.Select.SaveFile(path, p.path, names, r.full); }
+    catch (e) { await messageDialog({ Title: 'Save selection to file', Message: errText(e), Kind: 'select-error' }); return false; }
+    app.flash(`Saved ${names.length === 1 ? '1 name' : `${names.length} names`} to ${path}.`);
+    const dir = path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')));
+    for (const q of app.panels) if (q.path === dir) q.reload();
+    return true;
+  },
+});
+
+command({
+  name: 'cm_LoadSelectionFromFile', label: 'Load selection from file…',
+  run: async (app, args = {}) => {
+    const p = app.cur;
+    let file = args.path || null;
+    if (!file) {
+      file = await inputDialog({ title: 'Load selection from file', label: 'Select the names listed in the file:', value: defaultFile(app, p),
+        okLabel: 'Load', note: 'A line can be a name, a full path in this folder, or a mask such as *.jpg.', kind: 'select-load-file',
+        validate: (v) => (v.trim() ? '' : 'Type the name of the file.') });
+      if (!file) return false;
+    }
+    const path = app.resolvePath(file, isLocal(p.path) ? p.path : app.home);
+    try { mark(p, await go.Select.LoadFile(path, p.path, rows(app, p))); }
+    catch (e) { await messageDialog({ Title: 'Load selection from file', Message: errText(e), Kind: 'select-error' }); return false; }
+    return true;
+  },
+});
+
+command({
+  name: 'cm_LoadSelectionFromClip', label: 'Load selection from clipboard',
+  run: async (app) => {
+    const p = app.cur;
+    try { mark(p, await go.Select.LoadClip(p.path, rows(app, p))); }
+    catch (e) { app.flash(errText(e), 'err'); return false; }
+    return true;
+  },
+});
+
+// ---- copy names to the clipboard ----
+
+function copyNames(name, label, extra = {}) {
+  command({
+    name, label, ...extra,
+    run: async (app) => {
+      const p = app.cur;
+      const list = p.targets();
+      if (!list.length) { await noFiles(); return false; }
+      try { await go.Select.CopyNames(name, p.path, rows(app, p, list, /Details/.test(name))); }
+      catch (e) { app.flash(errText(e), 'err'); return false; }
+      app.flash(list.length === 1 ? `Copied ${list[0].name} to the clipboard.` : `Copied ${list.length} names to the clipboard.`);
+      return true;
+    },
+  });
+}
+copyNames('cm_CopyNamesToClip', 'Copy names to clipboard');
+copyNames('cm_CopyFullNamesToClip', 'Copy names with full path');
+copyNames('cm_CopyDetailsToClip', 'Copy names with details');
+copyNames('cm_CopyFullDetailsToClip', 'Copy full names with details', { menu: 'Mark', menuAfter: 'cm_CopyDetailsToClip' });
+copyNames('cm_CopyNetNamesToClip', 'Copy names with network path', { menu: 'Mark', menuAfter: 'cm_CopyFullDetailsToClip' });
+copyNames('cm_CopyUnixNamesToClip', 'Copy names as Unix paths', { menu: 'Mark', menuAfter: 'cm_CopyNetNamesToClip' });
+copyNames('cm_CopyURLNamesToClip', 'Copy names as file URLs', { menu: 'Mark', menuAfter: 'cm_CopyUnixNamesToClip' });
+
+async function copyPath(app, p) {
+  try { const t = await go.Select.CopyPath(p.path); app.flash(`Copied ${t} to the clipboard.`); return true; }
+  catch (e) { app.flash(errText(e), 'err'); return false; }
+}
+command({ name: 'cm_CopySrcPathToClip', label: 'Copy folder path', run: (app) => copyPath(app, app.cur) });
+command({ name: 'cm_CopyTrgPathToClip', label: 'Copy target folder path', run: (app) => copyPath(app, app.other), menu: 'Mark', menuAfter: 'cm_CopySrcPathToClip' });
+
+// ---- compare folders (Shift+F2) ----
+
+// compareDirs selects, in both panels, the files that are newer or missing on the other side (and files of the same
+// date but another size); with subdirs also the folders whose contents differ. A slow compare shows a box with Cancel.
+async function compareDirs(app, subdirs) {
+  const L = app.left, R = app.right;
+  let closeBox = null;
+  const timer = setTimeout(() => {
+    modal((box, done) => {
+      closeBox = () => done('done');
+      box.innerHTML = `<h2>Compare folders</h2><p class="mc-msg">Comparing ${esc(L.path)} with ${esc(R.path)}…</p>
+        <div class="mc-btns"><button type="button" class="primary">Cancel</button></div>`;
+      box.querySelector('button').onclick = () => done('cancel');
+      box.onsubmit = (ev) => { ev.preventDefault(); done('cancel'); };
+    }, 'cancel', { kind: 'select-compare-progress' }).then((v) => { if (v === 'cancel') go.Select.CancelCompare(); });
+  }, 400);
+  let r;
+  try {
+    r = await go.Select.Compare(L.path, R.path, rows(app, L), rows(app, R), subdirs, !!app.setting('compareIgnoreHourShift', false));
+  } catch (e) {
+    app.flash(errText(e), 'err');
+    return false;
+  } finally {
+    clearTimeout(timer);
+    closeBox?.();
+  }
+  if (r.cancelled) { app.flash('Compare cancelled.'); return false; }
+  for (const [p, names] of [[L, r.left], [R, r.right]]) {
+    const set = new Set(names);
+    for (const e of p.entries) if (!e.up) p.select(e, set.has(e.name));
+    p.selectionChanged();
+  }
+  if (r.warning) app.flash(r.warning, 'err');
+  if (!r.left.length && !r.right.length) {
+    await messageDialog({ Title: 'Compare folders', Message: 'No differences found.', Kind: 'select-compare-result' });
+  } else {
+    app.flash(`Selected ${r.left.length} in the left panel and ${r.right.length} in the right panel.`);
+  }
+  return true;
+}
+command({ name: 'cm_CompareDirs', label: 'Compare folders', run: (app) => compareDirs(app, false) });
+command({ name: 'cm_CompareDirsWithSubdirs', label: 'Compare folders with subfolders', run: (app) => compareDirs(app, true) });
+
+// control mode: the selected names of both panels and the mask history, for tests
+addControlCommand('selection', async () => {
+  const a = theApp;
+  return {
+    ok: true,
+    left: a.left.selectedEntries().map((e) => e.name),
+    right: a.right.selectedEntries().map((e) => e.name),
+    saved: { left: [...a.left.saved], right: [...a.right.saved] },
+    history: a.setting('selectHistory', []),
+    filters: a.setting('selectFilters', {}),
+  };
 });
 
 export function init(app) {
