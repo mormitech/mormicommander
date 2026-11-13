@@ -36,6 +36,12 @@ func Volumes() []Volume {
 		}
 		out = append(out, Volume{Name: name, Path: "/", Kind: "fixed", Total: v.Total, Free: v.Available})
 	}
+	// The home folder comes right after the startup disk, as on Linux: it is where users go most.
+	if home, err := os.UserHomeDir(); err == nil {
+		if u, err := UsageOf(home); err == nil {
+			out = append(out, Volume{Name: "Home", Path: home, Kind: "home", Total: u.Total, Free: u.Free})
+		}
+	}
 	entries, _ := os.ReadDir("/Volumes")
 	for _, e := range entries {
 		p := filepath.Join("/Volumes", e.Name())

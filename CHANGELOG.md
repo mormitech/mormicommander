@@ -4,6 +4,13 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## Unreleased
+
+### Added
+
+- A Home drive button for your home folder (~): after the startup disk on macOS and Linux, after the drive letters
+  on Windows. It is highlighted while a panel is anywhere inside your home folder, and ~ picks it in the drive list.
+
 ## 0.9.0 – 2026-11-13
 
 ### Added

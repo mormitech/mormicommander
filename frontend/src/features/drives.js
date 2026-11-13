@@ -9,11 +9,11 @@ async function openDrives(app, panel) {
   await app.loadVolumes();
   const vols = app.volumes;
   if (!vols.length) { app.flash('No drives found.'); return false; }
-  const on = app.volumeFor(panel.path);
+  const on = app.driveFor(panel.path);
   const items = vols.map((v) => ({
     label: v.label ? `${v.name} ${v.label}` : v.name,
     detail: v.total ? `${size(v.free)} free of ${size(v.total)}` : v.path,
-    key: app.platform === 'windows' ? v.name[0] : '',
+    key: v.kind === 'home' ? '~' : app.platform === 'windows' ? v.name[0] : '',
     value: v,
   }));
   const r = await showList({ title: `Drive for the ${panel.side} panel`, items, anchor: panel.$.drives, index: Math.max(0, vols.indexOf(on)), kind: 'drives' });

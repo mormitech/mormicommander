@@ -455,7 +455,7 @@ export class Panel {
 
   // renderDrives draws the drive bar: one button per volume, the one the panel is on highlighted.
   renderDrives(volumes, currentPath) {
-    const on = this.app.volumeFor(currentPath ?? this.path);
+    const on = this.app.driveFor(currentPath ?? this.path);
     this.$.drives.innerHTML = volumes.map((v, i) => `<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('');
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');

@@ -14,6 +14,7 @@
 package disk
 
 import (
+	"os"
 	"time"
 
 	"golang.org/x/sys/windows"
@@ -106,8 +107,22 @@ func Volumes() []Volume {
 				v.Total, v.Free = a.total, a.avail
 			}
 		case <-deadline.C:
-			return out
+			return withHome(out)
 		}
 	}
-	return out
+	return withHome(out)
+}
+
+// withHome adds the user's folder (C:\Users\<name>) after the drive letters: the letters keep Total Commander's
+// order and keys, and Home is one click away as on macOS and Linux.
+func withHome(out []Volume) []Volume {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return out
+	}
+	v := Volume{Name: "Home", Path: home, Kind: "home"}
+	if u, err := UsageOf(home); err == nil {
+		v.Total, v.Free = u.Total, u.Free
+	}
+	return append(out, v)
 }

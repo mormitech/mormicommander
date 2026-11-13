@@ -130,6 +130,17 @@ export const app = {
     return best;
   },
 
+  // driveFor is the drive bar button to highlight for a path: Home while inside the home folder, else its volume.
+  driveFor(p) {
+    const home = this.volumes.find((v) => v.kind === 'home');
+    if (home) {
+      const root = home.path, win = this.platform === 'windows';
+      const a = win ? p.toLowerCase() : p, r = win ? root.toLowerCase() : root;
+      if (a === r || a.startsWith(r.endsWith('/') || r.endsWith('\\') ? r : r + this.sepFor(root))) return home;
+    }
+    return this.volumeFor(p);
+  },
+
   async loadVolumes() {
     try { this.volumes = (await go.FS.Volumes()) || []; } catch { this.volumes = []; }
     for (const p of this.panels) p.renderDrives(this.volumes);
