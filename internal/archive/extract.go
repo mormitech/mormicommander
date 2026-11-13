@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mormicommander/internal/robust"
 	"os"
 	"path"
 	"path/filepath"
@@ -371,7 +372,7 @@ func (x *extractor) writeFile(e Entry, target string, existing os.FileInfo) (int
 		// and Windows refuses to rename over a read-only file.
 		_ = os.Chmod(target, existing.Mode().Perm()|0o200)
 	}
-	if err := os.Rename(tmpName, target); err != nil {
+	if err := robust.Rename(tmpName, target); err != nil {
 		os.Remove(tmpName)
 		return n, err
 	}

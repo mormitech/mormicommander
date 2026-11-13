@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mormicommander/internal/robust"
 	"os"
 	"path"
 	"path/filepath"
@@ -354,7 +355,7 @@ func Modify(ctx context.Context, archivePath string, ch Changes) error {
 	_ = os.Chmod(tmpName, arcInfo.Mode().Perm())
 	r.Close()
 	rClosed = true
-	if err := os.Rename(tmpName, archivePath); err != nil {
+	if err := robust.Rename(tmpName, archivePath); err != nil {
 		return err
 	}
 	ok = true

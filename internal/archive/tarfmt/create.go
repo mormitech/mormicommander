@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mormicommander/internal/robust"
 	"os"
 	"path"
 	"path/filepath"
@@ -311,7 +312,7 @@ func Create(ctx context.Context, archivePath string, sources []string, opt Creat
 			return fmt.Errorf("tarfmt: new archive failed its test, sources kept: %w", err)
 		}
 	}
-	if err := os.Rename(tmpName, archivePath); err != nil {
+	if err := robust.Rename(tmpName, archivePath); err != nil {
 		return err
 	}
 	ok = true
