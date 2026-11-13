@@ -229,7 +229,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-151 Lister on all selected files — F3 with selection — Lister opens first selected file; N/P keys go to next/previous selected file
 - [ ] F-152 Edit file (cm_Edit) — F4 — file opens in the configured editor (default: OS default text editor; configurable path and args)
 - [ ] F-153 Edit new file (cm_EditNewFile) — Shift+F4 — asks for a file name, creates it if missing and opens it in the editor
-- [ ] F-154 Copy (cm_Copy) — F5 — copy dialog with target = other panel folder; Enter copies
+- [x] F-154 Copy (cm_Copy) — F5 — copy dialog with target = other panel folder; Enter copies
 - [ ] F-155 Copy in same folder / under new name (cm_CopySamepanel) — Shift+F5 — asks for new name; creates copy in the same folder
 - [ ] F-156 Pack files (cm_PackFiles) — Alt+F5 — pack dialog opens with archive name and packer choice
 - [ ] F-157 Move/rename (cm_RenMov) — F6 — move dialog with target other panel; moving within the same disk is instant rename
@@ -283,7 +283,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-202 F2 reread — F2 — cm_RereadSource wired (TC 11: also configurable to rename)
 - [ ] F-203 F3 view — F3 — cm_List wired
 - [ ] F-204 F4 edit — F4 — cm_Edit wired
-- [ ] F-205 F5 copy — F5 — cm_Copy wired
+- [x] F-205 F5 copy — F5 — cm_Copy wired
 - [ ] F-206 F6 move — F6 — cm_RenMov wired
 - [ ] F-207 F7 mkdir — F7 — cm_MkDir wired
 - [ ] F-208 F8 delete — F8 — cm_Delete wired
