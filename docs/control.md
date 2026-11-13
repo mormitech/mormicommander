@@ -118,3 +118,25 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## Find files, quick search and quick filter
+
+The Find files dialog (`cm_SearchFor`, Alt+F7) is a page dialog of kind `find`. Its tabs (General, Advanced, Plugins,
+Load/Save) and actions (Start search, Stop/Cancel, New search, Go to file, View, Edit, Feed to listbox, Copy list,
+Save list…, Load, Save…, Delete…) are buttons; its fields have ids: `ff-for`, `ff-regex`, `ff-in`, `ff-selected`,
+`ff-results`, `ff-depth` (-1 all, 0 current folder, n levels), `ff-archives`, `ff-texton`, `ff-text`, `ff-whole`,
+`ff-case`, `ff-not`, `ff-hex`, `ff-tregex`, `ff-ansi`, `ff-oem`, `ff-utf8`, `ff-utf16le`, `ff-utf16be`, `ff-ansicp`,
+`ff-oemcp`, `ff-dateon`, `ff-from`, `ff-to` (YYYY-MM-DD), `ff-ageon`, `ff-agemode` (newer/older), `ff-agen`, `ff-ageunit`,
+`ff-sizeon`, `ff-sizeop` (= > <), `ff-size`, `ff-sizeunit` (B KB MB GB TB), `ff-attr-r|h|x|l|a|s|c|e` ("", "+", "-"),
+`ff-perms`, `ff-kind` ("", files, dirs), `ff-links`, `ff-skiphidden`, `ff-exclude`, `ff-dupon`, `ff-dupname`,
+`ff-dupsize`, `ff-dupcontent`, `ff-saved`. Answering with no button starts the search. Other kinds: `find-save`
+(field `ff-save-name`, `ff-save-in`), `find-delete`, `find-savelist`, `find-overwrite`.
+
+| Command | Answer |
+|---|---|
+| `{"cmd": "find", "wait": true}` | `open`, `running`, `status` (the status line), `count`, `files`, `folders`, `results` (paths; duplicates as `{path, group}`), `cursor`, `selected`, `feeds` (fed result lists and their base folders). `wait` waits for the running search to end. |
+| `{"cmd": "run", "name": "cm_SearchFor", "args": {"fields": {"ff-for": "*.txt"}, "start": true}}` | opens the dialog with those fields and starts at once |
+| `{"cmd": "quicksearch"}` | the quick search box: `open`, `side`, `text`, `filter` (filter mode), `mode`, `filterText` per panel |
+
+Feed to listbox shows the results in the active panel as the folder `find://results-N` (names relative to the folder
+all results share); file commands work on the real files.

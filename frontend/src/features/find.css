@@ -1,0 +1,74 @@
+/* Find files dialog (find.js) and the quick search box (find-quick.js). Colours come from the tokens in style.css. */
+
+.mc-box.mc-find { width: min(980px, 96vw); max-width: none; height: min(780px, 92vh); display: flex; flex-direction: column; overflow: hidden; padding-bottom: 12px; }
+.mc-find h2 { margin-bottom: 8px; }
+.mc-find input[type=text], .mc-find input[type=number], .mc-find input[type=date], .mc-find select {
+  font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; min-width: 0; }
+.mc-find input.num { width: 7em; }
+.mc-find input.perms { width: 9em; font-family: var(--mono); }
+.mc-find select:disabled, .mc-find input:disabled { opacity: .5; }
+
+.mc-find-top { display: flex; gap: 12px; align-items: flex-start; flex: none; }
+.mc-find-tabs-wrap { flex: 1; min-width: 0; }
+.mc-find-tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--line); }
+.mc-find-tab { border-radius: 6px 6px 0 0; border-bottom: 0; background: transparent; color: var(--muted); padding: 4px 14px; margin-bottom: -1px; }
+.mc-find-tab.on { background: var(--panel); color: var(--text); border-color: var(--line); border-bottom: 1px solid var(--panel); }
+.mc-find-page { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 6px 6px; padding: 10px 10px 6px; height: 262px; overflow: auto; }
+.mc-find-page[hidden] { display: none; }
+.mc-find-line { display: flex; gap: 8px; align-items: center; margin-bottom: 7px; flex-wrap: wrap; }
+.mc-find-line[hidden] { display: none; }
+.mc-find-line > label:first-child:not(.mc-check) { width: 9.5em; flex: none; color: var(--muted); }
+.mc-find-line > input[type=text] { flex: 1; min-width: 12em; }
+.mc-find-line .mc-check { margin: 0; white-space: nowrap; }
+.mc-find-opts { display: flex; gap: 18px; flex-wrap: wrap; margin: -2px 0 7px 9.5em; padding-left: 8px; }
+.mc-find-opts .mc-check { margin: 0; }
+.mc-find-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 14px; margin-left: 9.5em; padding-left: 8px; }
+.mc-find-grid .mc-check { margin: 1px 0; white-space: nowrap; }
+.mc-find-grid .enc select { max-width: 9em; }
+.mc-find-sub { color: var(--muted); margin: 2px 0 4px; }
+.mc-find-attrs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px 12px; margin-bottom: 8px; }
+.mc-find-attr { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.mc-find-attr.off { opacity: .55; }
+.mc-find-saved { display: flex; gap: 10px; }
+.mc-find-saved select { flex: 1; min-height: 150px; }
+.mc-find-col { display: flex; flex-direction: column; gap: 6px; }
+.mc-find-col.main { padding-top: 30px; width: 9em; flex: none; }
+.mc-find-col button { width: 100%; }
+.mc-find-col .primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+
+.mc-find .mc-err { margin: 6px 0 0; }
+.mc-find-list { flex: 1; min-height: 110px; margin-top: 8px; border: 1px solid var(--line); border-radius: 6px; overflow: auto; position: relative; background: var(--bg); outline: none; }
+.mc-find-list:focus-visible { border-color: var(--accent); }
+.mc-find-list .rows { position: absolute; left: 0; right: 0; top: 0; }
+.mc-find-list .r { display: grid; grid-template-columns: minmax(8em, 1.1fr) minmax(0, 2fr) 6.5em 9.5em auto; gap: 10px; align-items: center; height: 20px;
+  padding: 0 8px; white-space: nowrap; cursor: default; }
+.mc-find-list .r span { overflow: hidden; text-overflow: ellipsis; }
+.mc-find-list .r .n { font-weight: 600; }
+.mc-find-list .r .d { color: var(--muted); direction: rtl; text-align: left; } /* (long folders lose their start, not their end) */
+.mc-find-list .r .s { text-align: right; font-variant-numeric: tabular-nums; }
+.mc-find-list .r .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.mc-find-list .r .g { color: var(--muted); font-size: 11px; min-width: 2em; text-align: right; }
+.mc-find-list .r.g1 { background: var(--row-alt); }
+.mc-find-list .r.gs { border-top: 1px solid var(--line); }
+.mc-find-list .r.sel { color: var(--sel); }
+.mc-find-list .r.cur { background: var(--cur-off); }
+.mc-find-list:focus .r.cur { background: var(--cur); }
+.mc-find-list .empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); }
+.mc-find-list .empty[hidden] { display: none; }
+.mc-find-status { flex: none; margin: 6px 0 4px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
+.mc-find-actions { flex: none; display: flex; flex-wrap: wrap; gap: 6px; }
+.mc-find-actions button { padding: 4px 12px; }
+
+@media (max-width: 640px) {
+  .mc-find-top { flex-direction: column; }
+  .mc-find-col.main { flex-direction: row; padding-top: 0; width: 100%; }
+  .mc-find-line > label:first-child:not(.mc-check) { width: auto; }
+  .mc-find-opts, .mc-find-grid { margin-left: 0; padding-left: 0; }
+  .mc-find-grid, .mc-find-attrs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* the quick search box under a panel's list */
+.mc-find-qs { display: flex; gap: 6px; align-items: center; padding: 2px 8px; font-size: 12px; background: var(--panel); border-top: 1px solid var(--accent); }
+.mc-find-qs .l { color: var(--muted); }
+.mc-find-qs .t { font-weight: 600; white-space: pre; min-width: 1ch; border-right: 1px solid var(--text); padding-right: 1px; }
+.mc-find-qs.filter { border-top-color: var(--sel); }
