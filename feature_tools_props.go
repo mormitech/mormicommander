@@ -217,6 +217,9 @@ func (t *Tools) Space(id string, paths []string) (ToolsSpace, error) {
 	defer end()
 	progress := t.toolsProgress(id)
 	opts := dirsize.Options{
+		// A folder's size is what is in it on its own volume: other volumes mounted inside it are not counted (like
+		// "du -x"), and links are not followed, so nothing is counted twice.
+		SameVolume: true,
 		Progress: func(p dirsize.Progress) {
 			progress(map[string]any{"current": p.Current, "item": p.Item, "itemsDone": p.ItemsDone, "itemsTotal": p.ItemsTotal,
 				"bytes": p.Bytes, "allocated": p.Allocated, "files": p.Files, "dirs": p.Dirs, "errors": p.Errors})

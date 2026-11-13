@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.14 – 2026-11-13
+
+### Fixed
+
+- Folder sizes no longer count anything twice: the count stays on the folder's own volume (other volumes mounted
+  inside it are left out, like "du -x"), links are not followed, and on macOS /System/Volumes/Data is skipped because
+  its folders are the same ones you see as /Users, /Applications and so on. /System went from 310 GB to its real 34 GB.
+
 ## 0.9.13 – 2026-11-13
 
 ### Changed

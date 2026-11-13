@@ -50,6 +50,7 @@ type walker struct {
 
 	checkDev bool
 	rootDev  uint64
+	root     string // the path being calculated (for isAliasDir)
 
 	mu      sync.Mutex
 	links   map[fileID]linkInfo
@@ -74,6 +75,7 @@ func newWalker(ctx context.Context, opts Options) *walker {
 func (w *walker) run(path string) Result {
 	start := time.Now()
 	r := Result{Path: path}
+	w.root = path
 	w.current.Store(&path)
 	fi, err := os.Stat(path)
 	if err != nil {
@@ -260,6 +262,10 @@ func (w *walker) enterDir(p string, fi fs.FileInfo, viaLink bool) (string, bool)
 				return "", false
 			}
 		}
+	}
+	if isAliasDir(p, w.root) {
+		w.skip(p) // (the same folders are counted under their other names)
+		return "", false
 	}
 	w.c.dirs.Add(1)
 	if w.checkDev && fi != nil {
