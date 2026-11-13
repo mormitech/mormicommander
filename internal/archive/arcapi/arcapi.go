@@ -1,4 +1,4 @@
-// Package archive holds the small, format-neutral contract that every archive
+// Package arcapi holds the small, format-neutral contract that every archive
 // engine in mormiCommander (tar, zip, 7z, rar, ...) implements, so the panels
 // can show the inside of an archive like a folder and the job engine can copy
 // files out of it without knowing which format it is dealing with. The
@@ -6,8 +6,11 @@
 // and a close call. Format packages add their own extras (creating, adding,
 // deleting, testing) on top, and the UI reaches those through the concrete
 // type. Keeping this file tiny makes it easy for the parallel engine
-// branches to agree on it without merge pain.
-package archive
+// branches to agree on it without merge pain. (It was merged in as
+// internal/archive/iface.go and moved here because the zip branch defined a
+// richer, conflicting contract in internal/archive itself; tarfmt imports it
+// under the name "archive".)
+package arcapi
 
 import (
 	"context"

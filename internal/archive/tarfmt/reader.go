@@ -26,7 +26,7 @@ import (
 	"sync"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 // ErrFormat is returned when a file is not an archive this package handles.

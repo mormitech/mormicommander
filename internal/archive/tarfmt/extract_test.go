@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 func extractAll(t *testing.T, ms []member, opt archive.ExtractOptions, names ...string) (string, error) {

@@ -24,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 // CreateOptions are the settings of the pack dialog.
