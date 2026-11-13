@@ -89,14 +89,18 @@ func Complete(line string, o CompleteOptions) ([]Completion, error) {
 	if i := strings.LastIndexAny(word, sepChars(st)); i >= 0 {
 		typedDir, prefix = word[:i+1], word[i+1:]
 	}
-	dir := typedDir
+	// Cwd and Home are host paths, so they are joined with the typed rest
+	// rather than glued and re-parsed as typed text.
+	var dir string
 	switch {
-	case strings.HasPrefix(dir, "~") && o.Home != "":
-		dir = o.Home + dir[1:]
-	case dir == "":
-		dir = o.Cwd
+	case o.Home != "" && (typedDir == "~" || strings.HasPrefix(typedDir, "~") &&
+		strings.ContainsRune(sepChars(st), rune(typedDir[1]))):
+		dir = JoinPath(o.Home, strings.TrimLeft(typedDir[1:], sepChars(st)), st)
+	case strings.HasPrefix(typedDir, "~") && o.Home != "":
+		dir = JoinPath(o.Cwd, o.Home+typedDir[1:], st)
+	default:
+		dir = JoinPath(o.Cwd, typedDir, st)
 	}
-	dir = JoinPath(o.Cwd, dir, st)
 	entries, err := read(dir)
 	if err != nil {
 		return nil, err

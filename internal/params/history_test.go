@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -61,7 +62,11 @@ func TestComplete(t *testing.T) {
 	}
 	os.WriteFile(filepath.Join(dir, "doc.txt"), nil, 0o644)
 	os.WriteFile(filepath.Join(dir, "My Dir", "inner.go"), nil, 0o644)
-	os.Symlink(filepath.Join(dir, "Docs"), filepath.Join(dir, "dlink"))
+	// Creating symlinks on Windows needs a privilege CI may not have.
+	cdWant := []string{"cd docker/", "cd Docs/"}
+	if os.Symlink(filepath.Join(dir, "Docs"), filepath.Join(dir, "dlink")) == nil {
+		cdWant = append([]string{"cd dlink/"}, cdWant...)
+	}
 	o := CompleteOptions{Cwd: dir, Home: dir, Style: StylePOSIX}
 	lines := func(cs []Completion) []string {
 		var out []string
@@ -75,14 +80,21 @@ func TestComplete(t *testing.T) {
 		want []string
 	}{
 		{"vi do", []string{"vi doc.txt", "vi docker/", "vi Docs/"}},
-		{"cd d", []string{"cd dlink/", "cd docker/", "cd Docs/"}},
+		{"cd d", cdWant},
 		{"vi my", []string{"vi 'My Dir/'"}},
 		{"vi 'My Dir/in", []string{"vi 'My Dir/inner.go'"}},
 		{`vi My\ Dir/`, []string{"vi 'My Dir/inner.go'"}},
 		{"ls ~/my", []string{"ls ~/'My Dir/'"}},
 		{"ls .h", []string{"ls .hidden/"}},
-		{"ls " + dir + "/Docs", []string{"ls " + Quote(dir+"/Docs/", StylePOSIX)}},
 		{"ls zzz", nil},
+	}
+	// A POSIX-style absolute path only exists where the temp folder is one;
+	// a Windows "C:\..." folder cannot be typed in POSIX syntax.
+	if runtime.GOOS != "windows" {
+		cases = append(cases, struct {
+			line string
+			want []string
+		}{"ls " + dir + "/Docs", []string{"ls " + Quote(dir+"/Docs/", StylePOSIX)}})
 	}
 	for _, c := range cases {
 		got, err := Complete(c.line, o)

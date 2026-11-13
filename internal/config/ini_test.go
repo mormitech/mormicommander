@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 )
 
@@ -212,7 +213,8 @@ func TestSaveKeepsEncodingAndUpgrades(t *testing.T) {
 		t.Fatalf("saved %q want %q", data, want)
 	}
 	st, _ := os.Stat(p)
-	if st.Mode().Perm() != 0o600 {
+	// Windows has no Unix permission bits (files report 0666/0444).
+	if runtime.GOOS != "windows" && st.Mode().Perm() != 0o600 {
 		t.Errorf("mode changed to %v", st.Mode().Perm())
 	}
 	// A character outside the code page switches to UTF-16LE like TC.

@@ -14,6 +14,7 @@ func TestBuild(t *testing.T) {
 	os.WriteFile(filepath.Join(dir, "b.txt"), []byte("12345"), 0o644)
 	os.WriteFile(filepath.Join(dir, "a.go"), []byte("1"), 0o644)
 	os.WriteFile(filepath.Join(dir, ".dot"), nil, 0o644)
+	markHidden(t, filepath.Join(dir, ".dot"))
 	os.Mkdir(filepath.Join(dir, "zdir"), 0o755)
 	items, err := ReadDir(dir)
 	if err != nil {

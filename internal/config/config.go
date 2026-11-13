@@ -245,8 +245,13 @@ func (c *Config) Expand(s string) string { return c.Vars.Expand(s) }
 // Path expands s and makes it absolute relative to the settings folder.
 func (c *Config) Path(s string) string {
 	s = c.Expand(s)
-	if s == "" || filepath.IsAbs(s) || strings.HasPrefix(s, `\\`) {
+	if s == "" {
 		return s
+	}
+	if filepath.IsAbs(s) || strings.HasPrefix(s, `\\`) {
+		// A variable such as %COMMANDER_PATH%/x yields mixed separators;
+		// normalise them (a no-op on Unix).
+		return filepath.FromSlash(s)
 	}
 	return filepath.Join(c.Loc.Dir, s)
 }

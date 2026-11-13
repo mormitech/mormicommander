@@ -9,6 +9,7 @@ package launch
 import (
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -181,6 +182,11 @@ func (l *Launcher) desktopCommand(e DesktopEntry, location string, files []strin
 		dir := ""
 		if len(files) > 0 {
 			dir = filepath.Dir(files[0])
+			if l.OS != "windows" {
+				// Desktop entries are a freedesktop (Unix) mechanism, so the files are slash paths whatever the
+				// host; this equals filepath.Dir on Unix.
+				dir = path.Dir(files[0])
+			}
 		}
 		return l.terminalArgvCommand(dir, argv)
 	}

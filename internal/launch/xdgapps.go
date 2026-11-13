@@ -31,11 +31,13 @@ func (e xdgEnv) dataDirs() []string {
 	} else if e.home() != "" {
 		out = append(out, filepath.Join(e.home(), ".local", "share"))
 	}
-	dd := e.getenv("XDG_DATA_DIRS")
-	if dd == "" {
-		dd = "/usr/local/share:/usr/share"
+	// The list separator is ':' on Unix (as the XDG spec says) and ';' on
+	// Windows, where ':' is part of a drive letter.
+	dds := filepath.SplitList(e.getenv("XDG_DATA_DIRS"))
+	if len(dds) == 0 {
+		dds = []string{"/usr/local/share", "/usr/share"}
 	}
-	for _, d := range strings.Split(dd, ":") {
+	for _, d := range dds {
 		if d != "" {
 			out = append(out, d)
 		}
@@ -50,11 +52,13 @@ func (e xdgEnv) configDirs() []string {
 	} else if e.home() != "" {
 		out = append(out, filepath.Join(e.home(), ".config"))
 	}
-	cd := e.getenv("XDG_CONFIG_DIRS")
-	if cd == "" {
-		cd = "/etc/xdg"
+	// The list separator is ':' on Unix (as the XDG spec says) and ';' on
+	// Windows, where ':' is part of a drive letter.
+	cds := filepath.SplitList(e.getenv("XDG_CONFIG_DIRS"))
+	if len(cds) == 0 {
+		cds = []string{"/etc/xdg"}
 	}
-	for _, d := range strings.Split(cd, ":") {
+	for _, d := range cds {
 		if d != "" {
 			out = append(out, d)
 		}
