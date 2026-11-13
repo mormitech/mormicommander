@@ -15,7 +15,8 @@ export { esc };
 
 const open = []; // the dialogs on screen, last = top
 
-// modal shows a box; build fills it and gets done(value) to close it with an answer.
+// modal shows a box; build fills it and gets done(value) to close it with an answer. meta: {kind} for control mode,
+// and optionally onKey(ev) → true when the dialog handles a key itself (keys don't reach elements inside otherwise).
 export function modal(build, cancelValue, meta = {}) {
   return waitForUser(new Promise((resolve) => {
     const prevFocus = document.activeElement;
@@ -42,6 +43,8 @@ export function modal(build, cancelValue, meta = {}) {
     entry.cancel = () => done(cancelValue);
     const key = (ev) => {
       if (open[open.length - 1] !== entry) return;
+      // meta.onKey(ev) → true: the dialog used the key itself (F2 Queue in the copy dialog, a dropdown's Esc)
+      if (meta.onKey?.(ev)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); done(cancelValue); return; }
       ev.stopImmediatePropagation(); // the panels' keys are not for it while a dialog is open
     };

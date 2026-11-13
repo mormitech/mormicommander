@@ -1,0 +1,40 @@
+/* File jobs: progress box, overwrite question, background transfer window, background indicator (core/jobs.js). */
+.mc-jobs-progress { width: min(520px, 92vw); }
+.mc-jobs-progress .mc-msg { margin-bottom: 4px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-jobs-path { margin: 0 0 8px; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
+.mc-jobs-bar { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 6px 0; }
+.mc-jobs-bar[hidden] { display: none; }
+.mc-jobs-bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
+.mc-jobs-bar.cur i { background: color-mix(in srgb, var(--accent) 60%, var(--text)); }
+
+.mc-jobs-overwrite { width: min(600px, 94vw); }
+.mc-jobs-file { display: grid; gap: 2px; margin: 0 0 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; }
+.mc-jobs-file .l { color: var(--muted); font-size: 12px; }
+.mc-jobs-file .p { overflow-wrap: anywhere; user-select: text; }
+.mc-jobs-file .i { font-variant-numeric: tabular-nums; color: var(--muted); }
+.mc-jobs-file .newer { color: var(--text); font-weight: 600; }
+.mc-jobs-same { margin: 0 0 10px; font-weight: 600; }
+.mc-jobs-same.eq { color: var(--accent); }
+.mc-jobs-same.ne { color: var(--danger); }
+.mc-jobs-overwrite .mc-btns { justify-content: flex-start; margin-top: 4px; }
+.mc-jobs-overwrite .mc-btns button { padding: 4px 10px; }
+.mc-jobs-morebox[hidden] { display: none; }
+
+.mc-jobs-transfers { width: min(640px, 94vw); }
+.mc-jobs-list { border: 1px solid var(--line); border-radius: 6px; max-height: 240px; min-height: 60px; overflow: auto; margin-bottom: 8px; }
+.mc-jobs-row { display: grid; grid-template-columns: 90px minmax(0, 1fr) 130px 44px 76px; gap: 8px; padding: 3px 8px; cursor: default; white-space: nowrap; }
+.mc-jobs-row > span { overflow: hidden; text-overflow: ellipsis; }
+.mc-jobs-row .pc, .mc-jobs-row .sp { text-align: right; font-variant-numeric: tabular-nums; color: var(--muted); }
+.mc-jobs-row .s { color: var(--muted); }
+.mc-jobs-row.on { background: var(--cur); }
+.mc-jobs-row.st-asking .s { color: var(--sel); font-weight: 600; }
+.mc-jobs-row.st-failed .s { color: var(--danger); }
+.mc-jobs-limit { display: flex; align-items: center; gap: 8px; margin: 4px 0 8px; }
+.mc-jobs-limit input[type=text] { width: 90px; padding: 4px 6px; }
+
+.mc-jobs-indicator { position: fixed; right: 12px; bottom: 44px; z-index: 40; padding: 4px 12px; border-radius: 14px; border: 1px solid var(--accent);
+    background: var(--panel); color: var(--text); font: inherit; font-size: 12px; box-shadow: 0 4px 14px #0005; cursor: pointer; }
+.mc-jobs-indicator[hidden] { display: none; }
+.mc-jobs-indicator.asking { border-color: var(--sel); color: var(--sel); }
+@media (prefers-reduced-motion: reduce) { .mc-jobs-bar i { transition: none; } }
+@media (max-width: 520px) { .mc-jobs-row { grid-template-columns: 70px minmax(0, 1fr) 80px 40px; } .mc-jobs-row .sp { display: none; } }

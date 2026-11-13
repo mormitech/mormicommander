@@ -1,0 +1,21 @@
+/* Copy/move dialog, new folder dialog, their dropdowns, and the inline rename editor (features/fileops.js). */
+.mc-fileops-copy { width: min(560px, 94vw); }
+.mc-fileops-mkdir { width: min(460px, 94vw); }
+.mc-fileops-copy label.mc-msg { margin: 0 0 2px; color: var(--text); font-size: 13px; }
+.mc-fileops-field { display: flex; gap: 4px; position: relative; }
+.mc-fileops-field input { flex: 1; min-width: 0; padding: 5px 7px; }
+.mc-fileops-hist { padding: 0 8px; }
+.mc-fileops-drop { border: 1px solid var(--line); border-radius: 6px; max-height: 210px; overflow: auto; margin: 4px 0 8px; background: var(--bg); }
+.mc-fileops-drop[hidden] { display: none; }
+.mc-fileops-drop .t { padding: 3px 8px; color: var(--muted); font-size: 12px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.mc-fileops-drop .it { display: flex; justify-content: space-between; gap: 12px; padding: 3px 8px; cursor: default; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-fileops-drop .it .d { color: var(--muted); font-size: 12px; }
+.mc-fileops-drop .it.on, .mc-fileops-drop .it:hover { background: var(--cur); }
+.mc-fileops-drop .none { padding: 6px 8px; color: var(--muted); }
+.mc-fileops-opts[hidden] { display: none; }
+.mc-fileops-checks { display: grid; gap: 2px; margin-bottom: 6px; }
+.mc-fileops-gap { flex: 1; }
+.mc-fileops-copy .mc-btns { justify-content: flex-start; }
+
+.mc-fileops-rename { position: absolute; z-index: 5; box-sizing: border-box; margin: 0; padding: 0 3px; font: inherit; color: var(--text);
+    background: var(--panel); border: 1px solid var(--accent); border-radius: 3px; outline: none; }
