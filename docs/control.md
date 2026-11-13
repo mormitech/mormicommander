@@ -271,3 +271,23 @@ and the TC import take queued `answer`s of kind `savefile` and `openfile`. Comma
 `{path}`, `cm_DirectoryHotlist` `{panel, search}`, `cm_DirectoryHistory` `{panel}`. Everything is stored in
 `folders.ini` in the settings folder (TC's `[DirMenu]`, `[lefttabs]`, `[righttabs]`, `[LeftHistory]`, `[RightHistory]`,
 `[FrequentDirs]`, `[FavoriteTab <name>]`).
+
+## Files-menu tools
+
+The tools of features/tools.js (attributes, properties, occupied space, checksums, split/combine, encode/decode, links)
+use page dialogs, so `dialog` / `dialog_answer` read and answer them. Dialog kinds: `attributes`, `properties`,
+`tools-space` (Ctrl+L result), `crc-create`, `crc-verify`, `crc-clip`, `split`, `split-small`, `combine`, `encode`,
+`decode`, `decode-warnings`, `create-link` (cm_CreateSymbolicLink / cm_CreateHardLink), `create-links` (Ctrl+Shift+F5),
+`tools-progress` (a long operation: button Cancel), `tools-overwrite` (Overwrite, Cancel), `tools-error`, `tools-failed`.
+
+In `attributes`, every three-state box `perm-<octal bit>` (perm-400 … perm-4000), `attr-<bit>` (Windows) and `hidden`
+(macOS) has a twin field `<id>-state` with `on`, `off` or `mixed`; answering the box with true/false sets on/off,
+answering the twin can also set `mixed` (leave alone). Dates: `set-modified` + `modified` (`2026-10-14T09:30:00`), the
+same for `created` and `accessed`.
+
+| command | answer |
+|---|---|
+| `{"cmd": "tools"}` | `{counting: [{side, path, names}]}`: folder sizes being counted (Space on a folder, Alt+Shift+Enter) |
+
+Settings: `countSpace` (default true: Space on a folder counts its size, TC's CountSpace); the dialogs remember their
+choices under `tools`.
