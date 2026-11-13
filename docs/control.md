@@ -118,3 +118,22 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## Synchronize folders and Compare by content
+
+- The Synchronize folders window (`cm_SyncDirs`, args `{left, right, options, show, profile, compare: true}`) is a
+  dialog of kind `syncdirs`. Fields: `sync-left`, `sync-right`, `sync-filter`, `sync-subdirs`, `sync-content`,
+  `sync-ignoredate`, `sync-asym`, `sync-emptydirs`, `sync-fat`, `sync-hour`, `sync-onlysel`, and the Show buttons
+  `sync-show-leftToRight`, `-equal`, `-unequal`, `-rightToLeft`, `-duplicates`, `-singles`. Buttons: `Compare` (`Stop`
+  while comparing), `Synchronize…`, `Close`. `{"cmd": "syncdirs"}` returns the rows (`path`, `category`, `action`,
+  `unselected`…), the summary, the cursor and the selected rows; `{"cmd": "syncdirs", "op": "cursor", "path": "a.txt"}`
+  moves the cursor to a row and focuses the list, so keys (Ctrl+Right, Delete, Enter, Shift+F10…) act on it. A row's
+  arrow is `.mc-sync-row[data-path="a.txt"] .mc-sync-act` for `click`. The Synchronize dialog has kind
+  `syncdirs-confirm` (fields `sync-do-lr`, `sync-do-rl`, `sync-do-del`, `sync-confirm`, `sync-trash`), the progress
+  `syncdirs-progress`, the overwrite question `overwrite`, right-click menus `menu` (buttons are the menu items).
+- The Compare by content window (`cm_CompareFilesByContent`, args `{left, right, internal: true}`) is a dialog of kind
+  `compare`; fields `cmp-case`, `cmp-ws`, `cmp-rep`, `cmp-bin`, `cmp-edit`, `cmp-left`, `cmp-right`, `cmp-enc-left`,
+  `cmp-enc-right`, and `cmp-line` while a line is edited. `{"cmd": "compare"}` returns its state (current difference,
+  row, side, modified sides, encodings, the rows around the cursor).
+- Compare folders (`cm_CompareDirs`, `cm_CompareDirsWithSubdirs`, `cm_CompareDirsHideEqual`) selects in both panels;
+  "No differences found." is a dialog of kind `comparedirs`.
