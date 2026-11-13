@@ -137,3 +137,16 @@ Pause/Continue, Start now, Stop job, Clear finished, Close).
 | `{"cmd": "rename_editor"}` | the inline rename editor of Shift+F6: `open`, `name`, `value`, `selection` [start, end], `mode` (0 name, 1 extension, 2 all), `side`. Type into it with `key` / `type`; Enter renames, Esc cancels |
 | `{"cmd": "transfers"}` | every job the page knows (Progress fields plus `title`, `background`, `sources`) |
 | `{"cmd": "jobs"}` | (Go side) the engine's list of jobs |
+
+## Archives and server folders (features/vfs.js)
+
+| Command | Answer |
+|---|---|
+| `{"cmd": "vfs"}` | `left` / `right`: what each panel shows (`kind`: local, archive, ftp, sftp; `format`, `archive`, `inner`, `readOnly`, `remote`, `nested`), and `packers` (the Pack dialog's list with what each can do) |
+
+Dialog kinds: `pack` (fields `mc-pack-target`, `mc-pack-format`, `mc-pack-level`, `mc-pack-paths`, `mc-pack-recurse`,
+`mc-pack-split`, `mc-pack-size`, `mc-pack-move`, `mc-pack-separate`, `mc-pack-encrypt`, `mc-pack-cipher`,
+`mc-pack-password`, `mc-pack-password2`), `unpack` (`mc-unpack-target`, `mc-unpack-mask`, `mc-unpack-paths`,
+`mc-unpack-overwrite`, `mc-unpack-separate`), `password` (`mc-password`, asked by encrypted archives), `test-report`.
+`cm_PackFiles`, `cm_UnpackFiles` also take their options as run arguments with `"noDialog": true` (for example
+`{"cmd": "run", "name": "cm_PackFiles", "args": {"noDialog": true, "format": "tar.gz", "target": "/tmp/x/a.tgz"}}`).

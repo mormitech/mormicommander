@@ -22,6 +22,12 @@ import { size, date, bytes, plural } from './format.js';
 import { track } from './busy.js';
 import { app } from './app.js';
 
+// Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
+// job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
+export const jobBackends = [];
+const backendOf = new Map(); // job number -> backend
+const cancelJob = (id) => (backendOf.get(id) ? backendOf.get(id).cancel(id) : go.Jobs.Cancel(id));
+
 const jobs = new Map(); // id → record {id, req, title, p, background, done, resolve, ui}
 const subs = new Set();
 let listening = false;
@@ -73,8 +79,8 @@ export async function refreshJobs() {
   notify();
 }
 
-const VERB = { copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash', wipe: 'Wiping' };
-const KIND = { copy: 'Copy', move: 'Move', delete: 'Delete', trash: 'Trash', wipe: 'Wipe' };
+const VERB = { copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash', wipe: 'Wiping', pack: 'Packing', unpack: 'Unpacking', test: 'Testing archives' };
+const KIND = { copy: 'Copy', move: 'Move', delete: 'Delete', trash: 'Trash', wipe: 'Wipe', pack: 'Pack', unpack: 'Unpack', test: 'Test' };
 const STATE = { queued: 'Waiting', running: 'Running', paused: 'Paused', asking: 'Waiting for an answer', done: 'Done', failed: 'Done with errors', cancelled: 'Stopped' };
 const base = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || p || '';
 
@@ -101,7 +107,12 @@ export function eta(s) {
 export function runJob(req, { title, background = false } = {}) {
   listen();
   const started = (async () => {
-    const id = await go.Jobs.Start(req).catch((e) => { throw new Error(errText(e)); });
+    let id = 0;
+    for (const b of jobBackends) {
+      id = await b.start(req).catch((e) => { throw new Error(errText(e)); });
+      if (id) { backendOf.set(id, b); break; }
+    }
+    if (!id) id = await go.Jobs.Start(req).catch((e) => { throw new Error(errText(e)); });
     const r = record(id);
     r.claimed = true;
     r.req = req;
@@ -204,7 +215,7 @@ function foreground(r) {
       },
     }).then((v) => {
       ui.paint = () => {};
-      if (v === 'cancel' && !r.done) go.Jobs.Cancel(r.id).catch(() => {});
+      if (v === 'cancel' && !r.done) cancelJob(r.id).catch(() => {});
       if (v === 'background' && !r.done) { r.background = true; r.ui = null; notify(); }
     });
   }
@@ -213,7 +224,8 @@ function foreground(r) {
 // ---- questions ----
 
 function answer(r, choice, newName = '') {
-  go.Jobs.Answer(r.id, { choice, newName }).catch(() => {});
+  const be = backendOf.get(r.id);
+  Promise.resolve(be ? be.answer(r.id, { choice, newName }) : go.Jobs.Answer(r.id, { choice, newName })).catch(() => {});
 }
 
 // pick shows a question with buttons [label, choice], only those the engine offers; Esc is Cancel.
@@ -374,7 +386,7 @@ export async function showTransfers() {
     list.addEventListener('mousedown', (ev) => { const row = ev.target.closest('[data-id]'); if (row) { selected = +row.dataset.id; paint(); } });
     $('.pause').onclick = () => { const r = cur(); if (r) (r.p.state === 'paused' ? go.Jobs.Resume(r.id) : go.Jobs.Pause(r.id)).catch(() => {}); };
     $('.now').onclick = () => { const r = cur(); if (r) go.Jobs.RunNow(r.id).catch(() => {}); };
-    $('.stop').onclick = () => { const r = cur(); if (r) go.Jobs.Cancel(r.id).catch(() => {}); };
+    $('.stop').onclick = () => { const r = cur(); if (r) cancelJob(r.id).catch(() => {}); };
     $('.clear').onclick = async () => {
       await go.Jobs.Forget().catch(() => {});
       for (const [id, r] of jobs) if (r.done) jobs.delete(id);
