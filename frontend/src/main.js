@@ -67,6 +67,8 @@ async function start() {
   app.active = -1; // so setActive sees a change and updates the title
   app.setActive(active);
   app.emit('ready');
+  // dialogs show in windows of their own (core/mirror.js): two hidden ones are made in advance
+  if (getSetting('dialogsInWindows', true) !== false) go.DialogWindows.Prepare().catch(() => {});
 }
 
 start();

@@ -43,7 +43,7 @@ object as `state`, so a script can check the result at once.
 |---|---|---|
 | `info` | | see above |
 | `window` | `w`, `h`, `x`, `y`, `max`, `window` | size and place of the window (centred without `x`); `max: true/false` maximises or restores; `window: "lister-2"` sizes another window and answers its `windows` entry |
-| `windows` | | every window of the app: `{windows: [{name, kind ("main", "about", "lister"), visible, focused, x, y, w, h, title, path, side, spare, ready}]}`; a hidden Lister window with `spare: true` is the one made in advance |
+| `windows` | | every window of the app: `{windows: [{name, kind ("main", "about", "lister", "dialog"), visible, focused, x, y, w, h, title, path, side, spare, ready}]}`; a hidden Lister window with `spare: true` is the one made in advance. A dialog window (`dialog-<n>`) adds `dialogKind`, `title`, `shown`, `innerW`, `innerH`, `owner` (the window whose page owns the dialog), `parent` (the window it stays above: the owner, or the dialog window below it) and `openMs`; the two hidden ones made in advance have `spare: true` |
 | `screenshot` | `path`, `window` | the window as a PNG (macOS: `screencapture -l`; elsewhere `mc_ctl.py shot()` makes it); `window: "lister-2"` takes another window of the app |
 | `menu` | `name` | does what choosing the menu item of that cm_* command does (the native menu can't be clicked from outside) |
 | `nativemenu` | | the native menu bar as built from the page's tree: `{menus: [{label, items, checked, disabled, sep}]}` (`menus`, a page command, is the tree the page sent) |
@@ -85,9 +85,10 @@ A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cu
 | `click` | `selector` or `side` + `name`/`index`; `button` (0 left, 2 right, 3/4 back/forward), `double`, `ctrl`, `shift`, `meta`, `alt` | mouse events on an element or a row (scrolled into view first) |
 | `drag` | `selector`, `dx`, `dy` | press, move, let go (the splitter) |
 | `scroll` | `side`, `row` or `top` | scrolls a panel's list |
-| `dialog` | | the open page dialog: `kind`, `title`, `message`, `buttons`, `fields` (by id), `error` |
+| `dialog` | | the open page dialog: `kind`, `title`, `message`, `buttons`, `fields` (by id), `error`, `window` (the dialog window that shows it: `name`, `shown`, `openMs`, `title`, `resized`, `layers`; `{layerOf}` for a floating box drawn in the dialog window below it; `null` when it is drawn in the page) |
 | `dialog_answer` | `button`, `fields` | fills fields and presses a button by its text; `"Esc"` cancels, no button submits |
 | `dialog_fill` | `fields` | fills fields of the open dialog (input and change events, as typing does) without pressing a button |
+| `dialog_ping` | `n` | `n` input round trips with the top dialog window (window → Go → page → Go → window): `count`, `min`, `median`, `p90`, `max` in ms |
 | `popup` / `popup_choose` | — / `index` or `label`, `shift` | the open popup list (drives, history, hotlist); choose an item (`null` closes it) |
 | `wait` / `idle` | `ms`, `timeout` | waits, then until the app is idle |
 
@@ -338,3 +339,13 @@ choices under `tools`.
 Popup kinds: `context-file`, `context-folder`, `context-sort`, `context-drive`, `context-path`, `open-with`. Dialog kinds:
 `drop`, `error-log` (buttons Copy all, Clear, Close), `confirmations`, `paste-data`, `open-with-program`, `volume-props`,
 `folder-props`, `quit-confirm`.
+
+## Dialogs in windows of their own (core/mirror.js, feature_dialog_window.go)
+
+With the setting `dialogsInWindows` (on by default; Options > Misc > "Open dialogs in windows of their own") every dialog
+opens in a native window named `dialog-<n>`. The dialog itself is still built in the page that asked for it, hidden
+there, and the window shows a live copy of it, so `dialog`, `dialog_answer` and `dialog_fill` work on it exactly as on a
+dialog in the page; `dialog` tells which window shows it (`window`), and `windows` lists the dialog windows. A popup list
+or a menu drawn as a floating box over a dialog window is drawn inside that window (`popup` and `popup_choose` work as
+always). Kinds that always stay in the page: `lister` (the Lister over the panels, `viewerInWindow: false`); more kinds
+can be kept in the page with the setting `dialogsInPage` (a list of kinds, e.g. `["options", "find"]`).

@@ -15,6 +15,8 @@ main.go               start-up: flags, application.New with every bound object a
 app.go                the App object: version, platform, start folders, title, quit, About window
 window.go             the windows: "main" (the file manager) and "about" (a second window of the same process)
 feature_viewer_window.go  Lister windows (F3): "lister-<n>", one made hidden in advance; control commands "windows", "viewer…"
+feature_dialog_window.go  dialog windows: "dialog-<n>", a pool of two made hidden in advance (dialogwin_logic.go: sizes,
+                      places, pool; dialogwin_<os>.go: kept above their window — macOS child window, Windows owner, Linux transient)
 shell.go              helpers the features use instead of Wails: emit, clipboard, file and folder dialogs
 features.go           where Go features register (bound objects, start-up/shut-down hooks, control commands)
 args.go               the command line (TC's /L= /R= /P= too)
@@ -32,6 +34,7 @@ internal/trash        Trash / Recycle Bin per platform
 frontend/index.html   the layout: #toolbar, two .panel sections, #splitter, #vbar, #cmdline, #fkeys, #flash
 frontend/src/main.js  start-up of the page; imports every file of src/features/ automatically
 frontend/viewer.html  a Lister window's page (a second Vite entry); src/viewer-window.js starts it with the viewer feature
+frontend/dialog.html  a dialog window's page (a third entry); src/dialog-window.js draws the live copy of a dialog (below)
 frontend/src/core/    the core (see the list below) — shared, change carefully, add rather than rewrite
 frontend/src/features/ one file per feature: navigation.js, selection.js, sorting.js, drives.js, cmdline.js, window.js…
 frontend/test/        vitest unit tests of the pure core modules
@@ -203,6 +206,33 @@ Import from `../core/…`. These are stable interfaces; extend them by adding, n
 | `format.js` | `size`, `bytes`, `date`, `attr`, `splitExt`, `plural`, `F` (entry flags) |
 | `control.js` | `addControlCommand(name, async (m) => result)` |
 | `settings.js`, `busy.js`, `menus.js`, `fkeys.js`, `splitter.js`, `tooltip.js`, `about.js` | core plumbing |
+
+### Dialogs in windows of their own
+
+Every dialog goes through `modal()` in `core/dialogs.js` (and `messageDialog`, `inputDialog`, `formDialog`,
+`infoDialog`, the progress boxes of `core/jobs.js`). With the setting `dialogsInWindows` (on by default) the dialog is
+still built there, in the page that asked for it, so a feature's code, its closures and control mode keep working on the
+real elements; the box stays invisible in that page and a native window shows a **mirror** of it:
+
+- `core/mirror.js` (the owning page) describes the dialog once (elements numbered, field values included) and then
+  sends every change as a patch: a MutationObserver plus hooks on the `value`/`checked`/`selectedIndex` setters (code
+  that fills a field makes no mutation), focus, selection and scrolling; the look of the page (theme, fonts, the colour
+  style Options applies live) goes along. It replays what comes back from the window on the real elements: field values
+  with input/change events, clicks and other mouse events at the same place in the dialog, keys (so `meta.onKey`, Esc
+  and Enter work as in the page), focus, scrolling, drags, resizing, and closing the window (= cancel).
+- `core/mirror-copy.js` (the window, started by `src/dialog-window.js`) builds the copy and applies the patches as a
+  morph: elements it has are moved, never rebuilt, so focus, caret and scrolling survive. `core/mirror-events.js`
+  builds what it sends back; `core/mirror-dom.js` holds what both sides share (attribute filter, message order).
+- `feature_dialog_window.go` keeps two hidden windows ready, sizes a window to the dialog (big dialogs are resizable),
+  centres it over the window below it or puts it where that kind was left (setting `dialogWindows`), titles it with the
+  dialog's heading, keeps it above its window, stacks nested dialogs, and carries the messages ("dlg-open",
+  "dlg-patch", "dlg-input", "dlg-closed", each numbered so the order is kept).
+
+Popup lists and menus drawn as floating boxes (`position: fixed`) are not windows: over a dialog window they are drawn
+inside it as a layer, otherwise in the page. Kinds that cannot be mirrored stay in the page (`PAGE_ONLY_KINDS` in
+`core/mirror-dom.js`, with the reason for each; today only `lister`), and so do the kinds in the setting `dialogsInPage`.
+A feature needs nothing special for its dialog to open in a window; it should only not keep references to elements
+of other windows, and not rely on `getBoundingClientRect` of its box being on the screen.
 
 ### Shared files
 

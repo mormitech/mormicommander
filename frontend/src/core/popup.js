@@ -9,6 +9,7 @@
 
 import { esc } from './dialogs.js';
 import { waitForUser } from './busy.js';
+import { popupArea } from './overlay.js';
 
 let current = null;
 
@@ -29,11 +30,13 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
       el.querySelectorAll('.it').forEach((d) => d.classList.toggle('on', +d.dataset.i === at));
       el.querySelector('.it.on')?.scrollIntoView({ block: 'nearest' });
     };
-    // place: below the anchor element, or at a point, kept on screen
-    const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor ? { left: anchor.x, bottom: anchor.y, top: anchor.y } : { left: innerWidth / 2 - 150, bottom: innerHeight / 3, top: innerHeight / 3 };
+    // place: below the anchor element, or at a point, kept on screen (inside the dialog's window when the popup comes
+    // from a dialog shown in a window of its own, see overlay.js)
+    const A = popupArea(), aw = A.right - A.left, ah = A.bottom - A.top;
+    const r = anchor instanceof Element ? anchor.getBoundingClientRect() : anchor ? { left: anchor.x, bottom: anchor.y, top: anchor.y } : { left: A.left + aw / 2 - 150, bottom: A.top + ah / 3, top: A.top + ah / 3 };
     const w = el.offsetWidth, h = el.offsetHeight;
-    el.style.left = `${Math.max(6, Math.min(innerWidth - w - 6, r.left))}px`;
-    el.style.top = `${r.bottom + h + 6 < innerHeight ? r.bottom + 2 : Math.max(6, r.top - h - 2)}px`;
+    el.style.left = `${Math.max(A.left + 6, Math.min(A.right - w - 6, r.left))}px`;
+    el.style.top = `${r.bottom + h + 6 < A.bottom ? r.bottom + 2 : Math.max(A.top + 6, r.top - h - 2)}px`;
     paint();
 
     const close = (v) => {

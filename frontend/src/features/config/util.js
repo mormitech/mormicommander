@@ -69,6 +69,11 @@ export const BRIDGE = {
     get: (app) => { const t = app.setting('theme', undefined); return t === undefined ? undefined : t === 'light' ? '0' : t === 'dark' ? '1' : '2'; },
     set: (app, v) => app.setSetting('theme', v === '0' ? 'light' : v === '1' ? 'dark' : ''),
   },
+  // dialogs in windows of their own (core/dialogs.js, core/mirror.js): the next dialog opened follows the change
+  'Misc.DialogWindows': {
+    get: (app) => b(app.setting('dialogsInWindows', undefined)),
+    set: (app, v) => { const on = v === '1'; if (on) go.DialogWindows.Prepare().catch(() => {}); return app.setSetting('dialogsInWindows', on); },
+  },
   'ViewerEditor.Editor': { get: (app) => app.setting('editor', undefined), set: (app, v) => app.setSetting('editor', v) },
   'CopyDelete.UseTrash': fileopsBool('useTrash'),
   'CopyDelete.ConfirmDelete': fileopsBool('confirmDelete'),

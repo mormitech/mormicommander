@@ -1,0 +1,13 @@
+/* A dialog window (dialog.html, dialog-window.js): the dialog's copy fills the window. The window's own title bar shows
+   the dialog's heading, so the heading inside (the box's first h2) is hidden, as it is in the owning page's hidden
+   original (core/dialogs.css), and both measure alike; the close button (×) of info boxes is the title bar's too. */
+html, body { background: var(--panel); }
+body.mc-dialog-window { overflow: hidden; }
+.mc-modal.mc-window-host { position: fixed; inset: 0; display: block; background: transparent; animation: none; z-index: 1; }
+.mc-box.mc-window-box { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; min-width: 0 !important;
+    max-width: none !important; min-height: 0 !important; max-height: none !important; margin: 0 !important; border: 0 !important;
+    border-radius: 0 !important; box-shadow: none !important; transform: none !important; opacity: 1 !important; pointer-events: auto !important; }
+.mc-window-box > h2:first-of-type, .mc-window-box > .mc-close { display: none !important; }
+/* popups and floating menus over the dialog, placed as in the owning page relative to the dialog (dialog-window.js) */
+.mc-window-layer { position: fixed; left: 0; top: 0; z-index: 60; pointer-events: none; }
+.mc-window-layer > * { pointer-events: auto; }

@@ -324,6 +324,7 @@ type MiscPage struct {
 	CheckUpdates   bool   `ini:"Configuration:CheckUpdates" def:"0" label:"Check for updates"`
 	BeepOnError    bool   `ini:"Configuration:BeepOnError" def:"1" label:"Beep on errors"`
 	CmdLineAutoCmp bool   `ini:"Configuration:CmdLineAutoComplete" def:"1" label:"Command line auto-complete"`
+	DialogWindows  bool   `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
 }
 
 // FolderTabsPage (F-432).

@@ -2,6 +2,13 @@
 // panels while it is open, focus comes back afterwards. Every open dialog is listed, so control mode can read it
 // ("dialog") and answer it ("dialog_answer") by pressing its buttons and filling its fields, the same as a person.
 //
+// With the setting "dialogsInWindows" (on unless false) every dialog shows in a native window of its own: the box is
+// still built here, in this page, and stays here invisibly while the page is dimmed; a window shows a live copy of it
+// and sends back what the user does there (core/mirror.js, feature_dialog_window.go). Nothing changes for the code
+// that builds a dialog or for control mode. A dialog drawn as a floating box (position: fixed, a menu at the pointer)
+// is drawn inside the dialog window below it when there is one, else in the page; the kinds in PAGE_ONLY_KINDS
+// (mirror-dom.js) and in the setting "dialogsInPage" (a list of kinds) always stay in the page.
+//
 //   await messageDialog({Title, Message, Buttons: ['Overwrite', 'Skip', 'Cancel'], DefaultButton, CancelButton}) → label
 //   await inputDialog({title, label, value, select: [0, 4], okLabel}) → text or null
 //   await formDialog(title, html, read, setup) → what read(box) returns, or null
@@ -9,15 +16,17 @@
 
 import './dialogs.css';
 import { waitForUser } from './busy.js';
+import { getSetting } from './settings.js';
+import { mirrorDialog, mirrorAvailable, now } from './mirror.js';
+import { PAGE_ONLY_KINDS } from './mirror-dom.js';
 
 const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 export { esc };
 
 const open = []; // the dialogs on screen, last = top
 
-// Dialogs can be moved like windows: drag the title (or any empty part of the box). They are boxes in the page, not
-// separate windows (Wails v2 had one window per process; boxes also stay answerable by control mode), so the box is
-// shifted with a transform and kept inside the app window. Where a kind of dialog was left is remembered for the
+// Dialogs in the page (dialogsInWindows off, or a kind that stays in the page) can be moved like windows: drag the
+// title (or any empty part of the box). The box is shifted with a transform and kept inside the app window. Where a kind of dialog was left is remembered for the
 // session, so Options or the copy dialog open where you put them last; double-clicking the title puts it back in the
 // middle. Popup menus drawn as boxes (position: fixed, placed at the pointer) are not draggable.
 const placed = new Map(); // dialog kind → {x, y} offset from the centred position
@@ -66,7 +75,16 @@ function draggable(box, kind) {
 
 // modal shows a box; build fills it and gets done(value) to close it with an answer. meta: {kind} for control mode,
 // and optionally onKey(ev) → true when the dialog handles a key itself (keys don't reach elements inside otherwise).
+// windowsWanted tells whether a dialog of this kind goes to a window of its own.
+function windowsWanted(kind) {
+  if (!mirrorAvailable() || getSetting('dialogsInWindows', true) === false) return false;
+  if (PAGE_ONLY_KINDS.includes(kind)) return false;
+  const extra = getSetting('dialogsInPage', []);
+  return !(Array.isArray(extra) && extra.includes(kind));
+}
+
 export function modal(build, cancelValue, meta = {}) {
+  const t0 = now();
   return waitForUser(new Promise((resolve) => {
     const prevFocus = document.activeElement;
     const back = document.createElement('div');
@@ -82,6 +100,8 @@ export function modal(build, cancelValue, meta = {}) {
     const done = (v) => {
       if (closed) return;
       closed = true;
+      entry.mirror?.close();
+      entry.layerOf?.removeLayer(back);
       back.remove();
       open.splice(open.indexOf(entry), 1);
       window.removeEventListener('keydown', key, true);
@@ -99,12 +119,26 @@ export function modal(build, cancelValue, meta = {}) {
     };
     window.addEventListener('keydown', key, true);
     build(box, done);
+    const below = open[open.length - 1];
     open.push(entry);
     document.body.append(back);
-    draggable(box, meta.kind);
+    // where it shows: a window of its own, a layer of the dialog window below it (a floating box), or the page
+    let mode = 'page';
+    if (windowsWanted(meta.kind)) {
+      if (getComputedStyle(box).position !== 'fixed') mode = 'window';
+      else if (below?.mirror?.alive) mode = 'layer';
+    }
+    if (mode === 'page') draggable(box, meta.kind);
     const first = box.querySelector('[autofocus]') || box.querySelector('.primary') || box.querySelector('button');
     first?.focus();
     if (first?.select && first.dataset.select) { const [a, b] = first.dataset.select.split(',').map(Number); first.setSelectionRange(a, b); }
+    if (mode === 'window') entry.mirror = mirrorDialog(entry, back, box, t0, () => { if (!closed) draggable(box, meta.kind); });
+    if (mode === 'layer') {
+      // (placed by its builder in a moment, often in an animation frame: the layer is made after that)
+      const layerOf = below.mirror;
+      back.classList.add('mc-mirror-layer');
+      requestAnimationFrame(() => { if (!closed && layerOf.alive) { entry.layerOf = layerOf; layerOf.addLayer(back); } });
+    }
   }));
 }
 
@@ -128,6 +162,7 @@ export function currentDialog() {
     buttons: [...box.querySelectorAll('button')].filter((b) => !b.classList.contains('mc-close')).map((b) => b.textContent.trim()),
     fields,
     error: box.querySelector('.mc-err:not([hidden])')?.textContent || '',
+    window: d.mirror ? d.mirror.info() : d.layerOf ? { layerOf: d.layerOf.name || '' } : null, // a dialog window shows it (mirror.js)
   };
 }
 
