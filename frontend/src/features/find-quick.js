@@ -18,6 +18,7 @@ import { addKeyHandler } from '../core/keyboard.js';
 import { go } from '../core/go.js';
 import { cmdline } from '../core/cmdline.js';
 import { printable } from '../core/keys.js';
+import { trigger } from './find-quick-keys.js';
 import { track } from '../core/busy.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
@@ -182,29 +183,6 @@ function toggleMode(p) {
 }
 
 // ---- keys ----
-
-const PUNCT = { Minus: ['-', '_'], Period: ['.', '>'], Comma: [',', '<'], Equal: ['=', '+'], Semicolon: [';', ':'], Quote: ["'", '"'],
-  BracketLeft: ['[', '{'], BracketRight: [']', '}'], Backquote: ['`', '~'], Slash: ['/', '?'], Backslash: ['\\', '|'], Space: [' ', ' '] };
-const SHIFT_DIGITS = { 8: '*', 1: '!', 2: '@', 3: '#', 4: '$', 5: '%', 6: '^', 7: '&', 9: '(', 0: ')' };
-
-// keyChar is the character of a key pressed with Ctrl+Alt or Alt, from the physical key (F-286: Option+letter on a Mac
-// types a special character, so ev.key can't be used).
-function keyChar(ev) {
-  const c = ev.code || '';
-  if (/^Key[A-Z]$/.test(c)) return c.slice(3).toLowerCase();
-  if (/^Digit\d$/.test(c)) return ev.shiftKey ? SHIFT_DIGITS[c.slice(5)] || '' : c.slice(5);
-  if (/^Numpad\d$/.test(c)) return c.slice(6);
-  if (PUNCT[c]) return PUNCT[c][ev.shiftKey ? 1 : 0];
-  return ev.key?.length === 1 ? ev.key : '';
-}
-
-function trigger(ev, combo, mode) {
-  if (ev.metaKey) return '';
-  if (mode === 'ctrlalt' && /^Ctrl\+Alt\+/.test(combo)) return keyChar(ev);
-  if (mode === 'alt' && /^Alt\+/.test(combo)) return keyChar(ev);
-  if (mode === 'letter' && printable(ev) && ev.key !== ' ' && ev.key.length === 1) return ev.key;
-  return '';
-}
 
 function onKey(ev, combo) {
   const t = ev.target;

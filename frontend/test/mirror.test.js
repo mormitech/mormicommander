@@ -5,6 +5,11 @@
 import { describe, expect, test, vi, beforeAll, afterEach } from 'vitest';
 import { Window } from 'happy-dom';
 
+// happy-dom 18 keeps a MutationObserver's callback only through a WeakRef to an arrow function nothing else holds, so a
+// garbage collection at the wrong moment drops it and the mirror sees no changes: the tests then fail now and then.
+// Browsers keep observers alive while they observe, so here every WeakRef holds its value for good.
+globalThis.WeakRef = class StrongRef { constructor(v) { this.v = v; } deref() { return this.v; } };
+
 const calls = [];
 const handlers = {};
 let openReply = (req) => ({ name: `dialog-${calls.filter((c) => c.m === 'Open').length}`, w: req.w, h: req.h, sized: false });

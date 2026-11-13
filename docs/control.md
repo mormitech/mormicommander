@@ -61,6 +61,8 @@ object as `state`, so a script can check the result at once.
 | `list` | `side`, `from`, `count` | the entries of a panel in display order: `name`, `ext`, `size`, `mtime`, `dir`, `up` (".."), `link`, `hidden`, `selected`, `dirSize` |
 | `commands` | | every registered command: `name`, `label`, `keys`, `enabled`, `checked` |
 | `keymap` / `keyfor` | — / `keys` | the whole keymap (combo → command), or the command of one combo |
+| `keyref` | | Total Commander's key reference (FEATURES.md section 8, `src/core/tckeys.js`): `id`, `key`, `command`, `how` (`press` or `map`); `scripts/qa_keys.py` checks it end to end |
+| `runs` | `clear` | the commands asked for lately, newest last: `name`, `how` (`ran`, `disabled`, `notready`); `clear: true` empties the list |
 | `menus` | | the menu tree as sent to the native menu (labels, commands, disabled, check marks) |
 | `settings` | | all settings |
 | `layout` | | boxes of the panels and the splitter, `horizontal`, `rowHeight`, `theme`, `split` |

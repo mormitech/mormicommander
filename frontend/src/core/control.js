@@ -7,7 +7,8 @@
 
 import { go, on, errText } from './go.js';
 import { app } from './app.js';
-import { run, commandList, keysFor, allKeys, hasCommand } from './registry.js';
+import { run, commandList, keysFor, allKeys, hasCommand, recentRuns, clearRecentRuns } from './registry.js';
+import { TC_KEY_REFERENCE } from './tckeys.js';
 import { eventInit, normalizeCombo } from './keys.js';
 import { idle, isBusy } from './busy.js';
 import { currentDialog, answerDialog } from './dialogs.js';
@@ -217,6 +218,12 @@ async function ctlRun(m) {
     case 'keymap': return { ok: true, keymap: Object.fromEntries(allKeys()) };
     case 'keyfor': return { ok: true, command: allKeys().get(normalizeCombo(m.keys)) || '' };
     case 'settings': return { ok: true, settings: allSettings() };
+    case 'keyref': return { ok: true, keys: TC_KEY_REFERENCE }; // TC's key reference (tckeys.js), for scripts/qa_keys.py
+    case 'runs': { // the commands asked for lately, newest last ({clear: true} empties the list afterwards)
+      const runs = recentRuns();
+      if (m.clear) clearRecentRuns();
+      return { ok: true, runs };
+    }
     case 'dom': { // {selector}: text and count of matching elements (for checks of what is drawn)
       const els = [...document.querySelectorAll(m.selector)];
       return { ok: true, count: els.length, texts: els.slice(0, 50).map((e) => e.textContent), visible: els.map((e) => !!(e.offsetWidth || e.offsetHeight)).slice(0, 50), classes: els.slice(0, 50).map((e) => e.className) };

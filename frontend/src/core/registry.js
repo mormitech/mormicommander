@@ -93,6 +93,18 @@ export function keysFor(name) {
 export const allKeys = () => { if (keymap.size === 0) rebuildKeys(); return new Map(keymap); };
 
 // ---- running ----
+
+// The last commands asked for, newest last, so control mode can check that a key reached the command it should
+// ("runs"): {name, how: 'ran' | 'disabled' | 'notready'}. Only names are kept, never arguments.
+const recent = [];
+const RECENT_MAX = 100;
+function note(name, how) {
+  recent.push({ name, how });
+  if (recent.length > RECENT_MAX) recent.splice(0, recent.length - RECENT_MAX);
+}
+export const recentRuns = () => recent.slice();
+export function clearRecentRuns() { recent.length = 0; }
+
 export class NotReady extends Error {}
 
 let app = null;
@@ -102,6 +114,7 @@ export function setApp(a, hook) { app = a; before = hook || null; }
 // run runs a command by name. Unknown names reject with NotReady (the UI says "… is not ready yet").
 export function run(name, args = {}) {
   const c = commands.get(name);
+  note(name, !c ? 'notready' : c.enabled && !c.enabled(app) ? 'disabled' : 'ran');
   if (!c) return Promise.reject(new NotReady(`${name} is not ready yet.`));
   if (c.enabled && !c.enabled(app)) return Promise.resolve(false);
   before?.(name, args);

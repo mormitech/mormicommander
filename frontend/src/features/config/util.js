@@ -52,6 +52,8 @@ const listerBool = (k) => ({ get: (app) => b(li(app, k)), set: (app, v) => merge
 
 export const BRIDGE = {
   'Operation.MarkDirectories': { get: (app) => b(app.setting('markDirectories', undefined)), set: (app, v) => app.setSetting('markDirectories', v === '1') },
+  // "Space calculates folder size" (TC's SpaceCalcSize, F-797): the folder-size feature reads "countSpace" (tools/space.js).
+  'Operation.SpaceCalcSize': { get: (app) => b(app.setting('countSpace', undefined)), set: (app, v) => app.setSetting('countSpace', v === '1') },
   'Display.SortNatural': { get: (app) => b(app.setting('naturalSort', undefined)), set: (app, v) => app.setSetting('naturalSort', v === '1') },
   'Display.SortDirsByName': {
     get: (app) => { const x = app.setting('dirsLikeFiles', undefined); return x === undefined ? undefined : bit(!x); },

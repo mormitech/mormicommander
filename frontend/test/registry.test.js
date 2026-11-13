@@ -70,3 +70,14 @@ test('the macOS Cmd aliases of F-285 run the same commands, and exist only on ma
     expect(reg.commandForKey('Ctrl+X')).toBe('cm_CutToClipboard');
   }
 });
+
+test('recent runs are noted for control mode, newest last; clear empties the list', async () => {
+  reg.clearRecentRuns();
+  await reg.run('cm_TestOne');
+  await reg.run('cm_Nope').catch(() => {});
+  expect(reg.recentRuns()).toEqual([{ name: 'cm_TestOne', how: 'ran' }, { name: 'cm_Nope', how: 'notready' }]);
+  reg.clearRecentRuns();
+  expect(reg.recentRuns()).toEqual([]);
+  for (let i = 0; i < 150; i++) await reg.run('cm_TestOne');
+  expect(reg.recentRuns().length).toBe(100);
+});
