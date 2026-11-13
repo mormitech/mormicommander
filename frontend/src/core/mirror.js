@@ -64,11 +64,13 @@ const sameProps = (a, b) => !!a && !!b && a.v === b.v && a.c === b.c && a.n === 
 
 function depth(n) { let d = 0; for (; n; n = n.parentNode) d++; return d; }
 
-// env is what the window needs of this page's look: the attributes of <html> (theme, platform, font settings) and the
-// classes of <body>.
-function env() {
+// env is what the window needs of this page's look: the attributes of <html> (theme, platform, font settings), the
+// classes of <body>, and the style elements made at run time (id "mc-…", such as the colour scheme Options applies
+// live), so a change made in Options shows in its own window at once.
+export function env() {
   const html = [...document.documentElement.attributes].map((a) => [a.name, a.value]);
-  return { html, body: cleanClass(document.body.className) };
+  const styles = [...document.head.querySelectorAll('style[id^="mc-"]')].map((st) => [st.id, st.textContent]);
+  return { html, body: cleanClass(document.body.className), styles };
 }
 
 // titleOf is the window title of a dialog: its heading.
@@ -396,7 +398,7 @@ class Session {
     if (m.type === 'click' && target.matches?.('input[type=checkbox], input[type=radio]')) {
       // the window toggled its own copy; what the real one ended with is sent back in any case
       this.force.add(target);
-      if (target.type === 'radio' && target.name) this.box.querySelectorAll(`input[type=radio][name="${CSS.escape(target.name)}"]`).forEach((r) => this.force.add(r));
+      if (target.type === 'radio' && target.name) this.box.querySelectorAll('input[type=radio]').forEach((r) => { if (r.name === target.name) this.force.add(r); });
     }
   }
 
@@ -567,6 +569,7 @@ function globalsBusy() {
   bodyMo.observe(document.body, { childList: true });
   envMo.observe(document.documentElement, { attributes: true });
   envMo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
+  envMo.observe(document.head, { childList: true, subtree: true, characterData: true });
   // a slow safety net for changes no hook sees (a checkbox toggled by its label in this page, a size change)
   timer = setInterval(() => { for (const s of live) s.flush(); }, 300);
 }

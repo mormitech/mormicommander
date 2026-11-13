@@ -18,20 +18,19 @@ import './core/dialogs.css';
 import './core/jobs.css';
 import './dialog-window.css';
 import { go, on } from './core/go.js';
-import { Sequencer, copyAttr, now } from './core/mirror-dom.js';
+import { Sequencer, now } from './core/mirror-dom.js';
+import { Copy, windowProps as propsOf } from './core/mirror-copy.js';
+import { mouseMsg, keyMsg, keyTakenHere } from './core/mirror-events.js';
 
 // every feature's style sheet, so a dialog looks the same as in the page (no feature code is loaded)
 import.meta.glob('./features/**/*.css', { eager: true });
 
 let me = '';
-let cur = null; // {nodes, ids, box, host, layers, t0, drawn}
+let cur = null; // the Copy being shown (mirror-copy.js), with t0, got, built, drawn
 let seqOut = 0;
 const early = []; // patches that came before the dialog was drawn
-const inSeq = new Sequencer((m) => { if (!cur?.drawn) early.push(m); else apply(m); });
-const lastP = new WeakMap(); // field → the values the owning page gave it
-const lastScroll = new WeakMap();
+const inSeq = new Sequencer((m) => { if (!cur?.drawn) early.push(m); else cur.apply(m); });
 const pongs = new Map();
-let echoFocus = null;
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
 
@@ -39,120 +38,6 @@ function send(m) {
   if (!cur) return;
   m.q = ++seqOut;
   go.DialogWindows.Input(m).catch(() => {});
-}
-
-// ---- building the copy ----
-
-function build(d) {
-  let n;
-  if (d.x !== undefined) n = document.createTextNode(d.x);
-  else {
-    n = d.ns ? document.createElementNS(d.ns, d.t) : document.createElement(d.t);
-    for (const [k, v] of d.a || []) {
-      const val = copyAttr(k, v);
-      if (val !== null) try { n.setAttribute(k, val); } catch { /* a name the DOM does not take */ }
-    }
-    for (const c of d.c || []) n.append(build(c));
-    if (d.p) setProps(n, d.p);
-  }
-  cur.nodes.set(d.i, n);
-  cur.ids.set(n, d.i);
-  return n;
-}
-
-function setProps(el, p) {
-  lastP.set(el, p);
-  if ('v' in p && el.value !== p.v) {
-    if (document.activeElement === el && typeof el.selectionStart === 'number') {
-      const a = el.selectionStart, b = el.selectionEnd;
-      el.value = p.v;
-      try { el.setSelectionRange(Math.min(a, p.v.length), Math.min(b, p.v.length)); } catch { /* not a text field */ }
-    } else el.value = p.v;
-  }
-  if ('c' in p) el.checked = !!p.c;
-  if ('n' in p) el.indeterminate = !!p.n;
-  if ('s' in p && el.selectedIndex !== p.s) el.selectedIndex = p.s;
-  if ('m' in p) [...el.options].forEach((o, i) => { o.selected = !!p.m[i]; });
-}
-
-function propsOf(el) {
-  if (el.localName === 'input') return el.type === 'checkbox' || el.type === 'radio' ? { c: el.checked } : { v: el.value };
-  if (el.localName === 'textarea') return { v: el.value };
-  if (el.localName === 'select') return el.multiple ? { m: [...el.options].map((o) => o.selected) } : { s: el.selectedIndex };
-  return null;
-}
-
-function applyEnv(e) {
-  if (!e) return;
-  const root = document.documentElement;
-  const keep = new Set(e.html.map(([k]) => k));
-  for (const a of [...root.attributes]) if (!keep.has(a.name)) root.removeAttribute(a.name);
-  for (const [k, v] of e.html) if (root.getAttribute(k) !== v) root.setAttribute(k, v);
-  document.body.className = `mc-dialog-window ${e.body || ''}`.trim();
-}
-
-function setLayerBox(el, op) {
-  el.style.transform = `translate(${op.x}px, ${op.y}px)`;
-  el.style.width = `${op.w}px`;
-  el.style.height = `${op.h}px`;
-}
-
-// apply carries out one patch of the owning page.
-function apply(m) {
-  for (const op of m.ops || []) {
-    try { applyOp(op); } catch (e) { console.error('dialog window patch', op, e); }
-  }
-}
-
-function applyOp(op) {
-  const el = op.i ? cur.nodes.get(op.i) : null;
-  switch (op.o) {
-    case 'k': {
-      if (!el) return;
-      const list = op.c.map((c) => (c.r ? cur.nodes.get(c.r) : build(c))).filter(Boolean);
-      list.forEach((n, j) => { const at = el.childNodes[j]; if (at !== n) el.insertBefore(n, at || null); });
-      while (el.childNodes.length > list.length) el.lastChild.remove();
-      const sel = el.closest?.('select'); // (new options can change a list's choice: the owning page's one is kept)
-      if (sel && lastP.has(sel)) setProps(sel, lastP.get(sel));
-      return;
-    }
-    case 'a': {
-      if (!el) return;
-      const v = op.v === null ? null : copyAttr(op.n, op.v);
-      if (v === null) el.removeAttribute(op.n); else el.setAttribute(op.n, v);
-      if (el === cur.box && op.n === 'class') el.classList.add('mc-window-box');
-      return;
-    }
-    case 'x': if (el) el.data = op.v; return;
-    case 'p': if (el) setProps(el, op.p); return;
-    case 'f':
-      if (!el || document.activeElement === el) return;
-      echoFocus = el;
-      el.focus({ preventScroll: false });
-      if (op.sel) try { el.setSelectionRange(op.sel[0], op.sel[1]); } catch { /* not a text field */ }
-      return;
-    case 'sel': if (el) try { el.setSelectionRange(op.a, op.b); } catch { /* not a text field */ } return;
-    case 's':
-      if (!el) return;
-      el.scrollTop = op.t;
-      el.scrollLeft = op.l;
-      lastScroll.set(el, [el.scrollTop, el.scrollLeft]);
-      return;
-    case 'L': {
-      const layer = document.createElement('div');
-      layer.className = 'mc-window-layer';
-      setLayerBox(layer, op);
-      layer.append(build(op.d));
-      document.body.append(layer);
-      cur.layers.set(op.key, layer);
-      return;
-    }
-    case 'l-': cur.layers.get(op.key)?.remove(); cur.layers.delete(op.key); return;
-    case 'lo': for (const l of cur.layers.values()) setLayerBox(l, op); return;
-    case 'e': applyEnv(op.env); return;
-    case 'pong': pongs.get(op.ts)?.(); return;
-    case 'pingreq': pings(op.n || 20); return;
-  }
 }
 
 async function pings(n) {
@@ -175,27 +60,26 @@ async function pings(n) {
 async function render(req) {
   if (cur) return; // (one dialog per window: a window is closed after its dialog)
   const p = req.payload || {};
-  cur = { nodes: new Map(), ids: new WeakMap(), layers: new Map(), t0: p.t0 || now(), drawn: false, box: null, got: now() };
-  applyEnv(p.env);
+  cur = new Copy(document, { pong: (ts) => pongs.get(ts)?.(), pingreq: (n) => pings(n) });
+  Object.assign(cur, { t0: p.t0 || now(), drawn: false, got: now() });
+  cur.applyEnv(p.env);
   const host = document.createElement('div');
   host.className = 'mc-modal mc-window-host';
   // Go sizes the window while this draws: until it is shown, the dialog is laid out at the size it will get (so a
   // smaller window for a moment does not leave a scroll bar and wrapped lines behind)
   if (req.w > 0 && req.h > 0) Object.assign(host.style, { right: 'auto', bottom: 'auto', width: `${req.w}px`, height: `${req.h}px` });
-  const box = build(p.tree);
-  box.classList.add('mc-window-box');
-  cur.box = box;
+  const box = cur.root(p.tree);
   host.append(box);
   document.body.append(host);
   const f = cur.nodes.get(p.focus);
   if (f) {
-    echoFocus = f;
+    cur.echoFocus = f;
     f.focus();
     if (p.sel) try { f.setSelectionRange(p.sel[0], p.sel[1]); } catch { /* not a text field */ }
   }
   cur.drawn = true;
   cur.built = now();
-  for (const m of early.splice(0)) apply(m);
+  for (const m of early.splice(0)) cur.apply(m);
   box.getBoundingClientRect(); // (laid out before the window is shown)
   const painted = now();
   await go.DialogWindows.ShowMe().catch(() => {});
@@ -212,34 +96,25 @@ async function render(req) {
 
 // ---- what the user does ----
 
-function idOf(n) {
-  for (; n; n = n.parentNode) { const i = cur?.ids.get(n); if (i) return i; }
-  return 0;
-}
-
-const mods = (ev) => ({ ctrl: ev.ctrlKey, shift: ev.shiftKey, alt: ev.altKey, meta: ev.metaKey });
-const mouseMsg = (ev, type) => ({ t: 'mouse', type, i: idOf(ev.target), x: ev.clientX, y: ev.clientY, sx: ev.screenX, sy: ev.screenY, b: ev.button, bs: ev.buttons, d: ev.detail, ...mods(ev) });
 const isToggle = (el) => el?.matches?.('input[type=checkbox], input[type=radio]');
 const inText = (el) => el?.matches?.('textarea, input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]), [contenteditable=""], [contenteditable="true"]');
 
 function wire() {
   document.addEventListener('keydown', (ev) => {
     if (!cur) return;
-    const k = ev.key;
-    const area = ev.target?.matches?.('textarea, [contenteditable=""], [contenteditable="true"]');
     // the owning page does what these keys do (Enter submits there, Esc cancels there); the browser's own (reload,
-    // find, print) are not for a dialog
-    if ((k === 'Enter' && !area) || k === 'Escape' || /^F\d{1,2}$/.test(k) || ((ev.ctrlKey || ev.metaKey) && /^[rpfgj]$/i.test(k))) ev.preventDefault();
-    send({ t: 'key', type: 'keydown', i: idOf(document.activeElement), key: k, code: ev.code, r: ev.repeat, ...mods(ev) });
+    // find, print) are not for a dialog; a key-capture field gets its text from the owning page only
+    if (keyTakenHere(ev)) ev.preventDefault();
+    send(keyMsg(cur, ev, 'keydown', document.activeElement));
   }, true);
   document.addEventListener('keyup', (ev) => {
-    if (cur) send({ t: 'key', type: 'keyup', i: idOf(document.activeElement), key: ev.key, code: ev.code, ...mods(ev) });
+    if (cur) send(keyMsg(cur, ev, 'keyup', document.activeElement));
   }, true);
   for (const t of ['input', 'change']) {
     document.addEventListener(t, (ev) => {
       const el = ev.target;
       if (!cur || isToggle(el) || !propsOf(el)) return; // (a checkbox goes as its click: the owning page toggles its own)
-      send({ t, i: idOf(el), p: propsOf(el) });
+      send({ t, i: cur.idOf(el), p: propsOf(el) });
     }, true);
   }
   document.addEventListener('submit', (ev) => ev.preventDefault(), true);
@@ -252,26 +127,26 @@ function wire() {
     const ctl = lab?.control;
     if (ctl && ctl !== ev.target && !ctl.contains(ev.target)) { skipClick = ctl; setTimeout(() => { skipClick = null; }, 0); }
     if (ev.target.closest?.('a[href]')) ev.preventDefault(); // (the owning page opens links)
-    send(mouseMsg(ev, 'click'));
+    send(mouseMsg(cur, ev, 'click'));
   }, true);
-  for (const t of ['mousedown', 'mouseup', 'dblclick', 'auxclick']) document.addEventListener(t, (ev) => { if (cur) send(mouseMsg(ev, t)); }, true);
+  for (const t of ['mousedown', 'mouseup', 'dblclick', 'auxclick']) document.addEventListener(t, (ev) => { if (cur) send(mouseMsg(cur, ev, t)); }, true);
   document.addEventListener('contextmenu', (ev) => {
     if (!cur) return;
     if (!inText(ev.target)) ev.preventDefault();
-    send(mouseMsg(ev, 'contextmenu'));
+    send(mouseMsg(cur, ev, 'contextmenu'));
   }, true);
   let move = null;
   document.addEventListener('mousemove', (ev) => {
     if (!cur) return;
     const first = !move;
     move = ev;
-    if (first) requestAnimationFrame(() => { const e = move; move = null; if (e) send(mouseMsg(e, 'mousemove')); });
+    if (first) requestAnimationFrame(() => { const e = move; move = null; if (e && cur) send(mouseMsg(cur, e, 'mousemove')); });
   }, true);
   document.addEventListener('focusin', (ev) => {
     if (!cur) return;
-    if (echoFocus === ev.target) { echoFocus = null; return; }
-    echoFocus = null;
-    send({ t: 'focus', i: idOf(ev.target) });
+    if (cur.echoFocus === ev.target) { cur.echoFocus = null; return; }
+    cur.echoFocus = null;
+    send({ t: 'focus', i: cur.idOf(ev.target) });
   }, true);
   const scrolled = new Set();
   document.addEventListener('scroll', (ev) => {
@@ -279,10 +154,11 @@ function wire() {
     if (!cur || el?.nodeType !== 1) return;
     if (!scrolled.size) requestAnimationFrame(() => {
       for (const s of scrolled) {
-        const last = lastScroll.get(s);
+        if (!cur) break;
+        const last = cur.lastScroll.get(s);
         if (last && last[0] === s.scrollTop && last[1] === s.scrollLeft) continue;
-        lastScroll.set(s, [s.scrollTop, s.scrollLeft]);
-        send({ t: 'scroll', i: idOf(s), top: s.scrollTop, left: s.scrollLeft });
+        cur.lastScroll.set(s, [s.scrollTop, s.scrollLeft]);
+        send({ t: 'scroll', i: cur.idOf(s), top: s.scrollTop, left: s.scrollLeft });
       }
       scrolled.clear();
     });
@@ -290,7 +166,7 @@ function wire() {
   }, true);
   // drags between rows (multi-rename's order): replayed as drag events in the owning page
   let dragging = false, over = null;
-  const dragMsg = (ev, type) => ({ ...mouseMsg(ev, type), t: 'drag' });
+  const dragMsg = (ev, type) => ({ ...mouseMsg(cur, ev, type), t: 'drag' });
   document.addEventListener('dragstart', (ev) => { if (!cur) return; dragging = true; ev.dataTransfer?.setData('text/plain', 'mc-dialog'); send(dragMsg(ev, 'dragstart')); }, true);
   for (const t of ['dragenter', 'dragover']) {
     document.addEventListener(t, (ev) => {

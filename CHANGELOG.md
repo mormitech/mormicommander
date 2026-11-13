@@ -6,6 +6,21 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.16 – 2026-11-13
+
+### Added
+
+- Every dialog opens in a native window of its own: it can be moved anywhere, also outside the main window, it is
+  titled with the dialog's heading, stays above the window it belongs to, and opens where that kind of dialog was last
+  left (big ones such as Options and Find also keep their size). Closing the window cancels the dialog; a dialog opened
+  from a dialog stacks on top of it; popup lists and menus of a dialog show inside its window. Two windows are made in
+  advance, so a dialog appears at once.
+- Setting "Open dialogs in windows of their own" (Options > Misc, `dialogsInWindows`, on by default): off brings back
+  the boxes inside the main window. `dialogsInPage` (a list of dialog kinds in settings.json) keeps chosen kinds in
+  the page; the Lister over the panels always stays there.
+- Control mode: `windows` lists the dialog windows (kind `dialog`), `dialog` tells which window shows the dialog, and
+  `dialog_ping` measures the round trip of input through a dialog window.
+
 ## 0.9.15 – 2026-11-13
 
 ### Changed

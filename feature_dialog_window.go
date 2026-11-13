@@ -56,23 +56,24 @@ type DialogOpenRequest struct {
 
 // dialogWin is one dialog window as Go knows it.
 type dialogWin struct {
-	w        *application.WebviewWindow
-	name     string
-	ready    bool               // its page is loaded and has asked for work
-	req      *DialogOpenRequest // the dialog it shows (nil while it is a hidden spare)
-	owner    *application.WebviewWindow
-	parent   *application.WebviewWindow // the window it stays above (the owner, or the dialog below it)
-	shown    bool
-	byPage   bool // closed by the page (an answer), not by the user
-	pending  []json.RawMessage
-	title    string
-	placed   [2]int        // where it was put (x, y), to tell whether the user moved it
-	placedCh chan struct{} // closed once it is sized and placed (it is not shown before)
-	size     [2]int        // the inside size it was given
-	opened   time.Time
-	shownAt  time.Time
-	order    int
-	openMs   float64 // ms from the page's modal() to the window on the screen and painted (its page measures it)
+	w         *application.WebviewWindow
+	name      string
+	ready     bool               // its page is loaded and has asked for work
+	req       *DialogOpenRequest // the dialog it shows (nil while it is a hidden spare)
+	owner     *application.WebviewWindow
+	ownerName string                     // the owner's name (for topOf)
+	parent    *application.WebviewWindow // the window it stays above (the owner, or the dialog below it)
+	shown     bool
+	byPage    bool // closed by the page (an answer), not by the user
+	pending   []json.RawMessage
+	title     string
+	placed    [2]int        // where it was put (x, y), to tell whether the user moved it
+	placedCh  chan struct{} // closed once it is sized and placed (it is not shown before)
+	size      [2]int        // the inside size it was given
+	opened    time.Time
+	shownAt   time.Time
+	order     int
+	openMs    float64 // ms from the page's modal() to the window on the screen and painted (its page measures it)
 }
 
 // DialogWindows is what the pages call about dialog windows (see the top of this file).
@@ -122,18 +123,8 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	}
 	dw.mu.Lock()
 	dw.ready = true
-	var v *dialogWin
-	for i, s := range dw.spares { // a spare whose page is loaded, else any spare
-		if s.ready {
-			v = s
-			dw.spares = append(dw.spares[:i], dw.spares[i+1:]...)
-			break
-		}
-	}
-	if v == nil && len(dw.spares) > 0 {
-		v = dw.spares[0]
-		dw.spares = dw.spares[1:]
-	}
+	v, rest, _ := takeSpare(dw.spares, func(s *dialogWin) bool { return s.ready }) // a loaded spare, else any
+	dw.spares = rest
 	parent := owner
 	if top := dw.topOf(owner.Name()); top != nil {
 		parent = top.w
@@ -145,17 +136,15 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	dw.hookOwner(owner)
 
 	// The size: what the dialog measured, or the kept size of a resizable kind; never more than the screen.
-	w, h := max(req.W, 80), max(req.H, 40)
+	w, h := req.W, req.H
 	keptPlace, kept := dw.kept(req.Kind)
 	sized := false
-	if req.Resizable && kept && keptPlace.W >= dialogMinW && keptPlace.H >= dialogMinH {
+	if req.Resizable && usableKeptSize(keptPlace, kept) {
 		w, h, sized = keptPlace.W, keptPlace.H, true
 	}
 	frameW, frameH := dw.frameSize()
 	area := screenArea(owner)
-	if area.Width > 0 {
-		w, h = min(w, area.Width*9/10-frameW), min(h, area.Height*9/10-frameH)
-	}
+	w, h = clampDialogSize(w, h, area, frameW, frameH)
 	title := req.Title
 	if title == "" {
 		title = "mormiCommander"
@@ -165,7 +154,7 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	dw.mu.Lock()
 	r := req
 	dw.order++
-	v.req, v.owner, v.parent, v.title, v.opened, v.order = &r, owner, parent, title, time.Now(), dw.order
+	v.req, v.owner, v.ownerName, v.parent, v.title, v.opened, v.order = &r, owner, owner.Name(), parent, title, time.Now(), dw.order
 	v.size, v.placedCh = [2]int{w, h}, make(chan struct{})
 	ready := v.ready
 	dw.mu.Unlock()
@@ -175,20 +164,7 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	}
 
 	// The place: where this kind was left (relative to the owner), else the middle of the window below it.
-	fw, fh := w+frameW, h+frameH
-	var x, y int
-	if kept && keptPlace.Moved {
-		ox, oy := owner.Position()
-		x, y = ox+keptPlace.DX, oy+keptPlace.DY
-	} else {
-		px, py := parent.Position()
-		pw, ph := parent.Size()
-		x, y = px+(pw-fw)/2, py+(ph-fh)/2
-	}
-	if area.Width > 0 { // keep the title bar on the screen
-		x = max(area.X, min(x, area.X+area.Width-fw))
-		y = max(area.Y, min(y, area.Y+area.Height-fh))
-	}
+	x, y := dialogPosition(keptPlace, kept, frameOf(owner), frameOf(parent), w+frameW, h+frameH, area)
 	v.w.SetTitle(title)
 	if c, ok := cssColour(req.Bg); ok {
 		v.w.SetBackgroundColour(c)
@@ -328,9 +304,7 @@ func (dw *DialogWindows) Resize(name string, w, h int) {
 	v.size = [2]int{w, h}
 	dw.mu.Unlock()
 	frameW, frameH := dw.frameSize()
-	if area := screenArea(owner); area.Width > 0 {
-		w, h = min(w, area.Width*9/10-frameW), min(h, area.Height*9/10-frameH)
-	}
+	w, h = clampDialogSize(w, h, screenArea(owner), frameW, frameH)
 	x, y := v.w.Position()
 	placeWindow(v.w, x, y, w, h, frameW, frameH)
 }
@@ -368,7 +342,7 @@ func (dw *DialogWindows) Close(name string) {
 func (dw *DialogWindows) fill() {
 	for {
 		dw.mu.Lock()
-		if !dw.ready || dw.app.wapp == nil || dw.app.isQuitting() || len(dw.spares)+dw.making >= dialogPoolSize {
+		if !dw.ready || dw.app.wapp == nil || dw.app.isQuitting() || sparesToMake(len(dw.spares), dw.making, dialogPoolSize) == 0 {
 			dw.mu.Unlock()
 			return
 		}
@@ -482,7 +456,7 @@ func (v *dialogWin) Focus() { v.w.Focus() }
 func (dw *DialogWindows) topOf(owner string) *dialogWin {
 	var top *dialogWin
 	for _, v := range dw.wins {
-		if v.req != nil && v.owner != nil && v.owner.Name() == owner && (top == nil || v.order > top.order) {
+		if v.req != nil && v.ownerName == owner && (top == nil || v.order > top.order) {
 			top = v
 		}
 	}
@@ -546,36 +520,15 @@ func (dw *DialogWindows) frameSize() (int, int) {
 	return dw.frame[0], dw.frame[1]
 }
 
-// ---- the kept places ----
-
-// dialogPlace is where a kind of dialog was left: its offset from the window it was opened over (when the user moved
-// it) and its inside size (when the user resized it).
-type dialogPlace struct {
-	DX, DY int
-	Moved  bool
-	W, H   int
-}
+// ---- the kept places (dialogwin_logic.go) ----
 
 func (dw *DialogWindows) kept(kind string) (dialogPlace, bool) {
-	var p dialogPlace
 	s := dw.app.settings
-	if s == nil || kind == "" {
-		return p, false
+	if s == nil {
+		return dialogPlace{}, false
 	}
 	all, _ := s.Get("dialogWindows").(map[string]any)
-	m, ok := all[kind].(map[string]any)
-	if !ok {
-		return p, false
-	}
-	n := func(k string) (int, bool) { f, ok := m[k].(float64); return int(f), ok }
-	if dx, ok := n("dx"); ok {
-		if dy, ok := n("dy"); ok {
-			p.DX, p.DY, p.Moved = dx, dy, true
-		}
-	}
-	p.W, _ = n("w")
-	p.H, _ = n("h")
-	return p, true
+	return placeFrom(all, kind)
 }
 
 // keep notes where the user left a dialog window, and its size when it was resized.
@@ -588,50 +541,36 @@ func (dw *DialogWindows) keep(v *dialogWin, req *DialogOpenRequest, placed, size
 	fw, fh := v.w.Size()
 	frameW, frameH := dw.frameSize()
 	w, h := fw-frameW, fh-frameH
-	moved := abs(x-placed[0]) > 2 || abs(y-placed[1]) > 2
-	resized := req.Resizable && (abs(w-size[0]) > 2 || abs(h-size[1]) > 2)
+	moved, resized := placeChanges(placed, size, x, y, w, h, req.Resizable)
 	if !moved && !resized {
 		return
 	}
+	ox, oy := v.owner.Position()
 	all, _ := s.Get("dialogWindows").(map[string]any)
-	out := map[string]any{}
-	for k, x := range all {
-		out[k] = x
-	}
-	e := map[string]any{}
-	if old, ok := out[req.Kind].(map[string]any); ok {
-		for k, x := range old {
-			e[k] = x
-		}
-	}
-	if moved {
-		ox, oy := v.owner.Position()
-		e["dx"], e["dy"] = x-ox, y-oy
-	}
-	if resized {
-		e["w"], e["h"] = w, h
-	}
-	out[req.Kind] = e
-	_ = s.put("dialogWindows", out)
+	_ = s.put("dialogWindows", withPlace(all, req.Kind, moved, x-ox, y-oy, resized, w, h))
 }
 
-func abs(n int) int {
-	if n < 0 {
-		return -n
+// frameOf is a window's frame on the screen.
+func frameOf(w *application.WebviewWindow) dlgRect {
+	if w == nil {
+		return dlgRect{}
 	}
-	return n
+	x, y := w.Position()
+	width, height := w.Size()
+	return dlgRect{x, y, width, height}
 }
 
 // screenArea is the work area of the screen a window is on (zero when unknown).
-func screenArea(w *application.WebviewWindow) application.Rect {
+func screenArea(w *application.WebviewWindow) dlgRect {
 	if w == nil {
-		return application.Rect{}
+		return dlgRect{}
 	}
 	s, err := w.GetScreen()
 	if err != nil || s == nil {
-		return application.Rect{}
+		return dlgRect{}
 	}
-	return s.WorkArea
+	a := s.WorkArea
+	return dlgRect{a.X, a.Y, a.Width, a.Height}
 }
 
 // cssColour reads a colour as getComputedStyle gives it ("rgb(34, 49, 72)" or "rgba(…)").
