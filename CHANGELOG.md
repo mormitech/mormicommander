@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.18 – 2026-11-13
+
+### Added
+
+- Files that were cut (Ctrl+X) now show dimmed in both panels and every view mode until they are pasted, replaced by
+  a copy, or the cut is cancelled. Esc with an empty command line cancels the cut and empties the system clipboard
+  only if it still holds exactly that cut. The dimming also clears when the window regains focus and the clipboard
+  holds something else. Option dimCutFiles (on by default) turns the dimming off.
+- Tests for the clipboard shortcuts on macOS (Cmd keys) and for their absence on Windows and Linux.
+
 ## 0.9.17 – 2026-11-13
 
 ### Added
