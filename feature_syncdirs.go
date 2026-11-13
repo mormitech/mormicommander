@@ -67,6 +67,10 @@ type SyncExecRequest struct {
 	Filter           syncdirs.PlanFilter `json:"filter"`
 	ConfirmOverwrite bool                `json:"confirmOverwrite"`
 	Trash            bool                `json:"trash"`
+	// Left and Right are the folders the window shows; when given, they must be the compared pair, so a sync never
+	// writes into folders the window no longer shows.
+	Left  string `json:"left"`
+	Right string `json:"right"`
 }
 
 func (s *SyncDirs) get(id int) (*syncSession, error) {
@@ -118,6 +122,22 @@ func (s *SyncDirs) Close(id int) {
 		}
 		ss.mu.Unlock()
 	}
+}
+
+// syncSamePair checks that the folders the window shows (when the page sends them) are the ones compared last.
+func (s *SyncDirs) syncSamePair(ss *syncSession, left, right string) error {
+	if left == "" && right == "" {
+		return nil
+	}
+	ss.mu.Lock()
+	cl, cr := ss.left, ss.right
+	ss.mu.Unlock()
+	l, errL := s.syncDir("left", left)
+	r, errR := s.syncDir("right", right)
+	if errL != nil || errR != nil || l != cl || r != cr {
+		return errors.New("The folders changed since the last compare. Press Compare first.")
+	}
+	return nil
 }
 
 // syncDir checks that a path is a folder on this computer the engine can work on.
@@ -176,6 +196,7 @@ func (s *SyncDirs) Compare(id int, r SyncCompareRequest) error {
 	ss.busy, ss.cancel = true, cancel
 	ss.left, ss.right = left, right
 	ss.lfs, ss.rfs = syncdirs.DirFS(left), syncdirs.DirFS(right)
+	ss.res = nil // the old result belongs to the old folders
 	lfs, rfs := ss.lfs, ss.rfs
 	ss.mu.Unlock()
 
@@ -360,6 +381,9 @@ func (s *SyncDirs) Plan(id int, f syncdirs.PlanFilter) (*syncdirs.Plan, error) {
 func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 	ss, err := s.idle(id)
 	if err != nil {
+		return err
+	}
+	if err := s.syncSamePair(ss, r.Left, r.Right); err != nil {
 		return err
 	}
 	ss.mu.Lock()

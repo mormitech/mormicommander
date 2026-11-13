@@ -57,6 +57,7 @@ function syncWindow(app, id, args = {}) {
   const saved = settings(app);
   const st = {
     id, rows: [], summary: null, errors: [], compared: false, running: false, syncing: false,
+    stale: false, cmpLeft: '', cmpRight: '', // stale: the folder fields changed since the last compare
     cursor: 0, sel: new Set(), anchor: -1,
     show: { ...DEFAULT_SHOW, ...(saved.show || {}), ...(args.show || {}) },
     left: args.left || app.left.path, right: args.right || app.right.path,
@@ -90,7 +91,9 @@ function syncWindow(app, id, args = {}) {
       st.rows = v.rows || [];
       st.summary = v.summary;
       st.errors = v.errors || [];
-      st.compared = v.compared;
+      st.compared = v.compared && !st.stale;
+      st.cmpLeft = v.left || ''; st.cmpRight = v.right || '';
+      if (st.stale) { st.rows = []; st.summary = null; st.errors = []; }
     } catch (e) { app.flash(errText(e), 'err'); }
     const paths = new Set(st.rows.map((r) => r.path));
     for (const p of [...st.sel]) if (!paths.has(p)) st.sel.delete(p);
@@ -110,15 +113,28 @@ function syncWindow(app, id, args = {}) {
     };
     st.running = true;
     st.progress = { dirs: 0, files: 0, current: '' };
-    st.rows = []; st.sel.clear(); st.cursor = 0; st.compared = false;
+    st.rows = []; st.sel.clear(); st.cursor = 0; st.compared = false; st.stale = false;
+    st.fieldL = req.left; st.fieldR = req.right;
     paint();
     try {
       await go.SyncDirs.Compare(st.id, req);
     } catch (e) {
       st.running = false;
+      st.stale = true; // the Go side may hold no result now; ask for a new compare
       paint();
       await messageDialog({ Title: 'Synchronize folders', Message: errText(e), Kind: 'syncdirs-error' });
     }
+  };
+  // The folder fields changed (typing, swap, loaded settings): the rows and their copy directions belong to the old
+  // pair, so they go away and Synchronize… waits for a new Compare.
+  const invalidate = () => {
+    if (st.syncing) return;
+    if (!st.stale && q('#sync-left').value.trim() === st.fieldL && q('#sync-right').value.trim() === st.fieldR) return; // same text
+    st.stale = true;
+    if (st.running) return; // refresh after the running compare drops its rows
+    if (!st.compared && !st.rows.length) return;
+    st.rows = []; st.sel.clear(); st.cursor = 0; st.compared = false; st.summary = null; st.errors = [];
+    paint();
   };
   const compareDone = async (d) => {
     st.running = false;
@@ -186,7 +202,7 @@ function syncWindow(app, id, args = {}) {
       status.textContent = `Comparing… ${plural(p.dirs || 0, 'folder')}, ${plural(p.files || 0, 'file')}${p.current ? ` · ${p.current}` : ''}  (Esc stops)`;
       return;
     }
-    if (!st.compared) { status.textContent = 'Choose the folders and press Compare (Enter).'; return; }
+    if (!st.compared) { status.textContent = st.stale ? 'The folders changed: press Compare (Enter).' : 'Choose the folders and press Compare (Enter).'; return; }
     const s = st.summary || {};
     const files = st.rows.filter((r) => !r.isDir);
     const total = files.reduce((a, r) => a + Math.max(r.left?.size || 0, r.right?.size || 0), 0);
@@ -260,7 +276,7 @@ function syncWindow(app, id, args = {}) {
     }
     await refresh(r.path);
   };
-  const pathsOf = (r) => ({ l: joinPath(q('#sync-left').value.trim(), r.leftPath, app.sepFor(st.left)), r: joinPath(q('#sync-right').value.trim(), r.rightPath, app.sepFor(st.right)) });
+  const pathsOf = (r) => ({ l: joinPath(st.cmpLeft || q('#sync-left').value.trim(), r.leftPath, app.sepFor(st.left)), r: joinPath(st.cmpRight || q('#sync-right').value.trim(), r.rightPath, app.sepFor(st.right)) });
   const compareRow = async (r = st.rows[st.cursor]) => {
     if (!r) return;
     if (r.isDir || !r.left || !r.right || r.left.kind !== 'file' || r.right.kind !== 'file') { app.flash('Compare by content needs a file on both sides.'); return; }
@@ -366,7 +382,9 @@ function syncWindow(app, id, args = {}) {
     }, null, { okLabel: 'Synchronize', kind: 'syncdirs-confirm' });
     if (!r) return;
     app.setSetting('syncdirs', { ...settings(app), confirmOverwrite: r.confirm, trash: r.trash });
-    await runSync({ filter: { leftToRight: r.lr, rightToLeft: r.rl, delete: r.del, show: st.show }, confirmOverwrite: r.confirm, trash: r.trash });
+    if (busy()) return; // the folders may have changed while the dialog was open
+    await runSync({ filter: { leftToRight: r.lr, rightToLeft: r.rl, delete: r.del, show: st.show }, confirmOverwrite: r.confirm, trash: r.trash,
+      left: q('#sync-left').value.trim(), right: q('#sync-right').value.trim() });
   };
 
   const runSync = (req) => new Promise((resolve) => {
@@ -439,6 +457,7 @@ function syncWindow(app, id, args = {}) {
   const loadProfile = (p) => {
     q('#sync-left').value = p.left || '';
     q('#sync-right').value = p.right || '';
+    invalidate();
     writeOpts({ ...DEFAULT_OPTS, ...(p.options || {}), filter: p.options?.filter || '*.*' });
     if (p.show) { st.show = { ...DEFAULT_SHOW, ...p.show }; writeShow(); }
     app.flash(`Loaded "${p.name}". Press Compare.`);
@@ -483,7 +502,8 @@ function syncWindow(app, id, args = {}) {
       writeOpts(opts0);
       writeShow();
       q('#sync-left').setAttribute('autofocus', '');
-      q('.b-swap').onclick = () => { const l = q('#sync-left').value; q('#sync-left').value = q('#sync-right').value; q('#sync-right').value = l; };
+      q('.b-swap').onclick = () => { const l = q('#sync-left').value; q('#sync-left').value = q('#sync-right').value; q('#sync-right').value = l; invalidate(); };
+      for (const s of ['#sync-left', '#sync-right']) q(s).addEventListener('input', () => invalidate());
       q('.b-compare').onclick = () => (st.running ? go.SyncDirs.Cancel(st.id) : compare());
       q('.b-sync').onclick = () => synchronize();
       q('.b-close').onclick = () => done(null);
