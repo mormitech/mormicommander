@@ -52,6 +52,11 @@ func (a *App) newMainWindow(width, height int) {
 		a.startup()
 	})
 	w.OnWindowEvent(events.Common.WindowRuntimeReady, func(*application.WindowEvent) { a.reveal() })
+	// The page tracks the held modifier keys for the function key bar; a key let go while another window (a dialog
+	// window, another app) had the keyboard never reaches it, so it is told when this window stops being the active one.
+	for _, ev := range []events.WindowEventType{events.Common.WindowLostFocus, events.Common.WindowHide, events.Common.WindowMinimise} {
+		w.OnWindowEvent(ev, func(*application.WindowEvent) { a.emit("window-inactive") })
+	}
 	w.OnWindowEvent(events.Common.WindowFilesDropped, func(e *application.WindowEvent) {
 		x, y := 0, 0
 		if d := e.Context().DropTargetDetails(); d != nil {

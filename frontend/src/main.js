@@ -4,12 +4,12 @@
 // See docs/ARCHITECTURE.md.
 
 import './style.css';
-import { go } from './core/go.js';
+import { go, on } from './core/go.js';
 import { app } from './core/app.js';
 import { Panel } from './core/panel.js';
 import { setupKeys, setApp } from './core/registry.js';
 import { loadSettings, getSetting } from './core/settings.js';
-import { initKeyboard } from './core/keyboard.js';
+import { initKeyboard, releaseModifiers } from './core/keyboard.js';
 import { initFkeys } from './core/fkeys.js';
 import { initMenus } from './core/menus.js';
 import { initControl } from './core/control.js';
@@ -44,6 +44,9 @@ async function start() {
   for (const p of app.panels) if (session[p.side]?.sort) p.sort = session[p.side].sort;
 
   initKeyboard();
+  // Go reports the window losing the keyboard (a dialog window opened, another app came forward, minimized), which the
+  // page does not always see as a blur: the function key bar must not stay on the shifted labels (#35).
+  on('window-inactive', releaseModifiers);
   // A right-click doesn't activate an inactive window on macOS, and an inactive window gets no hover events, so a
   // context menu opened there wouldn't follow the mouse: bring the window to the front first.
   window.addEventListener('contextmenu', () => { if (!document.hasFocus()) go.App.Activate().catch(() => {}); }, true);

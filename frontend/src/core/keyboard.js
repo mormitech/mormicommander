@@ -15,22 +15,34 @@ import { app } from './app.js';
 const handlers = [];
 export function addKeyHandler(fn) { handlers.push(fn); return () => handlers.splice(handlers.indexOf(fn), 1); }
 
+// The held modifiers (Ctrl, Alt, Shift, Cmd), which the function key bar shows (F-023). They are read from every key
+// and mouse event, in the capture phase at the window, so a dialog that takes the keys for itself cannot hide them.
+// A modifier let go while another window had the keyboard (a dialog window, Cmd+Tab to another app) sends its key-up
+// to that window, so the set is emptied whenever this window stops being the active one (releaseModifiers), and
+// any later mouse movement over the window corrects it from the event's own flags.
 const mods = new Set();
 const modListeners = new Set();
 export const heldModifiers = () => new Set(mods);
-export function onModifiers(fn) { modListeners.add(fn); }
-function setMods(ev) {
+export function onModifiers(fn) { modListeners.add(fn); return () => modListeners.delete(fn); }
+function changeMods(next) {
+  if ([...next].join() === [...mods].join()) return;
+  mods.clear();
+  next.forEach((m) => mods.add(m));
+  modListeners.forEach((f) => f(heldModifiers()));
+}
+// syncModifiers takes the modifiers from a keyboard or mouse event's flags.
+export function syncModifiers(ev) {
   const next = new Set();
   if (ev.ctrlKey) next.add('Ctrl');
   if (ev.altKey) next.add('Alt');
   if (ev.shiftKey) next.add('Shift');
   if (ev.metaKey) next.add('Cmd');
-  if ([...next].join() !== [...mods].join()) {
-    mods.clear();
-    next.forEach((m) => mods.add(m));
-    modListeners.forEach((f) => f(heldModifiers()));
-  }
+  changeMods(next);
 }
+// releaseModifiers forgets the held modifiers (the window lost the keyboard; a key still held shows up again with its
+// next event).
+export function releaseModifiers() { changeMods(new Set()); }
+const setMods = syncModifiers;
 
 export function onKeyDown(ev) {
   setMods(ev);
@@ -76,9 +88,14 @@ export function onKeyDown(ev) {
 }
 
 export function initKeyboard() {
+  window.addEventListener('keydown', setMods, true);
+  window.addEventListener('keyup', setMods, true);
   window.addEventListener('keydown', onKeyDown);
-  window.addEventListener('keyup', setMods);
-  window.addEventListener('blur', () => { if (mods.size) { mods.clear(); modListeners.forEach((f) => f(heldModifiers())); } });
+  for (const t of ['mousemove', 'mousedown', 'mouseup', 'wheel']) window.addEventListener(t, setMods, { capture: true, passive: true });
+  // the window stops being the active one: nothing it saw pressed can be trusted to be still down
+  window.addEventListener('blur', releaseModifiers);
+  window.addEventListener('focus', releaseModifiers);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible') releaseModifiers(); });
   // mouse buttons 4 and 5 go back and forward (F-073)
   window.addEventListener('mouseup', (ev) => {
     if (ev.button === 3) { ev.preventDefault(); app.run('cm_GoToPreviousDir'); }
