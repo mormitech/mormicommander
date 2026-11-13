@@ -18,3 +18,6 @@
 .mc-progress { height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; margin: 6px 0 10px; }
 .mc-progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
 @media (prefers-reduced-motion: reduce) { .mc-modal { animation: none; } .mc-progress i { transition: none; } }
+/* Moving dialogs (dialogs.js draggable): the title is the handle. */
+.mc-draggable > h2, .mc-draggable .mc-drag { cursor: move; user-select: none; }
+.mc-dragging { transition: none !important; }

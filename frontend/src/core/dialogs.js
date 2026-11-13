@@ -15,6 +15,55 @@ export { esc };
 
 const open = []; // the dialogs on screen, last = top
 
+// Dialogs can be moved like windows: drag the title (or any empty part of the box). They are boxes in the page, not
+// separate windows (Wails v2 has one window per process), so the box is shifted with a transform and kept inside the
+// app window. Where a kind of dialog was left is remembered for the session, so Options or the copy dialog open where
+// you put them last; double-clicking the title puts it back in the middle. Popup menus drawn as boxes (position:
+// fixed, placed at the pointer) are not draggable.
+const placed = new Map(); // dialog kind → {x, y} offset from the centred position
+const KEEP = 40; // pixels of the box that always stay inside the window, so it can be grabbed again
+
+function draggable(box, kind) {
+  if (getComputedStyle(box).position === 'fixed') return;
+  box.classList.add('mc-draggable');
+  let off = { x: 0, y: 0 };
+  const apply = () => {
+    // Clamp against the box's centred position so a dialog never ends up out of reach, also after the window shrank.
+    box.style.transform = '';
+    const r = box.getBoundingClientRect();
+    const minX = KEEP - r.right, maxX = innerWidth - KEEP - r.left;
+    const minY = -r.top, maxY = innerHeight - KEEP - r.top;
+    off = { x: Math.min(maxX, Math.max(minX, off.x)), y: Math.min(maxY, Math.max(minY, off.y)) };
+    box.style.transform = off.x || off.y ? `translate(${off.x}px, ${off.y}px)` : '';
+  };
+  if (kind && placed.has(kind)) { off = { ...placed.get(kind) }; apply(); }
+  const isHandle = (t) => t === box || t.closest('h2, .mc-drag') && !t.closest('input, select, textarea, button, a, [contenteditable]');
+  box.addEventListener('pointerdown', (ev) => {
+    if (ev.button !== 0 || !isHandle(ev.target)) return;
+    ev.preventDefault();
+    const start = { x: ev.clientX - off.x, y: ev.clientY - off.y };
+    box.setPointerCapture(ev.pointerId);
+    box.classList.add('mc-dragging');
+    const move = (e) => { off = { x: e.clientX - start.x, y: e.clientY - start.y }; apply(); };
+    const up = () => {
+      box.removeEventListener('pointermove', move);
+      box.removeEventListener('pointerup', up);
+      box.removeEventListener('pointercancel', up);
+      box.classList.remove('mc-dragging');
+      if (kind) placed.set(kind, off);
+    };
+    box.addEventListener('pointermove', move);
+    box.addEventListener('pointerup', up);
+    box.addEventListener('pointercancel', up);
+  });
+  box.addEventListener('dblclick', (ev) => {
+    if (!ev.target.closest('h2, .mc-drag')) return;
+    off = { x: 0, y: 0 };
+    apply();
+    if (kind) placed.delete(kind);
+  });
+}
+
 // modal shows a box; build fills it and gets done(value) to close it with an answer. meta: {kind} for control mode,
 // and optionally onKey(ev) → true when the dialog handles a key itself (keys don't reach elements inside otherwise).
 export function modal(build, cancelValue, meta = {}) {
@@ -52,6 +101,7 @@ export function modal(build, cancelValue, meta = {}) {
     build(box, done);
     open.push(entry);
     document.body.append(back);
+    draggable(box, meta.kind);
     const first = box.querySelector('[autofocus]') || box.querySelector('.primary') || box.querySelector('button');
     first?.focus();
     if (first?.select && first.dataset.select) { const [a, b] = first.dataset.select.split(',').map(Number); first.setSelectionRange(a, b); }

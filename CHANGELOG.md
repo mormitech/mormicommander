@@ -4,10 +4,12 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
-## Unreleased
+## 0.9.1 – 2026-11-13
 
 ### Added
 
+- Dialogs and tool windows can be moved: drag the title (or an empty part of the box). Each kind of dialog opens
+  where you left it during the session; double-click the title to put it back in the middle.
 - A Home drive button for your home folder (~): after the startup disk on macOS and Linux, after the drive letters
   on Windows. It is highlighted while a panel is anywhere inside your home folder, and ~ picks it in the drive list.
 
