@@ -189,6 +189,7 @@ Import from `../core/…`. These are stable interfaces; extend them by adding, n
 | `p.fullPath(name)`, `p.editPath()` | helpers |
 | `p.$.pathbar`, `p.$.pbtns`, `p.$.tabbar`, `p.$.drives`, `p.$.list`, `p.$.status`, `p.el` | places in the panel for features (`.tabbar` is empty and hidden: the tabs feature fills it) |
 | `Panel.STATE_KEYS` | fields swapped by Ctrl+U; a feature with more per-panel state (tabs) pushes its field names |
+| `Panel.rowClassHooks.push((panel, entry) => cls)` | an extra class on a row (cut files are drawn dimmed with `cut`); `''` adds none |
 
 ### Other core modules
 

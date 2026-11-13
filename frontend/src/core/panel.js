@@ -430,6 +430,7 @@ export class Panel {
         if (e.link) cls += ' link';
         if (e.broken) cls += ' broken';
         if (e.exec && !e.dir) cls += ' exe';
+        cls += Panel.extraRowClass(this, e);
       }
       const sep = display.separateExt;
       const name = e.dir || !sep ? e.name : e.base;
@@ -489,6 +490,15 @@ export class Panel {
 
 // Features with virtual folders (Feed to listbox) map a name to the real file: hook(panel, name) → full path or ''.
 Panel.pathHooks = [];
+
+// Features that mark rows (cut files are dimmed until pasted) add a class: hook(panel, entry) → class name or ''.
+// extraRowClass joins what the hooks return, with a leading space, for the row renderers (here and views.js).
+Panel.rowClassHooks = [];
+Panel.extraRowClass = (panel, e) => {
+  let cls = '';
+  for (const h of Panel.rowClassHooks) { const c = h(panel, e); if (c) cls += ` ${c}`; }
+  return cls;
+};
 
 Panel.STATE_KEYS = ['path', 'parent', 'all', 'entries', 'index', 'cursor', 'selected', 'sort', 'back', 'fwd', 'lastCursor', 'filter', 'filterLabel', 'dirSizes', 'error'];
 

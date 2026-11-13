@@ -211,3 +211,74 @@ func TestSystemWatchable(t *testing.T) {
 		t.Error("a temp folder is watched")
 	}
 }
+
+// TestSystemClipCutState checks the calls behind the dimmed cut files: CutFiles reports a pending cut only, and
+// CancelCut empties the clipboard only while it still holds exactly that cut.
+func TestSystemClipCutState(t *testing.T) {
+	dir := t.TempDir()
+	a, b := filepath.Join(dir, "a.txt"), filepath.Join(dir, "b.txt")
+	c := &SystemClip{app: NewApp(startOpts{}), clip: clipfiles.NewMemory()}
+
+	if got, err := c.CutFiles(); err != nil || len(got) != 0 {
+		t.Errorf("empty clipboard: %v %v", got, err)
+	}
+	if err := c.Copy([]string{a}, false); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := c.CutFiles(); len(got) != 0 {
+		t.Errorf("copied files are not a cut: %v", got)
+	}
+	if ok, _ := c.CancelCut([]string{a}); ok {
+		t.Error("cancelling must leave copied files alone")
+	}
+	if ct, _ := c.Content(); !ct.Files {
+		t.Error("copied files were taken off the clipboard")
+	}
+
+	if err := c.Copy([]string{a, b}, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := c.CutFiles(); len(got) != 2 {
+		t.Errorf("cut files: %v", got)
+	}
+	if ok, _ := c.CancelCut([]string{a}); ok {
+		t.Error("a different list must not cancel the cut")
+	}
+	if ok, _ := c.CancelCut(nil); ok {
+		t.Error("an empty list must not cancel the cut")
+	}
+	if ok, err := c.CancelCut([]string{b, a + string(filepath.Separator)}); !ok || err != nil {
+		t.Errorf("the same cut, in another order: %v %v", ok, err)
+	}
+	if ct, _ := c.Content(); ct.Files || ct.Text || ct.Image {
+		t.Errorf("the clipboard is not empty after cancelling: %+v", ct)
+	}
+
+	// something copied since the cut (text here) stays
+	c.Copy([]string{a}, true)
+	c.WriteText("hello")
+	if ok, _ := c.CancelCut([]string{a}); ok {
+		t.Error("text copied after the cut was cleared")
+	}
+	if ct, _ := c.Content(); !ct.Text {
+		t.Error("the text is gone")
+	}
+}
+
+func TestSystemSamePaths(t *testing.T) {
+	cases := []struct {
+		a, b []string
+		want bool
+	}{
+		{[]string{"/a", "/b"}, []string{"/b", "/a"}, true},
+		{[]string{"/a", "/a"}, []string{"/a"}, true},
+		{[]string{"/a"}, []string{"/a", "/b"}, false},
+		{[]string{"/a", "/b"}, []string{"/a"}, false},
+		{nil, nil, true},
+	}
+	for _, tc := range cases {
+		if got := systemSamePaths(tc.a, tc.b); got != tc.want {
+			t.Errorf("%v vs %v: %v", tc.a, tc.b, got)
+		}
+	}
+}

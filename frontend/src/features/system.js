@@ -8,7 +8,9 @@
 //
 // Settings (all optional): "terminal" (program or command line with %D), "autoRefresh" (true), "refreshOnlyActive"
 // (false), "refreshExclude" (folders, one per line or ";"-separated), "refreshNetwork" (true), "confirmDrop" (true),
-// "enableLog" / "logFile" (the log file). The confirmations dialog (cm_SafetyConfirmations) writes where each feature reads.
+// "enableLog" / "logFile" (the log file), "dimCutFiles" (true: files cut to the clipboard stay dimmed until pasted, and
+// Esc cancels the cut; false: no dimming, Esc leaves the clipboard alone). The confirmations dialog
+// (cm_SafetyConfirmations) writes where each feature reads.
 
 import './system.css';
 import { command, getCommand } from '../core/registry.js';
@@ -21,6 +23,10 @@ import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { applyOptions } from './config/util.js';
 import { isLocal, baseName, dirName, logError, errorLog, onLog, runTransfer, focusIn } from './system-lib.js';
+import { createCutState } from './system-cut.js';
+import { Panel } from '../core/panel.js';
+import { addKeyHandler } from '../core/keyboard.js';
+import { cmdline } from '../core/cmdline.js';
 
 const REVEAL = { darwin: 'Show in Finder', windows: 'Show in Explorer', linux: 'Open in the file manager' };
 export const revealLabel = (app) => REVEAL[app.platform] || REVEAL.linux;
@@ -137,6 +143,36 @@ addCmdlineHandler(async (text, { shift }) => {
 
 // ---- the files clipboard (F-237, F-739, F-740) ----
 
+// The visible cut state (board issue #3): the files of the last cut are drawn dimmed (class "cut") until a paste moves
+// them, a copy replaces them, Esc cancels the cut, or the clipboard is found to hold something else.
+const cutFiles = createCutState(() => theApp.platform);
+const dimCut = (app) => app.setting('dimCutFiles', true) !== false;
+Panel.rowClassHooks.push((panel, e) => (cutFiles.size && !e.up && cutFiles.has(panel.fullPath(e.name)) && dimCut(theApp) ? 'cut' : ''));
+
+// setCut remembers the files of a cut ([] after a copy or a paste) and redraws the panels.
+function setCut(app, paths) {
+  const had = cutFiles.size;
+  cutFiles.set(paths);
+  if (had || cutFiles.size) for (const p of app.panels || []) p.renderRows();
+}
+
+// cancelCut forgets the cut (Esc) and takes the files off the system clipboard, but only while the clipboard still
+// holds exactly that cut, so whatever was copied since (here or in another app) stays.
+async function cancelCut(app) {
+  const paths = cutFiles.list();
+  setCut(app, []);
+  try { await go.SystemClip.CancelCut(paths); } catch { /* the dimming is gone either way */ }
+  app.flash('The cut was cancelled.');
+}
+
+// syncCut forgets the cut when the clipboard no longer holds it (another app copied something meanwhile).
+async function syncCut(app) {
+  if (!cutFiles.size) return;
+  let now;
+  try { now = await go.SystemClip.CutFiles(); } catch { return; }
+  if (!cutFiles.same(now || [])) setCut(app, []);
+}
+
 async function toClipboard(app, cut) {
   const p = app.cur;
   const list = p.targets();
@@ -144,6 +180,7 @@ async function toClipboard(app, cut) {
   const paths = list.map((e) => p.fullPath(e.name));
   if (!paths.every(isLocal)) { app.flash('Only files on this computer can go to the clipboard.', 'err'); return false; }
   await go.SystemClip.Copy(paths, cut);
+  setCut(app, cut ? paths : []);
   const what = list.length === 1 ? list[0].name : plural(list.length, 'file');
   app.flash(cut ? `${what} will be moved by the next paste (${app.keyLabel('cm_PasteFromClipboard') || 'Ctrl+V'}).` : `Copied ${what} to the clipboard.`);
   return true;
@@ -180,8 +217,9 @@ command({
       return false;
     }
     const t = await go.SystemClip.PlanPaste(dir);
+    if (!t.move) setCut(app, []);
     const names = await runTransfer(app, t);
-    if (names && t.move) await go.SystemClip.Clear().catch(() => {});
+    if (names && t.move) { await go.SystemClip.Clear().catch(() => {}); setCut(app, []); }
     focusIn(app, dir, names);
     return !!names;
   },
@@ -346,6 +384,14 @@ export function init(app) {
   active();
   on('system-volumes', () => volumesChanged(app));
 
+  // Esc with an empty command line cancels a pending cut; it still clears the command line and stops slow folders
+  addKeyHandler((ev, combo) => {
+    if (combo === 'Esc' && cutFiles.size && !cmdline.text && dimCut(app)) cancelCut(app);
+    return false;
+  });
+  // coming back to the window: the cut may have been replaced by a copy in another app
+  window.addEventListener('focus', () => syncCut(app));
+
   // the menu and the command browser name Finder / Explorer / the file manager as the system calls it
   const ex = getCommand('cm_Explorer');
   if (ex) ex.label = revealLabel(app);
@@ -353,4 +399,5 @@ export function init(app) {
 }
 
 addControlCommand('errorlog', async () => ({ ok: true, errors: errorLog.slice() }));
+addControlCommand('cut_state', async () => ({ ok: true, paths: cutFiles.list() }));
 addControlCommand('clipboard_content', async () => ({ ok: true, content: await go.SystemClip.Content() }));

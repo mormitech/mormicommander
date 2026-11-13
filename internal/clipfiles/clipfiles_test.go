@@ -133,3 +133,26 @@ func TestOpString(t *testing.T) {
 		t.Fatal("Op.String must match the GNOME format words")
 	}
 }
+
+func TestMemoryClipboard(t *testing.T) {
+	c := NewMemory()
+	if _, _, err := c.ReadFiles(); !errors.Is(err, ErrEmpty) {
+		t.Errorf("new memory clipboard: %v", err)
+	}
+	dir := t.TempDir()
+	a := filepath.Join(dir, "a")
+	if err := c.WriteFiles([]string{a}, Cut); err != nil {
+		t.Fatal(err)
+	}
+	if p, op, err := c.ReadFiles(); err != nil || op != Cut || len(p) != 1 || p[0] != a {
+		t.Errorf("read back: %v %v %v", p, op, err)
+	}
+	c.WriteText("x")
+	if ct, _ := c.Content(); ct.Files || !ct.Text {
+		t.Errorf("text replaces files: %+v", ct)
+	}
+	c.Clear()
+	if ct, _ := c.Content(); ct.Files || ct.Text || ct.Image {
+		t.Errorf("cleared: %+v", ct)
+	}
+}

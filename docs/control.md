@@ -332,6 +332,7 @@ choices under `tools`.
 | `{"cmd": "fswatch"}` | Automatic refresh: `{watch: {running, panels: {left, right}, watched: [...]}}`. |
 | `{"cmd": "errorlog"}` | The error log window's entries: `{errors: [{time, text, details}]}`. |
 | `{"cmd": "clipboard_content"}` | What the system clipboard holds: `{content: {files, text, image}}` (reads only). |
+| `{"cmd": "cut_state"}` | The files of a pending cut, drawn dimmed until pasted or cancelled with Esc: `{paths: [...]}` (empty when there is none). |
 | `{"cmd": "drop", "from": "left", "names": ["a.txt"], "to": "right", "name": "sub", "op": "copy"}` | Does what dropping those files on the folder `sub` of the right panel does (no `name`: its folder; `"target": "cmdline"`: the command line). The drop dialog comes up (kind `drop`, field `drop-target`, buttons Cancel, Copy, Move, Link) unless the setting `confirmDrop` is off. Answers `{dropped: false}` where a drop is not allowed (own folder, folder into itself). |
 | `{"cmd": "filedrop", "paths": ["/abs/x"], "to": "left", "name": "sub"}` | As if the files were dropped from Finder / Explorer. |
 | `{"cmd": "drive_menu", "side": "left", "name": "USB stick"}` | Opens a drive button's context menu (popup kind `context-drive`). |

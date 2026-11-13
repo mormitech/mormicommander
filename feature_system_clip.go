@@ -185,6 +185,68 @@ func (c *SystemClip) Clear() error {
 	return c.board().Clear()
 }
 
+// CutFiles returns the files on the clipboard when they were cut (marked to be moved by the next paste), and an empty
+// list when the clipboard holds copied files or no files at all. The page uses it to drop the dimming of cut files
+// once another program has put something else on the clipboard.
+func (c *SystemClip) CutFiles() ([]string, error) {
+	if c.app.mock != nil {
+		return []string{}, nil
+	}
+	paths, op, err := c.board().ReadFiles()
+	if errors.Is(err, clipfiles.ErrEmpty) || (err == nil && op != clipfiles.Cut) {
+		return []string{}, nil
+	}
+	if err != nil {
+		return nil, clipErr(err)
+	}
+	return paths, nil
+}
+
+// CancelCut takes a cut off the clipboard (Esc after Ctrl+X): it empties the clipboard only while it still holds
+// exactly these files marked as cut, so anything copied since stays. It tells whether the clipboard was emptied.
+func (c *SystemClip) CancelCut(paths []string) (bool, error) {
+	if c.app.mock != nil || len(paths) == 0 {
+		return false, nil
+	}
+	now, op, err := c.board().ReadFiles()
+	if errors.Is(err, clipfiles.ErrEmpty) {
+		return false, nil
+	}
+	if err != nil {
+		return false, clipErr(err)
+	}
+	if op != clipfiles.Cut || !systemSamePaths(now, paths) {
+		return false, nil
+	}
+	if err := c.board().Clear(); err != nil {
+		return false, clipErr(err)
+	}
+	return true, nil
+}
+
+// systemSamePaths tells whether two lists name the same files, in any order (without case on Windows).
+func systemSamePaths(a, b []string) bool {
+	key := func(p string) string {
+		p = filepath.Clean(p)
+		if runtime.GOOS == "windows" {
+			p = strings.ToLower(p)
+		}
+		return p
+	}
+	set := map[string]bool{}
+	for _, p := range a {
+		set[key(p)] = true
+	}
+	other := map[string]bool{}
+	for _, p := range b {
+		if !set[key(p)] {
+			return false
+		}
+		other[key(p)] = true
+	}
+	return len(other) == len(set)
+}
+
 // SuggestName is a free name in dir for pasted data: base+ext, or base(2)+ext and so on.
 func (c *SystemClip) SuggestName(dir, base, ext string) string {
 	return clipfiles.SuggestName(dir, base, ext)

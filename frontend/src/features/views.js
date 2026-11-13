@@ -101,7 +101,7 @@ function rowClass(p, e, i) {
   if (e.link) cls += ' link';
   if (e.broken) cls += ' broken';
   if (e.exec && !e.dir) cls += ' exe';
-  return cls;
+  return cls + Panel.extraRowClass(p, e);
 }
 
 // brief geometry: rows per column and the column width

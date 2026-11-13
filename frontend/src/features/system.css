@@ -1,4 +1,8 @@
-/* Desktop integration: drop targets, the drag image, the error log, the drop dialog, property boxes. */
+/* Desktop integration: drop targets, the drag image, the error log, the drop dialog, property boxes, cut files. */
+
+/* Files cut to the clipboard (Ctrl+X) are dimmed until they are pasted or Esc cancels the cut; hidden ones even more. */
+.row.cut { opacity: .45; }
+.row.cut.hid { opacity: calc(var(--hid) * .6); }
 
 .mc-system-drop { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--hover); border-radius: 3px; }
 .list.mc-system-drop { background: color-mix(in srgb, var(--accent) 6%, transparent); }

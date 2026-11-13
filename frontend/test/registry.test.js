@@ -53,3 +53,20 @@ test('every default key is written the canonical way and names a cm_ command', (
     expect(normalizeCombo(normalizeCombo(k))).toBe(normalizeCombo(k));
   }
 });
+
+test('the macOS Cmd aliases of F-285 run the same commands, and exist only on macOS', () => {
+  const aliases = {
+    'Cmd+C': 'cm_CopyToClipboard', 'Cmd+X': 'cm_CutToClipboard', 'Cmd+V': 'cm_PasteFromClipboard', 'Cmd+A': 'cm_SelectAll',
+    'Cmd+T': 'cm_OpenNewTab', 'Cmd+W': 'cm_CloseCurrentTab', 'Cmd+Q': 'cm_Exit', 'Cmd+,': 'cm_Config',
+    'Cmd+Backspace': 'cm_Delete', 'Shift+Cmd+.': 'cm_SwitchHidSys', 'Cmd+R': 'cm_RereadSource', 'Cmd+Up': 'cm_GoToParent',
+    'Cmd+Down': 'cm_Enter', 'Cmd+I': 'cm_Properties', 'Cmd+L': 'cm_EditPath', 'Cmd+F': 'cm_SearchFor', 'Shift+Cmd+G': 'cm_EditPath',
+  };
+  reg.setupKeys('darwin', {});
+  for (const [k, v] of Object.entries(aliases)) expect(reg.commandForKey(k), k).toBe(v);
+  for (const k of ['Ctrl+C', 'Ctrl+X', 'Ctrl+V']) expect(reg.commandForKey(k), k).toMatch(/Clipboard$/); // TC keys too
+  for (const plat of ['windows', 'linux']) {
+    reg.setupKeys(plat, {});
+    for (const k of Object.keys(aliases)) expect(reg.commandForKey(k), `${k} on ${plat}`).toBe('');
+    expect(reg.commandForKey('Ctrl+X')).toBe('cm_CutToClipboard');
+  }
+});

@@ -315,7 +315,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-234 Ctrl+Shift+F2 comments view — Ctrl+Shift+F2 — wired
 - [ ] F-235 Ctrl+A select all — Ctrl+A — wired
 - [ ] F-236 Ctrl+B branch view — Ctrl+B — wired
-- [~] F-237 Ctrl+C / Ctrl+X / Ctrl+V clipboard copy, cut, paste files — Ctrl+C / Ctrl+X / Ctrl+V — cm_CopyToClipboard / cm_CutToClipboard / cm_PasteFromClipboard wired; works with OS file clipboard (Finder/Explorer/Nautilus) where possible
+- [x] F-237 Ctrl+C / Ctrl+X / Ctrl+V clipboard copy, cut, paste files — Ctrl+C / Ctrl+X / Ctrl+V — cm_CopyToClipboard / cm_CutToClipboard / cm_PasteFromClipboard wired; works with OS file clipboard (Finder/Explorer/Nautilus) where possible
 - [ ] F-238 Ctrl+D hotlist — Ctrl+D — wired
 - [ ] F-239 Ctrl+E previous command line — Ctrl+E — wired
 - [ ] F-240 Ctrl+F FTP connect — Ctrl+F — wired
@@ -334,7 +334,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-253 Ctrl+Shift+U swap with tabs — Ctrl+Shift+U — wired
 - [ ] F-254 Ctrl+V paste — Ctrl+V — wired
 - [ ] F-255 Ctrl+W close tab — Ctrl+W — wired
-- [ ] F-256 Ctrl+X cut / next cmdline — Ctrl+X — in file list: cut files; in command line: next history entry
+- [x] F-256 Ctrl+X cut / next cmdline — Ctrl+X — in file list: cut files; in command line: next history entry
 - [ ] F-257 Ctrl+Z edit comment — Ctrl+Z — wired
 - [ ] F-258 Ctrl+Up / Ctrl+Shift+Up new tab — Ctrl+Up — wired
 - [ ] F-259 Ctrl+Left / Ctrl+Right transfer folder — Ctrl+Left / Ctrl+Right — wired
@@ -380,7 +380,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 ## 9. macOS key mapping rule (document and implement)
 
 - [ ] F-284 Platform hotkey rule: TC hotkeys use the physical Ctrl/Alt/Shift on all platforms; on macOS, Alt = Option, Ctrl = Control — — — every TC default hotkey works with Control/Option on macOS, identical to Windows/Linux; docs/keyboard.md documents the rule
-- [~] F-285 macOS extra Cmd aliases: Cmd+C/X/V copy/cut/paste files, Cmd+A select all, Cmd+T new tab, Cmd+W close tab, Cmd+Q quit, Cmd+, configuration, Cmd+Backspace delete to trash, Cmd+Shift+. toggle hidden, Cmd+R reread, Cmd+Up parent, Cmd+Down open, Cmd+I properties, Cmd+L edit path, Cmd+F find files, Cmd+Shift+G go to folder, Cmd+Z undo in text fields only — macOS only — each alias runs the same cm_* command; aliases do not exist on Windows/Linux; Ctrl-based TC keys still work on macOS
+- [x] F-285 macOS extra Cmd aliases: Cmd+C/X/V copy/cut/paste files, Cmd+A select all, Cmd+T new tab, Cmd+W close tab, Cmd+Q quit, Cmd+, configuration, Cmd+Backspace delete to trash, Cmd+Shift+. toggle hidden, Cmd+R reread, Cmd+Up parent, Cmd+Down open, Cmd+I properties, Cmd+L edit path, Cmd+F find files, Cmd+Shift+G go to folder, Cmd+Z undo in text fields only — macOS only — each alias runs the same cm_* command; aliases do not exist on Windows/Linux; Ctrl-based TC keys still work on macOS
 - [~] F-286 Option-key letters handled by physical key code (KeyboardEvent.code) — — — Option+letter quick search and Alt hotkeys work on macOS despite Option producing special characters
 - [ ] F-287 Function keys on Mac laptops (fn) — — — F-keys work with fn or with "use F1, F2 as standard keys"; function key buttons always available as mouse alternative; doc mentions this
 - [ ] F-288 Keyboards without numpad and without Ins key — — — alternatives documented and wired: Ins = Space; Num+ = Shift+= ; Num- = Shift+- ; Num* = Shift+8 (only while command line is empty); remappable
