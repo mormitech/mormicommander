@@ -1,0 +1,43 @@
+/* The Files-menu tools: attributes, properties, checksums, split/combine, encode/decode, links (features/tools.js). */
+.mc-tools-group { border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px 8px; margin: 8px 0; }
+.mc-tools-group legend { color: var(--muted); font-size: 12px; padding: 0 4px; }
+.mc-tools-what { overflow-wrap: anywhere; }
+.mc-tools-rec { margin: 2px 0 6px 22px; }
+.mc-tools-rec[hidden] { display: none; }
+.mc-tools-perm { border-collapse: collapse; margin: 2px 0 4px; }
+.mc-tools-perm th { font-weight: normal; color: var(--muted); font-size: 12px; padding: 2px 10px 2px 0; text-align: left; }
+.mc-tools-perm td { padding: 0 10px 0 0; text-align: center; }
+.mc-tools-perm .mc-check { justify-content: center; margin: 2px 0; }
+.mc-tools-special, .mc-tools-attrs { display: flex; flex-wrap: wrap; gap: 2px 16px; }
+.mc-tools-octal { flex-direction: row; align-items: center; gap: 8px; margin: 6px 0 2px; }
+.mc-tools-octal input[type=text] { width: 6em; font: var(--mono); }
+.mc-tools-owner { display: flex; gap: 12px; }
+.mc-tools-owner .mc-row { flex: 1; }
+.mc-tools-date { display: flex; align-items: center; gap: 8px; margin: 3px 0; }
+.mc-tools-date .mc-check { width: 8.5em; margin: 0; }
+.mc-tools-date input[type=datetime-local] { flex: 1; min-width: 0; padding: 3px 6px; }
+.mc-tools-date button { padding: 3px 10px; }
+.mc-btns.mc-tools-left { justify-content: flex-start; }
+
+.mc-tools-propsbox { min-width: 440px; }
+.mc-tools-props { border-collapse: collapse; width: 100%; user-select: text; }
+.mc-tools-props th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
+.mc-tools-props td { padding: 2px 0; overflow-wrap: anywhere; }
+.mc-tools-props code, .mc-tools-digest code { font: var(--mono); }
+.mc-tools-sep td { border-top: 1px solid var(--line); padding: 0; height: 6px; }
+.mc-tools-dim { color: var(--muted); font-size: 12px; }
+.mc-tools-bad { color: var(--danger); }
+.mc-tools-good { color: var(--accent); }
+.mc-tools-inline { display: flex; gap: 8px; align-items: center; }
+.mc-tools-digest { margin: 6px 0; overflow-wrap: anywhere; user-select: text; min-height: 1em; }
+.mc-tools-digest button { padding: 1px 8px; margin-left: 6px; }
+
+.mc-tools-verifybox { min-width: 480px; }
+.mc-tools-verifybox h3 { font-size: 13px; margin: 10px 0 4px; font-weight: 600; overflow-wrap: anywhere; }
+.mc-tools-list { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px 6px; margin: 6px 0; }
+.mc-tools-verify { border-collapse: collapse; width: 100%; user-select: text; }
+.mc-tools-verify td { padding: 1px 10px 1px 0; overflow-wrap: anywhere; vertical-align: top; }
+.mc-tools-verify td.st { white-space: nowrap; width: 1%; font-weight: 600; }
+.mc-tools-verify tr.ok td.st { color: var(--accent); }
+.mc-tools-verify tr.bad td.st { color: var(--danger); }
+.mc-tools-onlybad .mc-tools-verify tr.ok { display: none; }
