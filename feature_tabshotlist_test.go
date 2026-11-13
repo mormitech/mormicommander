@@ -61,7 +61,7 @@ func TestTHResolveKinds(t *testing.T) {
 			t.Errorf("%q: kind %q, want %q", cmd, a.Kind, kind)
 		}
 	}
-	if a := th.Resolve("cd /tmp/*.txt", ""); a.Path != "/tmp" || a.Filter != "*.txt" {
+	if a := th.Resolve("cd /tmp/*.txt", ""); a.Path != filepath.FromSlash("/tmp") || a.Filter != "*.txt" {
 		t.Errorf("filter entry: %+v", a)
 	}
 	if got := th.MatchMask("*.txt | b*", []string{"a.txt", "b.txt", "c.md"}, nil); !got[0] || got[1] || got[2] {
