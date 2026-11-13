@@ -92,11 +92,6 @@ export class Panel {
     list.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; this.renderRows(); }); });
     new ResizeObserver(() => this.renderRows()).observe(list);
     list.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
-    list.addEventListener('dblclick', (ev) => {
-      const row = ev.target.closest('.row');
-      if (!row) return;
-      this.app.run(ev.ctrlKey || ev.metaKey ? 'cm_OpenDirInNewTab' : 'cm_Enter');
-    });
     list.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.app.run('cm_ContextMenu', { x: ev.clientX, y: ev.clientY, mouse: true }, { quiet: true }); });
     header.addEventListener('click', (ev) => {
       const c = ev.target.closest('[data-col]')?.dataset.col;
@@ -327,6 +322,16 @@ export class Panel {
     const e = this.entries[i];
     if (ev.button === 2) { this.setCursor(i); return; }
     if (ev.button !== 0) return;
+    // A double-click opens the entry like Enter (Ctrl/Cmd: the folder in a new tab). It is taken from the second
+    // press (ev.detail 2) on the same row, not from a 'dblclick' event: the first press redraws the rows, so the
+    // browser sees two different elements and the draggable rows can swallow 'dblclick' altogether.
+    if (ev.detail === 2 && this.lastPress === i) {
+      ev.preventDefault();
+      this.setCursor(i);
+      this.app.run(ev.ctrlKey || ev.metaKey ? 'cm_OpenDirInNewTab' : 'cm_Enter');
+      return;
+    }
+    this.lastPress = i;
     if (ev.ctrlKey || ev.metaKey) {
       this.toggle(e);
       this.anchor = i;

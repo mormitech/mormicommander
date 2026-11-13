@@ -4,6 +4,13 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## 0.9.2 – 2026-11-13
+
+### Fixed
+
+- Double-clicking a file or folder opens it, like Enter (Ctrl/Cmd+double-click opens a folder in a new tab). The
+  double-click was lost because the first click redraws the rows.
+
 ## 0.9.1 – 2026-11-13
 
 ### Added

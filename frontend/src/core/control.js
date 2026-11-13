@@ -75,10 +75,13 @@ function mouse(el, { button = 0, double = false, ctrl = false, shift = false, me
   if (button === 0) el.dispatchEvent(new MouseEvent('click', base));
   if (button === 2) el.dispatchEvent(new MouseEvent('contextmenu', base));
   if (double) {
-    el.dispatchEvent(new MouseEvent('mousedown', { ...base, detail: 2 }));
-    el.dispatchEvent(new MouseEvent('mouseup', { ...base, detail: 2 }));
-    el.dispatchEvent(new MouseEvent('click', { ...base, detail: 2 }));
-    el.dispatchEvent(new MouseEvent('dblclick', { ...base, detail: 2 }));
+    // The first click may redraw what was under the pointer (panel rows are), so the second one goes to whatever is
+    // there now, as with a real mouse.
+    const el2 = document.elementFromPoint(base.clientX, base.clientY) || el;
+    el2.dispatchEvent(new MouseEvent('mousedown', { ...base, detail: 2 }));
+    el2.dispatchEvent(new MouseEvent('mouseup', { ...base, detail: 2 }));
+    el2.dispatchEvent(new MouseEvent('click', { ...base, detail: 2 }));
+    el2.dispatchEvent(new MouseEvent('dblclick', { ...base, detail: 2 }));
   }
 }
 
