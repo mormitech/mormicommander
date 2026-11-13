@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Engine for starting programs (internal/launch): open with the default app, "Open with…" lists, running programs
+  with Total Commander parameter placeholders, command line parsing and history, external viewer/editor, terminal
+  here, reveal in Finder/Explorer, internal associations and shortcut files (.lnk, .url, .webloc, .desktop).
+
 ## 0.1.0 – 2026-11-13
 
 ### Added
