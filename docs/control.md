@@ -291,3 +291,18 @@ same for `created` and `accessed`.
 
 Settings: `countSpace` (default true: Space on a folder counts its size, TC's CountSpace); the dialogs remember their
 choices under `tools`.
+
+## Desktop integration (features/system*.js, feature_system*.go)
+
+| Command | What it does |
+|---|---|
+| `{"cmd": "fswatch"}` | Automatic refresh: `{watch: {running, panels: {left, right}, watched: [...]}}`. |
+| `{"cmd": "errorlog"}` | The error log window's entries: `{errors: [{time, text, details}]}`. |
+| `{"cmd": "clipboard_content"}` | What the system clipboard holds: `{content: {files, text, image}}` (reads only). |
+| `{"cmd": "drop", "from": "left", "names": ["a.txt"], "to": "right", "name": "sub", "op": "copy"}` | Does what dropping those files on the folder `sub` of the right panel does (no `name`: its folder; `"target": "cmdline"`: the command line). The drop dialog comes up (kind `drop`, field `drop-target`, buttons Cancel, Copy, Move, Link) unless the setting `confirmDrop` is off. Answers `{dropped: false}` where a drop is not allowed (own folder, folder into itself). |
+| `{"cmd": "filedrop", "paths": ["/abs/x"], "to": "left", "name": "sub"}` | As if the files were dropped from Finder / Explorer. |
+| `{"cmd": "drive_menu", "side": "left", "name": "USB stick"}` | Opens a drive button's context menu (popup kind `context-drive`). |
+
+Popup kinds: `context-file`, `context-folder`, `context-sort`, `context-drive`, `context-path`, `open-with`. Dialog kinds:
+`drop`, `error-log` (buttons Copy all, Clear, Close), `confirmations`, `paste-data`, `open-with-program`, `volume-props`,
+`folder-props`, `quit-confirm`.

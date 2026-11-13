@@ -1,0 +1,26 @@
+/* Desktop integration: drop targets, the drag image, the error log, the drop dialog, property boxes. */
+
+.mc-system-drop { outline: 2px solid var(--accent); outline-offset: -2px; background: var(--hover); border-radius: 3px; }
+.list.mc-system-drop { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+#cmdline.mc-system-drop { outline-offset: -1px; }
+
+.mc-system-dragimg {
+  position: fixed; top: -100px; left: -100px; padding: 3px 8px; border-radius: 4px; font: var(--font);
+  background: var(--accent); color: var(--accent-text); white-space: nowrap; pointer-events: none;
+}
+
+.mc-system-dropbox .mc-row input { width: 100%; }
+
+.mc-system-log { width: min(720px, 92vw); }
+.mc-system-loglist { list-style: none; margin: 6px 0; padding: 0; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
+.mc-system-loglist > li { padding: 4px 8px; border-bottom: 1px solid var(--line); user-select: text; }
+.mc-system-loglist > li:last-child { border-bottom: 0; }
+.mc-system-loglist time { color: var(--muted); font: var(--mono); }
+.mc-system-loglist ul { margin: 2px 0 0 1.2em; padding: 0; color: var(--muted); }
+.mc-system-loglist .mc-system-empty { color: var(--muted); }
+
+.mc-system-check { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
+
+.mc-system-props table { border-collapse: collapse; margin: 6px 0; user-select: text; }
+.mc-system-props th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
+.mc-system-props td { padding: 2px 0; word-break: break-all; }
