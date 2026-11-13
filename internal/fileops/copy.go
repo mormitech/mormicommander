@@ -14,12 +14,14 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"hash"
 	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"syscall"
+	"time"
 )
 
 // sameVolume is SameVolume; the tests replace it to drive the copy-and-delete path of a move on one disk.
@@ -49,6 +51,10 @@ func (j *job) copyAll(move bool) {
 			continue
 		}
 		name := ApplyMask(j.req.Rename, filepath.Base(src))
+		if err := checkName(name); err != nil { // a mask must not produce "", "." or "..", which would escape the target
+			j.fail("Can't %s %s as %q: %s.", verb, filepath.Base(src), name, plainErr(err))
+			continue
+		}
 		dst := filepath.Join(target, name)
 		if samePath(src, dst) {
 			switch {
@@ -304,6 +310,12 @@ const (
 
 // copyFile copies the bytes, then the attributes and dates. On error or cancel the target is removed (wmCreate) or cut
 // back to its old length (wmAppend, wmResume), and the bytes counted for it are taken back.
+//
+// An overwrite (wmCreate onto an existing file) does not truncate the old file and write into it: the bytes go to a
+// hidden temporary file next to it, which is renamed over the old file only once the copy (and the verify, if asked)
+// has succeeded. A cancel, a read error or a full disk partway through therefore leaves the old target untouched,
+// where Total Commander would leave a half-written file or none. The price is that the disk briefly needs room for
+// both, and that other hard links to the old target keep the old contents.
 func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err error) {
 	in, err := open(src)
 	if err != nil {
@@ -314,8 +326,14 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		remove(dst) // overwrite the link itself, never the file it points to
 	}
 	var oldSize int64
+	var oldInfo fs.FileInfo
 	if di, err := stat(dst); err == nil {
 		oldSize = di.Size()
+		oldInfo = di
+	}
+	final := dst // where the bytes end up; dst is where they are written
+	if wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular() {
+		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", filepath.Base(final), time.Now().UnixNano()))
 	}
 	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	var offset int64
@@ -407,7 +425,16 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 			return err
 		}
 		j.update(func(p *Progress) { p.Verified++ })
-		j.log("verify", src, dst, nil)
+		j.log("verify", src, final, nil)
+	}
+	if dst != final {
+		if j.req.NoPerms {
+			chmod(dst, oldInfo.Mode().Perm()) // without permission copying an overwrite keeps the old file's mode
+		}
+		if err := rename(dst, final); err != nil {
+			return err // the deferred cleanup removes the temporary file; the old target is still whole
+		}
+		dst = final
 	}
 	if wm != wmAppend {
 		j.copyMeta(src, dst, info)

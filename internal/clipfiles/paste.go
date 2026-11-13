@@ -54,6 +54,12 @@ func NewPlan(paths []string, op Op, dest string) (Plan, error) {
 	dest = filepath.Clean(dest)
 	p := Plan{Dest: dest, Move: op == Cut}
 	for _, s := range paths {
+		// A clipboard entry must be a full path: filepath.Clean would turn "" into "." (the working folder) and a
+		// relative entry would be read against wherever the program runs, so a malformed clipboard could move or
+		// delete the wrong folder.
+		if s == "" || !filepath.IsAbs(s) {
+			return Plan{}, fmt.Errorf("%q: clipboard entry is not an absolute path", s)
+		}
 		s = filepath.Clean(s)
 		if samePath(s, dest) || isInside(dest, s) {
 			return Plan{}, fmt.Errorf("%s: %w", s, ErrIntoItself)
@@ -78,15 +84,15 @@ func isInside(path, dir string) bool {
 	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
-// SuggestName proposes a free file name in dir for pasted text or images: base+ext if free, otherwise base (2)+ext,
-// base (3)+ext and so on.
+// SuggestName proposes a free file name in dir for pasted text or images: base+ext if free, otherwise base(2)+ext,
+// base(3)+ext and so on (Total Commander's auto-rename style, the same as fileops.UniqueName and links.UniqueName).
 func SuggestName(dir, base, ext string) string {
 	name := base + ext
 	for i := 2; ; i++ {
 		if _, err := os.Lstat(filepath.Join(dir, name)); errors.Is(err, os.ErrNotExist) {
 			return name
 		}
-		name = base + " (" + strconv.Itoa(i) + ")" + ext
+		name = base + "(" + strconv.Itoa(i) + ")" + ext
 	}
 }
 

@@ -15,3 +15,6 @@ func setCreationTime(dst string, info fs.FileInfo) error { return nil }
 func copyPlatformAttrs(src, dst string) error            { return nil }
 func copyXattrs(src, dst string) error                   { return nil }
 func atimeOf(info fs.FileInfo) time.Time                 { return info.ModTime() }
+
+// linkCount can't be read on these systems; every file counts as having a single name.
+func linkCount(p string, info fs.FileInfo) uint64 { return 1 }

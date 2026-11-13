@@ -22,3 +22,11 @@ func copyOwner(dst string, info fs.FileInfo) error {
 
 func setCreationTime(dst string, info fs.FileInfo) error { return nil }
 func copyPlatformAttrs(src, dst string) error            { return nil }
+
+// linkCount is the number of names (hard links) the file has; wipe leaves the data alone when another name shares it.
+func linkCount(p string, info fs.FileInfo) uint64 {
+	if st, ok := info.Sys().(*syscall.Stat_t); ok {
+		return uint64(st.Nlink)
+	}
+	return 1
+}

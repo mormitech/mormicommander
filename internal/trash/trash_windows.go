@@ -1,9 +1,15 @@
 package trash
 
+// On Windows items go to the Recycle Bin through the shell's own file operation, reached from PowerShell via
+// Microsoft.VisualBasic's FileSystem class (it sets the "allow undo" flag, which is what makes a delete a recycle).
+// The path travels in an environment variable, never inside the script text. The shell operation recycles a
+// symbolic link or junction as the link itself. MoveAll calls PowerShell once per item for now.
+
 import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 )
 
@@ -17,13 +23,14 @@ if (Test-Path -PathType Container -LiteralPath $p) {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')
 }`
 
-// Move sends path to the Recycle Bin. The path travels in an environment variable, never inside the script text.
-func Move(path string) error {
+func moveOne(path string) error {
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 	cmd.Env = append(os.Environ(), "MORMICOMMANDER_PATH="+path)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("%s: %s", path, out)
+	if out, err := runCommand(cmd); err != nil {
+		return fmt.Errorf("%s: %s", path, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
+
+func moveMany(paths []string) error { return moveEach(paths) }

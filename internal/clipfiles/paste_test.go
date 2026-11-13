@@ -50,6 +50,12 @@ func TestNewPlan(t *testing.T) {
 	if _, err := NewPlan([]string{f}, Copy, "relative"); err == nil {
 		t.Error("relative target accepted")
 	}
+	// A malformed clipboard entry must never become "." (the working folder) or a relative path.
+	for _, bad := range []string{"", ".", "relative/x"} {
+		if p, err := NewPlan([]string{f, bad}, Cut, b); err == nil {
+			t.Errorf("source %q accepted: %+v", bad, p)
+		}
+	}
 }
 
 func TestSuggestName(t *testing.T) {
@@ -57,12 +63,12 @@ func TestSuggestName(t *testing.T) {
 	if got := SuggestName(dir, "clipboard", ".txt"); got != "clipboard.txt" {
 		t.Fatalf("first suggestion %q", got)
 	}
-	for _, n := range []string{"clipboard.txt", "clipboard (2).txt"} {
+	for _, n := range []string{"clipboard.txt", "clipboard(2).txt"} {
 		if err := os.WriteFile(filepath.Join(dir, n), nil, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if got := SuggestName(dir, "clipboard", ".txt"); got != "clipboard (3).txt" {
+	if got := SuggestName(dir, "clipboard", ".txt"); got != "clipboard(3).txt" {
 		t.Fatalf("suggestion with two taken: %q", got)
 	}
 }

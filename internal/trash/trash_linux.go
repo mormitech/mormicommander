@@ -1,23 +1,30 @@
 package trash
 
+// On Linux items go to the freedesktop.org trash with `gio trash` (GLib), or trash-cli's `trash-put` when gio is not
+// installed. Both trash a symbolic link as the link itself and both take several paths at once, so MoveAll needs a
+// single call. "--" ends the options, although the paths are absolute anyway.
+
 import (
-	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 const supported = true
 
-// Move puts path in the freedesktop.org trash with `gio trash` (or trash-cli's `trash-put`).
-func Move(path string) error {
+func moveOne(path string) error { return moveMany([]string{path}) }
+
+func moveMany(paths []string) error {
 	for _, c := range [][]string{{"gio", "trash", "--"}, {"trash-put", "--"}} {
-		if _, err := exec.LookPath(c[0]); err != nil {
+		bin, err := lookPath(c[0])
+		if err != nil {
 			continue
 		}
-		if out, err := exec.Command(c[0], append(c[1:], path)...).CombinedOutput(); err != nil {
-			return fmt.Errorf("%s: %s", path, out)
+		args := append(append([]string{}, c[1:]...), paths...)
+		if out, err := runCommand(exec.Command(bin, args...)); err != nil {
+			return fmt.Errorf("%s: %s", strings.Join(paths, ", "), strings.TrimSpace(string(out)))
 		}
 		return nil
 	}
-	return errors.New("no trash tool found: install gio (glib) or trash-cli")
+	return errNoTool
 }

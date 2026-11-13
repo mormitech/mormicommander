@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -80,16 +81,31 @@ func validate(r Request) error {
 	if len(r.Sources) == 0 {
 		return errors.New("nothing is selected")
 	}
+	// Every path must be a full one: filepath.Clean turns "" into ".", the process's working folder, so an empty or
+	// relative source would silently delete, trash, wipe or move whatever folder the program happens to run in.
+	for _, s := range r.Sources {
+		if s == "" || !filepath.IsAbs(s) {
+			return fmt.Errorf("%q is not a full path", s)
+		}
+	}
 	switch r.Kind {
 	case Copy, Move:
 		if r.Target == "" {
 			return errors.New("no target folder given")
+		}
+		if !filepath.IsAbs(r.Target) {
+			return fmt.Errorf("the target %q is not a full path", r.Target)
 		}
 		if r.Rename != "" && len(r.Sources) != 1 && !strings.ContainsAny(r.Rename, "*?") {
 			return errors.New("a new name can only be given for one file; use a mask like *.bak for several")
 		}
 		if strings.ContainsAny(r.Rename, `/\`) {
 			return errors.New("the new name must not contain a folder")
+		}
+		if r.Rename != "" && !strings.ContainsAny(r.Rename, "*?") {
+			if err := checkName(r.Rename); err != nil {
+				return fmt.Errorf("the new name %q is not allowed: %w", r.Rename, err)
+			}
 		}
 	case Delete, Trash, Wipe:
 	default:

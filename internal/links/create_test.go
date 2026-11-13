@@ -286,8 +286,8 @@ func TestUniqueName(t *testing.T) {
 		t.Errorf("free name: %q", got)
 	}
 	writeFile(t, filepath.Join(dir, "x.txt"), "")
-	writeFile(t, filepath.Join(dir, "x (2).txt"), "")
-	if got := UniqueName(dir, "x.txt"); got != "x (3).txt" {
+	writeFile(t, filepath.Join(dir, "x(2).txt"), "")
+	if got := UniqueName(dir, "x.txt"); got != "x(3).txt" {
 		t.Errorf("taken name: %q", got)
 	}
 }
@@ -319,5 +319,57 @@ func TestKindHelpers(t *testing.T) {
 	}
 	if KindHardLink.IsShortcut() || Kind(99).String() != "Kind(99)" || KindJunction.String() != "junction" {
 		t.Error("kind helpers")
+	}
+}
+
+// TestOverwriteNeverReplacesTarget checks that Overwrite refuses to put a
+// link where its own target lives (directly or through another link), which
+// would destroy the file and leave a link pointing at itself.
+func TestOverwriteNeverReplacesTarget(t *testing.T) {
+	dir := realTemp(t)
+	f := filepath.Join(dir, "f.txt")
+	writeFile(t, f, "data")
+	via := filepath.Join(dir, "via")
+	symlinkOrSkip(t, f, via)
+	tests := []struct {
+		name     string
+		target   string
+		relative bool
+	}{
+		{"same path", f, false},
+		{"same path relative", f, true},
+		{"through a link", via, false},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			err := CreateSymlink(tc.target, f, CreateOptions{Overwrite: true, Relative: tc.relative})
+			if !errors.Is(err, ErrSelfLink) {
+				t.Fatalf("err = %v, want ErrSelfLink", err)
+			}
+			if got, err := os.ReadFile(f); err != nil || string(got) != "data" {
+				t.Fatalf("f.txt damaged: %q %v", got, err)
+			}
+		})
+	}
+	// A batch into the sources' own folder with the default names.
+	res := CreateLinks(context.Background(), BatchRequest{Kind: KindSymlink, Sources: []string{f}, DestDir: dir,
+		Options: CreateOptions{Overwrite: true}})
+	if !errors.Is(res[0].Err, ErrSelfLink) {
+		t.Fatalf("batch err = %v, want ErrSelfLink", res[0].Err)
+	}
+	// Hard link onto its own target: nothing to do, data kept, no temp left.
+	if err := CreateHardLink(f, f, CreateOptions{Overwrite: true}); err != nil {
+		t.Fatalf("hard link onto itself: %v", err)
+	}
+	if got, _ := os.ReadFile(f); string(got) != "data" {
+		t.Fatal("hard link onto itself damaged the file")
+	}
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 2 {
+		t.Fatalf("leftover entries: %v", entries)
+	}
+	// Replacing an existing link that merely points at the target is fine.
+	if err := CreateSymlink(f, via, CreateOptions{Overwrite: true}); err != nil {
+		t.Fatalf("replacing a link to the target: %v", err)
 	}
 }

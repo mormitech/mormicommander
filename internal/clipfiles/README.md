@@ -31,7 +31,7 @@ methods):
 - `CopyAsText(kind TextKind, entries []Entry, f Format) error` — format and copy in one step.
 - `PlanPaste(dest) (Plan, error)` — read the clipboard and return `{Sources, Dest, Move, SameDir}` for the file
   operations engine; refuses a folder pasted into itself (`ErrIntoItself`). `NewPlan(paths, op, dest)` does the same
-  without reading the clipboard.
+  without reading the clipboard. Every source and `dest` must be an absolute path.
 - `PasteData(dir, name) (string, error)` — TC 10+: save clipboard image (preferred) or text as a new file; empty name
   means `clipboard.png` / `clipboard.txt` made unique. Never overwrites.
 

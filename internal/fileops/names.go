@@ -189,6 +189,9 @@ func ParseTarget(input string, sources int) (dir, rename string) {
 		return clean, ""
 	}
 	base := filepath.Base(clean)
+	if base == "." || base == ".." || base == string(filepath.Separator) {
+		return clean, "" // never hand back a "name" that is really a step up or the folder itself
+	}
 	if strings.ContainsAny(base, "*?") || sources == 1 {
 		return filepath.Dir(clean), base
 	}

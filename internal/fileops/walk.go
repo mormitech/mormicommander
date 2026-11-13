@@ -94,14 +94,15 @@ func (j *job) walk(top int, src, dst string, info fs.FileInfo, o walkOpts) []ite
 	for i := range out {
 		out[i].topSrc = src
 	}
-	if o.filter && !j.filter.Empty() {
+	if o.filter && len(j.filter.Include) > 0 { // an exclude-only filter keeps empty folders (F-460)
 		out = keepNeededDirs(out, src)
 	}
 	return out
 }
 
 // keepNeededDirs drops the folders that hold no file the filter took, so a filtered copy doesn't leave a tree of
-// empty folders behind.
+// empty folders behind. It is used only for filters with Include patterns ("*.txt"): a filter that merely excludes
+// some names ("|*.bak") still copies the rest of the tree as it is, empty folders included.
 func keepNeededDirs(items []item, top string) []item {
 	need := map[string]bool{}
 	for _, it := range items {

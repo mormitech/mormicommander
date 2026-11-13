@@ -66,3 +66,7 @@ func extraAccounts(bool) []Account { return nil }
 func platformCaps() Capabilities { return Capabilities{} }
 
 func ownerLabel(uid int) string { return strconv.Itoa(uid) }
+
+// currentUID: there are no Unix owners here, so no planned change can open a
+// folder by its owner bits.
+func currentUID() int { return -2 }

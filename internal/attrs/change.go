@@ -196,6 +196,10 @@ type Item struct {
 
 	setPerm, setWin, setHidden, setOwner bool
 	setMtime, setAtime, setCtime         bool
+	// descendLater marks a folder whose contents could not be read while
+	// planning but will become readable once this item's new permissions are
+	// applied; Apply changes it first and then plans and applies its contents.
+	descendLater bool
 }
 
 // Changed reports whether applying the plan will touch this entry.
@@ -307,8 +311,10 @@ func (p *Plan) visit(ctx context.Context, path string, depth int) error {
 			target = t
 		}
 	}
+	planned := -1
 	if p.wants(target) {
 		p.Items = append(p.Items, p.planItem(path, depth, target))
+		planned = len(p.Items) - 1
 	}
 	if !r.Recursive || info.Kind != KindDir {
 		return nil
@@ -318,6 +324,16 @@ func (p *Plan) visit(ctx context.Context, path string, depth int) error {
 	}
 	entries, err := os.ReadDir(path)
 	if err != nil {
+		// A folder without r/x for us can't be listed now, but if this very
+		// request gives the owner read and execute (and we own it), TC's
+		// "process subfolders" fixes the folder first and then goes in. The
+		// plan stays a dry run: Apply does that second step.
+		if planned >= 0 && errors.Is(err, fs.ErrPermission) && p.Items[planned].opensFolder() {
+			it := &p.Items[planned]
+			it.descendLater = true
+			it.Notes = append(it.Notes, "the folder's contents can't be read yet; they are changed after the folder's new permissions are applied")
+			return nil
+		}
 		p.Items = append(p.Items, Item{Path: path, Depth: depth, Info: info,
 			Err: fmt.Errorf("cannot read folder: %w", err)})
 		return nil
@@ -329,6 +345,15 @@ func (p *Plan) visit(ctx context.Context, path string, depth int) error {
 		}
 	}
 	return nil
+}
+
+// opensFolder says whether applying this item gives the current user (as
+// owner) read and execute on a folder that lacks one of them now.
+func (it *Item) opensFolder() bool {
+	if it.Err != nil || !it.setPerm || !it.Info.IsDir() || it.Info.UID != currentUID() {
+		return false
+	}
+	return it.After.Perm&0o500 == 0o500 && it.Before.Perm&0o500 != 0o500
 }
 
 // wants applies ApplyTo and the filter.
@@ -525,10 +550,42 @@ func (p *Plan) Apply(ctx context.Context, progress Progress) Result {
 	// it; within one depth the walk order is kept.
 	sort.SliceStable(todo, func(i, j int) bool { return todo[i].Depth > todo[j].Depth })
 	follow := p.Request.FollowLinks
+	// Folders that this change makes readable go first: their own change
+	// opens them, then their contents are planned and applied (see visit).
+	done := map[*Item]bool{}
+	for _, it := range todo {
+		if !it.descendLater {
+			continue
+		}
+		if ctx.Err() != nil {
+			res.Canceled = true
+			return res
+		}
+		done[it] = true
+		if err := applyItem(it, follow); err != nil {
+			res.Failed = append(res.Failed, Failure{Path: it.Path, Err: err})
+			continue
+		}
+		res.Changed++
+		sub := p.planContents(ctx, it)
+		r := sub.Apply(ctx, progress)
+		res.Changed += r.Changed
+		res.Failed = append(res.Failed, r.Failed...)
+		for _, e := range sub.Errors() {
+			res.Failed = append(res.Failed, Failure{Path: e.Path, Err: e.Err})
+		}
+		if r.Canceled {
+			res.Canceled = true
+			return res
+		}
+	}
 	for n, it := range todo {
 		if ctx.Err() != nil {
 			res.Canceled = true
 			break
+		}
+		if done[it] {
+			continue
 		}
 		err := applyItem(it, follow)
 		if err != nil {
@@ -541,6 +598,25 @@ func (p *Plan) Apply(ctx context.Context, progress Progress) Result {
 		}
 	}
 	return res
+}
+
+// planContents plans the children of a folder that has just been opened by
+// Apply, with the same request, owner and "now" as the parent plan.
+func (p *Plan) planContents(ctx context.Context, dir *Item) *Plan {
+	sub := &Plan{Request: p.Request, Now: p.Now, uid: p.uid, gid: p.gid, seen: map[string]bool{filepath.Clean(dir.Path): true}}
+	entries, err := os.ReadDir(dir.Path)
+	if err != nil {
+		sub.Items = append(sub.Items, Item{Path: dir.Path, Depth: dir.Depth, Info: dir.Info,
+			Err: fmt.Errorf("cannot read folder: %w", err)})
+		return sub
+	}
+	sort.Slice(entries, func(i, j int) bool { return entries[i].Name() < entries[j].Name() })
+	for _, e := range entries {
+		if sub.visit(ctx, filepath.Join(dir.Path, e.Name()), dir.Depth+1) != nil {
+			break
+		}
+	}
+	return sub
 }
 
 // applyItem performs one entry's changes in a safe order: owner first

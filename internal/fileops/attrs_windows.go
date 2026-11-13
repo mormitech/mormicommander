@@ -139,3 +139,18 @@ func copyStream(src, dst string) error {
 	}
 	return out.Close()
 }
+
+// linkCount is the number of names (hard links) the file has on NTFS; wipe leaves the data alone when another name
+// shares it. A file that can't be opened counts as having one name.
+func linkCount(p string, info fs.FileInfo) uint64 {
+	f, err := os.Open(lp(p))
+	if err != nil {
+		return 1
+	}
+	defer f.Close()
+	var d windows.ByHandleFileInformation
+	if err := windows.GetFileInformationByHandle(windows.Handle(f.Fd()), &d); err != nil {
+		return 1
+	}
+	return uint64(d.NumberOfLinks)
+}

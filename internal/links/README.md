@@ -42,12 +42,15 @@ colour) is not part of this package.
 - `CreateLinks(ctx, BatchRequest{Kind, Sources, DestDir, Options, Name})` →
   `[]Result{Source, Link, Err}` in order; cancellation fills `ctx.Err()`.
 - `SupportedKinds(goos)` — what the dialog should offer, in order.
-- `DefaultLinkName(source, kind)` and `UniqueName(dir, name)` ("x (2).txt").
+- `DefaultLinkName(source, kind)` and `UniqueName(dir, name)` ("x(2).txt", TC style like fileops.UniqueName).
 
 Rules: an existing name returns an error wrapping `os.ErrExist` (the dialog
 asks "Overwrite?" and retries with `Overwrite`); with `Overwrite` the new link
 is made under a temporary name and renamed over the old one; a real folder is
-never replaced.
+never replaced; an overwrite whose target is the link path itself, or reaches
+it through links, is refused with `ErrSelfLink` (it would destroy the file and
+leave a link to itself). A hard link onto a name that already is the same file
+is a no-op.
 
 ## Shortcut files
 

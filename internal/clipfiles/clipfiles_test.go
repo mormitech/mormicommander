@@ -109,7 +109,7 @@ func TestClipboardPasteData(t *testing.T) {
 		t.Fatalf("text paste %q %v", p, err)
 	}
 	p, err = c.PasteData(dir, "")
-	if err != nil || filepath.Base(p) != "clipboard (2).txt" {
+	if err != nil || filepath.Base(p) != "clipboard(2).txt" {
 		t.Fatalf("second text paste %q %v", p, err)
 	}
 	if _, err := c.PasteData(dir, "clipboard.txt"); !errors.Is(err, os.ErrExist) {

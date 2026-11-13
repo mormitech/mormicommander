@@ -56,7 +56,7 @@ func CreateSymlink(target, linkPath string, opt CreateOptions) error {
 	if fi, err := os.Stat(targetFromLink(stored, linkPath)); err == nil {
 		isDir = fi.IsDir()
 	}
-	err := replaceWith(linkPath, opt.Overwrite, func(p string) error {
+	err := replaceWith(linkPath, targetFromLink(stored, linkPath), opt.Overwrite, func(p string) error {
 		return platformSymlink(stored, p, isDir)
 	})
 	if err != nil && isPrivilegeErr(err) {
@@ -88,7 +88,14 @@ func CreateHardLink(target, linkPath string, opt CreateOptions) error {
 			src = real
 		}
 	}
-	err = replaceWith(linkPath, opt.Overwrite, func(p string) error { return os.Link(src, p) })
+	// When linkPath already is a name of the same file (the target itself or
+	// an earlier hard link to it), the wanted result exists: replacing it
+	// would only risk the data (rename of one hard link over another is a
+	// no-op on POSIX and would leave the temporary name behind).
+	if li, err := os.Lstat(linkPath); err == nil && opt.Overwrite && os.SameFile(fi, li) {
+		return nil
+	}
+	err = replaceWith(linkPath, "", opt.Overwrite, func(p string) error { return os.Link(src, p) })
 	if err != nil && isCrossDeviceErr(err) {
 		return fail(fmt.Errorf("%w: %w", ErrCrossDevice, unwrapLink(err)))
 	}
@@ -109,7 +116,7 @@ func CreateJunction(target, linkPath string, opt CreateOptions) error {
 	if err != nil {
 		return err
 	}
-	return replaceWith(linkPath, opt.Overwrite, func(p string) error { return platformJunction(abs, p) })
+	return replaceWith(linkPath, abs, opt.Overwrite, func(p string) error { return platformJunction(abs, p) })
 }
 
 // Create makes a link of the given kind. Symlinks, hard links and junctions
@@ -198,8 +205,9 @@ func DefaultLinkName(source string, kind Kind) string {
 }
 
 // UniqueName returns name if it is free in dir, otherwise the first free
-// "name (2).ext", "name (3).ext", ... so a batch never fails on collisions
-// when the caller prefers renaming to asking.
+// "name(2).ext", "name(3).ext", ... so a batch never fails on collisions
+// when the caller prefers renaming to asking. The numbering is Total
+// Commander's auto-rename style, the same as fileops.UniqueName.
 func UniqueName(dir, name string) string {
 	if _, err := os.Lstat(filepath.Join(dir, name)); errors.Is(err, fs.ErrNotExist) {
 		return name
@@ -207,7 +215,7 @@ func UniqueName(dir, name string) string {
 	ext := filepath.Ext(name)
 	stem := strings.TrimSuffix(name, ext)
 	for i := 2; ; i++ {
-		cand := stem + " (" + strconv.Itoa(i) + ")" + ext
+		cand := stem + "(" + strconv.Itoa(i) + ")" + ext
 		if _, err := os.Lstat(filepath.Join(dir, cand)); errors.Is(err, fs.ErrNotExist) {
 			return cand
 		}
@@ -251,8 +259,12 @@ func targetFromLink(stored, linkPath string) string {
 
 // replaceWith runs make(linkPath) when linkPath is free. When it exists and
 // overwrite is set (and it is not a real folder), make runs on a temporary
-// name next to it which is then renamed over the old entry.
-func replaceWith(linkPath string, overwrite bool, make func(string) error) error {
+// name next to it which is then renamed over the old entry. target is where
+// the new link will point (resolved against linkPath's folder); an overwrite
+// is refused with ErrSelfLink when target is linkPath itself or leads to it
+// through links, because the entry being replaced would be the very data the
+// link is meant to reach.
+func replaceWith(linkPath, target string, overwrite bool, make func(string) error) error {
 	fi, err := os.Lstat(linkPath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return make(linkPath)
@@ -265,6 +277,9 @@ func replaceWith(linkPath string, overwrite bool, make func(string) error) error
 	}
 	if fi.IsDir() && fi.Mode()&fs.ModeSymlink == 0 && !isJunction(linkPath, fi) {
 		return &os.LinkError{Op: "create link", New: linkPath, Err: fmt.Errorf("a folder with this name exists: %w", fs.ErrExist)}
+	}
+	if target != "" && leadsTo(target, linkPath, fi) {
+		return &os.LinkError{Op: "create link", Old: target, New: linkPath, Err: ErrSelfLink}
 	}
 	tmp := filepath.Join(filepath.Dir(linkPath), "."+filepath.Base(linkPath)+".mclink-"+strconv.FormatInt(time.Now().UnixNano(), 36))
 	if err := make(tmp); err != nil {
@@ -283,6 +298,36 @@ func replaceWith(linkPath string, overwrite bool, make func(string) error) error
 		}
 	}
 	return nil
+}
+
+// leadsTo says whether target is the entry li (the existing linkPath), or
+// reaches it by following links one hop at a time. Each hop is compared with
+// os.SameFile, so other spellings of the same path (case, "..", hard links)
+// are caught too. A chain longer than MaxHops counts as leading there, to stay
+// on the safe side.
+func leadsTo(target, linkPath string, li fs.FileInfo) bool {
+	p := target
+	for range MaxHops {
+		fi, err := os.Lstat(p)
+		if err != nil {
+			return false
+		}
+		if os.SameFile(fi, li) {
+			return true
+		}
+		if fi.Mode()&fs.ModeSymlink == 0 {
+			return false
+		}
+		next, err := os.Readlink(p)
+		if err != nil {
+			return false
+		}
+		if !filepath.IsAbs(next) && filepath.VolumeName(next) == "" {
+			next = filepath.Join(filepath.Dir(p), next)
+		}
+		p = next
+	}
+	return true
 }
 
 func unwrapLink(err error) error {

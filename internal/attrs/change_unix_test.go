@@ -232,3 +232,40 @@ func TestHiddenFlag(t *testing.T) {
 		t.Errorf("link flag %v target flag %v", li.HiddenFlag, ti.HiddenFlag)
 	}
 }
+
+// TestRecursiveOpensLockedFolder checks TC's "process subfolders" order for a
+// change that gives access back: a folder without r/x can't be listed while
+// planning, so Apply opens it first and then changes its contents.
+func TestRecursiveOpensLockedFolder(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("root can list any folder")
+	}
+	root := t.TempDir()
+	locked := filepath.Join(root, "locked")
+	write(t, filepath.Join(locked, "inner", "f.txt"), []byte("x"), 0o600)
+	if err := os.Chmod(locked, 0o000); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(locked, 0o755) })
+	p, err := MakePlan(context.Background(), Request{Paths: []string{locked}, Recursive: true, ApplyTo: FoldersOnly,
+		Perm: PermExact(0o700)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errs := p.Errors(); len(errs) != 0 {
+		t.Fatalf("the plan reports the locked folder as unreadable: %v", errs[0].Summary())
+	}
+	if len(p.Items) != 1 || len(p.Items[0].Notes) == 0 {
+		t.Fatalf("want one item with a note, got %+v", p.Items)
+	}
+	res := p.Apply(context.Background(), nil)
+	if len(res.Failed) != 0 {
+		t.Fatalf("failures: %v", res.Failed)
+	}
+	if res.Changed != 2 {
+		t.Errorf("changed = %d, want 2 (the folder and inner)", res.Changed)
+	}
+	if perm(t, locked) != 0o700 || perm(t, filepath.Join(locked, "inner")) != 0o700 {
+		t.Errorf("perms: locked %v inner %v", perm(t, locked), perm(t, filepath.Join(locked, "inner")))
+	}
+}

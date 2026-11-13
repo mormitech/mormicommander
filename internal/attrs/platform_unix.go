@@ -203,3 +203,7 @@ func platformCaps() Capabilities {
 
 // ownerLabel names a numeric owner for the preview.
 func ownerLabel(uid int) string { return userName(uid) }
+
+// currentUID is the user the program runs as, for deciding whether a
+// permission change opens a folder to us.
+func currentUID() int { return os.Getuid() }

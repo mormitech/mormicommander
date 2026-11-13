@@ -86,6 +86,10 @@ var (
 	ErrIsDir = errors.New("hard links to folders are not possible")
 	// ErrCrossDevice is returned when a hard link would span two volumes.
 	ErrCrossDevice = errors.New("hard links must be on the same volume as their target")
+	// ErrSelfLink is returned when Overwrite would replace the link's own
+	// target (or a link on the way to it) with the new link: the file's data
+	// would be lost and the link would point at itself.
+	ErrSelfLink = errors.New("the link would replace the file it points to")
 	// ErrPrivilege is returned on Windows when the account may not create
 	// symbolic links (enable Developer Mode or run as administrator).
 	ErrPrivilege = errors.New("not allowed to create symbolic links (on Windows enable Developer Mode or run as administrator)")

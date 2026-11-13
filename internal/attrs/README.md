@@ -63,6 +63,9 @@ res := plan.Apply(ctx, func(done, total int, it *attrs.Item, err error) {})
 - Apply runs **deepest first** (removing a folder's x/r bits never blocks its
   contents), continues after single failures, orders owner → permissions →
   dates/attributes, and on Windows clears read-only before writing dates.
+- A recursive change that gives the owner r+x back to a folder we can't list
+  yet is planned as that folder alone (with a note); Apply changes the folder
+  first, then plans and applies its contents (TC's "process subfolders").
 - Symbolic links: by default the link itself is changed (times, owner,
   macOS hidden flag); permissions on links are skipped with a note.
   `FollowLinks` changes the targets. Walks never descend through links.

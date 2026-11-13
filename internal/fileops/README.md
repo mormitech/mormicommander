@@ -27,6 +27,9 @@ read-only targets, `Filter` ("Only files of this type", `*.txt;*.md|old*;vendor/
 `BufferSize` + `NoCache` (big-file mode), `OnError` (`ErrorsSkip`, `ErrorsAsk`, `ErrorsStop`), `Retries`,
 `IgnoreSpace`, `Queued`, `ConfirmDirs`, `ConfirmReadOnly`, `WipePasses`.
 
+`Start` refuses empty or relative `Sources` and `Target` (a cleaned `""` is the working folder), and a `Rename` of
+`""`-like, `.` or `..`; a mask whose result for some item is `.`, `..` or empty fails that item.
+
 Questions (`Progress.Ask`, a `Conflict` with `Type` and the valid `Choices`): target exists (Overwrite, Overwrite all,
 Skip, Skip all, Overwrite all older, Rename, Auto-rename, Auto-rename all, Rename target, Rename all targets, Copy all
 larger, Copy all smaller, Append, Resume, Compare, Cancel), read-only target, file error (Retry, Skip, Skip all, Cancel,
@@ -42,7 +45,11 @@ Helpers: `ParseTarget` (split the dialog's target field), `ApplyMask`, `ParseFil
 
 Behaviour notes: a move on one volume is a rename; across volumes each file's source is removed right after its own
 copy (and verification) succeeded, and source folders that end up empty are removed. A cancel removes the half-written
-file. Links are copied as links unless `LinksFollow`, which detects loops. Dates (modification, access; creation on
+file. An overwrite writes to a hidden temporary file next to the target and renames it over the target only after
+the copy (and verification) succeeded, so a cancel, read error or full disk leaves the old target intact. An
+exclude-only filter (`|*.bak`) keeps empty folders; only filters with include patterns prune folders without matching
+files. Wipe only unlinks a file that has other hard links (overwriting would destroy the other name's data), and a
+folder that can't be removed gets its name back. Links are copied as links unless `LinksFollow`, which detects loops. Dates (modification, access; creation on
 Windows and, indirectly, macOS), mode bits, Windows attributes, extended attributes / resource forks (macOS, Linux)
 and alternate data streams (Windows) are copied; the owner only with `Owner` and where the system allows it.
 

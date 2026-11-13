@@ -190,17 +190,30 @@ func removePath(p string, info fs.FileInfo) error {
 }
 
 // wipeOne overwrites a regular file, then hides its name and removes it. Folders and links are renamed and removed.
+//
+// A file with more than one name (a hard link elsewhere) is only unlinked: overwriting it would destroy the data that
+// the other name still shows, which is not what wiping this one name means. If the removal fails after the random
+// rename, the item gets its old name back, so a folder that is not empty doesn't stay behind under a garbage name.
 func (j *job) wipeOne(it item) error {
 	p := it.src
 	if it.info.Mode().IsRegular() {
-		if err := j.overwrite(p, it.info); err != nil {
+		if linkCount(p, it.info) > 1 {
+			j.addBytes(it.info.Size() * int64(max(j.req.WipePasses, 1))) // nothing to overwrite; keep the totals right
+		} else if err := j.overwrite(p, it.info); err != nil {
 			return err
 		}
 	}
-	if q, err := renameRandom(p); err == nil {
-		p = q
+	q, err := renameRandom(p)
+	if err != nil {
+		q = p
 	}
-	return removePath(p, it.info)
+	if err := removePath(q, it.info); err != nil {
+		if q != p {
+			rename(q, p)
+		}
+		return err
+	}
+	return nil
 }
 
 // overwrite writes random bytes over the whole file, pass after pass, then cuts it to zero length.
