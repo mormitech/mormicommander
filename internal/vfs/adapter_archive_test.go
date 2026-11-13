@@ -330,13 +330,15 @@ func TestArchiveZipWrite(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer zr.Close()
 	if _, err := zr.Stat("new/deep/c.txt"); err != nil {
 		t.Error("zip on disk lacks the created file")
 	}
 	if _, err := zr.Stat("docs/sub/a2.txt"); err == nil {
 		t.Error("zip on disk still has a deleted folder")
 	}
+	// Close it before the archive is rewritten: Windows cannot replace a
+	// file that is still open.
+	zr.Close()
 	// Packing into the archive file path itself goes to its root.
 	if err := r.AddLocal(ctx, zp, []string{local}); err != nil {
 		t.Fatal(err)

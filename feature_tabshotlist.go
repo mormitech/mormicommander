@@ -316,7 +316,21 @@ func (t *TabsHotlist) Resolve(cmd, target string) THAction {
 	a := (&config.Hotlist{}).Action(it, t.vars())
 	kind := map[config.ActionKind]string{config.ActionChangeDir: "cd", config.ActionTabSet: "tabs", config.ActionInternal: "internal",
 		config.ActionUser: "user", config.ActionProgram: "program"}[a.Kind]
-	return THAction{Kind: kind, Path: a.Path, Filter: a.Filter, Target: a.Target, Command: a.Command, Args: a.Args}
+	path, target := a.Path, a.Target
+	if a.Kind == config.ActionChangeDir {
+		path, target = thLocalSeparators(path), thLocalSeparators(target)
+	}
+	return THAction{Kind: kind, Path: path, Filter: a.Filter, Target: target, Command: a.Command, Args: a.Args}
+}
+
+// thLocalSeparators gives a local folder path the platform's separators: "cd ~/src" on Windows expands to
+// C:\Users\me/src, which the panel would show and store with mixed separators. Server addresses (ftp://...) keep
+// their slashes; on macOS and Linux nothing changes.
+func thLocalSeparators(p string) string {
+	if strings.Contains(p, "://") {
+		return p
+	}
+	return filepath.FromSlash(p)
 }
 
 // Expand expands the variables in a path ($HOME, %VAR%, ${VAR}, ~, %COMMANDER_PATH%).

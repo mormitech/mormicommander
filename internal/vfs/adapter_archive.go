@@ -30,6 +30,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -395,13 +396,26 @@ func (a *ArchiveFS) acquire(file, display string, ro, nested bool) (*arcHandle, 
 	return h, nil
 }
 
+// closeIdleArchives makes the cache close an archive as soon as nothing uses
+// it. Windows cannot rename, delete or replace a file while any process has
+// it open, so a cached handle would keep the user (and other programs) from
+// renaming, deleting or updating an archive that was merely browsed. There
+// the archive is reopened on the next access instead; elsewhere an open file
+// does not block anything and the cache keeps it.
+var closeIdleArchives = runtime.GOOS == "windows"
+
 // release gives a handle back; stale handles close when unused.
 func (a *ArchiveFS) release(h *arcHandle) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	h.refs--
-	if h.stale && h.refs <= 0 {
+	if h.refs > 0 {
+		return
+	}
+	if h.stale {
 		h.be.close()
+	} else if closeIdleArchives {
+		a.dropHandleLocked(h) // closes it, since it is unused
 	}
 }
 

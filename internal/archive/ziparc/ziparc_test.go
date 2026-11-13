@@ -774,6 +774,9 @@ func TestZip64ManyEntries(t *testing.T) {
 	if string(b) != "69993" {
 		t.Errorf("content %q", b)
 	}
+	// Close before updating: Windows cannot replace a file that is open.
+	rc.Close()
+	r.Close()
 	// Updating keeps all entries (Zip64 again on write).
 	pack(t, zp, archive.Changes{Delete: []string{"d0"}}, archive.PackOptions{})
 	r2 := mustOpen(t, zp, archive.OpenOptions{})

@@ -37,7 +37,13 @@ func newArchive(t *testing.T, f Format, ms []member) string {
 
 func contentOf(t *testing.T, arc, name string) string {
 	t.Helper()
-	r := mustOpen(t, arc)
+	// Close the archive before returning: Windows cannot replace a file
+	// that is still open, and callers modify the archive again afterwards.
+	r, err := Open(arc)
+	if err != nil {
+		t.Fatalf("Open(%s): %v", arc, err)
+	}
+	defer r.Close()
 	rc, err := r.OpenEntry(context.Background(), name)
 	if err != nil {
 		t.Fatalf("OpenEntry(%s): %v", name, err)
