@@ -1,0 +1,33 @@
+/* Folder tabs (features/tabs.js) and the hotlist (features/hotlist.js). Theme tokens only (see style.css). */
+
+.tabbar.mc-tabs-bar { align-items: flex-end; gap: 2px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; flex-wrap: nowrap; min-height: 24px; }
+.tabbar.mc-tabs-bar::-webkit-scrollbar { display: none; }
+.tabbar.mc-tabs-multi { flex-wrap: wrap; overflow-x: hidden; }
+.mc-tabs-tab { position: relative; display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; max-width: 260px; padding: 2px 8px 3px; font-size: 12px;
+    color: var(--muted); border: 1px solid var(--line); border-bottom: 0; border-radius: 6px 6px 0 0; background: var(--bg); cursor: default; white-space: nowrap; }
+.mc-tabs-tab:hover { color: var(--text); background: var(--hover); }
+.mc-tabs-tab.on { color: var(--text); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.panel.active .mc-tabs-tab.on { background: color-mix(in srgb, var(--accent) 32%, var(--bg)); border-color: var(--accent); }
+.mc-tabs-tab.locked .mc-tabs-cap { font-style: italic; }
+.mc-tabs-tab.drop { box-shadow: inset 2px 0 0 var(--accent); }
+.mc-tabs-cap { overflow: hidden; text-overflow: ellipsis; }
+.mc-tabs-close { display: none; padding: 0 3px; margin-right: -4px; line-height: 14px; border: 0; border-radius: 3px; background: transparent; color: inherit; font-size: 13px; }
+.mc-tabs-close:hover { background: color-mix(in srgb, currentColor 22%, transparent); }
+.mc-tabs-x .mc-tabs-tab:hover .mc-tabs-close, .mc-tabs-x .mc-tabs-tab.on .mc-tabs-close { display: inline-block; }
+.mc-tabs-fav { flex: 0 0 auto; margin-left: auto; align-self: center; padding: 0 6px; line-height: 18px; border: 0; background: transparent; color: var(--muted); }
+.mc-tabs-fav:hover { color: var(--text); }
+.mc-tabs-cfg .mc-check { margin: 3px 0; }
+.mc-tabs-inline { display: flex; align-items: center; gap: 6px; }
+.mc-tabs-inline .mc-check { margin: 0; }
+.mc-tabs-inline input[type=text] { width: 4em; }
+
+.mc-hotlist-star { font-size: 12px; }
+.mc-box.mc-hotlist-box { width: min(620px, 92vw); }
+.mc-hotlist-cfg { display: flex; gap: 10px; margin-bottom: 10px; }
+.mc-hotlist-cfg select { flex: 1; min-width: 0; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 2px; }
+.mc-hotlist-side { display: flex; flex-direction: column; gap: 4px; flex: 0 0 auto; }
+.mc-hotlist-side button { text-align: left; }
+.mc-hotlist-line { display: flex; gap: 4px; }
+.mc-hotlist-line input[type=text] { flex: 1; min-width: 0; }
+.mc-hotlist-line button { flex: 0 0 auto; white-space: nowrap; }
+.mc-btns .mc-hotlist-left { margin-right: auto; }
