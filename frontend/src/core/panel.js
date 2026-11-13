@@ -173,7 +173,11 @@ export class Panel {
     }
     const names = new Set(this.all.map((e) => e.name));
     for (const n of this.selected) if (!names.has(n)) this.selected.delete(n);
-    const want = focus ?? (same ? keepName : this.lastCursor.get(l.path));
+    // Entering a folder puts the cursor on ".." (the top). Going up still lands on the folder you came from, because
+    // that passes focus. Restoring the last cursor of a folder you come back to (TC's F-074) is a setting, off by
+    // default: "rememberCursor".
+    const remembered = this.app.setting('rememberCursor', false) ? this.lastCursor.get(l.path) : null;
+    const want = focus ?? (same ? keepName : remembered);
     this.rebuild(want, same ? oldCursor : 0);
     this.loading = false;
     this.el.classList.remove('loading');

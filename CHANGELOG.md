@@ -4,6 +4,14 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## 0.9.3 – 2026-11-13
+
+### Changed
+
+- Entering a folder always puts the cursor on ".." at the top, also when you were in that folder before. Going up
+  still puts it on the folder you came from. The old behaviour (back to the last file) is the setting
+  "rememberCursor".
+
 ## 0.9.2 – 2026-11-13
 
 ### Fixed
