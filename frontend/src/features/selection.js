@@ -393,48 +393,7 @@ async function copyPath(app, p) {
 command({ name: 'cm_CopySrcPathToClip', label: 'Copy folder path', run: (app) => copyPath(app, app.cur) });
 command({ name: 'cm_CopyTrgPathToClip', label: 'Copy target folder path', run: (app) => copyPath(app, app.other), menu: 'Mark', menuAfter: 'cm_CopySrcPathToClip' });
 
-// ---- compare folders (Shift+F2) ----
-
-// compareDirs selects, in both panels, the files that are newer or missing on the other side (and files of the same
-// date but another size); with subdirs also the folders whose contents differ. A slow compare shows a box with Cancel.
-async function compareDirs(app, subdirs) {
-  const L = app.left, R = app.right;
-  let closeBox = null;
-  const timer = setTimeout(() => {
-    modal((box, done) => {
-      closeBox = () => done('done');
-      box.innerHTML = `<h2>Compare folders</h2><p class="mc-msg">Comparing ${esc(L.path)} with ${esc(R.path)}…</p>
-        <div class="mc-btns"><button type="button" class="primary">Cancel</button></div>`;
-      box.querySelector('button').onclick = () => done('cancel');
-      box.onsubmit = (ev) => { ev.preventDefault(); done('cancel'); };
-    }, 'cancel', { kind: 'select-compare-progress' }).then((v) => { if (v === 'cancel') go.Select.CancelCompare(); });
-  }, 400);
-  let r;
-  try {
-    r = await go.Select.Compare(L.path, R.path, rows(app, L), rows(app, R), subdirs, !!app.setting('compareIgnoreHourShift', false));
-  } catch (e) {
-    app.flash(errText(e), 'err');
-    return false;
-  } finally {
-    clearTimeout(timer);
-    closeBox?.();
-  }
-  if (r.cancelled) { app.flash('Compare cancelled.'); return false; }
-  for (const [p, names] of [[L, r.left], [R, r.right]]) {
-    const set = new Set(names);
-    for (const e of p.entries) if (!e.up) p.select(e, set.has(e.name));
-    p.selectionChanged();
-  }
-  if (r.warning) app.flash(r.warning, 'err');
-  if (!r.left.length && !r.right.length) {
-    await messageDialog({ Title: 'Compare folders', Message: 'No differences found.', Kind: 'select-compare-result' });
-  } else {
-    app.flash(`Selected ${r.left.length} in the left panel and ${r.right.length} in the right panel.`);
-  }
-  return true;
-}
-command({ name: 'cm_CompareDirs', label: 'Compare folders', run: (app) => compareDirs(app, false) });
-command({ name: 'cm_CompareDirsWithSubdirs', label: 'Compare folders with subfolders', run: (app) => compareDirs(app, true) });
+// (Shift+F2 compare folders: features/comparedirs.js)
 
 // control mode: the selected names of both panels and the mask history, for tests
 addControlCommand('selection', async () => {

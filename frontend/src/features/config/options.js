@@ -484,5 +484,4 @@ command({
 
 export function initOptions(app) {
   // the hotlist feature may bring its own settings dialog; otherwise its page of the Options dialog serves
-  if (!hasCommand('cm_ConfigDirHotlist')) command({ name: 'cm_ConfigDirHotlist', label: 'Folder hotlist settings…', run: (a) => openOptions(a, 'Hotlist') });
 }
