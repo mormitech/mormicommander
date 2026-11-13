@@ -118,3 +118,17 @@ Enter`, `scripts/mc_ctl.py run cm_GoToParent`, `scripts/mc_ctl.py cd left /tmp`,
 
 `scripts/qa_nav.py` is the QA suite of the core (it names the FEATURES.md IDs it checks); `scripts/qa_smoke.sh` builds
 everything and runs it.
+
+## Net (FTP, SFTP, WebDAV)
+
+| command | does |
+|---|---|
+| `{"cmd": "net"}` | open sessions (`url`, `kind`, `name`, `mode`), the saved connections (`sites`, `folders`, `hasMaster`) and the FTP options |
+| `{"cmd": "net_job", "req": {"kind": "copy", "sources": [...], "target": "...", "overwrite": ""}}` | starts a transfer to, from or between servers (progress dialog `net-job`, question `net-overwrite` with Resume) |
+
+Dialog kinds: `net-connect` (the connection manager: field `site` = `s:<id>` or `f:<folder>`, buttons Connect, New
+connection…, New URL…, Duplicate…, New folder…, Edit…, Delete, Master password…), `net-site` (connection details),
+`net-quick` (Ctrl+N, field `url`), `net-connecting`, `net-password` / `net-master` / `net-interactive` (field `value`),
+`net-master-new` (`value`, `confirm`), `net-hostkey` (buttons Accept and save, Accept once, Cancel), `net-command`,
+`net-reply`, `net-log`. Run commands with args: `cm_FtpNew {"url": "ftp://…"}`, `cm_FtpTransferMode {"mode": "ascii"}`,
+`cm_FtpSendCommand {"command": "SITE HELP"}`, `cm_FtpDisconnect {"path": "ftp://…"}`.
