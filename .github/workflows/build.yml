@@ -29,20 +29,19 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      # Wails v3 on Linux is GTK 4 with WebKitGTK 6.0.
       - name: Linux dependencies
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev
-      - run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+        run: sudo apt-get update && sudo apt-get install -y libgtk-4-dev libwebkitgtk-6.0-dev
       # The Go code embeds the built frontend, so it has to exist before `go vet` and `go test`.
       - run: npm ci && npm run build && npm test
         working-directory: frontend
-      - name: Tags
-        id: tags
+      - run: go vet ./...
+      - run: go test ./...
+      # scripts/build.sh is the whole build (no Wails CLI): the .app on macOS, the .exe with its icon and file
+      # properties on Windows, the binary on Linux. The frontend was built above.
+      - run: bash scripts/build.sh --skip-frontend
         shell: bash
-        run: echo "tags=${{ runner.os == 'Linux' && 'webkit2_41' || '' }}" >> "$GITHUB_OUTPUT"
-      - run: go vet -tags "${{ steps.tags.outputs.tags }}" ./...
-      - run: go test -tags "${{ steps.tags.outputs.tags }}" ./...
-      - run: wails build -tags "${{ steps.tags.outputs.tags }}"
       - name: Version
         id: version
         shell: bash
@@ -57,12 +56,8 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           mkdir dist
-          # the `mormicommander` command: a launcher in the app (the Homebrew cask links to it), see packaging/macos
-          mkdir -p build/bin/mormicommander.app/Contents/Resources/bin
-          cp packaging/macos/mormicommander build/bin/mormicommander.app/Contents/Resources/bin/mormicommander
-          chmod +x build/bin/mormicommander.app/Contents/Resources/bin/mormicommander
-          # ad-hoc signature, so the bundle is at least internally consistent; it is not notarized
-          codesign --force --deep -s - build/bin/mormicommander.app
+          # build.sh put the `mormicommander` command in the app (packaging/macos) and signed it ad hoc (not notarized)
+          codesign --verify --deep build/bin/mormicommander.app
           ditto -c -k --keepParent build/bin/mormicommander.app "dist/mormicommander-${{ steps.version.outputs.version }}-macos-arm64.zip"
       - name: Package (Linux)
         if: runner.os == 'Linux'
@@ -70,8 +65,9 @@ jobs:
           mkdir dist
           cp packaging/linux/mormicommander.desktop packaging/linux/install.sh build/appicon.png build/bin/
           tar -czf "dist/mormicommander-${{ steps.version.outputs.version }}-linux-x64.tar.gz" -C build/bin mormicommander mormicommander.desktop install.sh appicon.png -C "$PWD" LICENSE
-      # A .deb for Debian and Ubuntu: `sudo apt install ./mormicommander_<version>_amd64.deb` installs GTK and WebKitGTK
-      # from the distribution along with it. dpkg-shlibdeps reads the binary and names the packages it needs.
+      # A .deb for Debian and Ubuntu: `sudo apt install ./mormicommander_<version>_amd64.deb` installs GTK 4 and
+      # WebKitGTK 6.0 from the distribution along with it. dpkg-shlibdeps reads the binary and names the packages it
+      # needs; the check after it makes sure those are the GTK 4 / WebKitGTK 6.0 runtime libraries.
       - name: Package (Linux .deb)
         if: runner.os == 'Linux'
         run: |
@@ -89,6 +85,9 @@ jobs:
           work="$RUNNER_TEMP/shlibs" && mkdir -p "$work/debian" && printf 'Source: mormicommander\n\nPackage: mormicommander\nArchitecture: amd64\n' > "$work/debian/control"
           deps=$(cd "$work" && dpkg-shlibdeps -O "$pkg/usr/bin/mormicommander" | sed 's/^shlibs:Depends=//')
           echo "Depends: $deps"
+          for need in libgtk-4-1 libwebkitgtk-6.0-4; do
+            case ", $deps" in *", $need"*) ;; *) echo "Depends lacks $need"; exit 1 ;; esac
+          done
           mkdir -p "$pkg/DEBIAN"
           cat > "$pkg/DEBIAN/control" <<EOF
           Package: mormicommander
@@ -158,8 +157,8 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # The .deb installed the way a user would, on a clean Ubuntu with no GTK or WebKitGTK: apt has to bring them, and the
-  # app has to start.
+  # The .deb installed the way a user would, on a clean Ubuntu with no GTK 4 or WebKitGTK 6.0: apt has to bring them, and
+  # the app has to start.
   deb:
     needs: build
     runs-on: ubuntu-latest
@@ -174,11 +173,15 @@ jobs:
       - name: Install the .deb with apt
         run: |
           apt-get update
-          if ldconfig -p | grep -E 'libwebkit2gtk|libgtk-3'; then echo 'the system already has GTK or WebKitGTK'; exit 1; fi
+          if ldconfig -p | grep -E 'libwebkitgtk-6|libgtk-4'; then echo 'the system already has GTK 4 or WebKitGTK 6.0'; exit 1; fi
           apt-get install -y ./dist/mormicommander_*_amd64.deb
           apt-get install -y --no-install-recommends xvfb xauth
           dpkg -L mormicommander
+      # There is no GPU in the container: GTK draws with cairo and WebKit without DMA-BUF, as on a plain virtual display.
       - name: The app starts and keeps running (demo files, virtual display)
+        env:
+          GSK_RENDERER: cairo
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
         run: |
           set +e
           timeout 20 xvfb-run -a mormicommander --demo > /tmp/app.log 2>&1

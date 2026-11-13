@@ -1,5 +1,5 @@
 #!/bin/sh
-# Builds mormiCommander and checks it end to end: go vet, go test, the page's unit tests, `wails build`, then the app
+# Builds mormiCommander and checks it end to end: go vet, go test, the page's unit tests, scripts/build.sh, then the app
 # itself through control mode (scripts/qa_nav.py: panels, navigation, selection, sorting, command line, control mode, in
 # fresh temporary folders and in the demo). Nothing touches your files or your settings.
 #
@@ -7,18 +7,15 @@
 #   scripts/qa_smoke.sh --quick    skip the build; test the app in build/bin as it is
 set -e
 cd "$(dirname "$0")/.."
-WAILS=${WAILS:-$(command -v wails || echo "$HOME/go/bin/wails")}
-TAGS=""
-[ "$(uname)" = "Linux" ] && TAGS="webkit2_41"
 
 if [ "$1" != "--quick" ]; then
   echo "== frontend: install, build, unit tests"
   (cd frontend && npm install --no-audit --no-fund >/dev/null && npm run build >/dev/null && npm test)
   echo "== go vet, go test"
-  go vet -tags "$TAGS" ./...
-  go test -tags "$TAGS" ./...
-  echo "== wails build"
-  "$WAILS" build -tags "$TAGS" >/dev/null
+  go vet ./...
+  go test ./...
+  echo "== build (scripts/build.sh)"
+  scripts/build.sh --skip-frontend >/dev/null
 fi
 
 case "$(uname)" in

@@ -23,8 +23,6 @@ import (
 	"mormicommander/internal/config"
 	"mormicommander/internal/launch"
 	"mormicommander/internal/params"
-
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // ConfigBar is what the page calls for the button bars (window.go.main.ConfigBar).
@@ -409,7 +407,7 @@ func (b *ConfigBar) CopyButton(btn configButton) error {
 	if b.app.ctx == nil {
 		return errors.New("The clipboard is not available.")
 	}
-	return wruntime.ClipboardSetText(b.app.ctx, configButtonIn(btn).ClipboardText())
+	return b.app.clipboardSetText(configButtonIn(btn).ClipboardText())
 }
 
 // PasteButton reads a button from the clipboard (copied here or in Total Commander).
@@ -417,7 +415,7 @@ func (b *ConfigBar) PasteButton() (configButton, error) {
 	if b.app.ctx == nil {
 		return configButton{}, errors.New("The clipboard is not available.")
 	}
-	text, err := wruntime.ClipboardGetText(b.app.ctx)
+	text, err := b.app.clipboardText()
 	if err != nil {
 		return configButton{}, err
 	}

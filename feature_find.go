@@ -28,7 +28,6 @@ import (
 	"mormicommander/internal/find"
 	"mormicommander/internal/vfs"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 // Find is what the page calls for Find files, Feed to listbox and quick search (window.go.main.Find).
@@ -638,7 +637,7 @@ func (f *Find) CopyText(paths []string, details bool) error {
 	if f.app.ctx == nil {
 		return errors.New("The clipboard is not available.")
 	}
-	return wruntime.ClipboardSetText(f.app.ctx, f.findText(paths, details))
+	return f.app.clipboardSetText(f.findText(paths, details))
 }
 
 // SaveText writes the given result paths to a text file, one per line (an existing file is replaced only when

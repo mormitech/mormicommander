@@ -47,12 +47,12 @@ Copy, move, delete and much more are being built now (the engine for copy, move 
 
 ## Install
 
-There are no releases yet. To build it yourself you need [Go](https://go.dev), [Node.js](https://nodejs.org) and the
-[Wails CLI](https://wails.io/docs/gettingstarted/installation) (`go install github.com/wailsapp/wails/v2/cmd/wails@latest`):
+There are no releases yet. To build it yourself you need [Go](https://go.dev) 1.26 or newer and
+[Node.js](https://nodejs.org); the window is [Wails v3](https://v3.wails.io), which comes in as a Go module (no CLI to
+install):
 
 ```
-cd frontend && npm install && cd ..
-wails build                      # Linux: wails build -tags webkit2_41  (needs libgtk-3-dev libwebkit2gtk-4.1-dev)
+scripts/build.sh                 # Linux needs libgtk-4-dev and libwebkitgtk-6.0-dev; Windows: run it in Git Bash
 ```
 
 The app is in `build/bin`. Once releases start, it will install with Homebrew (macOS and Linux), Scoop and winget

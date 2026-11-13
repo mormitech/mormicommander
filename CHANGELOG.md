@@ -4,6 +4,14 @@ All notable changes to mormiCommander are listed here, newest first. The format 
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Feature branches add their lines under "Unreleased"; the
 version is changed only when a round of features is merged.
 
+## Unreleased
+
+### Changed
+
+- The window is now Wails v3 (v3.1.0) instead of Wails v2: one process with real windows, so the About box opens as a
+  window of the app instead of a second copy of it. Linux builds use GTK 4 and WebKitGTK 6.0 (the .deb depends on
+  them). The build is `scripts/build.sh`; the Wails CLI is no longer needed.
+
 ## 0.9.6 – 2026-11-13
 
 ### Fixed

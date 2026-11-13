@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // Control mode: mormiCommander started with `--control PORT` (or MORMICOMMANDER_CONTROL=PORT; 0 takes a free port)
@@ -188,37 +188,60 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 	a := c.app
 	switch str(m, "cmd") {
 	case "info":
-		x, y, w, h := 0, 0, 0, 0
-		if a.ctx != nil {
-			x, y = wruntime.WindowGetPosition(a.ctx)
-			w, h = wruntime.WindowGetSize(a.ctx)
+		x, y, w, h, maxed := 0, 0, 0, 0, false
+		if win := a.mainWindow(); win != nil {
+			x, y = win.Position()
+			w, h = win.Size()
+			maxed = win.IsMaximised()
 		}
-		return map[string]any{"ok": true, "version": version(), "pid": os.Getpid(), "windowId": windowID(), "x": x, "y": y, "w": w, "h": h,
+		return map[string]any{"ok": true, "version": version(), "pid": os.Getpid(), "windowId": a.windowID(), "x": x, "y": y, "w": w, "h": h,
 			"demo": a.mock != nil, "platform": runtime.GOOS, "features": featureNames(), "settings": settingsPath(), "title": a.windowTitle(),
-			"maximised": a.ctx != nil && wruntime.WindowIsMaximised(a.ctx)}, nil
+			"maximised": maxed, "windows": a.windowNames()}, nil
 	case "menu": // what choosing a menu item does: {name: "cm_MatchSrc"} (the native menu can't be clicked from outside)
 		a.emit("menu", str(m, "name"))
 		time.Sleep(time.Duration(num(m, "ms", 300)) * time.Millisecond)
 		return c.toPage(map[string]any{"cmd": "idle"})
 	case "window": // size and place, for screenshots that look alike (centred when no x and y); max: true maximises
-		if a.ctx == nil {
+		win := a.mainWindow()
+		if win == nil {
 			return nil, errors.New("no window yet")
 		}
 		if v, ok := m["max"].(bool); ok {
-			if v != wruntime.WindowIsMaximised(a.ctx) {
-				wruntime.WindowToggleMaximise(a.ctx)
+			if v != win.IsMaximised() {
+				win.ToggleMaximise()
 			}
 		}
 		if w, h := num(m, "w", 0), num(m, "h", 0); w > 0 && h > 0 {
-			wruntime.WindowSetSize(a.ctx, w, h)
+			win.SetSize(w, h)
 			if _, ok := m["x"]; ok {
-				wruntime.WindowSetPosition(a.ctx, num(m, "x", 0), num(m, "y", 0))
+				win.SetPosition(num(m, "x", 0), num(m, "y", 0))
 			} else {
-				wruntime.WindowCenter(a.ctx)
+				win.Center()
 			}
 		}
 		time.Sleep(300 * time.Millisecond)
 		return c.do(map[string]any{"cmd": "info"})
+	case "nativemenu": // the native menu bar as it is built (labels, check marks, greyed items), to check SetMenu
+		a.mu.Lock()
+		m := a.menuBar
+		a.mu.Unlock()
+		return map[string]any{"ok": true, "menus": nativeMenuTree(m)}, nil
+	case "about": // open (or close: {close: true}) the About window, which is a window of this process
+		if shut, _ := m["close"].(bool); shut {
+			a.mu.Lock()
+			w := a.about
+			a.mu.Unlock()
+			if w != nil {
+				w.Close()
+			}
+		} else {
+			a.ShowAbout()
+		}
+		time.Sleep(time.Duration(num(m, "ms", 500)) * time.Millisecond)
+		a.mu.Lock()
+		w := a.about
+		a.mu.Unlock()
+		return map[string]any{"ok": true, "windows": a.windowNames(), "windowId": windowNumber(w)}, nil
 	case "screenshot": // the window as a PNG file: {path}
 		return c.screenshot(str(m, "path"))
 	case "answer": // the answer for the next system dialog of a kind: "value" or "values"
@@ -243,7 +266,7 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		time.Sleep(time.Duration(num(m, "ms", 100)) * time.Millisecond)
 		return map[string]any{"ok": true}, nil
 	case "quit": // without asking anything
-		if a.ctx != nil {
+		if a.wapp != nil {
 			go func() { time.Sleep(100 * time.Millisecond); a.Quit() }()
 		}
 		return map[string]any{"ok": true}, nil
@@ -268,7 +291,7 @@ func (c *control) screenshot(path string) (map[string]any, error) {
 	if runtime.GOOS != "darwin" {
 		return nil, errors.New("screenshots from inside the app work on macOS only")
 	}
-	wid := windowID()
+	wid := c.app.windowID()
 	if wid == 0 {
 		return nil, errors.New("the window is not on the screen")
 	}
@@ -363,5 +386,40 @@ func (a *App) PickFolder(title, start string) (string, error) {
 	if v, ok := a.mockAnswer("folder", start); ok {
 		return v, nil
 	}
-	return wruntime.OpenDirectoryDialog(a.ctx, wruntime.OpenDialogOptions{Title: title, DefaultDirectory: start})
+	return a.pickFolderDialog(title, start)
+}
+
+// windowNames lists the open windows by name ("main", "about"), for the control mode.
+func (a *App) windowNames() []string {
+	out := []string{}
+	if a.wapp == nil {
+		return out
+	}
+	for _, w := range a.wapp.Window.GetAll() {
+		out = append(out, w.Name())
+	}
+	return out
+}
+
+// nativeMenuTree is the menu bar as the system got it, for the control mode's "nativemenu".
+func nativeMenuTree(m *application.Menu) []map[string]any {
+	out := []map[string]any{}
+	for _, it := range menuItems(m) {
+		e := map[string]any{"label": it.Label()}
+		switch {
+		case it.IsSeparator():
+			e = map[string]any{"sep": true}
+		case it.IsSubmenu():
+			e["items"] = nativeMenuTree(it.GetSubmenu())
+		default:
+			if !it.Enabled() {
+				e["disabled"] = true
+			}
+			if it.IsCheckbox() {
+				e["checked"] = it.Checked()
+			}
+		}
+		out = append(out, e)
+	}
+	return out
 }

@@ -1,12 +1,11 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 
-	wruntime "github.com/wailsapp/wails/v2/pkg/runtime"
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 // The place, size and maximised state of the window are kept in window.json in the settings folder, so the next start
@@ -73,13 +72,14 @@ func onScreen(st winState, totalW int) bool {
 
 // SaveWindow remembers the place and size of the window (also done when the window closes).
 func (a *App) SaveWindow() {
-	if a.ctx == nil || a.mode != "" {
+	w := a.mainWindow()
+	if w == nil {
 		return
 	}
-	if wruntime.WindowIsFullscreen(a.ctx) || wruntime.WindowIsMinimised(a.ctx) {
+	if w.IsFullscreen() || w.IsMinimised() {
 		return
 	}
-	if wruntime.WindowIsMaximised(a.ctx) {
+	if w.IsMaximised() {
 		st, ok := loadWinState()
 		if !ok {
 			return
@@ -88,26 +88,23 @@ func (a *App) SaveWindow() {
 		saveWinState(st)
 		return
 	}
-	x, y := wruntime.WindowGetPosition(a.ctx)
-	w, h := wruntime.WindowGetSize(a.ctx)
-	saveWinState(winState{X: x, Y: y, W: w, H: h})
+	x, y := w.Position()
+	width, height := w.Size()
+	saveWinState(winState{X: x, Y: y, W: width, H: height})
 }
 
-// restoreWindow puts the window where it was left, when that is still on a screen. The size is set again here: the
-// size given to wails.Run is the inside of the window on macOS, while WindowGetSize (what was saved) is the whole
-// window with its title bar, so without this the window grew by a title bar's height on every start.
-func restoreWindow(ctx context.Context, st winState) {
-	wruntime.WindowSetSize(ctx, st.W, st.H)
+// restoreWindow puts the window where it was left, when that is still on a screen. The size is set again here, so the
+// window has exactly the size that was saved whatever the system did with the one it was made with.
+func restoreWindow(wapp *application.App, w *application.WebviewWindow, st winState) {
+	w.SetSize(st.W, st.H)
 	total := 0
-	if screens, err := wruntime.ScreenGetAll(ctx); err == nil {
-		for _, s := range screens {
-			total += s.Size.Width
-		}
+	for _, s := range wapp.Screen.GetAll() {
+		total = max(total, s.Bounds.X+s.Bounds.Width)
 	}
 	if total == 0 || onScreen(st, total) {
-		wruntime.WindowSetPosition(ctx, st.X, st.Y)
+		w.SetPosition(st.X, st.Y)
 	}
 	if st.Max {
-		wruntime.WindowMaximise(ctx)
+		w.Maximise()
 	}
 }

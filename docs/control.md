@@ -30,7 +30,7 @@ or change your settings. `--demo` does the same by itself.
 |---|---|
 | `POST /cmd` | one command, a JSON object with `"cmd"`; the answer is JSON, `{"error": "…"}` when it failed |
 | `POST /batch` | a JSON list of commands, done one after the other; stops at the first error (`?continue=1` goes on) |
-| `GET /info` | version, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`), `title`, `demo`, Go `features` |
+| `GET /info` | version, pid, platform, window (`windowId` on macOS, `x`, `y`, `w`, `h`, `maximised`), `title`, `demo`, Go `features`, `windows` (the open windows by name: `main`, `about`) |
 
 Commands that change something wait until the app is idle (folders read, the screen painted) and answer with the same
 object as `state`, so a script can check the result at once.
@@ -45,6 +45,8 @@ object as `state`, so a script can check the result at once.
 | `window` | `w`, `h`, `x`, `y`, `max` | size and place of the window (centred without `x`); `max: true/false` maximises or restores |
 | `screenshot` | `path` | the window as a PNG (macOS: `screencapture -l`; elsewhere `mc_ctl.py shot()` makes it) |
 | `menu` | `name` | does what choosing the menu item of that cm_* command does (the native menu can't be clicked from outside) |
+| `nativemenu` | | the native menu bar as built from the page's tree: `{menus: [{label, items, checked, disabled, sep}]}` (`menus`, a page command, is the tree the page sent) |
+| `about` | `close` | opens the About window (a second window of the same process since Wails v3; `close: true` closes it); answers `windows` and the About window's `windowId` (macOS) |
 | `answer` / `asked` | `kind`, `value` / `values` | queue answers for system dialogs (kind `folder`: the folder picker); `asked` lists the questions asked |
 | `jobs` | | the file jobs (copy, move, delete) and their progress |
 | `sleep` | `ms` | a pause |
