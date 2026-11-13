@@ -2,8 +2,9 @@
 // few things it asks of the window (title, quit, minimise, About). Files and folders are in feature_fs.go, jobs in
 // feature_jobs.go, settings in settings.go; each feature adds its own bound objects through features.go.
 //
-// Everything that touches Wails goes through this file, window.go, winstate.go, menu.go and shell.go, so the features
-// call small helpers (a.emit, a.clipboardSetText, a.openFileDialog...) and never the Wails API itself.
+// Everything that touches Wails goes through this file, window.go, winstate.go, menu.go, shell.go and the Lister windows
+// (feature_viewer_window.go), so the features call small helpers (a.emit, a.clipboardSetText, a.openFileDialog...) and
+// never the Wails API itself.
 package main
 
 import (

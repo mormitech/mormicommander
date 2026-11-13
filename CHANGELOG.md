@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- F3 opens the Lister in a real window of its own, like Total Commander's Lister: the title is "Lister – <name>", the
+  size is kept, Esc or the close button closes it, N and P walk the files and move the panel's cursor, and several can
+  be open at once. One window is made in advance, so it shows in about 50 ms. The old Lister over the panels stays as a
+  setting ("Open the Lister in a window of its own" in the viewer options, `viewerInWindow`). Quick view (Ctrl+Q) stays
+  in the panel.
+
 ### Changed
 
 - The window is now Wails v3 (v3.1.0) instead of Wails v2: one process with real windows, so the About box opens as a

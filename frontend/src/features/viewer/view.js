@@ -42,6 +42,14 @@ export const LISTER_DEFAULTS = {
 export function listerSettings(app) { return { ...LISTER_DEFAULTS, ...(app.setting('lister', {}) || {}) }; }
 export function saveListerSettings(app, changes) { return app.setSetting('lister', { ...(app.setting('lister', {}) || {}), ...changes }); }
 
+// applyListerOptions gives an open view new display options (wrap, font, font size, fit) at once.
+export function applyListerOptions(v, lo) {
+  Object.assign(v, { wrap: !!lo.wrap, variable: lo.font === 'variable', fontSize: +lo.fontSize || 12, fit: lo.fitImage !== false });
+  v.applyFont();
+  v.layout();
+  if (v.id && v.isTextMode()) v.queue(() => v.applyOptions());
+}
+
 // Every view by session id, for the events Go sends.
 const views = new Map();
 on('lister-progress', (d) => views.get(d?.id)?.progress(d));

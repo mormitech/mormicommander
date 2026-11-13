@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Lister</title>
+</head>
+<body class="mc-viewer-window">
+<!-- A Lister window (F3). Go makes it hidden, the page fills it with the file it is asked for and then asks to be
+     shown (src/viewer-window.js, feature_viewer_window.go). The menu buttons open the Lister's menus; the view goes into
+     #viewer-body. -->
+<div id="viewer-app">
+    <div class="mc-viewer-head"><div class="mc-viewer-menus" id="viewer-menus"></div></div>
+    <div id="viewer-body"></div>
+</div>
+<div id="flash" role="status" aria-live="polite" hidden></div>
+<div id="menu" role="menu" hidden></div>
+<script src="./src/viewer-window.js" type="module"></script>
+</body>
+</html>

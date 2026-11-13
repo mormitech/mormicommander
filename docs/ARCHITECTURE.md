@@ -14,6 +14,7 @@ agents can build features at the same time, and their branches merge without con
 main.go               start-up: flags, application.New with every bound object as a v3 service — never edited for a feature
 app.go                the App object: version, platform, start folders, title, quit, About window
 window.go             the windows: "main" (the file manager) and "about" (a second window of the same process)
+feature_viewer_window.go  Lister windows (F3): "lister-<n>", one made hidden in advance; control commands "windows", "viewer…"
 shell.go              helpers the features use instead of Wails: emit, clipboard, file and folder dialogs
 features.go           where Go features register (bound objects, start-up/shut-down hooks, control commands)
 args.go               the command line (TC's /L= /R= /P= too)
@@ -30,6 +31,7 @@ internal/trash        Trash / Recycle Bin per platform
 
 frontend/index.html   the layout: #toolbar, two .panel sections, #splitter, #vbar, #cmdline, #fkeys, #flash
 frontend/src/main.js  start-up of the page; imports every file of src/features/ automatically
+frontend/viewer.html  a Lister window's page (a second Vite entry); src/viewer-window.js starts it with the viewer feature
 frontend/src/core/    the core (see the list below) — shared, change carefully, add rather than rewrite
 frontend/src/features/ one file per feature: navigation.js, selection.js, sorting.js, drives.js, cmdline.js, window.js…
 frontend/test/        vitest unit tests of the pure core modules

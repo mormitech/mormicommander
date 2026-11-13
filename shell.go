@@ -27,6 +27,25 @@ func (a *App) emit(event string, data ...any) {
 	a.wapp.Event.Emit(event, any(data))
 }
 
+// emitExcept sends an event to the pages of every window but the one named (all of them when it is "").
+func (a *App) emitExcept(window, event string, data ...any) {
+	if a.wapp == nil {
+		return
+	}
+	if window == "" {
+		a.emit(event, data...)
+		return
+	}
+	if data == nil {
+		data = []any{}
+	}
+	for _, w := range a.wapp.Window.GetAll() {
+		if ww, ok := w.(*application.WebviewWindow); ok && ww.Name() != window {
+			ww.DispatchWailsEvent(&application.CustomEvent{Name: event, Data: any(data)})
+		}
+	}
+}
+
 // clipboardSetText puts text on the system's clipboard.
 func (a *App) clipboardSetText(text string) error {
 	if a.wapp == nil {

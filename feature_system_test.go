@@ -186,7 +186,7 @@ func TestSystemLogFile(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(dir, "mormicommander.log")); err == nil {
 		t.Error("the log is off by default")
 	}
-	a.settings.Set("enableLog", true)
+	a.settings.put("enableLog", true)
 	if err := l.Write([]string{"Error: Can't copy a.txt", "two\nlines"}); err != nil {
 		t.Fatal(err)
 	}

@@ -201,8 +201,15 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		a.emit("menu", str(m, "name"))
 		time.Sleep(time.Duration(num(m, "ms", 300)) * time.Millisecond)
 		return c.toPage(map[string]any{"cmd": "idle"})
-	case "window": // size and place, for screenshots that look alike (centred when no x and y); max: true maximises
+	case "window": // size and place, for screenshots that look alike (centred when no x and y); max: true maximises;
+		// window: "lister-2" sizes another window of the app (the answer is then that window's entry of "windows")
 		win := a.mainWindow()
+		other := str(m, "window")
+		if other != "" {
+			if win = a.windowByName(other); win == nil {
+				return nil, fmt.Errorf("no window %q", other)
+			}
+		}
 		if win == nil {
 			return nil, errors.New("no window yet")
 		}
@@ -220,6 +227,13 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 			}
 		}
 		time.Sleep(300 * time.Millisecond)
+		if other != "" {
+			for _, e := range a.windowList() {
+				if e["name"] == other {
+					return map[string]any{"ok": true, "window": e}, nil
+				}
+			}
+		}
 		return c.do(map[string]any{"cmd": "info"})
 	case "nativemenu": // the native menu bar as it is built (labels, check marks, greyed items), to check SetMenu
 		a.mu.Lock()
@@ -242,8 +256,8 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		w := a.about
 		a.mu.Unlock()
 		return map[string]any{"ok": true, "windows": a.windowNames(), "windowId": windowNumber(w)}, nil
-	case "screenshot": // the window as a PNG file: {path}
-		return c.screenshot(str(m, "path"))
+	case "screenshot": // the window as a PNG file: {path}; window: "lister-2" takes another window of the app
+		return c.screenshot(str(m, "path"), str(m, "window"))
 	case "answer": // the answer for the next system dialog of a kind: "value" or "values"
 		kind := str(m, "kind")
 		c.mu.Lock()
@@ -284,7 +298,7 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 
 // screenshot saves the window as a PNG. On macOS it uses `screencapture -l` with the window's number (the window may
 // be behind others). Other systems: the script makes the picture itself (scripts/mc_ctl.py shot()).
-func (c *control) screenshot(path string) (map[string]any, error) {
+func (c *control) screenshot(path, window string) (map[string]any, error) {
 	if path == "" {
 		return nil, errors.New("give a path for the PNG")
 	}
@@ -292,6 +306,13 @@ func (c *control) screenshot(path string) (map[string]any, error) {
 		return nil, errors.New("screenshots from inside the app work on macOS only")
 	}
 	wid := c.app.windowID()
+	if window != "" {
+		w := c.app.windowByName(window)
+		if w == nil {
+			return nil, fmt.Errorf("no window %q", window)
+		}
+		wid = windowNumber(w)
+	}
 	if wid == 0 {
 		return nil, errors.New("the window is not on the screen")
 	}

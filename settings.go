@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -16,14 +17,20 @@ import (
 // Get/Set interface without touching other features.)
 
 type Settings struct {
-	mu   sync.Mutex
-	path string
-	data map[string]json.RawMessage
+	mu      sync.Mutex
+	path    string
+	data    map[string]json.RawMessage
+	changed func(key string, value any, from string) // told after every change (the "setting" event to the pages)
 }
 
 func init() {
 	registerFeature("settings", func(a *App) []any {
 		a.settings = loadSettings(settingsPath())
+		// Every window of the app keeps a copy of the settings (frontend/src/core/settings.js); a change made in one
+		// (a Lister window, the file manager) reaches the others as the "setting" event, so no copy goes stale.
+		// (the window that made the change is not told: its copy is changed already, and an echo arriving after a newer
+		// change would put the older value back for a moment)
+		a.settings.changed = func(key string, value any, from string) { a.emitExcept(from, "setting", key, value) }
 		return []any{a.settings}
 	})
 }
@@ -70,20 +77,37 @@ func (s *Settings) Get(key string) any {
 	return nil
 }
 
-// Set stores one setting and writes the file (nil removes the key).
-func (s *Settings) Set(key string, value any) error {
+// Set stores one setting and writes the file (nil removes the key). The other windows of the app are told.
+func (s *Settings) Set(ctx context.Context, key string, value any) error {
+	from := ""
+	if w := windowOf(ctx); w != nil {
+		from = w.Name()
+	}
+	return s.set(key, value, from)
+}
+
+// put is Set for the Go side (every window is told).
+func (s *Settings) put(key string, value any) error { return s.set(key, value, "") }
+
+func (s *Settings) set(key string, value any, from string) error {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	if value == nil {
 		delete(s.data, key)
 	} else {
 		b, err := json.Marshal(value)
 		if err != nil {
+			s.mu.Unlock()
 			return err
 		}
 		s.data[key] = b
 	}
-	return s.save()
+	err := s.save()
+	changed := s.changed
+	s.mu.Unlock()
+	if changed != nil {
+		changed(key, value, from)
+	}
+	return err
 }
 
 // Path is where the settings file is (for "edit settings files directly" and the docs).
