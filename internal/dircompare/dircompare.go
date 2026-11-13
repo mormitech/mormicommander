@@ -379,6 +379,11 @@ func (c *comparer) compareLists(lents, rents []Entry, ldir, rdir, base string) (
 	pairs := map[string]*pair{}
 	var order []string
 	add := func(ents []Entry, left bool) {
+		// Pair in name order, not in the order the Lister happened to return (archives and other Listers need not
+		// sort), so that when two names on one side fold together the same one always wins. A sorted copy keeps the
+		// caller's slice untouched; the items point into the copy.
+		ents = append([]Entry(nil), ents...)
+		sort.SliceStable(ents, func(i, j int) bool { return ents[i].Name < ents[j].Name })
 		for i := range ents {
 			e := &ents[i]
 			if !c.keep(joinRel(base, e.Name), *e) {
