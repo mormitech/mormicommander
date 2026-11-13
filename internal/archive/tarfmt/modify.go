@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 // Rename is one rename inside an archive; renaming a folder moves

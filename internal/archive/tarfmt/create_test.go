@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 // makeSourceTree builds a small folder tree to pack and returns its root.

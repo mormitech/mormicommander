@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 var sampleMembers = []member{

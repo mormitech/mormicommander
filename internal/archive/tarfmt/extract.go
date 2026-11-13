@@ -27,7 +27,7 @@ import (
 	"strings"
 	"time"
 
-	"mormicommander/internal/archive"
+	archive "mormicommander/internal/archive/arcapi"
 )
 
 // extractor holds the state of one Extract call.
