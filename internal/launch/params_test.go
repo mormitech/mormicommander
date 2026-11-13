@@ -56,6 +56,41 @@ func TestExpandParamsUnix(t *testing.T) {
 	}
 }
 
+// Regression: placeholders inside single quotes ('%N', '%P%N') used to get
+// backslash escapes, which SplitArgs keeps literally there, and a name with an
+// apostrophe left the quote unterminated.
+func TestExpandParamsSingleQuotes(t *testing.T) {
+	l, _ := fakeLauncher(t, "linux", nil)
+	tests := []struct {
+		current, params string
+		want            []string
+	}{
+		{"a b.txt", `'%N'`, []string{"a b.txt"}},
+		{"it's.txt", `'%N'`, []string{"it's.txt"}},
+		{"it's a.txt", `-o '%P%N' x`, []string{"-o", "/d/it's a.txt", "x"}},
+		{"plain", `'%N'`, []string{"plain"}},
+		{`back\slash "q".txt`, `'%N'`, []string{`back\slash "q".txt`}},
+		{"a b.txt", `"%N" '%N' %N`, []string{"a b.txt", "a b.txt", "a b.txt"}},
+		{"a b.txt", `'it''s' %N`, []string{"its", "a b.txt"}},
+		{"a b.txt", `"it's" %N`, []string{"it's", "a b.txt"}},
+		{"a b.txt", `\' %N`, []string{"'", "a b.txt"}},
+	}
+	for _, tt := range tests {
+		ctx := ParamContext{Source: Panel{Dir: "/d", Current: tt.current}}
+		got, err := l.ExpandParams(tt.params, ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
+		args, err := SplitArgs(got.Text)
+		if err != nil {
+			t.Fatalf("%q with %q -> %q: %v", tt.params, tt.current, got.Text, err)
+		}
+		if !reflect.DeepEqual(args, tt.want) {
+			t.Errorf("%q with %q -> %q = %q, want %q", tt.params, tt.current, got.Text, args, tt.want)
+		}
+	}
+}
+
 func TestExpandParamsWindows(t *testing.T) {
 	l, _ := fakeLauncher(t, "windows", map[string]string{"COMMANDER_PATH": `C:\TC`})
 	ctx := ParamContext{

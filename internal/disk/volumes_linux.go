@@ -1,3 +1,11 @@
+// On Linux the drive bar shows "/" first, then the home folder (Linux has no
+// drive letters, and home is where users go most), then every real disk and
+// network share from /proc/mounts, once per device. Pseudo file systems
+// (proc, tmpfs, overlay ...) and noise such as snap and docker mounts are
+// left out. The kind is guessed from the file system type and the mount
+// point: network types are shares, iso9660/udf are optical discs, and mounts
+// under /media, /run/media or /mnt are where desktops put removable media.
+
 package disk
 
 import (

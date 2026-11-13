@@ -228,12 +228,19 @@ func parseLine(text string, hint Algorithm, impliedName string) (ChecksumEntry, 
 		bin := strings.Contains(body[len(m[1]):len(body)-len(m[2])], "*")
 		return finish(ChecksumEntry{Name: m[2], Digest: m[1], Binary: bin})
 	}
+	// SFV puts the name first, so leading blanks belong to the name (" lead.txt"
+	// is a legal file name). Match on the untrimmed line; Verify falls back
+	// to the trimmed name for files written by tools that indent lines.
+	sfvBody := text
+	if escaped {
+		sfvBody = body
+	}
 	trySFV := func() (ChecksumEntry, bool) {
-		m := reSFV.FindStringSubmatch(body)
+		m := reSFV.FindStringSubmatch(sfvBody)
 		if m == nil {
 			return ChecksumEntry{}, false
 		}
-		return finish(ChecksumEntry{Name: strings.TrimSpace(m[1]), Digest: m[2], Algorithm: CRC32})
+		return finish(ChecksumEntry{Name: strings.TrimRight(m[1], " \t"), Digest: m[2], Algorithm: CRC32})
 	}
 	if hint == CRC32 {
 		if e, ok := trySFV(); ok {

@@ -27,7 +27,12 @@ func VolumeOf(path string) (VolumeInfo, error) {
 	if err := unix.Statfs(path, &st); err != nil {
 		return VolumeInfo{Path: path}, &os.PathError{Op: "statfs", Path: path, Err: err}
 	}
-	bs := uint64(st.Bsize)
+	// Block counts are in f_frsize units; f_bsize is only the preferred I/O
+	// size and differs from it on some NFS, CIFS and FUSE mounts.
+	bs := uint64(st.Frsize)
+	if bs == 0 {
+		bs = uint64(st.Bsize)
+	}
 	v := VolumeInfo{
 		Path:      path,
 		Root:      "/",
@@ -36,9 +41,6 @@ func VolumeOf(path string) (VolumeInfo, error) {
 		Available: st.Bavail * bs,
 		BlockSize: bs,
 		ReadOnly:  uint64(st.Flags)&stRdonly != 0,
-	}
-	if st.Frsize > 0 {
-		v.BlockSize = uint64(st.Frsize)
 	}
 
 	abs, err := filepath.Abs(path)

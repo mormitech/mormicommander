@@ -242,6 +242,46 @@ func TestCachePersistenceAndClear(t *testing.T) {
 	}
 }
 
+// Regression: Clear used to RemoveAll every entry of the cache folder, so a
+// cache pointed at an existing folder wiped the user's files.
+func TestCacheClearKeepsForeignFiles(t *testing.T) {
+	dir := t.TempDir()
+	foreign := map[string]string{
+		"important.doc":     "keep me",
+		"ab/notes.txt":      "inside a shard-looking folder",
+		"photos/a.mct":      "not a shard folder",
+		"cd/" + "short.mct": "not a hash name",
+	}
+	for name, body := range foreign {
+		p := filepath.Join(dir, filepath.FromSlash(name))
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c, err := OpenCache(dir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 5; i++ {
+		if err := c.Put(sampleKey("/p", i), sampleThumb(i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := c.Clear(); err != nil {
+		t.Fatal(err)
+	}
+	for name, body := range foreign {
+		got, err := os.ReadFile(filepath.Join(dir, filepath.FromSlash(name)))
+		if err != nil || string(got) != body {
+			t.Errorf("%s: err=%v got %q", name, err, got)
+		}
+	}
+	if st, _ := c.Stats(); st.Entries != 0 {
+		t.Errorf("entries left after Clear: %+v", st)
+	}
+}
+
 func TestCachePruneStale(t *testing.T) {
 	dir := t.TempDir()
 	src := t.TempDir()

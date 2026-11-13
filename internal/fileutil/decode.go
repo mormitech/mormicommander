@@ -102,7 +102,7 @@ type decoder struct {
 	res     *DecodeResult
 	used    map[string]bool
 	created []string
-	srcAbs  map[string]bool
+	srcs    *fileSet
 }
 
 // countingReader reports progress and checks for cancellation as data is
@@ -153,27 +153,24 @@ func DecodeFiles(ctx context.Context, opts DecodeOptions) (*DecodeResult, error)
 		sources = FindEncodedParts(sources[0])
 	}
 	var total int64
-	srcAbs := map[string]bool{}
 	for _, s := range sources {
 		n, err := fileSize(s)
 		if err != nil {
 			return nil, err
 		}
 		total += n
-		a, _ := filepath.Abs(s)
-		srcAbs[a] = true
 	}
 	dir := opts.TargetDir
 	if dir == "" {
 		dir = filepath.Dir(sources[0])
 	}
 	d := &decoder{
-		t:      newTracker(ctx, opts.Progress, total),
-		opts:   opts,
-		dir:    dir,
-		res:    &DecodeResult{Sources: sources},
-		used:   map[string]bool{},
-		srcAbs: srcAbs,
+		t:    newTracker(ctx, opts.Progress, total),
+		opts: opts,
+		dir:  dir,
+		res:  &DecodeResult{Sources: sources},
+		used: map[string]bool{},
+		srcs: newFileSet(sources...),
 	}
 	err := d.run()
 	if err != nil {
@@ -272,7 +269,7 @@ func (d *decoder) create(stored string, enc Encoding) (*os.File, *DecodedFile, e
 	}
 	name = d.unique(name)
 	p := filepath.Join(d.dir, name)
-	if a, _ := filepath.Abs(p); d.srcAbs[a] {
+	if d.srcs.contains(p) {
 		name = d.unique(name + ".decoded")
 		p = filepath.Join(d.dir, name)
 	}

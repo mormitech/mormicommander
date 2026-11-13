@@ -20,7 +20,8 @@
 //	?    at the very start: ask the user to confirm or edit the parameters before running (Expanded.Prompt)
 //
 // Lowercase letters (%p, %n, …) give short 8.3 names on Windows and are the same as the uppercase ones elsewhere.
-// Inserted values are escaped so that they stay one argument (see EscapeArg) on macOS and Linux; on Windows they are
+// Inserted values are escaped so that they stay one argument (see EscapeArg) on macOS and Linux, whether the placeholder
+// stands bare, inside "double quotes" or inside 'single quotes' (a shell habit: '%P%N'); on Windows they are
 // inserted as they are and the user quotes them ("%P%N"), exactly as in Total Commander.
 package launch
 
@@ -74,10 +75,12 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 	}
 	emptyLists := strings.Contains(params, "%Y") || strings.Contains(params, "%y")
 	var b strings.Builder
+	var qt quoteTracker
 	for i := 0; i < len(params); i++ {
 		ch := params[i]
 		if ch != '%' || i+1 >= len(params) {
 			b.WriteByte(ch)
+			qt.feed(string(ch))
 			continue
 		}
 		rest := params[i+1:]
@@ -85,6 +88,7 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 		if name, ok := envName(rest); ok {
 			if v, found := l.lookupEnv(name); found {
 				b.WriteString(v)
+				qt.feed(v)
 				i += len(name) + 1
 				continue
 			}
@@ -95,11 +99,12 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 			if short && l.windows() {
 				s = shortName(s)
 			}
-			b.WriteString(l.insertValue(s))
+			b.WriteString(l.insertValue(s, qt.quote))
 		}
 		switch {
 		case rest[0] == '%':
 			b.WriteByte('%')
+			qt.feed("%")
 			i++
 		case strings.HasPrefix(up, "P%S"), strings.HasPrefix(up, "T%R"):
 			panel := ctx.Source
@@ -109,7 +114,7 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 			names := panel.selection(false)
 			parts := make([]string, len(names))
 			for k, n := range names {
-				parts[k] = l.quoteListItem(joinPath(l.OS, panel.Dir, n))
+				parts[k] = l.quoteListItem(joinPath(l.OS, panel.Dir, n), qt.quote)
 			}
 			b.WriteString(strings.Join(parts, " "))
 			res.HasFile = true
@@ -122,7 +127,7 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 			}
 			res.ListFiles = append(res.ListFiles, p)
 			res.HasFile = true
-			b.WriteString(l.insertValue(p))
+			b.WriteString(l.insertValue(p, qt.quote))
 			i += 2
 		default:
 			switch up[0] {
@@ -152,7 +157,7 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 					if short && l.windows() {
 						n = baseName(l.OS, shortName(joinPath(l.OS, panel.Dir, n)))
 					}
-					parts[k] = l.quoteListItem(n)
+					parts[k] = l.quoteListItem(n, qt.quote)
 				}
 				b.WriteString(strings.Join(parts, " "))
 				res.HasFile = true
@@ -165,7 +170,7 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 				}
 				res.ListFiles = append(res.ListFiles, p)
 				res.HasFile = true
-				b.WriteString(l.insertValue(p))
+				b.WriteString(l.insertValue(p, qt.quote))
 			case 'Y':
 				// Only a switch; it inserts nothing.
 			case '1':
@@ -173,11 +178,12 @@ func (l *Launcher) ExpandParams(params string, ctx ParamContext) (Expanded, erro
 				if f == "" && ctx.Source.Current != "" {
 					f = joinPath(l.OS, ctx.Source.Dir, ctx.Source.Current)
 				}
-				b.WriteString(l.insertValue(f))
+				b.WriteString(l.insertValue(f, qt.quote))
 				res.HasFile = true
 			default:
 				// Not a placeholder: keep the % as it is.
 				b.WriteByte('%')
+				qt.feed("%")
 				continue
 			}
 			i++
@@ -211,24 +217,66 @@ func envName(s string) (string, bool) {
 	return name, true
 }
 
+// quoteTracker follows the SplitArgs quoting state of the parameter text written so far, so a placeholder knows
+// whether it sits outside quotes, inside "double quotes" or inside 'single quotes'. Inserted values never change the
+// state, because they are escaped for the context they land in.
+type quoteTracker struct {
+	quote  byte // 0, '"' or '\''
+	escape bool // the previous character was a backslash outside single quotes
+}
+
+func (q *quoteTracker) feed(s string) {
+	for i := 0; i < len(s); i++ {
+		ch := s[i]
+		switch {
+		case q.quote == '\'':
+			if ch == '\'' {
+				q.quote = 0
+			}
+		case q.escape:
+			q.escape = false
+		case ch == '\\':
+			q.escape = true
+		case q.quote == '"':
+			if ch == '"' {
+				q.quote = 0
+			}
+		case ch == '"' || ch == '\'':
+			q.quote = ch
+		}
+	}
+}
+
 // insertValue prepares one inserted value: on Windows it goes in as it is; elsewhere it is escaped so splitting the
-// parameters later gives it back as one piece.
-func (l *Launcher) insertValue(s string) string {
+// parameters later gives it back as one piece. quote is the quoting context at the placeholder (see quoteTracker).
+func (l *Launcher) insertValue(s string, quote byte) string {
 	if l.windows() {
 		return s
 	}
-	return EscapeArg(s)
+	return escapeInQuote(s, quote)
 }
 
-// quoteListItem prepares one name of %S: Windows quotes names with spaces, elsewhere the name is escaped.
-func (l *Launcher) quoteListItem(s string) string {
+// escapeInQuote escapes s for SplitArgs. Outside quotes and inside double quotes a backslash before each special
+// character works. Inside single quotes backslashes are literal, so the quote is closed, the escaped value written,
+// and the quote reopened: '%N' with "it's a.txt" becomes ''it\'s\ a.txt'', which splits back to the plain name.
+func escapeInQuote(s string, quote byte) string {
+	e := EscapeArg(s)
+	if quote != '\'' || e == s {
+		return e
+	}
+	return "'" + e + "'"
+}
+
+// quoteListItem prepares one name of %S: Windows quotes names with spaces, elsewhere the name is escaped for the
+// quoting context at the placeholder.
+func (l *Launcher) quoteListItem(s string, quote byte) string {
 	if l.windows() {
 		if strings.ContainsAny(s, " \t") {
 			return `"` + s + `"`
 		}
 		return s
 	}
-	return EscapeArg(s)
+	return escapeInQuote(s, quote)
 }
 
 // writeList writes a list file of the panel's selection and returns its path. full chooses full paths over names,

@@ -366,37 +366,51 @@ type entryFile struct {
 }
 
 // walk lists all entry files. Stray temporary files older than an hour (from
-// a crash mid-write) are deleted on the way.
+// a crash mid-write) are deleted on the way. Only the layout the cache writes
+// is looked at (<dir>/<2 hex digits>/<32 hex digits>.mct and .tmp-* files
+// next to them), so eviction, pruning and Clear never touch files that are
+// not the cache's own, even when the cache folder holds other things.
 func (c *Cache) walk() ([]entryFile, error) {
 	var out []entryFile
 	cutoff := c.now().Add(-time.Hour)
-	err := filepath.WalkDir(c.dir, func(p string, d fs.DirEntry, err error) error {
+	shards, err := os.ReadDir(c.dir)
+	if err != nil {
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	for _, s := range shards {
+		if !s.IsDir() || !isShardName(s.Name()) {
+			continue
+		}
+		sp := filepath.Join(c.dir, s.Name())
+		files, err := os.ReadDir(sp)
 		if err != nil {
 			if errors.Is(err, fs.ErrNotExist) {
-				return nil
+				continue
 			}
-			return err
+			return out, err
 		}
-		if d.IsDir() {
-			return nil
-		}
-		fi, err := d.Info()
-		if err != nil {
-			return nil
-		}
-		if strings.HasPrefix(d.Name(), ".tmp-") {
-			if fi.ModTime().Before(cutoff) {
-				os.Remove(p)
+		for _, d := range files {
+			if !d.Type().IsRegular() || !isCacheFileName(d.Name()) {
+				continue
 			}
-			return nil
+			fi, err := d.Info()
+			if err != nil {
+				continue
+			}
+			p := filepath.Join(sp, d.Name())
+			if strings.HasPrefix(d.Name(), ".tmp-") {
+				if fi.ModTime().Before(cutoff) {
+					os.Remove(p)
+				}
+				continue
+			}
+			out = append(out, entryFile{p, fi.Size(), fi.ModTime()})
 		}
-		if filepath.Ext(p) != entryExt {
-			return nil
-		}
-		out = append(out, entryFile{p, fi.Size(), fi.ModTime()})
-		return nil
-	})
-	return out, err
+	}
+	return out, nil
 }
 
 // Stats counts entries and bytes by walking the directory.
@@ -523,18 +537,64 @@ func readHeader(p string) (*entryHeader, error) {
 	return &h, nil
 }
 
+// isShardName reports whether name is one of the two-hex-digit subfolders
+// the cache spreads its entries over.
+func isShardName(name string) bool {
+	if len(name) != 2 {
+		return false
+	}
+	_, err := hex.DecodeString(name)
+	return err == nil && strings.ToLower(name) == name
+}
+
+// isCacheFileName reports whether name is a file the cache itself writes
+// inside a shard: an entry (<32 hex digits>.mct) or a leftover temp file.
+func isCacheFileName(name string) bool {
+	if strings.HasPrefix(name, ".tmp-") {
+		return true
+	}
+	h, ok := strings.CutSuffix(name, entryExt)
+	if !ok || len(h) != 32 {
+		return false
+	}
+	_, err := hex.DecodeString(h)
+	return err == nil
+}
+
 // Clear deletes every entry ("Delete thumbnails cache"). The directory
-// itself is kept.
+// itself is kept. Only what the cache wrote is touched: the two-hex-digit
+// shard folders, the .mct entries and temp files inside them. Anything else
+// stays, so pointing the cache at a folder that already holds the user's
+// files (OpenCache accepts any folder) can never make Clear wipe it. A shard
+// is removed only once it is empty.
 func (c *Cache) Clear() error {
 	ents, err := os.ReadDir(c.dir)
 	if err != nil {
 		return err
 	}
 	var firstErr error
-	for _, e := range ents {
-		if err := os.RemoveAll(filepath.Join(c.dir, e.Name())); err != nil && firstErr == nil {
+	keep := func(err error) {
+		if err != nil && !os.IsNotExist(err) && firstErr == nil {
 			firstErr = err
 		}
+	}
+	for _, e := range ents {
+		if !e.IsDir() || !isShardName(e.Name()) {
+			continue
+		}
+		shard := filepath.Join(c.dir, e.Name())
+		files, err := os.ReadDir(shard)
+		if err != nil {
+			keep(err)
+			continue
+		}
+		for _, f := range files {
+			if f.Type().IsRegular() && isCacheFileName(f.Name()) {
+				keep(os.Remove(filepath.Join(shard, f.Name())))
+			}
+		}
+		// Fails harmlessly (and is ignored) when foreign files remain.
+		_ = os.Remove(shard)
 	}
 	st, err := c.Stats()
 	c.mu.Lock()

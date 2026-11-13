@@ -115,13 +115,13 @@ func SplitFile(ctx context.Context, opts SplitOptions) (*SplitResult, error) {
 	// With a fixed size we know every name in advance, so refuse up front
 	// instead of failing halfway when a part already exists, and make sure
 	// no part would overwrite the source itself.
-	srcAbs, _ := filepath.Abs(opts.Source)
+	srcSet := newFileSet(opts.Source)
 	crcPath := CRCFileName(dir, opts.Source)
 	if opts.PartSize > 0 {
 		n := PartCount(size, opts.PartSize)
 		for i := 1; i <= n; i++ {
 			p := PartName(dir, opts.Source, i)
-			if a, _ := filepath.Abs(p); a == srcAbs {
+			if srcSet.contains(p) {
 				return nil, fmt.Errorf("part %s would overwrite the file being split", p)
 			}
 			if !opts.Overwrite {
@@ -131,7 +131,7 @@ func SplitFile(ctx context.Context, opts SplitOptions) (*SplitResult, error) {
 			}
 		}
 	}
-	if a, _ := filepath.Abs(crcPath); a == srcAbs && !opts.NoCRCFile {
+	if !opts.NoCRCFile && srcSet.contains(crcPath) {
 		return nil, fmt.Errorf("the .crc file would overwrite the file being split")
 	}
 	if !opts.NoCRCFile && !opts.Overwrite {
@@ -179,7 +179,7 @@ func SplitFile(ctx context.Context, opts SplitOptions) (*SplitResult, error) {
 			if want <= 0 {
 				return fail(fmt.Errorf("there is not enough free space in %s for the next part", dir))
 			}
-			if a, _ := filepath.Abs(p); a == srcAbs {
+			if srcSet.contains(p) {
 				return fail(fmt.Errorf("part %s would overwrite the file being split", p))
 			}
 		}

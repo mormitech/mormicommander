@@ -235,6 +235,15 @@ func resolveListed(base, name string) string {
 		return filepath.Join(base, n)
 	}
 	p := try(name)
+	// SFV names keep their leading blanks; an indented line from another
+	// tool names the file without them.
+	if trimmed := strings.TrimLeft(name, " \t"); trimmed != name && trimmed != "" {
+		if _, err := os.Lstat(p); err != nil {
+			if _, err := os.Lstat(try(trimmed)); err == nil {
+				return resolveListed(base, trimmed)
+			}
+		}
+	}
 	if runtime.GOOS != "windows" && strings.Contains(name, `\`) {
 		if _, err := os.Lstat(p); err != nil {
 			return try(strings.ReplaceAll(name, `\`, "/"))

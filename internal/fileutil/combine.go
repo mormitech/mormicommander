@@ -189,11 +189,13 @@ func CombineFiles(ctx context.Context, opts CombineOptions) (*CombineResult, err
 		return nil, err
 	}
 	target := filepath.Join(dir, name)
-	tAbs, _ := filepath.Abs(target)
-	for _, p := range parts {
-		if a, _ := filepath.Abs(p); a == tAbs {
-			return nil, fmt.Errorf("the combined file %s would overwrite one of its parts", target)
-		}
+	// Compare by file identity, not spelling: "DATA.001" on a case-insensitive
+	// disk, or a symlinked target folder, still names part 1.
+	if newFileSet(parts...).contains(target) {
+		return nil, fmt.Errorf("the combined file %s would overwrite one of its parts", target)
+	}
+	if opts.CRCFile != "" && newFileSet(opts.CRCFile).contains(target) {
+		return nil, fmt.Errorf("the combined file %s would overwrite the .crc file", target)
 	}
 
 	var total int64
