@@ -72,15 +72,18 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
         // the only item with that letter (or accelerator) is chosen at once, like a drive letter in Total Commander
         const hits = items.map((it, i) => i).filter((i) => usable(i) && ((items[i].key || '').toLowerCase() === c || String(items[i].label).toLowerCase().startsWith(c)));
         if (hits.length === 1) { choose(hits[0]); return; }
+        // an accelerator letter chooses its item at once, before any label-prefix cycling: the highlighted item
+        // if it is the one, otherwise the next item (from the highlight on) with that accelerator
+        const isKey = (i) => usable(i) && (items[i].key || '').toLowerCase() === c;
+        if (isKey(at)) { choose(at); return; }
         for (let j = 1; j <= n; j++) {
           const i = (at + j) % n;
-          const it = items[i];
-          if (usable(i) && ((it.key || '').toLowerCase() === c || String(it.label).toLowerCase().startsWith(c))) {
-            at = i;
-            paint();
-            if (it.key && it.key.toLowerCase() === c) choose(i); // an accelerator letter chooses at once
-            return;
-          }
+          if (isKey(i)) { at = i; paint(); choose(i); return; }
+        }
+        // no accelerator: move the highlight to the next item whose label starts with the letter
+        for (let j = 1; j <= n; j++) {
+          const i = (at + j) % n;
+          if (usable(i) && String(items[i].label).toLowerCase().startsWith(c)) { at = i; paint(); return; }
         }
       }
     };
