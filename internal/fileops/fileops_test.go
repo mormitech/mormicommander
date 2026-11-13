@@ -1,5 +1,9 @@
 package fileops
 
+// The basic tests of the engine: copying a tree with dates and links, copy with a new name, refusing to copy a folder
+// into itself, the classic overwrite answers, the "older" rule, cancelling (also while a question is open), moves,
+// deletes, the trash hook and the checks on a request.
+
 import (
 	"os"
 	"path/filepath"
@@ -320,7 +324,7 @@ func TestValidate(t *testing.T) {
 	for _, r := range []Request{
 		{Kind: Copy, Sources: []string{"/a"}},                                  // no target
 		{Kind: Copy, Target: "/t"},                                             // nothing selected
-		{Kind: "wipe", Sources: []string{"/a"}},                                // unknown kind
+		{Kind: "shred", Sources: []string{"/a"}},                               // unknown kind
 		{Kind: Copy, Sources: []string{"/a", "/b"}, Target: "/t", Rename: "x"}, // rename for two
 		{Kind: Copy, Sources: []string{"/a"}, Target: "/t", Overwrite: "maybe"},
 	} {

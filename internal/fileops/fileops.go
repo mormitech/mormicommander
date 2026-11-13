@@ -1,24 +1,24 @@
-// Package fileops is the engine behind copy, move and delete: a queue of jobs that run in the background, report
-// progress as events, can be cancelled, and stop to ask when a file is in the way ("overwrite?"). It has no UI
-// dependencies: the app gives it an Emit function (Wails events in the app, a recorder in the tests) and answers the
-// questions through Answer.
+// Package fileops is the engine behind copy, move, delete, wipe and rename: a queue of jobs that run in the
+// background, report progress as events (bytes, files, speed, time left), can be paused, resumed and cancelled, can be
+// slowed down by a speed limit, and stop to ask when something needs a decision ("the target exists", "the file is
+// read-only", "this file can't be read: retry?"). It has no UI dependencies: the app gives it an Emit function (Wails
+// events in the app, a recorder in the tests) and answers the questions through Answer, or through an AskFunc callback
+// when it wants to decide synchronously.
 //
-// The rules follow Total Commander and the brief of the mormi apps:
-//   - a folder is never copied into itself, and links are copied as links, so a link loop can't make a job run forever;
-//   - a move on the same volume is a rename (instant); across volumes it is copy, then the source is removed, and only
-//     the files that were copied without error are removed;
-//   - "delete" is permanent and "trash" uses the system's trash; the UI picks which one (F8 / Shift+F8);
-//   - an error on one file doesn't stop the job: it is noted, and the job goes on with the next file.
+// The rules follow Total Commander:
+//   - a folder is never copied into itself, and links are copied as links by default, so a link loop can't make a
+//     job run forever (when links are followed, a loop is detected and reported instead);
+//   - a move on the same volume is a rename (instant); across volumes it is copy, then each source file is removed
+//     right after its own copy succeeded (and was verified, when asked), and the folders that end up empty go too;
+//   - "delete" is permanent, "trash" uses the system's trash and "wipe" overwrites the bytes before deleting; the UI
+//     picks which one (F8 / Shift+F8 / the wipe command);
+//   - an error on one file doesn't stop the job: by default it is noted and the job goes on, or the user is asked
+//     Retry / Skip / Skip all / Cancel when the request says so;
+//   - jobs marked Queued run one after another in a single lane (TC's "Queue" button, F2 in the copy dialog); other
+//     jobs run at once, side by side (TC's "Background" button).
+//
+// This file holds the public types that the UI exchanges with the engine as JSON.
 package fileops
-
-import (
-	"context"
-	"errors"
-	"fmt"
-	"sort"
-	"sync"
-	"time"
-)
 
 // Kind is what a job does.
 type Kind string
@@ -28,49 +28,132 @@ const (
 	Move   Kind = "move"
 	Delete Kind = "delete" // permanent
 	Trash  Kind = "trash"  // to the Trash / Recycle Bin
+	Wipe   Kind = "wipe"   // overwrite the contents, then delete permanently
 )
 
-// Policy says what happens when a target file exists.
+// Policy says what happens when a target file exists (TC 11's "Overwrite mode" dropdown in the copy dialog).
 type Policy string
 
 const (
-	Ask       Policy = ""          // ask each time (the default)
-	Overwrite Policy = "overwrite" // overwrite all
-	Skip      Policy = "skip"      // skip all
-	Older     Policy = "older"     // overwrite only targets that are older than the source
+	Ask              Policy = ""              // ask each time (the default)
+	Overwrite        Policy = "overwrite"     // overwrite all
+	Skip             Policy = "skip"          // skip all
+	Older            Policy = "older"         // overwrite only targets that are older than the source
+	AutoRenameSource Policy = "rename"        // the copy gets a free name: "file(2).txt"
+	AutoRenameTarget Policy = "rename_target" // the existing target is renamed to "file(2).txt", then the copy is written
+	Larger           Policy = "larger"        // overwrite only when the source is larger ("copy all larger")
+	Smaller          Policy = "smaller"       // overwrite only when the source is smaller ("copy all smaller")
 )
 
-// Request is a job to start.
+// LinkMode says what a copy does with symbolic links.
+type LinkMode string
+
+const (
+	LinksCopy   LinkMode = ""       // copy the link itself (the default, and always used by moves)
+	LinksFollow LinkMode = "follow" // copy what the link points to; loops are detected and reported
+	LinksSkip   LinkMode = "skip"   // leave links out
+)
+
+// ErrorPolicy says what happens when one file fails (can't be read, written or removed).
+type ErrorPolicy string
+
+const (
+	ErrorsSkip ErrorPolicy = ""     // note the error and go on with the next file (the default)
+	ErrorsAsk  ErrorPolicy = "ask"  // ask Retry / Skip / Skip all / Cancel
+	ErrorsStop ErrorPolicy = "stop" // note the error and cancel the job
+)
+
+// Request is a job to start. The zero value of every option is Total Commander's default.
 type Request struct {
-	Kind      Kind     `json:"kind"`
-	Sources   []string `json:"sources"`   // full paths
-	Target    string   `json:"target"`    // the destination folder (copy and move)
-	Rename    string   `json:"rename"`    // a new name for a single source (copy "a.txt" as "b.txt"); "" keeps names
-	Overwrite Policy   `json:"overwrite"` // see Policy
+	Kind    Kind     `json:"kind"`
+	Sources []string `json:"sources"` // full paths
+	Target  string   `json:"target"`  // the destination folder (copy and move); made when missing
+	// Rename is a new name for a single source (copy "a.txt" as "b.txt"), or a mask with * and ? for any number of
+	// sources ("*.bak" renames every copy to the .bak extension). "" keeps the names. ParseTarget splits what the user
+	// typed in the dialog into Target and Rename.
+	Rename    string `json:"rename"`
+	Overwrite Policy `json:"overwrite"` // see Policy
+	// ReadOnly is what happens when a target that would be overwritten is read-only: Ask (the default, TC's separate
+	// prompt), Overwrite or Skip.
+	ReadOnly Policy `json:"readOnly"`
+	// Filter is TC's "Only files of this type": patterns separated by ";" or spaces, then "|" and patterns to leave
+	// out ("*.txt;*.md|old*"); a pattern ending in "/" or "\" after the "|" leaves out folders. "" takes everything.
+	Filter string   `json:"filter"`
+	Links  LinkMode `json:"links"`
+
+	NoDates bool `json:"noDates"` // don't copy the modification/access/creation dates
+	NoPerms bool `json:"noPerms"` // don't copy the permission bits (Unix) / attributes (Windows)
+	NoAttrs bool `json:"noAttrs"` // don't copy extended attributes, resource forks (macOS) and alternate data streams (Windows)
+	Owner   bool `json:"owner"`   // also copy the owner and group, where the system allows it (Unix, usually root only)
+	Verify  bool `json:"verify"`  // re-read every copy and compare its SHA-256 with the source's
+
+	SpeedLimit int64 `json:"speedLimit"` // bytes per second, 0 = no limit; can be changed while running (SetSpeedLimit)
+	BufferSize int   `json:"bufferSize"` // copy buffer in bytes; 0 = 1 MiB. Large values plus NoCache are TC's "big file" mode
+	NoCache    bool  `json:"noCache"`    // ask the system not to keep the copied bytes in its file cache
+
+	OnError     ErrorPolicy `json:"onError"`     // see ErrorPolicy
+	Retries     int         `json:"retries"`     // automatic retries of a failed file before OnError applies
+	IgnoreSpace bool        `json:"ignoreSpace"` // don't check the free space of the target before a copy
+	Queued      bool        `json:"queued"`      // wait in the queue lane instead of starting at once
+
+	ConfirmDirs     bool `json:"confirmDirs"`     // delete/wipe: ask before removing each non-empty folder (Yes/All/Skip)
+	ConfirmReadOnly bool `json:"confirmReadOnly"` // delete/wipe: ask before removing each read-only file
+	WipePasses      int  `json:"wipePasses"`      // wipe: how many times the contents are overwritten; 0 = 1
 }
 
-// Conflict is the question asked when a target exists.
+// AskType tells which question a Conflict is.
+type AskType string
+
+const (
+	AskExists         AskType = ""                // the target file exists (the classic overwrite dialog)
+	AskReadOnly       AskType = "readonly"        // the target that would be overwritten is read-only
+	AskError          AskType = "error"           // a file failed: Retry / Skip / Skip all / Cancel
+	AskNoSpace        AskType = "no_space"        // the target volume has less free space than the job needs
+	AskDeleteDir      AskType = "delete_dir"      // delete a non-empty folder with all its contents?
+	AskDeleteReadOnly AskType = "delete_readonly" // delete a read-only file?
+)
+
+// Conflict is a question the job asks. The fields used depend on Type; Choices lists the answers that make sense.
 type Conflict struct {
-	Source  string `json:"source"`
-	Target  string `json:"target"`
-	SrcSize int64  `json:"srcSize"`
-	DstSize int64  `json:"dstSize"`
-	SrcTime int64  `json:"srcTime"` // Unix milliseconds
-	DstTime int64  `json:"dstTime"`
-	DstDir  bool   `json:"dstDir"` // the target is a folder (a file can't overwrite it)
+	Type    AskType  `json:"type"`
+	Source  string   `json:"source"`
+	Target  string   `json:"target"`
+	SrcSize int64    `json:"srcSize"`
+	DstSize int64    `json:"dstSize"`
+	SrcTime int64    `json:"srcTime"` // Unix milliseconds
+	DstTime int64    `json:"dstTime"`
+	DstDir  bool     `json:"dstDir"`         // the target is a folder (a file can't overwrite it)
+	Same    *bool    `json:"same,omitempty"` // set after ChoiceCompare: whether the two files have the same content
+	Error   string   `json:"error,omitempty"`
+	Need    int64    `json:"need,omitempty"` // AskNoSpace: bytes needed
+	Free    int64    `json:"free,omitempty"` // AskNoSpace: bytes free
+	Choices []Choice `json:"choices"`
 }
 
 // Choice is the answer to a Conflict.
 type Choice string
 
 const (
-	ChoiceOverwrite    Choice = "overwrite"
-	ChoiceSkip         Choice = "skip"
-	ChoiceOverwriteAll Choice = "overwrite_all"
-	ChoiceSkipAll      Choice = "skip_all"
-	ChoiceOlderAll     Choice = "older_all" // overwrite all older targets, skip the rest
-	ChoiceRename       Choice = "rename"    // copy under Answer.NewName instead
-	ChoiceCancel       Choice = "cancel"
+	ChoiceOverwrite       Choice = "overwrite"
+	ChoiceSkip            Choice = "skip"
+	ChoiceOverwriteAll    Choice = "overwrite_all"
+	ChoiceSkipAll         Choice = "skip_all"
+	ChoiceOlderAll        Choice = "older_all"         // overwrite all older targets, skip the rest
+	ChoiceRename          Choice = "rename"            // copy under Answer.NewName instead
+	ChoiceAutoRename      Choice = "auto_rename"       // this copy gets a free name: "file(2).txt"
+	ChoiceAutoRenameAll   Choice = "auto_rename_all"   // ... and so do all later ones
+	ChoiceRenameTarget    Choice = "rename_target"     // the existing file is renamed to a free name, the copy takes its place
+	ChoiceRenameTargetAll Choice = "rename_target_all" // ... for all later conflicts too
+	ChoiceLargerAll       Choice = "larger_all"        // overwrite when the source is larger, skip otherwise, for all
+	ChoiceSmallerAll      Choice = "smaller_all"       // overwrite when the source is smaller, skip otherwise, for all
+	ChoiceAppend          Choice = "append"            // add the source's bytes to the end of the target
+	ChoiceResume          Choice = "resume"            // the target is a broken-off copy: copy only the missing rest
+	ChoiceCompare         Choice = "compare"           // compare the contents; the question comes back with Same set
+	ChoiceRetry           Choice = "retry"             // AskError: try the file again
+	ChoiceYes             Choice = "yes"               // AskDeleteDir / AskDeleteReadOnly / AskNoSpace: go ahead
+	ChoiceAll             Choice = "all"               // ... and don't ask again in this job
+	ChoiceDelete          Choice = "delete"            // trash failed: delete this one permanently instead
+	ChoiceCancel          Choice = "cancel"
 )
 
 // Answer is what the user said to a Conflict.
@@ -81,275 +164,45 @@ type Answer struct {
 
 // State of a job.
 const (
+	StateQueued    = "queued" // waiting in the queue lane
 	StateRunning   = "running"
+	StatePaused    = "paused"
 	StateAsking    = "asking"
 	StateDone      = "done"
 	StateFailed    = "failed" // finished, but some files had errors
 	StateCancelled = "cancelled"
 )
 
-// Progress is the state of a job as the UI shows it.
+// Progress is the state of a job as the UI shows it (progress dialog and background transfer manager).
 type Progress struct {
-	ID        int       `json:"id"`
-	Kind      Kind      `json:"kind"`
-	State     string    `json:"state"`
-	Files     int       `json:"files"` // files (and links) the job works on, found before it starts
-	FilesDone int       `json:"filesDone"`
-	Bytes     int64     `json:"bytes"`
-	BytesDone int64     `json:"bytesDone"`
-	Current   string    `json:"current"` // the file being worked on
-	Errors    []string  `json:"errors"`  // plain sentences, at most maxErrors
-	Skipped   int       `json:"skipped"`
-	Ask       *Conflict `json:"ask,omitempty"` // the open question while State is "asking"
+	ID          int       `json:"id"`
+	Kind        Kind      `json:"kind"`
+	State       string    `json:"state"`
+	Queued      bool      `json:"queued"` // the job belongs to the queue lane
+	Target      string    `json:"target"`
+	Files       int       `json:"files"` // files (and links) the job works on, found before it starts
+	FilesDone   int       `json:"filesDone"`
+	Bytes       int64     `json:"bytes"`
+	BytesDone   int64     `json:"bytesDone"`
+	Current     string    `json:"current"`     // the file being worked on
+	CurrentSize int64     `json:"currentSize"` // its size
+	CurrentDone int64     `json:"currentDone"` // bytes of it done
+	Speed       int64     `json:"speed"`       // bytes per second over the last few seconds
+	ETA         int64     `json:"eta"`         // seconds left, -1 when unknown
+	Elapsed     int64     `json:"elapsed"`     // milliseconds of work so far, pauses not counted
+	SpeedLimit  int64     `json:"speedLimit"`  // bytes per second, 0 = none
+	Errors      []string  `json:"errors"`      // plain sentences, at most maxErrors
+	Skipped     int       `json:"skipped"`
+	Verified    int       `json:"verified"` // files re-read and found equal (Verify)
+	Ask         *Conflict `json:"ask,omitempty"`
+	Summary     string    `json:"summary,omitempty"` // a sentence with the statistics, set when the job ends
 }
 
 const maxErrors = 100
 
 // Event names given to Emit.
 const (
-	EventProgress = "job"      // Progress, at most every Interval
+	EventProgress = "job"      // Progress, at most every Interval, and at every change of state
 	EventAsk      = "job-ask"  // Progress with Ask set
 	EventDone     = "job-done" // the final Progress
 )
-
-// Queue runs jobs. The zero value is not usable; use NewQueue.
-type Queue struct {
-	Emit     func(event string, data any) // never nil after NewQueue
-	Interval time.Duration                // how often running jobs report progress
-
-	mu   sync.Mutex
-	next int
-	jobs map[int]*job
-
-	beforeFile func(path string) // test hook, called before each file is worked on
-}
-
-// NewQueue makes a queue that reports through emit (nil: nothing is reported).
-func NewQueue(emit func(event string, data any)) *Queue {
-	if emit == nil {
-		emit = func(string, any) {}
-	}
-	return &Queue{Emit: emit, Interval: 150 * time.Millisecond, jobs: map[int]*job{}}
-}
-
-type job struct {
-	q       *Queue
-	req     Request
-	ctx     context.Context
-	cancel  context.CancelFunc
-	mu      sync.Mutex
-	p       Progress
-	answers chan Answer
-	policy  Policy
-	done    chan struct{}
-	last    time.Time
-}
-
-// Start checks the request and starts the job. The id names it in Cancel, Answer and the events.
-func (q *Queue) Start(r Request) (int, error) {
-	if err := validate(r); err != nil {
-		return 0, err
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	q.mu.Lock()
-	q.next++
-	id := q.next
-	j := &job{q: q, req: r, ctx: ctx, cancel: cancel, answers: make(chan Answer, 1), policy: r.Overwrite, done: make(chan struct{})}
-	j.p = Progress{ID: id, Kind: r.Kind, State: StateRunning}
-	q.jobs[id] = j
-	q.mu.Unlock()
-	go j.run()
-	return id, nil
-}
-
-func validate(r Request) error {
-	if len(r.Sources) == 0 {
-		return errors.New("nothing is selected")
-	}
-	switch r.Kind {
-	case Copy, Move:
-		if r.Target == "" {
-			return errors.New("no target folder given")
-		}
-		if r.Rename != "" && len(r.Sources) != 1 {
-			return errors.New("a new name can only be given for one file")
-		}
-	case Delete, Trash:
-	default:
-		return fmt.Errorf("unknown kind of job %q", r.Kind)
-	}
-	switch r.Overwrite {
-	case Ask, Overwrite, Skip, Older:
-	default:
-		return fmt.Errorf("unknown overwrite rule %q", r.Overwrite)
-	}
-	return nil
-}
-
-func (q *Queue) get(id int) *job {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	return q.jobs[id]
-}
-
-// Cancel stops a job; files done so far stay done. It returns false for an unknown or finished job.
-func (q *Queue) Cancel(id int) bool {
-	j := q.get(id)
-	if j == nil {
-		return false
-	}
-	select {
-	case <-j.done:
-		return false
-	default:
-	}
-	j.cancel()
-	return true
-}
-
-// Answer answers the open question of a job.
-func (q *Queue) Answer(id int, a Answer) error {
-	j := q.get(id)
-	if j == nil {
-		return fmt.Errorf("there is no job %d", id)
-	}
-	j.mu.Lock()
-	asking := j.p.State == StateAsking
-	j.mu.Unlock()
-	if !asking {
-		return fmt.Errorf("job %d asks nothing now", id)
-	}
-	select {
-	case j.answers <- a:
-		return nil
-	default:
-		return fmt.Errorf("job %d already has an answer", id)
-	}
-}
-
-// Wait blocks until the job ends and returns its final state.
-func (q *Queue) Wait(id int) Progress {
-	j := q.get(id)
-	if j == nil {
-		return Progress{ID: id}
-	}
-	<-j.done
-	return j.snapshot()
-}
-
-// Get is the current state of a job.
-func (q *Queue) Get(id int) (Progress, bool) {
-	j := q.get(id)
-	if j == nil {
-		return Progress{}, false
-	}
-	return j.snapshot(), true
-}
-
-// List is the state of all jobs, oldest first. Finished jobs stay listed until Forget.
-func (q *Queue) List() []Progress {
-	q.mu.Lock()
-	js := make([]*job, 0, len(q.jobs))
-	for _, j := range q.jobs {
-		js = append(js, j)
-	}
-	q.mu.Unlock()
-	out := make([]Progress, len(js))
-	for i, j := range js {
-		out[i] = j.snapshot()
-	}
-	sort.Slice(out, func(a, b int) bool { return out[a].ID < out[b].ID })
-	return out
-}
-
-// Forget drops finished jobs from List.
-func (q *Queue) Forget() {
-	q.mu.Lock()
-	defer q.mu.Unlock()
-	for id, j := range q.jobs {
-		select {
-		case <-j.done:
-			delete(q.jobs, id)
-		default:
-		}
-	}
-}
-
-func (j *job) snapshot() Progress {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	p := j.p
-	p.Errors = append([]string(nil), j.p.Errors...)
-	if j.p.Ask != nil {
-		c := *j.p.Ask
-		p.Ask = &c
-	}
-	return p
-}
-
-// tick reports progress, at most every Interval (force: now).
-func (j *job) tick(force bool) {
-	j.mu.Lock()
-	if !force && time.Since(j.last) < j.q.Interval {
-		j.mu.Unlock()
-		return
-	}
-	j.last = time.Now()
-	j.mu.Unlock()
-	j.q.Emit(EventProgress, j.snapshot())
-}
-
-func (j *job) fail(format string, args ...any) {
-	j.mu.Lock()
-	if len(j.p.Errors) < maxErrors {
-		j.p.Errors = append(j.p.Errors, fmt.Sprintf(format, args...))
-	}
-	j.mu.Unlock()
-}
-
-func (j *job) update(f func(p *Progress)) {
-	j.mu.Lock()
-	f(&j.p)
-	j.mu.Unlock()
-}
-
-func (j *job) run() {
-	defer close(j.done)
-	j.tick(true)
-	switch j.req.Kind {
-	case Copy:
-		j.copyAll(false)
-	case Move:
-		j.copyAll(true)
-	case Delete:
-		j.deleteAll()
-	case Trash:
-		j.trashAll()
-	}
-	j.update(func(p *Progress) {
-		p.Ask, p.Current = nil, ""
-		switch {
-		case j.ctx.Err() != nil:
-			p.State = StateCancelled
-		case len(p.Errors) > 0:
-			p.State = StateFailed
-		default:
-			p.State = StateDone
-		}
-	})
-	j.q.Emit(EventDone, j.snapshot())
-}
-
-// ask puts a conflict to the user and waits for the answer (or a cancel).
-func (j *job) ask(c Conflict) Answer {
-	j.update(func(p *Progress) { p.State, p.Ask = StateAsking, &c })
-	j.q.Emit(EventAsk, j.snapshot())
-	var a Answer
-	select {
-	case a = <-j.answers:
-	case <-j.ctx.Done():
-		a = Answer{Choice: ChoiceCancel}
-	}
-	j.update(func(p *Progress) { p.State, p.Ask = StateRunning, nil })
-	return a
-}
