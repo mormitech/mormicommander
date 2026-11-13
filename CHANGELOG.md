@@ -6,6 +6,20 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.19 – 2026-11-13
+
+### Added
+
+- The key reference of the Total Commander manual as data (118 keys, each with its command and whether it is safe to
+  press in a test), with a test that checks it against the keymap on Linux, Windows and macOS.
+- Control mode has two new commands: "keyref" returns that list and "runs" returns the commands run lately (the last
+  100). New script scripts/qa_keys.py presses the safe keys in the real app (not yet run against it).
+
+### Fixed
+
+- The Options checkbox "Space calculates folder size" now really controls whether Space counts a folder's size
+  (it was not linked to the setting the Space key reads). The default stays on.
+
 ## 0.9.18 – 2026-11-13
 
 ### Added
