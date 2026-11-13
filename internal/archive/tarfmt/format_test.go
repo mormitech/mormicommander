@@ -159,7 +159,7 @@ func TestLinkSafety(t *testing.T) {
 		{"a", "", false},
 		{"d/a", ".", true},
 		{"a", ".", true},
-		{"a", "b/..", false},    // ".." after a name: refused by the strict rule
+		{"a", "b/..", false}, // ".." after a name: refused by the strict rule
 		{"a", "b/../../x", false},
 		{"d/e/a", "../../x/y", true},
 		{"a", `..\x`, false},
