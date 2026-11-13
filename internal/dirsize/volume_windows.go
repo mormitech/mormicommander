@@ -84,6 +84,11 @@ func compressedSize(path string) (int64, error) {
 // VolumeOf describes the volume that holds path.
 func VolumeOf(path string) (VolumeInfo, error) {
 	v := VolumeInfo{Path: path}
+	// GetVolumePathName works on the path's text and succeeds for paths that do not exist; fail for those as statfs
+	// does on macOS and Linux, so callers do not show a drive for a folder that is gone.
+	if _, err := os.Stat(path); err != nil {
+		return v, err
+	}
 	root, err := volumeRoot(path)
 	if err != nil {
 		return v, &os.PathError{Op: "GetVolumePathName", Path: path, Err: err}

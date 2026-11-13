@@ -12,7 +12,7 @@ type statEnv struct{}
 
 func newStatEnv(root string, quick bool) *statEnv { return &statEnv{} }
 
-func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs bool) entryStat {
+func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs, follow bool) entryStat {
 	return entryStat{size: fi.Size(), alloc: fi.Size()}
 }
 

@@ -54,6 +54,9 @@ func TestInspectAndFollow(t *testing.T) {
 	writeFile(t, alias, string(buildBookmark(splitPath(folder), true)))
 	badURL := filepath.Join(dir, "bad.url")
 	writeFile(t, badURL, "not an ini")
+	// Z:\nowhere\x is a foreign path on macOS and Linux (existence unknown, so not marked broken), but a real local
+	// path on Windows, where it does not exist and the shortcut is broken.
+	foreignBroken := runtime.GOOS == "windows"
 
 	tests := []struct {
 		name      string
@@ -76,7 +79,7 @@ func TestInspectAndFollow(t *testing.T) {
 		{"webloc to file", weblocFile, KindWebloc, false, false, ActionFocusFile, folder, "file.txt", "", nil},
 		{"desktop to dir", desktopDir, KindDesktop, false, false, ActionOpenDir, folder, "", "", nil},
 		{"desktop app", app, KindDesktop, false, false, ActionRun, "/tmp", "", "", nil},
-		{"lnk foreign path", lnkForeign, KindLnk, false, false, 0, "", "", "", ErrBroken},
+		{"lnk foreign path", lnkForeign, KindLnk, foreignBroken, false, 0, "", "", "", ErrBroken},
 		{"lnk relative", lnkRel, KindLnk, false, false, ActionFocusFile, folder, "file.txt", "", nil},
 		{"finder alias", alias, KindAlias, false, false, ActionOpenDir, folder, "", "", nil},
 		{"unparsable url file", badURL, KindNone, false, false, 0, "", "", "", ErrNotLink},

@@ -51,20 +51,27 @@ func roundUp(n, unit int64) int64 {
 	return (n + unit - 1) / unit * unit
 }
 
-// openMeta opens a file or folder for reading its attributes only, without following reparse points.
-func openMeta(path string) (windows.Handle, error) {
+// openMeta opens a file or folder for reading its attributes only. Reparse points are not followed unless follow is
+// set (the file was reached through a symbolic link that is being followed, so the target is what gets counted).
+func openMeta(path string, follow bool) (windows.Handle, error) {
 	p, err := windows.UTF16PtrFromString(longPath(path))
 	if err != nil {
 		return windows.InvalidHandle, err
 	}
+	flags := uint32(windows.FILE_FLAG_BACKUP_SEMANTICS)
+	if !follow {
+		flags |= windows.FILE_FLAG_OPEN_REPARSE_POINT
+	}
 	return windows.CreateFile(p, fileReadAttributes,
 		windows.FILE_SHARE_READ|windows.FILE_SHARE_WRITE|windows.FILE_SHARE_DELETE, nil, windows.OPEN_EXISTING,
-		windows.FILE_FLAG_BACKUP_SEMANTICS|windows.FILE_FLAG_OPEN_REPARSE_POINT, 0)
+		flags, 0)
 }
 
 // fileStat reads size on disk and link count; the file identity is read for multi-link files when wantID is set, and
-// for every file when allIDs is set (links are being followed, so one file may be reached twice).
-func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs bool) entryStat {
+// for every file when allIDs is set (links are being followed, so one file may be reached twice). follow is set when
+// path is a symbolic link whose target fi describes: the target is opened, so its size on disk and identity are read,
+// not the link's.
+func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs, follow bool) entryStat {
 	size := fi.Size()
 	st := entryStat{size: size, alloc: roundUp(size, env.cluster)}
 	if env.quick {
@@ -74,7 +81,7 @@ func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs bool) en
 	if d, ok := fi.Sys().(*syscall.Win32FileAttributeData); ok {
 		attrs = d.FileAttributes
 	}
-	h, err := openMeta(path)
+	h, err := openMeta(path, follow)
 	if err != nil {
 		return st
 	}

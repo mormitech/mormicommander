@@ -16,7 +16,8 @@ type statEnv struct{}
 
 func newStatEnv(root string, quick bool) *statEnv { return &statEnv{} }
 
-func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs bool) entryStat {
+// follow is not needed here: fi already comes from stat (target) or lstat (entry) as the caller wanted.
+func fileStat(path string, fi fs.FileInfo, env *statEnv, wantID, allIDs, follow bool) entryStat {
 	st := entryStat{size: fi.Size(), alloc: fi.Size()}
 	if sys, ok := fi.Sys().(*syscall.Stat_t); ok {
 		st.alloc = int64(sys.Blocks) * 512

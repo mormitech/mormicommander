@@ -316,7 +316,8 @@ func TestTrashUsesHook(t *testing.T) {
 	trashMove = func(p string) error { got = append(got, p); return nil }
 	defer func() { trashMove = orig }()
 	q := NewQueue(nil)
-	p := start(t, q, Request{Kind: Trash, Sources: []string{"/nowhere/a", "/nowhere/b"}})
+	nowhere := filepath.Join(t.TempDir(), "nowhere") // a full path on every platform ("/nowhere" is not one on Windows)
+	p := start(t, q, Request{Kind: Trash, Sources: []string{filepath.Join(nowhere, "a"), filepath.Join(nowhere, "b")}})
 	if p.State != StateDone || len(got) != 2 || p.FilesDone != 2 {
 		t.Fatalf("%+v %v", p, got)
 	}

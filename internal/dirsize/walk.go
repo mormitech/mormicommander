@@ -87,7 +87,7 @@ func (w *walker) run(path string) Result {
 	w.env = newStatEnv(path, w.opts.Quick)
 	if !fi.IsDir() {
 		if fi.Mode().IsRegular() {
-			w.file(path, fi)
+			w.file(path, fi, true) // the root was found with Stat, so a link is followed to its target
 		} else {
 			w.c.others.Add(1)
 		}
@@ -220,7 +220,7 @@ func (w *walker) entry(parent string, e fs.DirEntry) (string, bool) {
 		case fi.IsDir():
 			return w.enterDir(p, fi, true)
 		case fi.Mode().IsRegular():
-			w.file(p, fi)
+			w.file(p, fi, true)
 		default:
 			w.c.others.Add(1)
 		}
@@ -234,7 +234,7 @@ func (w *walker) entry(parent string, e fs.DirEntry) (string, bool) {
 			w.c.others.Add(1)
 			return "", false
 		}
-		w.file(p, fi)
+		w.file(p, fi, false)
 	default:
 		w.c.others.Add(1)
 	}
@@ -271,10 +271,11 @@ func (w *walker) enterDir(p string, fi fs.FileInfo, viaLink bool) (string, bool)
 	return p, true
 }
 
-// file adds one regular file, counting the data of a multi-link file only the first time it is seen.
-func (w *walker) file(p string, fi fs.FileInfo) {
+// file adds one regular file, counting the data of a multi-link file only the first time it is seen. follow is set
+// when p is a symbolic link being followed (fi then describes its target).
+func (w *walker) file(p string, fi fs.FileInfo, follow bool) {
 	dedupe := !w.opts.CountHardlinksTwice
-	st := fileStat(p, fi, w.env, dedupe, dedupe && w.opts.FollowSymlinks)
+	st := fileStat(p, fi, w.env, dedupe, dedupe && w.opts.FollowSymlinks, follow)
 	w.c.files.Add(1)
 	// With links followed, the same file can be reached by a link and by its real path although it has only one
 	// name, so then every file identity is remembered, not only those of multi-link files.

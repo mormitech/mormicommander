@@ -88,6 +88,7 @@ var sampleTree = map[string]string{
 
 func TestSearchMasksAndExclusions(t *testing.T) {
 	root := mkTree(t, sampleTree)
+	markHidden(t, filepath.Join(root, ".git"))
 	base := DefaultOptions()
 	base.SearchIn = []string{root}
 	cases := []struct {
