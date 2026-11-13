@@ -149,3 +149,9 @@ body.about-mode { overflow: auto; }
 /* Column resizing (features/columns.js): the pointer shows a resize cursor on a border between two titles. */
 .header.mc-col-edge, .header.mc-col-edge > span, .header.mc-col-dragging, .header.mc-col-dragging > span { cursor: col-resize; }
 .header.mc-col-dragging > span { pointer-events: none; }
+/* Mapped folders on the drive bar (features/drivemaps.js) sit behind a thin divider after the real drives. */
+.drivebar .mc-drive-sep { flex: none; width: 1px; margin: 3px 4px; background: var(--line); }
+/* Folders have no extension (a dot in a folder name is part of its name): their size (a calculated folder size can be long) also takes the empty Ext column, so
+   it is shown in full instead of cut off. Not when the Ext column is switched off (then there is nothing to take). */
+body:not(.mc-config-no-ext) .row.dir > .e { display: none; }
+body:not(.mc-config-no-ext) .row.dir > .e + .s { grid-column: span 2; }

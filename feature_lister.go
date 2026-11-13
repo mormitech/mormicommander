@@ -837,7 +837,7 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 	l.sizes[key] = cancel
 	l.mu.Unlock()
 	defer cancel()
-	r, err := dirsize.Calculate(ctx, path, dirsize.Options{})
+	r, err := dirsize.Calculate(ctx, path, dirsize.Options{SameVolume: true})
 	if err != nil && ctx.Err() != nil {
 		return r, errors.New("Stopped counting.")
 	}

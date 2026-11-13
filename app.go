@@ -104,6 +104,21 @@ func (a *App) reveal() {
 	application.InvokeSync(a.wapp.Show) // (AppKit wants the main thread, and Wails does not go there for this one)
 }
 
+// Activate brings the window the page lives in, and the app, to the front. The page calls it on a right-click while the
+// window is not focused: macOS doesn't activate a window on a right-click, and an inactive web view gets no hover
+// (mouse-move) events, so the context menu that opens would not react to the mouse until the window was clicked.
+func (a *App) Activate(ctx context.Context) {
+	w := windowOf(ctx)
+	if w == nil {
+		w = a.mainWindow()
+	}
+	if w == nil {
+		return
+	}
+	application.InvokeSync(a.wapp.Show)
+	w.Focus()
+}
+
 // Version is the app version from wails.json.
 func (a *App) Version() string { return version() }
 

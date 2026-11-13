@@ -6,6 +6,59 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.15 – 2026-11-13
+
+### Changed
+
+- Options apply as you change them, so you see the effect at once; there is no Apply button any more. OK keeps the
+  changes, Cancel (or Esc, or closing) puts back what was there when the dialog opened.
+
+## 0.9.14 – 2026-11-13
+
+### Fixed
+
+- Folder sizes no longer count anything twice: the count stays on the folder's own volume (other volumes mounted
+  inside it are left out, like "du -x"), links are not followed, and on macOS /System/Volumes/Data is skipped because
+  its folders are the same ones you see as /Users, /Applications and so on. /System went from 310 GB to its real 34 GB.
+
+## 0.9.13 – 2026-11-13
+
+### Changed
+
+- A drive button opens the other panel's folder when the other panel is on that same drive button, as in Total
+  Commander: with the left panel in ~/Downloads, Home on the right opens ~/Downloads (Macintosh HD still opens /); on
+  Windows, with the left panel in d:\games, d opens d:\games and c opens c:\. The drive list (Alt+F1/F2) does the same.
+
+## 0.9.12 – 2026-11-13
+
+### Changed
+
+- Searching in Options filters the dialog: only the matching options are shown, under their page titles, and the page
+  list keeps only the pages with a match. A page whose name matches is shown whole.
+
+## 0.9.11 – 2026-11-13
+
+### Fixed
+
+- A calculated folder size is shown in full: folders have no extension (a dot in a folder name is part of the name),
+  so the size also uses the empty Ext column.
+
+## 0.9.10 – 2026-11-13
+
+### Added
+
+- Map any folder to the drive bar as a quick jump: "Map to the drive bar…" in the context menu of a folder, of the
+  folder's background and of the path bar asks for a name. Mapped buttons come after the real drives and Home, behind a
+  thin divider, appear in the drive list (Alt+F1/F2), light up while you are inside them, and their own context menu
+  renames, moves or removes them.
+
+## 0.9.9 – 2026-11-13
+
+### Fixed
+
+- A right-click in the window while another app was active opened a context menu that ignored the mouse (no
+  highlight) until you clicked: the window now comes to the front on the right-click.
+
 ## 0.9.8 – 2026-11-13
 
 ### Changed

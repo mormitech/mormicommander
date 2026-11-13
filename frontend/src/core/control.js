@@ -127,6 +127,18 @@ async function ctlRun(m) {
       return { ok: true, left: box('.panel[data-side="left"]'), right: box('.panel[data-side="right"]'), splitter: box('#splitter'), horizontal: document.getElementById('panels').classList.contains('horizontal'),
         rowHeight: app.cur.rowH, theme: document.documentElement.dataset.theme || '', split: app.split };
     }
+    case 'dialog_fill': { // {fields: {id: value}}: fills fields of the open dialog as typing would, without pressing a button
+      for (const [id, v] of Object.entries(m.fields || {})) {
+        const el = document.getElementById(id) || document.querySelector(`[name="${CSS.escape(id)}"]`);
+        if (!el) throw new Error(`no field "${id}"`);
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = !!v; else el.value = String(v);
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      await new Promise((r) => setTimeout(r, 150)); // (a field may ask Go something, as the Options search does)
+      await settle();
+      return state();
+    }
     case 'type': { // types text character by character, through the key handler (letters go to the command line)
       for (const ch of String(m.text ?? '')) { press(ch === ' ' ? 'Space' : ch.length === 1 && /[A-Z]/.test(ch) ? `Shift+${ch}` : ch); }
       await settle();

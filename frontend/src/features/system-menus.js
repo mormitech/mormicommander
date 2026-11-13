@@ -18,6 +18,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal, baseName } from './system-lib.js';
 import { anchorFor, revealLabel, openWith } from './system.js';
+import { mapFolder, unmapFolder, moveMap, isMapped, mapIndex, mapCount } from './drivemaps.js';
 
 const SEP = { sep: true };
 
@@ -62,6 +63,7 @@ function fileMenu(app, p, args) {
   const items = [
     item(app, 'Open', 'cm_Enter'),
     one?.dir ? item(app, 'Open in a new tab', 'cm_OpenDirInNewTab') : null,
+    one?.dir && !one.up ? fn(isMapped(app, p.fullPath(one.name)) ? 'Rename on the drive bar…' : 'Map to the drive bar…', () => mapFolder(app, p.fullPath(one.name))) : null,
     fn('Open with…', () => openWith(app, args), !local || list.every((e) => e.dir && !/\.app$/i.test(e.name))),
     item(app, 'View', 'cm_List'),
     item(app, 'Edit', 'cm_Edit'),
@@ -99,6 +101,7 @@ function backgroundMenu(app, p, args) {
     { ...item(app, 'Open terminal here', 'cm_ExecuteDOS'), disabled: !local },
     fn(revealLabel(app), () => go.SystemLaunch.OpenFolder(p.path), !local),
     fn('Copy path', () => copyText(app, p.path, 'the path')),
+    fn(isMapped(app, p.path) ? 'Rename on the drive bar…' : 'Map this folder to the drive bar…', () => mapFolder(app, p.path)),
     fn('Folder properties…', () => folderProps(app, p)),
   ];
   return menu(app, baseName(p.path) || p.path, items, args.x != null ? { x: args.x, y: args.y } : p.$.list, 'context-folder');
@@ -171,6 +174,19 @@ async function volumeProps(app, v) {
 }
 
 function driveMenu(app, p, v, anchor) {
+  if (v.kind === 'map') {
+    const i = mapIndex(app, v.path), n = mapCount();
+    return menu(app, `${v.name} – ${v.path}`, [
+      fn('Open', () => { app.setActive(p); return p.go(v.path); }),
+      fn('Open in the other panel', () => p.other.go(v.path)),
+      SEP,
+      fn('Rename…', () => mapFolder(app, v.path)),
+      fn('Move left', () => moveMap(app, v.path, -1), i <= 0),
+      fn('Move right', () => moveMap(app, v.path, 1), i < 0 || i >= n - 1),
+      SEP,
+      fn('Remove from the drive bar', () => unmapFolder(app, v.path)),
+    ], anchor, 'context-drive');
+  }
   const items = [
     fn('Open', () => { app.setActive(p); return p.go(v.path); }),
     fn('Open in the other panel', () => p.other.go(v.path)),
@@ -225,6 +241,7 @@ export function init(app) {
       menu(app, p.path, [
         fn('Copy path', () => copyText(app, p.path, 'the path')),
         item(app, 'Edit path', 'cm_EditPath'),
+        fn(isMapped(app, p.path) ? 'Rename on the drive bar…' : 'Map this folder to the drive bar…', () => mapFolder(app, p.path)),
         SEP,
         fn(revealLabel(app), () => go.SystemLaunch.OpenFolder(p.path), !local),
         { ...item(app, 'Open terminal here', 'cm_ExecuteDOS'), disabled: !local },

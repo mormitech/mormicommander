@@ -44,6 +44,9 @@ async function start() {
   for (const p of app.panels) if (session[p.side]?.sort) p.sort = session[p.side].sort;
 
   initKeyboard();
+  // A right-click doesn't activate an inactive window on macOS, and an inactive window gets no hover events, so a
+  // context menu opened there wouldn't follow the mouse: bring the window to the front first.
+  window.addEventListener('contextmenu', () => { if (!document.hasFocus()) go.App.Activate().catch(() => {}); }, true);
   initMenus();
   initFkeys();
   initControl();
