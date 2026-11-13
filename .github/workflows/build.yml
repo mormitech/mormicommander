@@ -175,16 +175,21 @@ jobs:
           apt-get update
           if ldconfig -p | grep -E 'libwebkitgtk-6|libgtk-4'; then echo 'the system already has GTK 4 or WebKitGTK 6.0'; exit 1; fi
           apt-get install -y ./dist/mormicommander_*_amd64.deb
-          apt-get install -y --no-install-recommends xvfb xauth
+          apt-get install -y --no-install-recommends xvfb xauth dbus
+          dbus-uuidgen --ensure   # the session bus wants a machine id, which a bare container lacks
           dpkg -L mormicommander
       # There is no GPU in the container: GTK draws with cairo and WebKit without DMA-BUF, as on a plain virtual display.
+      # A desktop session always has a D-Bus session bus, and GTK 4 needs one, so dbus-run-session starts a private bus
+      # for the app. The runner does not allow new user namespaces, so bubblewrap cannot build WebKitGTK 6.0's web
+      # process sandbox; the sandbox is switched off here only, never in the app (real desktops allow it).
       - name: The app starts and keeps running (demo files, virtual display)
         env:
           GSK_RENDERER: cairo
           WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
         run: |
           set +e
-          timeout 20 xvfb-run -a mormicommander --demo > /tmp/app.log 2>&1
+          timeout 20 dbus-run-session -- xvfb-run -a mormicommander --demo > /tmp/app.log 2>&1
           code=$?
           cat /tmp/app.log
           if [ $code -ne 124 ]; then echo "mormicommander exited with $code before the 20 s were up"; exit 1; fi
