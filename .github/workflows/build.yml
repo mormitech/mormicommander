@@ -4,7 +4,7 @@ name: build
 # release: a zipped .app (macOS arm64), an Inno Setup installer and a zip (Windows x64), a tar.gz and a .deb (Linux x64).
 on:
   push:
-    branches: [main]
+    branches: [main, v3]
     tags: ['v*']
   pull_request:
 
