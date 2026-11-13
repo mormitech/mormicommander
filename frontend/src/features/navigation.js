@@ -119,7 +119,7 @@ command({
   run: async (app) => { await Promise.all([app.cur.reload(), app.loadVolumes()]); },
 });
 command({
-  name: 'cm_SwitchHidSys', label: 'Hidden files', checked: (app) => app.showHidden,
+  name: 'cm_SwitchHidSys', label: 'Hidden files', checked: (app) => app.showHidden, menuKey: true,
   run: (app) => {
     app.showHidden = !app.showHidden;
     for (const p of app.panels) { p.rebuild(); app.panelChanged(p, { moved: false }); }

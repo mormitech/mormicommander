@@ -8,7 +8,8 @@ body.mc-config-no-drives .panel .drivebar,
 body.mc-config-no-pathbar .panel .pathbar,
 body.mc-config-no-header .panel .header,
 body.mc-config-no-pbtns .panel .pbtns, body.mc-config-no-pbtns .panel .hist,
-body.mc-config-no-driveinfo .panel .driveinfo { display: none !important; }
+body.mc-config-no-driveinfo .panel .driveinfo,
+body.mc-config-no-hiddenmark .panel .status .mc-hidden-mark { display: none !important; }
 body:not(.mc-config-flat-drives) .drivebar button { box-shadow: inset 0 -1px 0 var(--line); }
 body:not(.mc-config-flat) .bar, body:not(.mc-config-flat) #fkeys button { box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 8%, transparent); }
 .mc-box { font: var(--mc-config-dialog-font, inherit); }

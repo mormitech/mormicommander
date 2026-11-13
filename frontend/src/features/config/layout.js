@@ -15,6 +15,7 @@ const HIDE = {
   'Layout.CmdLine': 'mc-config-no-cmdline', 'Layout.KeyButtons': 'mc-config-no-fkeys', 'Layout.StatusBar': 'mc-config-no-status',
   'Layout.DriveBar1': 'mc-config-no-drives', 'Layout.CurDir': 'mc-config-no-pathbar', 'Layout.TabHeader': 'mc-config-no-header',
   'Layout.HistoryHotlist': 'mc-config-no-pbtns', 'Layout.FreeSpace': 'mc-config-no-driveinfo',
+  'Layout.HiddenMarker': 'mc-config-no-hiddenmark',
 };
 
 let app = null;

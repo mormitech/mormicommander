@@ -12,6 +12,7 @@ import { F, splitExt, date, attr, size, plural, cellSize, display } from './form
 import { sortEntries } from './sort.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
+import { hiddenMarkHTML } from './hidden.js';
 
 // The columns of the Full view: id, title, extra class. Sort commands per column live in the sorting feature.
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
@@ -460,6 +461,10 @@ export class Panel {
     let t = `${size(s.selBytes)} of ${size(s.total)} in ${s.selFiles} of ${plural(s.files, 'file')} selected`;
     if (s.dirs) t += `, ${s.selDirs} of ${plural(s.dirs, 'folder')}`;
     this.$.status.textContent = t;
+    // while hidden files are shown the line ends with a "Hidden: shown" marker (Layout > "Show the hidden files
+    // marker" turns it off by hiding it with a body class).
+    const mark = hiddenMarkHTML(this.app.showHidden);
+    if (mark) this.$.status.insertAdjacentHTML('beforeend', mark);
   }
 
   // renderDrives draws the drive bar: one button per volume, the one the panel is on highlighted.

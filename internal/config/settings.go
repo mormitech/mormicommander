@@ -78,6 +78,7 @@ type LayoutPage struct {
 	KeyButtons        bool `ini:"Layout:KeyButtons" def:"1" label:"Show function key buttons"`
 	HistoryHotlist    bool `ini:"Layout:HistoryHotlistButtons" def:"1" label:"Show history and hotlist buttons"`
 	FreeSpace         bool `ini:"Layout:FreeSpace" def:"1" label:"Show free space in drive combo"`
+	HiddenMarker      bool `ini:"Layout:HiddenMarker" def:"1" label:"Show \"Hidden: shown\" in the status bar while hidden files are shown"`
 	MenuBar           bool `ini:"Layout:MenuBar" def:"1" label:"Show main menu bar"`
 	Horizontal        bool `ini:"Layout:HorizontalPanels" def:"0" label:"Panels above each other"`
 	SeparateTree      int  `ini:"Configuration:SeparateTree" def:"0" min:"0" max:"2" opts:"0=Off|1=One tree for both panels|2=One tree per panel" label:"Separate folder tree"`
@@ -429,15 +430,16 @@ type TreePage struct {
 
 // FindFilesPage (F-825).
 type FindFilesPage struct {
-	Depth         int    `ini:"SearchDefaults:Depth" def:"-1" min:"-1" max:"99" label:"Search depth (-1 = all subfolders)"`
-	Archives      bool   `ini:"SearchDefaults:Archives" def:"0" label:"Search in archives"`
-	UseIndex      bool   `ini:"SearchDefaults:UseIndex" def:"0" label:"Use the system index (Spotlight, locate, Windows Search)"`
-	Encoding      string `ini:"SearchDefaults:Encoding" def:"auto" label:"Text encoding for content search"`
-	CaseSensitive bool   `ini:"SearchDefaults:CaseSensitive" def:"0" label:"Case-sensitive text search"`
-	RegEx         bool   `ini:"SearchDefaults:RegEx" def:"0" label:"Regular expressions"`
-	Hidden        bool   `ini:"SearchDefaults:Hidden" def:"1" label:"Search hidden files"`
-	FollowLinks   bool   `ini:"SearchDefaults:FollowLinks" def:"0" label:"Follow symbolic links"`
-	MaxResults    int    `ini:"SearchDefaults:MaxResults" def:"0" min:"0" max:"10000000" label:"Stop after this many results (0 = none)"`
+	Depth           int    `ini:"SearchDefaults:Depth" def:"-1" min:"-1" max:"99" label:"Search depth (-1 = all subfolders)"`
+	Archives        bool   `ini:"SearchDefaults:Archives" def:"0" label:"Search in archives"`
+	UseIndex        bool   `ini:"SearchDefaults:UseIndex" def:"0" label:"Use the system index (Spotlight, locate, Windows Search)"`
+	Encoding        string `ini:"SearchDefaults:Encoding" def:"auto" label:"Text encoding for content search"`
+	CaseSensitive   bool   `ini:"SearchDefaults:CaseSensitive" def:"0" label:"Case-sensitive text search"`
+	RegEx           bool   `ini:"SearchDefaults:RegEx" def:"0" label:"Regular expressions"`
+	Hidden          bool   `ini:"SearchDefaults:Hidden" def:"1" label:"Search hidden files"`
+	HiddenFromPanel bool   `ini:"SearchDefaults:HiddenFollowsPanel" def:"0" label:"New searches include hidden files when the panel shows them"`
+	FollowLinks     bool   `ini:"SearchDefaults:FollowLinks" def:"0" label:"Follow symbolic links"`
+	MaxResults      int    `ini:"SearchDefaults:MaxResults" def:"0" min:"0" max:"10000000" label:"Stop after this many results (0 = none)"`
 }
 
 // FieldInfo describes one option for dialogs, search and control mode.

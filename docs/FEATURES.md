@@ -142,7 +142,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-087 Branch view of selected files and folders only (cm_DirBranchSel) — Ctrl+Shift+B — flat view only of selected folders
 - [ ] F-088 Show all files / programs only / custom filter (cm_SrcAllFiles / cm_SrcExecs / cm_SrcUserSpec) — Ctrl+F10 / Ctrl+F11 / Ctrl+F12 — panel filter changes; status bar or path shows filter is active
 - [ ] F-089 Define custom filter (cm_SrcUserDef) — — — dialog lets user enter wildcards like *.jpg;*.png or a saved search; panel shows only matching files
-- [ ] F-090 Hide/show hidden and system files (cm_SwitchHidSys) — Ctrl+H (ours; TC: config) — dotfiles and hidden files toggle visible/invisible immediately
+- [x] F-090 Hide/show hidden and system files (cm_SwitchHidSys) — Ctrl+H (ours; TC: config) — dotfiles and hidden files toggle visible/invisible immediately; while shown, each status line ends with "Hidden: shown" (Options > Layout can turn the marker off)
 - [~] F-091 Show folder sizes in Full view after Space/calc — — — folder size column shows <DIR> until calculated, then real size
 - [ ] F-092 Long names vs 8.3: show file extension in separate column option — — — option to show ext in separate column or with name
 - [~] F-093 Display size in bytes / KB / MB / dynamic — — — size format option changes column output
@@ -320,7 +320,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-239 Ctrl+E previous command line — Ctrl+E — wired
 - [ ] F-240 Ctrl+F FTP connect — Ctrl+F — wired
 - [ ] F-241 Ctrl+Shift+F FTP disconnect — Ctrl+Shift+F — wired
-- [ ] F-242 Toggle hidden files (cm_SwitchHidSys, ours default) — Ctrl+H (Cmd+Shift+. on macOS) — wired; also in Show menu
+- [x] F-242 Toggle hidden files (cm_SwitchHidSys, ours default) — Ctrl+H (Cmd+Shift+. on macOS) — wired; also in Show menu, whose label shows the key ("Hidden files (Ctrl+H)")
 - [ ] F-243 Ctrl+I switch to target panel (cm_FocusTrg) — Ctrl+I — focus goes to other panel's file list
 - [~] F-244 Ctrl+L calculate occupied space (cm_GetFileSpace) — Ctrl+L — dialog shows total size, file and folder count of selection
 - [ ] F-245 Ctrl+M multi-rename — Ctrl+M — wired

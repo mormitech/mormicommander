@@ -216,3 +216,24 @@ func TestSearchSettings(t *testing.T) {
 		t.Error("empty query should list everything")
 	}
 }
+
+// TestHiddenFilesOptions checks the two options of board issue #4: the status-line marker is on by default, and Find
+// files keeps its old way (hidden files as the last search had them) unless HiddenFromPanel is turned on; both are
+// read from and written to their ini keys, and the marker's label keeps its quotes.
+func TestHiddenFilesOptions(t *testing.T) {
+	d := Defaults()
+	for name, want := range map[string]string{"Layout.HiddenMarker": "1", "FindFiles.HiddenFromPanel": "0"} {
+		if got, err := d.Get(name); err != nil || got != want {
+			t.Errorf("default %s = %q, %v; want %q", name, got, err, want)
+		}
+	}
+	s, _ := LoadSettings(ParseString("[Layout]\nHiddenMarker=0\n[SearchDefaults]\nHiddenFollowsPanel=1\n"))
+	if s.Layout.HiddenMarker || !s.FindFiles.HiddenFromPanel {
+		t.Errorf("loaded HiddenMarker=%v HiddenFromPanel=%v, want false true", s.Layout.HiddenMarker, s.FindFiles.HiddenFromPanel)
+	}
+	for _, fi := range Fields() {
+		if fi.Name == "Layout.HiddenMarker" && !strings.Contains(fi.Label, `"Hidden: shown"`) {
+			t.Errorf("marker label = %q", fi.Label)
+		}
+	}
+}

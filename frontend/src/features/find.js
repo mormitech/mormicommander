@@ -18,6 +18,8 @@ import { Panel } from '../core/panel.js';
 import { size, date, plural } from '../core/format.js';
 import { track } from '../core/busy.js';
 import { comboFromEvent } from '../core/keys.js';
+import { findIncludeHidden } from '../core/hidden.js';
+import { on as optOn } from './config/util.js';
 
 // ---- result lists in panels (Feed to listbox, F-541) ----
 
@@ -101,6 +103,7 @@ function html(setup) {
         <div class="mc-find-opts">
           <label class="mc-check"><input id="ff-selected" type="checkbox">Only search in selected folders/files</label>
           <label class="mc-check"><input id="ff-results" type="checkbox">Only search in the current results</label>
+          <label class="mc-check"><input id="ff-hidden" type="checkbox">Include hidden files</label>
         </div>
         <div class="mc-find-line"><label for="ff-depth">Search subfolders:</label><select id="ff-depth">${DEPTHS.map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>
           <label class="mc-check"><input id="ff-archives" type="checkbox">Search archives</label></div>
@@ -217,10 +220,16 @@ function fill(r, { keepIn = true } = {}) {
   for (const [l] of ATTRS) setVal(`ff-attr-${l}`, (r.attrSet || '').includes(l) ? '+' : (r.attrClear || '').includes(l) ? '-' : '');
   setVal('ff-perms', r.perms && r.perms !== '?????????' ? r.perms : '');
   setVal('ff-kind', r.kind || '');
-  setChk('ff-links', r.followLinks); setChk('ff-skiphidden', r.skipHidden); setVal('ff-exclude', r.excludeDirs || '');
+  setChk('ff-links', r.followLinks); setHidden(!r.skipHidden); setVal('ff-exclude', r.excludeDirs || '');
   setChk('ff-dupon', r.dupOn);
   if (r.dupOn) { setChk('ff-dupname', r.dupName); setChk('ff-dupsize', r.dupSize); setChk('ff-dupcontent', r.dupContent); }
   syncEnabled();
+}
+
+// setHidden ticks "Include hidden files" (General) and its other side, "Skip hidden files" (Advanced), together.
+function setHidden(include) {
+  setChk('ff-hidden', include);
+  setChk('ff-skiphidden', !include);
 }
 
 // syncEnabled greys out what doesn't apply (spec area 5, 3.5: Hex greys the text options).
@@ -606,6 +615,8 @@ async function openDialog(app, args = {}) {
     if (resume) fill(resume, { keepIn: false });
     else {
       fill(setup.last || { searchFor: '*', depth: -1 }, { keepIn: true });
+      // hidden files as the last search had them, or as the panels show them when the option says so (issue #4)
+      setHidden(findIncludeHidden({ last: setup.last, followPanel: optOn('FindFiles.HiddenFromPanel'), showHidden: app.showHidden }));
       setVal('ff-for', setup.history?.name?.[0] || setup.last?.searchFor || '*');
       setVal('ff-in', p.path);
     }
@@ -619,6 +630,8 @@ async function openDialog(app, args = {}) {
     // events
     box.onsubmit = (ev) => { ev.preventDefault(); startSearch(); };
     box.querySelectorAll('.mc-find-tab').forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
+    box.querySelector('#ff-hidden').onchange = (ev) => setChk('ff-skiphidden', !ev.target.checked);
+    box.querySelector('#ff-skiphidden').onchange = (ev) => setChk('ff-hidden', !ev.target.checked);
     box.querySelector('.ff-cancel').onclick = () => { if (S.running) stopSearch(); else done(null); };
     box.querySelector('.ff-browse').onclick = async () => {
       const first = (val('ff-in').split(';')[0] || p.path).replace(/^"|"$/g, '');
