@@ -46,14 +46,42 @@ func setExtra(it *Item, k string, v any) {
 	it.Extra[k] = v
 }
 
+// openRegular opens an item's file for reading only when it is a regular file
+// (directly or through a symlink). Media fields must never open a named pipe
+// or a device: opening a FIFO with no writer blocks forever and would freeze
+// the panel. The file is opened non-blocking where the platform supports it
+// and checked again after opening, so a file swapped for a FIFO between the
+// check and the open cannot hang us either.
+func openRegular(it *Item) (*os.File, bool) {
+	m := it.Mode
+	if m&os.ModeSymlink == 0 && !m.IsRegular() {
+		return nil, false
+	}
+	p := itemPath(it)
+	if m&os.ModeSymlink != 0 {
+		if fi, err := os.Stat(p); err != nil || !fi.Mode().IsRegular() {
+			return nil, false
+		}
+	}
+	f, err := os.OpenFile(p, os.O_RDONLY|openNonblock, 0)
+	if err != nil {
+		return nil, false
+	}
+	if fi, err := f.Stat(); err != nil || !fi.Mode().IsRegular() {
+		f.Close()
+		return nil, false
+	}
+	return f, true
+}
+
 // loadImage reads dimensions and EXIF date once per item.
 func loadImage(it *Item) {
 	if it.Extra[extraImgDone] != nil || it.IsDir() || it.Dir == "" {
 		return
 	}
 	setExtra(it, extraImgDone, true)
-	f, err := os.Open(itemPath(it))
-	if err != nil {
+	f, ok := openRegular(it)
+	if !ok {
 		return
 	}
 	defer f.Close()
@@ -317,8 +345,8 @@ func loadAudio(it *Item) {
 		return
 	}
 	setExtra(it, extraAudioDone, true)
-	f, err := os.Open(itemPath(it))
-	if err != nil {
+	f, ok := openRegular(it)
+	if !ok {
 		return
 	}
 	defer f.Close()

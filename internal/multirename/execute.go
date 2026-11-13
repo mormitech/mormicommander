@@ -25,6 +25,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"mormicommander/internal/config"
 )
 
 // ExecOptions tunes Execute and Undo.
@@ -222,6 +224,20 @@ func runOps(ops []op, fsys FS, fold bool, progress func(int, int)) error {
 	return nil
 }
 
+// caseOnlySameFile reports whether an existing target toInfo is really the
+// source itself seen through a case-insensitive disk: same file AND the two
+// names differ only in case. A hard link is also "the same file", but
+// renaming one link onto another does nothing (os.Rename returns success and
+// both names remain), so without the name check the rename would silently not
+// happen and the undo log would record a rename that never took place.
+func caseOnlySameFile(fsys FS, from, to string, toInfo os.FileInfo) bool {
+	if !strings.EqualFold(filepath.Base(from), filepath.Base(to)) {
+		return false
+	}
+	src, err := fsys.Lstat(from)
+	return err == nil && os.SameFile(toInfo, src)
+}
+
 // checkTarget fails when to exists and is not the same file as from (which
 // happens for a case-only rename on a case-insensitive disk).
 func checkTarget(fsys FS, from, to string) error {
@@ -232,7 +248,7 @@ func checkTarget(fsys FS, from, to string) error {
 		}
 		return err
 	}
-	if src, err := fsys.Lstat(from); err == nil && os.SameFile(fi, src) {
+	if caseOnlySameFile(fsys, from, to, fi) {
 		return nil
 	}
 	return ErrTargetExists
@@ -316,29 +332,10 @@ func LoadUndoLog(path string) (*UndoLog, error) {
 	return &log, nil
 }
 
-// writeFileAtomic writes data to a temporary file next to path and renames
-// it into place, so a crash never leaves a truncated file.
+// writeFileAtomic writes data through a temporary file and a rename (see
+// config.WriteFileAtomic), so a crash never leaves a truncated file. A new
+// file is private (0600, undo logs list the user's paths); an existing file
+// keeps the permission bits the user gave it.
 func writeFileAtomic(path string, data []byte) error {
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return err
-	}
-	f, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
-	if err != nil {
-		return err
-	}
-	tmp := f.Name()
-	if _, err := f.Write(data); err != nil {
-		f.Close()
-		os.Remove(tmp)
-		return err
-	}
-	if err := f.Close(); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
-		return err
-	}
-	return nil
+	return config.WriteFileAtomic(path, data, 0o600)
 }

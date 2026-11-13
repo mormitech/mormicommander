@@ -34,7 +34,7 @@ status := listing.StatusText(view.Count(isSelected), listing.SizeKB, listing.Num
 | Columns | `Column{Title, Template, Width, Align}`, `ColumnSet`, `Compile` / `MustCompile`, `CompiledColumn.Render` / `SortValue` / `Fields`, `ParseTemplate`, built-ins `BriefSet`, `FullSet`, `FullNameSet`, `CommentsSet`, `FolderRule`, `ChooseSet` |
 | Filter | `FilterOptions{ShowHidden, ShowSystem, ShowUp, AtRoot, Mode, Match, FilterDirs, Ignore, IgnoreOff}`, `FilterMode` (`ShowAll`, `ShowPrograms`, `ShowCustom`), `Filter`, `Visible`, `Active` |
 | Status | `Totals`, `Count`, `Totals.Add`, `StatusText` ("15 k / 17 k in 2 / 3 file(s), 1 / 2 dir(s)"), `ItemText` |
-| Comments | `Comments`, `ParseComments`, `LoadComments`, `Get`, `Set`, `Rename`, `Bytes`, `Save`, `ApplyComments` (descript.ion, ANSI or UTF-8, TC multi-line marker) |
+| Comments | `Comments`, `ParseComments`, `LoadComments`, `Get`, `Set`, `Rename`, `Bytes`, `Save`, `ApplyComments` (descript.ion, ANSI or UTF-8, TC multi-line marker; saved via `config.WriteFileAtomic`, which keeps the file mode) |
 | Views | `ViewMode` (`ViewBrief`, `ViewFull`, `ViewComments`, `ViewCustom`), `Options`, `Build`, `View{Set, Titles, Rows, Totals}`, `View.Count`, `View.Find`, `SetFor`, `BriefLayout` (`Columns`, `Pos`, `Index`, `Move`) |
 | Media | `ExifDate`, `ReadID3`, `AudioTags`; fields read lazily and cached in `Item.Extra` |
 

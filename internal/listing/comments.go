@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+
+	"mormicommander/internal/config"
 )
 
 // CommentFileName is the name of the comment file in each folder.
@@ -56,13 +58,9 @@ func ParseComments(data []byte) *Comments {
 			continue
 		}
 		var name, text string
-		if strings.HasPrefix(line, `"`) {
-			end := strings.IndexByte(line[1:], '"')
-			if end < 0 {
-				continue
-			}
-			name = line[1 : 1+end]
-			text = strings.TrimLeft(line[end+2:], " \t")
+		if end := closingQuote(line); end > 0 {
+			name = line[1:end]
+			text = strings.TrimLeft(line[end+1:], " \t")
 		} else {
 			i := strings.IndexAny(line, " \t")
 			if i < 0 {
@@ -158,7 +156,7 @@ func (c *Comments) Bytes() []byte {
 	needBOM := false
 	for _, e := range c.entries {
 		name := e.name
-		if strings.ContainsAny(name, " \t") {
+		if strings.ContainsAny(name, " \t") || strings.HasPrefix(name, `"`) {
 			name = `"` + name + `"`
 		}
 		text := e.text
@@ -186,7 +184,7 @@ func (c *Comments) Bytes() []byte {
 	return out
 }
 
-// Save writes dir/descript.ion atomically, or removes it when there are no comments left.
+// Save writes dir/descript.ion atomically (keeping its permission bits), or removes it when there are no comments left.
 func (c *Comments) Save(dir string) error {
 	p := filepath.Join(dir, CommentFileName)
 	if c.Len() == 0 {
@@ -196,24 +194,28 @@ func (c *Comments) Save(dir string) error {
 		}
 		return err
 	}
-	tmp, err := os.CreateTemp(dir, ".descript-*.tmp")
-	if err != nil {
-		return err
+	// config.WriteFileAtomic keeps the existing file's permission bits (and
+	// follows a symlink), so other users of a shared folder can still read
+	// the comments after a save.
+	return config.WriteFileAtomic(p, c.Bytes(), 0o644)
+}
+
+// closingQuote returns the index of the quote that ends a quoted name at the
+// start of line, or -1 when the line does not start with one. The closing
+// quote is the first '"' followed by a space, a tab or the end of the line, so
+// a Unix name that itself starts with or contains '"' (written quoted by
+// Bytes) reads back whole; a line starting with '"' that has no such closing
+// quote is read as an unquoted name instead of being dropped.
+func closingQuote(line string) int {
+	if !strings.HasPrefix(line, `"`) {
+		return -1
 	}
-	if _, err := tmp.Write(c.Bytes()); err != nil {
-		tmp.Close()
-		os.Remove(tmp.Name())
-		return err
+	for i := 1; i < len(line); i++ {
+		if line[i] == '"' && (i+1 == len(line) || line[i+1] == ' ' || line[i+1] == '\t') {
+			return i
+		}
 	}
-	if err := tmp.Close(); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	if err := os.Rename(tmp.Name(), p); err != nil {
-		os.Remove(tmp.Name())
-		return err
-	}
-	return nil
+	return -1
 }
 
 // ApplyComments fills Item.Comment from the table.

@@ -89,3 +89,45 @@ func TestSplitFileTarget(t *testing.T) {
 		}
 	}
 }
+
+// TestExpandFileCommandQuotedNamesStayOneArg is a regression test: a file
+// name containing quote characters, put inside the user's own quotes, must
+// split back into exactly the original name and never add arguments.
+func TestExpandFileCommandQuotedNamesStayOneArg(t *testing.T) {
+	cases := []struct {
+		name     string
+		st       Style
+		template string
+		file     string
+		want     []string
+	}{
+		{"posix dq injection", StylePOSIX, `"%1"`, `/x/a" --flag "b.txt`, []string{`/x/a" --flag "b.txt`}},
+		{"posix dq dollar backtick", StylePOSIX, `"%1"`, "/x/$HOME`id`\\.txt", []string{"/x/$HOME`id`\\.txt"}},
+		{"posix sq space", StylePOSIX, `'%1'`, `/x/a b.txt`, []string{`/x/a b.txt`}},
+		{"posix sq quote", StylePOSIX, `'%1'`, `/x/it's.txt`, []string{`/x/it's.txt`}},
+		{"posix dq with prefix", StylePOSIX, `-f "%1" -n`, `/x/a" "b`, []string{"-f", `/x/a" "b`, "-n"}},
+		{"posix percent", StylePOSIX, `"%1"`, `/x/100%"y.txt`, []string{`/x/100%"y.txt`}},
+		{"win dq trailing slash", StyleWindows, `"%1"`, `C:\a b\`, []string{`C:\a b\`}},
+		{"win dq quote", StyleWindows, `"%1" x`, `C:\a" b`, []string{`C:\a" b`, "x"}},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res, err := ExpandFileCommand(c.template, []string{c.file}, Context{Style: c.st})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := SplitArgs(res.Params, c.st)
+			if err != nil {
+				t.Fatalf("SplitArgs(%q): %v", res.Params, err)
+			}
+			if len(got) != len(c.want) {
+				t.Fatalf("Params %q split into %q, want %q", res.Params, got, c.want)
+			}
+			for i := range got {
+				if got[i] != c.want[i] {
+					t.Fatalf("Params %q split into %q, want %q", res.Params, got, c.want)
+				}
+			}
+		})
+	}
+}

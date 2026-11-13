@@ -38,9 +38,26 @@ type iniLine struct {
 
 func (l *iniLine) text() string {
 	if l.kind == lineKV && l.dirty {
-		return l.key + "=" + l.value
+		return oneLine(l.key) + "=" + oneLine(l.value)
 	}
 	return l.raw
+}
+
+// SafeValue reports whether s can be stored in an INI line as is: it must not
+// contain a carriage return or a line feed. Unix folder names may contain a
+// newline, and writing one raw would start a new line in the file that could
+// add sections and keys (a folder history entry could rebind F8, say). Set
+// refuses such values and the list types (histories) leave them out.
+func SafeValue(s string) bool { return !strings.ContainsAny(s, "\r\n") }
+
+// oneLine is the last line of defence when rendering: any CR or LF left in a
+// key, value or section name (for example from ReplaceSection) becomes a
+// space, so one setting can never spill over into the following lines.
+func oneLine(s string) string {
+	if SafeValue(s) {
+		return s
+	}
+	return strings.NewReplacer("\r", " ", "\n", " ").Replace(s)
 }
 
 type iniSection struct {
@@ -147,7 +164,7 @@ func (f *File) String() string {
 		if i > 0 {
 			h := s.header
 			if headerName(h) != s.name {
-				h = "[" + s.name + "]"
+				h = "[" + oneLine(s.name) + "]"
 			}
 			emit(h)
 		}
@@ -290,7 +307,12 @@ func parseLeadingInt(v string) (int, bool) {
 // Set stores a value. An existing key is changed in place (its original
 // spelling of the key name is kept); a new key is appended to the first
 // section of that name, which is created at the end of the file if needed.
+// A section, key or value that contains CR or LF (see SafeValue) is refused
+// and the call does nothing, because it would corrupt the file on save.
 func (f *File) Set(section, key, value string) {
+	if !SafeValue(section) || !SafeValue(key) || !SafeValue(value) {
+		return
+	}
 	if l := f.find(section, key); l != nil {
 		if l.value != value {
 			l.value = value

@@ -12,7 +12,7 @@ directly. UI-free; standard library only.
 |---|---|---|
 | INI reader/writer (comment/order preserving, duplicate sections, CRLF, encodings) | `File`, `ParseString`, `Parse`, `LoadFile`, `(*File).Get/Set/GetInt/GetBool/Delete/Entries/ReplaceSection/RenameSection/Save` | ini.go, encoding.go |
 | Encodings (UTF-8 with/without BOM, UTF-16 LE/BE, Windows-1252/1250 fallback) | `Decode`, `Encode`, `Encoding` | encoding.go |
-| Atomic save (temp file + fsync + rename, optional .bak) | `WriteFileAtomic`, `WriteFileAtomicBackup` | atomic.go, sync_unix.go, sync_other.go |
+| Atomic save (temp file + fsync + rename, keeps mode, follows symlinks, optional .bak) | `WriteFileAtomic`, `WriteFileAtomicBackup` | atomic.go, sync_unix.go, sync_other.go |
 | Settings file location (user config dir, portable mode, `/i=` `/f=` overrides) | `Locate`, `LocateOptions`, `Locations`, `ParseConfigArgs` | paths.go |
 | Whole configuration (open, sync, save, reload, export/restore) | `Open`, `(*Config).Save/Reload/Export/Restore/Expand/LoadButtonBar/LoadUserCommands/ActiveColors` | config.go |
 | Typed Configuration dialog model (one struct per page, field metadata, search) | `Settings`, `Defaults`, `LoadSettings`, `(*Settings).Save/Get/Set/Diff`, `Fields`, `Pages`, `LookupSetting`, `SearchSettings` | settings.go |
@@ -54,3 +54,5 @@ GOOS=linux go build ./internal/config/...
 
 All tests use `t.TempDir()`; the TC import test uses an in-test Windows-1252,
 CRLF fixture.
+
+Values with CR or LF cannot be stored: `Set` ignores them (`SafeValue` tells), histories skip them, and rendering turns any left in `ReplaceSection` data into spaces, so a folder name with a newline can never add INI lines.

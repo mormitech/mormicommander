@@ -192,7 +192,7 @@ func CheckEntries(entries []Entry, o PreviewOptions) {
 		if err != nil {
 			continue
 		}
-		if src, err := fsys.Lstat(e.Item.Path()); err == nil && os.SameFile(fi, src) {
+		if caseOnlySameFile(fsys, e.Item.Path(), e.NewPath(), fi) {
 			continue // a case-only change on a case-insensitive disk
 		}
 		e.Problems = append(e.Problems, Problem{ProblemExists, fmt.Sprintf("%q already exists", e.NewName)})

@@ -40,10 +40,56 @@ func fileRefs(t string) (digits, named bool) {
 	return
 }
 
-// insideDoubleQuotes reports whether position i of t is inside a pair of
-// double quotes written by the user.
-func insideDoubleQuotes(t string, i int) bool {
-	return strings.Count(t[:i], `"`)%2 == 1
+// quoteAt reports the user quote context at position i of template t:
+// 0 (unquoted), a double quote or a single quote. It scans with the same rules Expand uses, so
+// a substituted file name is escaped for exactly the context the command
+// line splitter will see. Windows only knows double quotes; POSIX also
+// knows single quotes and backslash escapes (except in single quotes and
+// in front of a placeholder's %).
+func quoteAt(t string, i int, st Style) byte {
+	var q byte
+	for j := 0; j < i; j++ {
+		c := t[j]
+		if c == '%' && j+1 < len(t) {
+			j++
+			continue
+		}
+		if st == StyleWindows {
+			if c == '"' {
+				if q == 0 {
+					q = '"'
+				} else {
+					q = 0
+				}
+			}
+			continue
+		}
+		switch {
+		case c == '\\' && q != '\'' && j+1 < len(t) && t[j+1] != '%':
+			j++
+		case (c == '"' || c == '\'') && q == 0:
+			q = c
+		case c == q:
+			q = 0
+		}
+	}
+	return q
+}
+
+// escapeFileIn renders file name v for the quote context q at its place in
+// the template (beforeClose: the template's next byte closes that quote).
+// Inside user quotes the name is escaped, never inserted raw, so a name
+// that contains a quote cannot end the argument and add new ones.
+func escapeFileIn(v string, q byte, beforeClose bool, st Style) string {
+	switch {
+	case st == StyleWindows && q == '"':
+		return escapeWindowsInQuotes(v, beforeClose)
+	case q == '"':
+		return escapePOSIXInDouble(v)
+	case q == '\'':
+		return strings.ReplaceAll(v, "'", `'\''`)
+	}
+	return Quote(v, st)
 }
 
 // escapePercent doubles every % so Expand leaves substituted text alone.
@@ -51,8 +97,9 @@ func escapePercent(s string) string { return strings.ReplaceAll(s, "%", "%%") }
 
 // ExpandFileCommand expands the parameters of an editor, viewer or compare
 // tool. files[0] replaces %1, files[1] %2 and so on (missing ones become
-// empty); each is quoted when needed unless the template already puts it
-// inside double quotes or contains %Q. All other placeholders behave as in
+// empty); each is quoted when needed, or escaped for the user's own quotes
+// when the template already puts it inside quotes, unless the template
+// contains %Q. All other placeholders behave as in
 // Expand. When the template references no file at all, the files are
 // appended, quoted as needed.
 func ExpandFileCommand(template string, files []string, ctx Context) (Result, error) {
@@ -83,8 +130,9 @@ func ExpandFileCommand(template string, files []string, ctx Context) (Result, er
 		if idx < len(files) {
 			v = files[idx]
 		}
-		if v != "" && !noQuote && !insideDoubleQuotes(body, i) {
-			v = Quote(v, st)
+		if v != "" && !noQuote {
+			q := quoteAt(body, i, st)
+			v = escapeFileIn(v, q, q != 0 && i+2 < len(body) && body[i+2] == q, st)
 		}
 		b.WriteString(escapePercent(v))
 		i++

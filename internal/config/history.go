@@ -66,9 +66,10 @@ func (h *History) same(a, b string) bool {
 }
 
 // Add puts s at the top, removing an older equal entry, and trims the list.
-// Empty strings are ignored.
+// Empty strings and strings with CR or LF (which cannot be saved safely, see
+// SafeValue) are ignored.
 func (h *History) Add(s string) {
-	if strings.TrimSpace(s) == "" {
+	if strings.TrimSpace(s) == "" || !SafeValue(s) {
 		return
 	}
 	out := make([]string, 0, len(h.items)+1)
@@ -173,8 +174,9 @@ func (q *Frequent) key(p string) string {
 }
 
 // Visit records that folder was opened.
+// Folders whose names contain CR or LF are not recorded (see SafeValue).
 func (q *Frequent) Visit(folder string) {
-	if folder == "" {
+	if folder == "" || !SafeValue(folder) {
 		return
 	}
 	if q.score == nil {
