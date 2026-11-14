@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.77 – 2026-11-14
+
+### Fixed
+
+- Regular expression errors (issue #96): a broken pattern such as "<(" no longer shows the program's internal case-flag prefix (for example "missing closing ): (?i)("). The message now quotes only what you typed. This applies to the Mask field, Find Files (name and content), the Lister search and Multi-Rename. Matching itself is unchanged.
+
 ## 0.9.76 – 2026-11-14
 
 ### Fixed
