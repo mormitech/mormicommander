@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.29 – 2026-11-14
+
+### Fixed
+
+- A long path in the path bar is now shortened at the start instead of the end, so the current folder's name stays
+  visible: leading folders are hidden behind a "…", and clicking the "…" opens the deepest hidden folder. If even the
+  current folder's name is too wide, its own text is shortened at the start. The command-line prompt likewise keeps the
+  trailing part of the path that fits, which also removes the wide empty gap after it. Both are fitted again when the
+  window is resized.
+
 ## 0.9.28 – 2026-11-14
 
 ### Fixed
