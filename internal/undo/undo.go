@@ -26,6 +26,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"mormicommander/internal/trash"
 )
@@ -430,7 +431,7 @@ func renameBack(s Step) error {
 		}
 		// the same file under another case (a case-only rename on a case-insensitive disk): two steps through a
 		// free temporary name
-		tmp := filepath.Join(filepath.Dir(s.To), fmt.Sprintf(".%s.mc-undo-%d", filepath.Base(s.From), time.Now().UnixNano()))
+		tmp := filepath.Join(filepath.Dir(s.To), fmt.Sprintf(".%s.mc-undo-%d", tempStem(filepath.Base(s.From)), time.Now().UnixNano()))
 		if err := os.Rename(s.To, tmp); err != nil {
 			return err
 		}
@@ -444,6 +445,21 @@ func renameBack(s Step) error {
 		return err
 	}
 	return os.Rename(s.To, s.From)
+}
+
+// tempStem is the part of a name that goes into a temporary name next to it: the whole name plus the prefix and suffix
+// would pass the 255-byte limit of file names for long names, so only the start of a long name is kept (cut between
+// characters).
+func tempStem(name string) string {
+	const max = 64
+	if len(name) <= max {
+		return name
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(name[cut]) {
+		cut--
+	}
+	return name[:cut]
 }
 
 // removeChain removes the empty folders from deep up to and including top.

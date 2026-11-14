@@ -224,7 +224,17 @@ func CombineFiles(ctx context.Context, opts CombineOptions) (*CombineResult, err
 		return nil, err
 	}
 
+	// The parts found up front were checked against the target above, but the
+	// ones looked for later (on the next disk, or handed back by NextPart) were
+	// not: the target exists now, so a part named like it (a file "data.003"
+	// split into data.001 to data.003, combined while data.003 is still on
+	// another disk) would be the result itself, appended to itself until the
+	// disk is full.
+	outSet := newFileSet(target)
 	appendPart := func(p string) error {
+		if outSet.contains(p) {
+			return fmt.Errorf("the part %s is the combined file itself", p)
+		}
 		f, err := os.Open(p)
 		if err != nil {
 			return err
@@ -247,7 +257,7 @@ func CombineFiles(ctx context.Context, opts CombineOptions) (*CombineResult, err
 		for next := startNum + len(parts); info != nil && res.Size < info.Size; next++ {
 			expected := numbered(prefix, next, width)
 			p := expected
-			if !exists(p) {
+			if !exists(p) || outSet.contains(p) {
 				if opts.NextPart == nil {
 					return fail(fmt.Errorf("part %s is missing", filepath.Base(expected)))
 				}

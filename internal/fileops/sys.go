@@ -30,7 +30,6 @@ func remove(p string) error                       { return os.Remove(lp(p)) }
 func rename(a, b string) error                    { return os.Rename(lp(a), lp(b)) }
 func chmod(p string, m fs.FileMode) error         { return os.Chmod(lp(p), m) }
 func readlink(p string) (string, error)           { return os.Readlink(lp(p)) }
-func symlink(target, p string) error              { return os.Symlink(target, lp(p)) }
 func readDir(p string) ([]os.DirEntry, error)     { return os.ReadDir(lp(p)) }
 func truncate(p string, size int64) error         { return os.Truncate(lp(p), size) }
 func sameFile(a, b fs.FileInfo) bool              { return a != nil && b != nil && os.SameFile(a, b) }
@@ -39,6 +38,9 @@ func isPerm(err error) bool                       { return errors.Is(err, fs.Err
 func readOnly(fi fs.FileInfo) bool                { return fi.Mode().IsRegular() && fi.Mode().Perm()&0o200 == 0 }
 func isLink(fi fs.FileInfo) bool                  { return fi.Mode()&fs.ModeSymlink != 0 }
 func makeWritable(p string, fi fs.FileInfo) error { return chmod(p, fi.Mode().Perm()|0o200) }
+
+// symlink is a variable so the tests can make it fail (as it does on FAT and exFAT, which have no links).
+var symlink = func(target, p string) error { return os.Symlink(target, lp(p)) }
 
 // plainErr makes a system error a short plain phrase for the UI ("permission denied", "the disk is full").
 func plainErr(err error) string {
@@ -72,6 +74,28 @@ var errVerify = errors.New("verification failed")
 func inside(p, dir string) bool {
 	rel, err := filepath.Rel(dir, p)
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
+}
+
+// intoItself says whether p is the folder src (whose Lstat is si) or lies below it. The spelling alone is not enough:
+// a target reached through a link to a subfolder of src, or spelled in another case on a case-insensitive disk, is
+// below src too. So the part of p that exists is resolved to its real path, and every folder on that path is also
+// compared with src by identity.
+func intoItself(p, src string, si fs.FileInfo) bool {
+	if inside(p, src) {
+		return true
+	}
+	q := existingAncestor(p)
+	if real, err := filepath.EvalSymlinks(q); err == nil {
+		q = real
+	}
+	for ; ; q = filepath.Dir(q) {
+		if fi, err := stat(q); err == nil && sameFile(fi, si) {
+			return true
+		}
+		if filepath.Dir(q) == q {
+			return false
+		}
+	}
 }
 
 // samePath says whether two paths name the same file: equal after cleaning, or the same file on disk (which catches

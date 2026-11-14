@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+	"unicode/utf8"
 )
 
 // sameVolume is SameVolume; the tests replace it to drive the copy-and-delete path of a move on one disk.
@@ -38,7 +39,7 @@ func (j *job) allIntoItself(target string) bool {
 	for _, src := range j.req.Sources {
 		src = filepath.Clean(src)
 		si, err := lstat(src)
-		if err != nil || !si.IsDir() || !inside(target, src) {
+		if err != nil || !si.IsDir() || !intoItself(target, src, si) {
 			return false
 		}
 	}
@@ -111,7 +112,7 @@ func (j *job) copyAll(move bool) {
 				continue
 			}
 		}
-		if si.IsDir() && inside(dst, src) {
+		if si.IsDir() && intoItself(dst, src, si) {
 			j.fail("Can't %s the folder %s into itself.", verb, filepath.Base(src))
 			continue
 		}
@@ -295,10 +296,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 			if err != nil {
 				return err
 			}
-			if err := remove(dst); err != nil && !isNotExist(err) {
-				return err
-			}
-			return symlink(target, dst)
+			return replaceWithLink(target, dst)
 		})
 		if err != nil {
 			return false
@@ -334,6 +332,31 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 	}
 	j.log(verb, it.src, dst, nil)
 	return !move || j.removeSource(it)
+}
+
+// replaceWithLink makes the link dst pointing to target. Something already at dst (an overwrite) is replaced only
+// once the new link exists: the link is made under a temporary name first and renamed over it, so a volume that
+// can't hold links (FAT, exFAT) or any other failure leaves the old target as it was.
+func replaceWithLink(target, dst string) error {
+	if _, err := lstat(dst); isNotExist(err) {
+		return symlink(target, dst)
+	}
+	tmp := filepath.Join(filepath.Dir(dst), fmt.Sprintf(".%s.mc-link-%d", tempStem(filepath.Base(dst)), time.Now().UnixNano()))
+	if err := symlink(target, tmp); err != nil {
+		return err
+	}
+	if err := rename(tmp, dst); err != nil {
+		// Windows can't rename a link over some entries (a link to a folder); remove the old one and try once more
+		if rerr := remove(dst); rerr != nil && !isNotExist(rerr) {
+			remove(tmp)
+			return err
+		}
+		if err := rename(tmp, dst); err != nil {
+			remove(tmp)
+			return err
+		}
+	}
+	return nil
 }
 
 // removeSource removes the source of a file that was copied for a move.
@@ -384,18 +407,21 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		return err
 	}
 	defer in.Close()
+	// A link in the way is overwritten itself, never the file it points to. It is replaced like an old file, by the
+	// rename of the finished temporary file, so a failed copy leaves the link as it was.
+	overLink := false
 	if di, err := lstat(dst); err == nil && isLink(di) && wm == wmCreate {
-		remove(dst) // overwrite the link itself, never the file it points to
+		overLink = true
 	}
 	var oldSize int64
 	var oldInfo fs.FileInfo
-	if di, err := stat(dst); err == nil {
+	if di, err := stat(dst); err == nil && !overLink {
 		oldSize = di.Size()
 		oldInfo = di
 	}
 	final := dst // where the bytes end up; dst is where they are written
-	if wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular() {
-		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", filepath.Base(final), time.Now().UnixNano()))
+	if overLink || (wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular()) {
+		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", tempStem(filepath.Base(final)), time.Now().UnixNano()))
 	}
 	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	var offset int64
@@ -490,10 +516,17 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		j.log("verify", src, final, nil)
 	}
 	if dst != final {
-		if j.req.NoPerms {
+		if j.req.NoPerms && oldInfo != nil {
 			chmod(dst, oldInfo.Mode().Perm()) // without permission copying an overwrite keeps the old file's mode
 		}
-		if err := rename(dst, final); err != nil {
+		err := rename(dst, final)
+		if err != nil && overLink {
+			// Windows can't rename a file over a link to a folder; that link goes first, then the rename is tried again
+			if rerr := remove(final); rerr == nil || isNotExist(rerr) {
+				err = rename(dst, final)
+			}
+		}
+		if err != nil {
 			return err // the deferred cleanup removes the temporary file; the old target is still whole
 		}
 		dst = final
@@ -502,6 +535,22 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		j.copyMeta(src, dst, info)
 	}
 	return nil
+}
+
+// tempStem is the part of a file name that goes into the name of a temporary file next to it. The whole name plus the
+// temporary file's prefix and suffix would pass the 255-byte limit of file names for names near that limit, so such a
+// file could never be overwritten or renamed; the stem keeps only the start of a long name (cut between characters),
+// which is still enough to tell what the temporary file belongs to.
+func tempStem(name string) string {
+	const max = 64
+	if len(name) <= max {
+		return name
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(name[cut]) {
+		cut--
+	}
+	return name[:cut]
 }
 
 // verifyFile re-reads the part of dst that was just written and compares its SHA-256 with want.

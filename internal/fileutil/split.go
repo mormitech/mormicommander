@@ -87,7 +87,13 @@ func PartCount(size, partSize int64) int {
 	if size == 0 {
 		return 1
 	}
-	return int((size + partSize - 1) / partSize)
+	// Divide first: size + partSize - 1 overflows for a huge part size, and a negative count made SplitFile skip its
+	// checks (among them the one that keeps part 1 from overwriting a source named like a part).
+	n := size / partSize
+	if size%partSize != 0 {
+		n++
+	}
+	return int(n)
 }
 
 // SplitFile splits opts.Source into parts.

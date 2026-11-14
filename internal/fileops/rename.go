@@ -35,7 +35,7 @@ func RenameItem(path, newName string) (string, error) {
 			return "", ErrExists
 		}
 		// the same file under another case: two steps through a free temporary name
-		tmp := filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.mc-rename-%d", newName, time.Now().UnixNano()))
+		tmp := filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.mc-rename-%d", tempStem(newName), time.Now().UnixNano()))
 		if err := rename(path, tmp); err != nil {
 			return "", err
 		}
