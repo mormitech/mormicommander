@@ -203,6 +203,24 @@ func (r *Router) Connect(ctx context.Context, raw string) (string, error) {
 	return c, nil
 }
 
+// loginWithURLPassword opens the session of a server URL that carries a
+// password ("sftp://bob:secret@host/x" typed in the path bar) with that
+// password, before the URL is cleaned: the clean form never keeps a
+// password (it is what the panel shows and the history saves), so without
+// this the password typed in the URL was dropped and asked for again. An
+// open session of the same server and user is used as it is.
+func (r *Router) loginWithURLPassword(ctx context.Context, p string) error {
+	if !(IsFTPURL(p) && r.FTP != nil) && !(IsSFTPURL(p) && r.SFTP != nil) {
+		return nil
+	}
+	u, err := parseRemote(p)
+	if err != nil || !u.HasPass || u.Password == "" {
+		return nil
+	}
+	_, err = r.Connect(ctx, p)
+	return err
+}
+
 // Disconnect closes the server connection p belongs to and forgets the
 // archives downloaded from it.
 func (r *Router) Disconnect(p string) {
@@ -248,6 +266,9 @@ func (r *Router) Close() error {
 // List reads the folder p. An archive file (local or on a server) lists as
 // the archive's root.
 func (r *Router) List(ctx context.Context, p string) (Listing, error) {
+	if err := r.loginWithURLPassword(ctx, p); err != nil {
+		return Listing{}, err
+	}
 	f, c := r.Resolve(p)
 	if r.Archives == nil {
 		return f.List(ctx, c)
