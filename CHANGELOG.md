@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.28 – 2026-11-14
+
+### Fixed
+
+- The command line's own `cd` now expands environment variables: `cd $HOME`, `cd ${HOME}/Documents` and, on Windows,
+  `cd %HOME%` go to the folder the variable names. Variables that are not set stay as typed. `cd\`, `cd/` and `cd..`
+  written without a space are also understood as `cd` (as in Total Commander) instead of being started as a program.
+  Words such as `cdrecord` or `cd.sh` are still run as programs.
+
 ## 0.9.27 – 2026-11-14
 
 ### Added
