@@ -22,6 +22,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"mormicommander/internal/rxflags"
 )
 
 // chunkSize is how much of a file is read at a time. It is a variable only so tests
@@ -111,11 +113,11 @@ func compileContent(c ContentOptions) (*contentMatcher, error) {
 		return d
 	}
 	if c.Regex {
-		expr := "(?m)" + c.Text
+		flags := "(?m)"
 		if !c.CaseSensitive {
-			expr = "(?i)" + expr
+			flags = "(?i)" + flags
 		}
-		re, err := regexp.Compile(expr)
+		re, err := rxflags.Compile(flags, c.Text)
 		if err != nil {
 			return nil, fmt.Errorf("find: bad regular expression: %w", err)
 		}

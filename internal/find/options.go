@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"mormicommander/internal/rxflags"
 )
 
 // Unlimited is the Levels value for "search all subfolders".
@@ -288,10 +290,11 @@ func (m dateMatcher) match(t time.Time) bool {
 
 // compileNameRegex builds the file name regular expression.
 func compileNameRegex(expr string, caseSensitive bool) (*regexp.Regexp, error) {
+	flags := ""
 	if !caseSensitive {
-		expr = "(?i)" + expr
+		flags = "(?i)"
 	}
-	re, err := regexp.Compile(expr)
+	re, err := rxflags.Compile(flags, expr)
 	if err != nil {
 		return nil, fmt.Errorf("find: bad file name regular expression: %w", err)
 	}

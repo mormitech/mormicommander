@@ -9,10 +9,11 @@
 package masks
 
 import (
-	"regexp"
 	"regexp/syntax"
 
 	"golang.org/x/text/unicode/norm"
+
+	"mormicommander/internal/rxflags"
 )
 
 // RegexpError is returned when a "<regex" mask does not compile. Its message is the one the dialog shows.
@@ -28,10 +29,11 @@ func (e *RegexpError) Error() string { return "Invalid regular expression: " + e
 // demand the whole name.
 func CompileRegexMask(expr string, caseSensitive bool) (*Mask, error) {
 	src := norm.NFC.String(expr)
+	flags := ""
 	if !caseSensitive {
-		src = "(?i)" + src
+		flags = "(?i)"
 	}
-	re, err := regexp.Compile(src)
+	re, err := rxflags.Compile(flags, src)
 	if err != nil {
 		detail := err.Error()
 		if se, ok := err.(*syntax.Error); ok {

@@ -52,6 +52,17 @@ func TestRegexInvalid(t *testing.T) {
 	}
 }
 
+// The (?i) flag added for case-insensitive matching must not show in the error (board issue #96).
+func TestRegexInvalidHidesCaseFlag(t *testing.T) {
+	_, err := Parse("<(", Options{})
+	if err == nil {
+		t.Fatal("want error")
+	}
+	if strings.Contains(err.Error(), "(?i)") || !strings.HasSuffix(err.Error(), ": (") {
+		t.Errorf("message %q", err.Error())
+	}
+}
+
 func TestDefaultCaseInsensitiveEverywhere(t *testing.T) {
 	if DefaultCaseSensitive {
 		t.Fatal("masks must ignore case by default on every platform")

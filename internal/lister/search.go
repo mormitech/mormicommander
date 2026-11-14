@@ -21,6 +21,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"mormicommander/internal/rxflags"
 )
 
 // Query describes one Lister search.
@@ -86,11 +88,11 @@ func Compile(q Query) (*Searcher, error) {
 		s.raw = b
 		s.overlap = len(b)
 	case q.Regex:
-		expr := "(?m)" + q.Pattern
+		flags := "(?m)"
 		if !q.CaseSensitive {
-			expr = "(?i)" + expr
+			flags = "(?i)" + flags
 		}
-		re, err := regexp.Compile(expr)
+		re, err := rxflags.Compile(flags, q.Pattern)
 		if err != nil {
 			return nil, err
 		}

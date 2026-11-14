@@ -15,6 +15,8 @@ package multirename
 import (
 	"regexp"
 	"strings"
+
+	"mormicommander/internal/rxflags"
 )
 
 // replacer is a compiled search-and-replace setting.
@@ -40,7 +42,7 @@ func newReplacer(s Settings) (*replacer, error) {
 	}
 	r := &replacer{onlyFirst: s.OnlyFirst}
 	if s.RegEx {
-		re, err := regexp.Compile(flags + s.Search)
+		re, err := rxflags.Compile(flags, s.Search)
 		if err != nil {
 			return nil, err
 		}
