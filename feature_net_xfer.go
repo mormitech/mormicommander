@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"mormicommander/internal/ftp"
+	"mormicommander/internal/remotefs"
 	"mormicommander/internal/vfs"
 )
 
@@ -385,7 +386,20 @@ func (x *netXfer) walk(r *vfs.Router, src, dst string, top int, items *[]netItem
 	if err != nil {
 		return err
 	}
+	dstLocal := netIsLocalPath(r, dst)
 	for _, e := range l.Entries {
+		// A listing comes from the server and is not trusted: a name such as "../x" or "a/../../x" (which an SFTP
+		// server can send) would be joined into a target path outside the folder being copied, and on the local disk
+		// the shared rule of the tree downloads also refuses names this system cannot store. Such a name fails the
+		// copy, so it never ends looking complete when it is not.
+		if !netPlainName(e.Name) {
+			return fmt.Errorf("the server lists an item named %q, which is not a plain name", e.Name)
+		}
+		if dstLocal {
+			if _, err := remotefs.LocalRel(e.Name); err != nil {
+				return fmt.Errorf("the server lists an item named %q, which can't be stored safely on this disk", e.Name)
+			}
+		}
 		s, d := r.Join(src, e.Name), r.Join(dst, e.Name)
 		if e.Flags&vfs.FlagDir != 0 {
 			if e.Flags&vfs.FlagLink != 0 && !strings.Contains(src, "://") {
@@ -400,6 +414,11 @@ func (x *netXfer) walk(r *vfs.Router, src, dst string, top int, items *[]netItem
 		*items = append(*items, netItem{src: s, dst: d, size: e.Size, mtime: e.MTime, top: top})
 	}
 	return nil
+}
+
+// netPlainName says whether name is one item of a folder: not empty, not "." or "..", and without a slash.
+func netPlainName(name string) bool {
+	return name != "" && name != "." && name != ".." && !strings.ContainsRune(name, '/')
 }
 
 // copyFile copies one file, asking when the target is there. It reports whether the file is done (or skipped by
