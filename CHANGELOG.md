@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.1 – 2026-11-14
+
+### Added
+
+- The macOS build is universal: one app for Apple silicon and Intel Macs (`GOARCH=universal scripts/build.sh`; the
+  release file is now `mormicommander-X.Y.Z-macos-universal.zip`).
+- Developer ID signing with the hardened runtime and notarization, ready in CI: they switch on by themselves once the
+  signing secrets are added to the repository (docs/signing.md, scripts/notarize.sh). Without them the app is signed ad
+  hoc as before (#44).
+
 ## 0.10.0 – 2026-11-14
 
 Release of everything since 0.9.0 (0.9.1 to 0.9.103, listed below): Wails v3 with all dialogs as real windows, the

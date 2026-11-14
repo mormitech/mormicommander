@@ -3,7 +3,8 @@
 # Vite), which the Go program embeds, then the program itself with Wails v3. There is no Wails CLI in the way, only go
 # and npm.
 #
-#   macOS    build/bin/mormicommander.app (Info.plist with the version from wails.json, the icon, ad-hoc signed)
+#   macOS    build/bin/mormicommander.app (Info.plist with the version from wails.json, the icon, ad-hoc signed, or
+#            Developer ID signed with MACOS_SIGN_IDENTITY); GOARCH=universal makes one app for Apple silicon and Intel
 #   Windows  build/bin/mormicommander.exe (icon, manifest and file properties linked in; needs bash, as Git for Windows
 #            has it)
 #   Linux    build/bin/mormicommander (GTK 4 and WebKitGTK 6.0: libgtk-4-dev and libwebkitgtk-6.0-dev to build)
@@ -57,7 +58,16 @@ darwin)
   app=build/bin/mormicommander.app
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT
-  GOOS=$goos GOARCH=$goarch go build "${flags[@]}" -ldflags "-s -w" -o "$tmp/mormicommander" .
+  # GOARCH=universal builds both Apple silicon and Intel and joins them into one universal binary with lipo.
+  if [ "$goarch" = universal ]; then
+    for a in arm64 amd64; do
+      GOOS=$goos GOARCH=$a go build "${flags[@]}" -ldflags "-s -w" -o "$tmp/mormicommander-$a" .
+    done
+    lipo -create -output "$tmp/mormicommander" "$tmp/mormicommander-arm64" "$tmp/mormicommander-amd64"
+    rm -f "$tmp/mormicommander-arm64" "$tmp/mormicommander-amd64"
+  else
+    GOOS=$goos GOARCH=$goarch go build "${flags[@]}" -ldflags "-s -w" -o "$tmp/mormicommander" .
+  fi
   # The bundle is put together next to the old one and swapped in at the end, so a failed build leaves the last
   # working app in place.
   new="$tmp/mormicommander.app"
@@ -75,8 +85,16 @@ darwin)
   # the `mormicommander` command (the Homebrew cask links to it), see packaging/macos
   mkdir -p "$new/Contents/Resources/bin"
   install -m 755 packaging/macos/mormicommander "$new/Contents/Resources/bin/mormicommander"
-  # an ad-hoc signature, so the bundle is at least internally consistent; it is not notarized
-  codesign --force --deep -s - "$new" >/dev/null 2>&1 || echo "build.sh: codesign failed (the app still runs from here)" >&2
+  # MACOS_SIGN_IDENTITY (a "Developer ID Application: …" certificate in the keychain) signs the app for real, with
+  # the hardened runtime and a secure timestamp, as notarization needs (scripts/notarize.sh then notarizes it).
+  # Without it the app gets an ad-hoc signature, so the bundle is at least internally consistent; it is not notarized.
+  if [ -n "${MACOS_SIGN_IDENTITY:-}" ]; then
+    codesign --force --options runtime --timestamp -s "$MACOS_SIGN_IDENTITY" "$new/Contents/Resources/bin/mormicommander"
+    codesign --force --options runtime --timestamp --entitlements build/darwin/entitlements.plist -s "$MACOS_SIGN_IDENTITY" "$new"
+    codesign --verify --strict --verbose=2 "$new"
+  else
+    codesign --force --deep -s - "$new" >/dev/null 2>&1 || echo "build.sh: codesign failed (the app still runs from here)" >&2
+  fi
   rm -rf "$app"
   mv "$new" "$app"
   echo "built $app"

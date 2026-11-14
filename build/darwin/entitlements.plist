@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Entitlements for the Developer ID signature (hardened runtime, scripts/build.sh). The app is not sandboxed and
+     needs no exceptions: the web view (WKWebView) runs its JavaScript in Apple's own processes. Kept as a file so an
+     exception can be added in one place if one is ever needed. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict/>
+</plist>

@@ -17,7 +17,7 @@ Each release `vX.Y.Z` has these files (X.Y.Z is the version):
 
 | System | File | What it is |
 | --- | --- | --- |
-| macOS 13 or newer (Apple silicon) | `mormicommander-X.Y.Z-macos-arm64.zip` | The app; unzip and move `mormicommander.app` to Applications |
+| macOS 13 or newer (Apple silicon and Intel) | `mormicommander-X.Y.Z-macos-universal.zip` | The app; unzip and move `mormicommander.app` to Applications |
 | Windows (x64) | `mormicommander-setup-X.Y.Z-windows-x64.exe` | Installer (per user, no admin rights needed) |
 | Windows (x64) | `mormicommander-X.Y.Z-windows-x64.zip` | `mormicommander.exe` without an installer |
 | Debian, Ubuntu (x64) | `mormicommander_X.Y.Z_amd64.deb` | `sudo apt install ./mormicommander_X.Y.Z_amd64.deb` |

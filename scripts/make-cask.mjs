@@ -1,4 +1,4 @@
-// Generates the Homebrew cask for a release: one cask for macOS (Apple silicon, the app) and Linux (x64, the binary),
+// Generates the Homebrew cask for a release: one cask for macOS (universal: Apple silicon and Intel, the app) and Linux (x64, the binary),
 // so `brew install mormitech/tap/mormicommander` works on both. (A formula of the same name would win on macOS and fail.)
 //
 //   node scripts/make-cask.mjs [version] > ../homebrew-tap/Casks/mormicommander.rb        # release assets on GitHub
@@ -21,7 +21,7 @@ const bundleID = info.bundleIdentifier;
 
 const repo = 'mormitech/mormicommander';
 const files = {
-  macos: `mormicommander-${version}-macos-arm64.zip`,
+  macos: `mormicommander-${version}-macos-universal.zip`,
   linux: `mormicommander-${version}-linux-x64.tar.gz`,
 };
 const urlOf = (file) => (localDir ? pathToFileURL(join(localDir, file)).href : `https://github.com/${repo}/releases/download/v${version}/${file}`);
@@ -59,7 +59,6 @@ process.stdout.write(`cask "mormicommander" do
 
     url "${urlLine(files.macos)}"
 
-    depends_on arch: :arm64
     depends_on macos: :ventura
 
     app "mormicommander.app"

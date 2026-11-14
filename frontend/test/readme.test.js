@@ -131,7 +131,7 @@ test('there is one canonical download page, and releases carry checksums', () =>
   const release = workflow.slice(workflow.indexOf('\n  release:'));
   expect(release).toMatch(/sha256sum .*> SHA256SUMS\.txt/);
   // the page names the files the workflow really makes
-  for (const name of ['-macos-arm64.zip', '-windows-x64.zip', '-linux-x64.tar.gz', '_amd64.deb', 'mormicommander-setup-']) {
+  for (const name of ['-macos-universal.zip', '-windows-x64.zip', '-linux-x64.tar.gz', '_amd64.deb', 'mormicommander-setup-']) {
     expect(page).toContain(name);
   }
   expect(readFileSync(join(repo, 'packaging', 'windows', 'installer.iss'), 'utf8')).toContain('OutputBaseFilename=mormicommander-setup-__VERSION__-windows-x64');
