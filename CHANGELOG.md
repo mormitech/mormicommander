@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.78 – 2026-11-14
+
+### Added
+
+- Real file drag-out on macOS (issue #108, first part): a new option under Options > Drag & drop, "Drag files to other programs as real files (macOS)", lets you drag the selected files out of the window and drop them into Finder or other programs as real files. It is off by default; with it off, dragging works exactly as before. Windows and Linux, dragging out of archives and remote servers, and highlighting the drop target are not done yet.
+
 ## 0.9.77 – 2026-11-14
 
 ### Fixed
