@@ -468,7 +468,9 @@ async function viewEdit(cmd) {
   if (!files.length) { theApp.flash('Folders can\'t be viewed; choose a file.', 'err'); return; }
   if (cmd === 'cm_Edit' && files[0].a) { theApp.flash('Editing a file inside an archive is not ready yet. View it (F3), or use Go to file.', 'err'); return; }
   const box = S.box;
-  await theApp.run(cmd, { path: files[0].p, paths: files.map((x) => x.p), from: 'find' });
+  // (N / P in the Lister walk the selected results, or all the found files when one is viewed)
+  const walk = files.length > 1 ? files : S.items.filter((x) => !x.f);
+  await theApp.run(cmd, { path: files[0].p, paths: files.map((x) => x.p), sources: walk.map((x) => x.p), from: 'find' });
   const a = document.activeElement;
   if (box && S.box === box && (!a?.closest('.mc-modal') || box.contains(a))) box.querySelector('.mc-find-list')?.focus({ preventScroll: true });
 }

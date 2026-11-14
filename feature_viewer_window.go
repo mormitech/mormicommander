@@ -44,6 +44,8 @@ type ListerRequest struct {
 	Path         string   `json:"path"`         // the file
 	Names        []string `json:"names"`        // the files N and P walk through (names in Dir)
 	Dir          string   `json:"dir"`          // the folder of those names
+	Sources      []string `json:"sources"`      // or, when given, the full paths N and P walk (in archives too; unpacked when reached)
+	At           int      `json:"at"`           // the place of the file shown first in Sources (-1 for none)
 	Side         string   `json:"side"`         // the panel the file came from ("left", "right" or "" for none)
 	InternalOnly bool     `json:"internalOnly"` // text, binary and hex only (Alt+Shift+F3)
 	Mode         string   `json:"mode"`         // the mode to start in ("auto" and the like)

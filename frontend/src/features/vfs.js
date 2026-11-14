@@ -82,7 +82,14 @@ export function init(app) {
       // F3 inside an archive or on a server: view a temporary copy
       localCopyOf(p, e).then(async (local) => {
         if (!local) return;
-        if (hasCommand('cm_List')) await app.run('cm_List', { path: local, paths: [local], name: e.name, from: p.fullPath(e.name) });
+        // N / P in the Lister walk the selected files when the cursor is on one of them, else all files of the folder
+        // (unpacked when reached), and the cursor follows (spec area 4, 1.6)
+        const sel = p.selectedEntries().filter((x) => !x.dir);
+        const walk = sel.includes(e) ? sel : p.entries.filter((x) => !x.dir && !x.up);
+        if (hasCommand('cm_List')) {
+          await app.run('cm_List', { path: local, paths: [local], name: e.name, from: p.fullPath(e.name),
+            sources: walk.map((x) => p.fullPath(x.name)), side: p.side, dir: p.path });
+        }
         else { await go.FS.OpenFile(local); app.flash(`Opened ${e.name}.`); }
       }, (err) => app.flash(errText(err), 'err'));
       return true;

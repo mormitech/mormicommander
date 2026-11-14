@@ -27,6 +27,7 @@ import { size as fmtSize, bytes as fmtBytes } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { quickViewSource, ARCHIVE_PREVIEW_LIMIT } from './viewer/qvsource.js';
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
+import { makeWalker, walkList } from './viewer/walk.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
@@ -51,7 +52,10 @@ const inListerWindow = () => !!globalThis.document?.body?.classList.contains('mc
 async function openViewer(app, o) {
   if (inWindowSetting(app) && !inListerWindow() && !lister) {
     try {
-      await go.ListerWindows.Open({ path: o.path, names: o.names || [], dir: o.dir || '', side: o.panel?.side || '', internalOnly: !!o.internalOnly, mode: o.mode || 'auto' });
+      await go.ListerWindows.Open({
+        path: o.path, names: o.names || [], dir: o.dir || '', sources: o.sources || [], at: o.at ?? -1,
+        side: o.panel?.side || o.side || '', internalOnly: !!o.internalOnly, mode: o.mode || 'auto',
+      });
       return;
     } catch (e) {
       if (!/is not available/.test(errText(e))) { app.flash(errText(e), 'err'); return; }
@@ -64,7 +68,8 @@ async function openViewer(app, o) {
 
 const fileOf = (path, sep) => path.slice(path.lastIndexOf(sep) + 1);
 
-async function openLister(app, { path, names = [], dir = '', panel = null, internalOnly = false, mode = 'auto' }) {
+async function openLister(app, { path, names = [], dir = '', sources = [], at = -1, panel = null, side = '', internalOnly = false, mode = 'auto' }) {
+  if (!panel && side) panel = app.panel?.(side) || null;
   if (lister) { // (only reached from control mode or a menu while one is open) the open window shows the file
     await lister.show(path);
     return;
@@ -80,9 +85,9 @@ async function openLister(app, { path, names = [], dir = '', panel = null, inter
     return;
   }
   let done = null;
-  const sep = app.sepFor(path);
+  const walker = makeWalker({ path, names, dir, sources, at }, { resolve: (n, d) => app.resolvePath(n, d), localCopy: (p) => go.FS.LocalCopy(p) });
   const state = {
-    view, names, dir, panel, path,
+    view, names: walkList({ names, sources }), dir, panel, path,
     close: () => done?.(),
     show: async (p) => {
       try {
@@ -102,13 +107,13 @@ async function openLister(app, { path, names = [], dir = '', panel = null, inter
   };
   // N / P: the next or previous file of the list, and the panel's cursor follows (spec area 4, 1.6)
   view.onNeighbor = async (d) => {
-    const cur = fileOf(state.path, sep);
-    const i = names.indexOf(cur);
-    const j = i + d;
-    if (i < 0 || j < 0 || j >= names.length) { view.note(d > 0 ? 'Last file' : 'First file'); return; }
-    const name = names[j];
-    const p = panel && panel.path === dir ? panel.fullPath(name) : app.resolvePath(name, dir);
-    if (await state.show(p)) panel?.focusName(name);
+    let next;
+    try { next = await walker.step(state.path, d); } catch (e) { view.note(errText(e), true); return; }
+    if (!next) { view.note(d > 0 ? 'Last file' : 'First file'); return; }
+    const p = !sources.length && panel && panel.path === dir ? panel.fullPath(next.name) : next.path;
+    if (!(await state.show(p))) return;
+    next.done();
+    if (panel && panel.path === dir) panel.focusName(next.name);
   };
   view.onClose = () => state.close();
   lister = state;
@@ -165,7 +170,15 @@ async function view(app, args = {}) {
     }
     if (args.external) return external(app, path);
     const sep = app.sepFor(path);
-    return openViewer(app, { path, names: [fileOf(path, sep)], dir: path.slice(0, path.lastIndexOf(sep)) || sep, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
+    // N / P walk args.sources (the files of the archive folder, the Find files results, a fed list) when given, each
+    // unpacked when it is reached (viewer/walk.js); args.from is the shown file's place in that list.
+    const sources = Array.isArray(args.sources) ? args.sources.filter((x) => typeof x === 'string' && x) : [];
+    let at = sources.indexOf(args.from);
+    if (at < 0) at = sources.indexOf(args.path);
+    return openViewer(app, {
+      path, names: [fileOf(path, sep)], dir: args.dir ?? (path.slice(0, path.lastIndexOf(sep)) || sep),
+      sources: at >= 0 ? sources : [], at, side: args.side || '', internalOnly: !!args.internalOnly, mode: args.mode || 'auto',
+    });
   }
   const e = p.cur;
   if (!e || e.up) return;

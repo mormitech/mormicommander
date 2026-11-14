@@ -5,7 +5,8 @@
 // show the window, so the window never appears empty or with an old file.
 //
 // Keys: the view's own (1-7, N, P, F7, Ctrl+C...), Esc (stops a search first) and Q / Alt+F4 / Cmd+W close the window.
-// N and P walk the list of names the window was given; Go then sets the title and moves the file manager's cursor.
+// N and P walk the list of names the window was given, or its list of full paths (files in an archive, Find files
+// results, a fed list; see features/viewer/walk.js); Go then sets the title and moves the file manager's cursor.
 // Control mode reaches this page through Go ("viewer-ctl" events, answered with ListerWindows.CtlReply), since the
 // file manager's page cannot see into another window.
 
@@ -20,6 +21,7 @@ import { popupOpen, currentPopup, choosePopup } from './core/popup.js';
 import { currentDialog, answerDialog, dialogOpen } from './core/dialogs.js';
 import { idle } from './core/busy.js';
 import { ListerView, applyListerOptions, listerSettings } from './features/viewer/view.js';
+import { makeWalker, walkList } from './features/viewer/walk.js';
 // The view's menus run cm_ListExternal ("Open with another app") and cm_ListerConfig (Lister options); importing the
 // feature registers them here too. Its init (panel keys, quick view) is for the file manager and is not run.
 import './features/viewer.js';
@@ -28,7 +30,7 @@ const MENUS = ['File', 'Edit', 'Options', 'Image', 'Encoding'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 let me = ''; // this window's name ("lister-3")
-let cur = null; // {view, req, path}
+let cur = null; // {view, req, path, walker}
 let opening = Promise.resolve();
 
 function applyTheme(info) {
@@ -47,7 +49,8 @@ async function show(req, info) {
   const view = new ListerView(app, { internalOnly: !!req.internalOnly });
   view.onNeighbor = (d) => neighbor(d);
   view.onClose = () => closeWindow();
-  cur = { view, req, path: req.path };
+  const walker = makeWalker(req, { resolve: (n, d) => app.resolvePath(n, d), localCopy: (p) => go.FS.LocalCopy(p) });
+  cur = { view, req, path: req.path, walker };
   document.getElementById('viewer-body').replaceChildren(view.el);
   try {
     await view.open(req.path, req.mode || 'auto');
@@ -62,18 +65,20 @@ async function show(req, info) {
 // neighbor opens the next (d = 1) or previous (d = -1) file of the list.
 async function neighbor(d) {
   if (!cur) return;
-  const { view, req } = cur;
-  const names = req.names || [];
-  const i = names.indexOf(fileOf(cur.path));
-  const j = i + d;
-  if (i < 0 || j < 0 || j >= names.length) { view.note(d > 0 ? 'Last file' : 'First file'); return; }
-  const path = app.resolvePath(names[j], req.dir);
+  const c = cur;
+  const { view } = c;
+  let next;
   try {
-    await view.open(path);
+    next = await c.walker.step(c.path, d);
+    if (!next) { view.note(d > 0 ? 'Last file' : 'First file'); return; }
+    if (cur !== c) return; // (another file came in while this one was unpacked)
+    await view.open(next.path);
   } catch (e) {
     view.note(errText(e), true);
     return;
   }
+  next.done();
+  const path = next.path;
   cur.path = path;
   document.title = `Lister – ${fileOf(path)}`;
   go.ListerWindows.Moved(path, view.id || 0).catch(() => {});
@@ -111,7 +116,7 @@ function press(combo) {
 
 function state() {
   return {
-    ok: true, open: !!cur, list: cur?.req.names || [], dir: cur?.req.dir ?? null, side: cur?.req.side ?? null,
+    ok: true, open: !!cur, list: walkList(cur?.req), dir: cur?.req.dir ?? null, side: cur?.req.side ?? null,
     lister: cur ? cur.view.state() : null, dialog: currentDialog(), popup: currentPopup(), documentTitle: document.title,
     theme: document.documentElement.dataset.theme || '', focus: document.activeElement?.className || document.activeElement?.tagName?.toLowerCase() || '',
   };
