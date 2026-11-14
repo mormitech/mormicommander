@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.99 – 2026-11-14
+
+### Changed
+
+- Issue #2 (partly): The Space key now reads the "SpaceCalcSize" option from a wincmd.ini copied in as the settings file. When the page has no stored choice of its own (set in the Options dialog), that value decides whether Space counts folder sizes; a stored choice still wins, and with neither the default is unchanged (count sizes). Not done: running the key script against the real app, checking AltGr on a real Windows or Linux machine, and confirming the exact key name Total Commander writes for this option.
+
 ## 0.9.98 – 2026-11-14
 
 ### Added
