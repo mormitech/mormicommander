@@ -98,7 +98,8 @@ func TestCIRunsLiveTests(t *testing.T) {
 		t.Fatal("no live_*_test.go files")
 	}
 	for _, f := range files {
-		if !strings.HasPrefix(readText(t, f), "//go:build live\n") {
+		// (a Windows checkout has CRLF line ends)
+		if !strings.HasPrefix(strings.ReplaceAll(readText(t, f), "\r\n", "\n"), "//go:build live\n") {
 			t.Errorf("%s does not start with //go:build live", f)
 		}
 	}

@@ -164,8 +164,10 @@ func TestRestoreNeverOverwrites(t *testing.T) {
 	gone := filepath.Join(root, "c.txt")
 	writeFile(t, gone, "c")
 	m, _ := Before(gone)
-	os.Remove(gone)
+	// the other file is made before the original goes, so the file system can't give it the original's inode again
+	// (Linux reuses a freed inode number at once, which would make it the "same" file)
 	writeFile(t, filepath.Join(bin, "c.txt"), "c") // same name and content, another file
+	os.Remove(gone)
 	if p, ok := Locate(m); ok {
 		t.Fatalf("Locate found %q", p)
 	}

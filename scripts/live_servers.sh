@@ -76,7 +76,11 @@ allow_anon_ssl=NO
 force_local_logins_ssl=NO
 force_local_data_ssl=NO
 EOF
-start_vsftpd() { sudo vsftpd "$dir/vsftpd.conf"; }
+# vsftpd refuses a config file that root does not own ("500 OOPS: config file not owned by correct user")
+sudo chown root:root "$dir/vsftpd.conf"
+start_vsftpd() {
+  sudo vsftpd "$dir/vsftpd.conf" || { local rc=$?; echo "vsftpd did not start (exit $rc)"; sudo tail -20 "$dir/vsftpd.log" 2>/dev/null || true; return "$rc"; }
+}
 
 # ---- OpenSSH: SFTP on 2222 ----
 sudo rm -f "$dir/ssh_host_ed25519_key" "$dir/ssh_host_ed25519_key.pub"
@@ -137,7 +141,9 @@ answers() {
 }
 wait_for() { # name port banner start-function
   local name=$1 port=$2 want=$3 start=$4 try
-  $start
+  # (a start that fails is reported and waited out like a slow one, so the log shows why instead of the script
+  # ending silently under set -e)
+  $start || echo "$name: the start command failed"
   for try in $(seq 1 40); do
     if answers "$port" "$want"; then echo "$name answers on $port"; return 0; fi
     if [ "$try" = 20 ]; then echo "$name does not answer yet: starting it again"; $start || true; fi

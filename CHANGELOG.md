@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.25 – 2026-11-14
+
+### Fixed
+
+- CI: the live tests' server script makes vsftpd's config file root's (vsftpd refuses it otherwise) and reports why a
+  server did not start; the live-tag check reads Windows CRLF checkouts; a trash test no longer trips over Linux
+  reusing a freed inode number.
+- Undo of delete to Trash also checks size and date when it looks for the trashed item, so a new file that happens to
+  get a freed inode number is never taken for it.
+
 ## 0.10.24 – 2026-11-14
 
 ### Added

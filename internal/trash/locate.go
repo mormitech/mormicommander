@@ -77,7 +77,9 @@ func Locate(m Mark) (string, bool) {
 				continue
 			}
 			p := filepath.Join(dir, n)
-			if fi, err := os.Lstat(p); err == nil && os.SameFile(fi, m.info) {
+			// The same file is the same inode; a move to the trash also keeps the size and the date, which guards against a
+			// freed inode number that the file system gave to another file at once (Linux does).
+			if fi, err := os.Lstat(p); err == nil && os.SameFile(fi, m.info) && fi.Size() == m.info.Size() && fi.ModTime().Equal(m.info.ModTime()) {
 				return p, true
 			}
 		}
