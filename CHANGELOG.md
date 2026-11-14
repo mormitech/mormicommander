@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.102 – 2026-11-14
+
+### Added
+
+- Control mode (testing): `pointer_drag` and `hover` play real pointer gestures inside the page, so features you can only reach with the mouse (drag and drop, hover states) can be tested. `filedrop` can take a point. The app itself works as before (#107).
+
 ## 0.9.101 – 2026-11-14
 
 ### Fixed
