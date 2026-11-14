@@ -6,8 +6,8 @@ package main
 // overwrite question, "syncdirs-exec-done"). All the rules (categories, default actions, what may be done to a row,
 // the safe copy) live in the engine; this file only carries them between the page and the disk.
 //
-// Only folders on this computer can be synchronized for now: the engine's sides are file systems with writes, and the
-// archive and network file systems of the panels don't offer that yet (F-555 stays open).
+// A side can also be an archive or a server folder (F-555): feature_syncdirs_vfs.go makes such sides on top of the
+// panels' vfs router. Local folders are handled exactly as before.
 
 import (
 	"context"
@@ -33,11 +33,14 @@ type SyncDirs struct {
 type syncSession struct {
 	mu          sync.Mutex
 	left, right string
-	lfs, rfs    *syncdirs.OSFS
+	lfs, rfs    syncdirs.FS
+	lside       *syncSide // nil until the first compare
+	rside       *syncSide
 	res         *syncdirs.Result
 	cancel      context.CancelFunc // of the compare or sync in progress
 	busy        bool
 	answer      chan syncdirs.OverwriteDecision
+	lastDone    map[string]any // the "syncdirs-exec-done" event of the last sync, kept for tests
 }
 
 func init() {
@@ -60,6 +63,11 @@ type SyncView struct {
 	Compared bool             `json:"compared"`
 	Left     string           `json:"left"`
 	Right    string           `json:"right"`
+	// LeftSide and RightSide say what kind of place each side is (local, archive, server) and whether it can be
+	// changed, so the page can say why nothing is copied to a read-only side and that deletes on a server are
+	// permanent (F-555).
+	LeftSide  *SyncSideInfo `json:"leftSide,omitempty"`
+	RightSide *SyncSideInfo `json:"rightSide,omitempty"`
 }
 
 // SyncExecRequest is what the Synchronize dialog sends.
@@ -133,11 +141,9 @@ func (s *SyncDirs) syncSamePair(ss *syncSession, left, right string) error {
 		return nil
 	}
 	ss.mu.Lock()
-	cl, cr := ss.left, ss.right
+	ls, rs, cl, cr := ss.lside, ss.rside, ss.left, ss.right
 	ss.mu.Unlock()
-	l, errL := s.syncDir("left", left)
-	r, errR := s.syncDir("right", right)
-	if errL != nil || errR != nil || l != cl || r != cr {
+	if !s.sameSide(ls, cl, left) || !s.sameSide(rs, cr, right) {
 		return errors.New("The folders changed since the last compare. Press Compare first.")
 	}
 	return nil
@@ -177,18 +183,29 @@ func (s *SyncDirs) Compare(id int, r SyncCompareRequest) error {
 	if err != nil {
 		return err
 	}
-	left, err := s.syncDir("left", r.Left)
-	if err != nil {
-		return err
-	}
-	right, err := s.syncDir("right", r.Right)
-	if err != nil {
-		return err
-	}
 	opts := r.Options
 	opts.Selected = r.Selected
 	if _, err := syncdirs.CompileFilter(opts.Filter, nil); err != nil {
 		return fmt.Errorf("The file types to compare are not valid: %v", err)
+	}
+	ss.mu.Lock()
+	busy := ss.busy
+	ss.mu.Unlock()
+	if busy {
+		return errors.New("A compare or synchronization is already running.")
+	}
+	lside, err := s.syncOpenSide("left", r.Left)
+	if err != nil {
+		return err
+	}
+	rside, err := s.syncOpenSide("right", r.Right)
+	if err != nil {
+		return err
+	}
+	if (lside.vfs != nil || rside.vfs != nil) && opts.ToleranceSeconds < 1 && !opts.IgnoreDate {
+		// Servers and archives keep whole seconds at best, so a local file that is a fraction of a second younger
+		// would always look newer. Local pairs keep the exact compare they had.
+		opts.ToleranceSeconds = 1
 	}
 	ss.mu.Lock()
 	if ss.busy {
@@ -197,11 +214,13 @@ func (s *SyncDirs) Compare(id int, r SyncCompareRequest) error {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	ss.busy, ss.cancel = true, cancel
-	ss.left, ss.right = left, right
-	ss.lfs, ss.rfs = syncdirs.DirFS(left), syncdirs.DirFS(right)
+	ss.left, ss.right = lside.path, rside.path
+	ss.lside, ss.rside = lside, rside
+	ss.lfs, ss.rfs = lside.fs, rside.fs
 	ss.res = nil // the old result belongs to the old folders
 	lfs, rfs := ss.lfs, ss.rfs
 	ss.mu.Unlock()
+	syncBegin(ctx, true, lside, rside)
 
 	go func() {
 		var last time.Time
@@ -214,6 +233,17 @@ func (s *SyncDirs) Compare(id int, r SyncCompareRequest) error {
 		})
 		cancelled := ctx.Err() != nil
 		cancel()
+		syncEnd(lside, rside)
+		if res != nil {
+			// Nothing may be copied to or deleted on a side that can't be changed (a RAR archive, an archive on a
+			// server): its rows get their default actions again without those.
+			if lside.info.ReadOnly {
+				res.SetReadOnly(syncdirs.LeftSide, true)
+			}
+			if rside.info.ReadOnly {
+				res.SetReadOnly(syncdirs.RightSide, true)
+			}
+		}
 		ss.mu.Lock()
 		ss.busy, ss.cancel = false, nil
 		if res != nil {
@@ -261,6 +291,10 @@ func (s *SyncDirs) Rows(id int, show syncdirs.Show) (*SyncView, error) {
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
 	v := &SyncView{Rows: []*syncdirs.Item{}, Errors: []string{}, Left: ss.left, Right: ss.right}
+	if ss.lside != nil && ss.rside != nil {
+		li, ri := ss.lside.info, ss.rside.info
+		v.LeftSide, v.RightSide = &li, &ri
+	}
 	if ss.res == nil || ss.busy {
 		return v, nil
 	}
@@ -363,6 +397,8 @@ func (s *SyncDirs) Recompare(id int, path string) error {
 	}
 	ss.mu.Lock()
 	defer ss.mu.Unlock()
+	syncBegin(context.Background(), false, ss.lside, ss.rside)
+	defer syncEnd(ss.lside, ss.rside)
 	return ss.res.Recompare(context.Background(), path)
 }
 
@@ -399,7 +435,9 @@ func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 	ss.busy, ss.cancel = true, cancel
 	ss.answer = make(chan syncdirs.OverwriteDecision, 1)
 	lfs, rfs, answer := ss.lfs, ss.rfs, ss.answer
+	lside, rside := ss.lside, ss.rside
 	ss.mu.Unlock()
+	syncBegin(ctx, false, lside, rside)
 
 	opts := syncdirs.ExecOptions{}
 	var last time.Time
@@ -441,16 +479,22 @@ func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 	}
 	if r.Trash {
 		opts.Trash = syncdirs.SystemTrash
+		if (lside != nil && lside.vfs != nil) || (rside != nil && rside.vfs != nil) {
+			// Servers and archives have no trash: deletes there are permanent, as the Synchronize dialog says.
+			opts.Trash = syncTrash
+		}
 		opts.TrashEmptyDirs, opts.TrashReplacedLinks = r.TrashAll, r.TrashAll
 	}
 	go func() {
 		rep, err := syncdirs.Execute(ctx, plan, lfs, rfs, opts)
 		cancelled := ctx.Err() != nil || errors.Is(err, context.Canceled)
 		cancel()
+		warnings := syncEnd(lside, rside)
 		ss.mu.Lock()
 		ss.busy, ss.cancel, ss.answer = false, nil, nil
 		ss.mu.Unlock()
-		done := map[string]any{"id": id, "cancelled": cancelled, "error": "", "done": 0, "skipped": 0, "bytes": 0, "errors": []string{}}
+		done := map[string]any{"id": id, "cancelled": cancelled, "error": "", "done": 0, "skipped": 0, "bytes": 0, "errors": []string{},
+			"warnings": warnings}
 		if rep != nil {
 			errs := []string{}
 			for _, e := range rep.Errors {
@@ -461,6 +505,9 @@ func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 		if err != nil && !cancelled {
 			done["error"] = syncErrText(err)
 		}
+		ss.mu.Lock()
+		ss.lastDone = done
+		ss.mu.Unlock()
 		s.app.emit("syncdirs-exec-done", done)
 	}()
 	return nil
