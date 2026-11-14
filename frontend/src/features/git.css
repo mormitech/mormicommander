@@ -1,0 +1,21 @@
+/* Git status in the panels (features/git.js): the status letter beside each name, which only takes room while the
+   panel shows a folder of a git repository (.mc-git-col), dimmed ignored files, and the branch badge in the path bar. */
+.mc-git-col .row .n::before {
+    content: ''; flex: none; width: 1.1em; text-align: center; font-size: .85em; font-weight: 600; line-height: 1;
+}
+.mc-git-col .row.mc-git-m .n::before { content: 'M'; color: #d29922; }
+.mc-git-col .row.mc-git-a .n::before { content: 'A'; color: #3fb950; }
+.mc-git-col .row.mc-git-d .n::before { content: 'D'; color: var(--danger); }
+.mc-git-col .row.mc-git-r .n::before { content: 'R'; color: var(--accent); }
+.mc-git-col .row.mc-git-u .n::before { content: 'U'; color: var(--danger); }
+.mc-git-col .row.mc-git-new .n::before { content: '?'; color: var(--muted); }
+.mc-git-col .row.mc-git-ign .n::before { content: '!'; color: var(--muted); font-weight: 400; }
+.mc-git-col .header [data-col="name"], .mc-git-col .header [data-vcol="name"] { padding-left: calc(1.1em + 5px); }
+
+.row.mc-git-dim { opacity: var(--hid); }
+
+.mc-git-badge {
+    display: inline-block; margin: 0 4px; padding: 0 6px; border-radius: 4px; font-size: 11px; line-height: 16px;
+    color: var(--text); background: color-mix(in srgb, var(--muted) 30%, transparent); white-space: nowrap; cursor: default;
+}
+.mc-git-badge.dirty { background: color-mix(in srgb, #d29922 35%, transparent); }
