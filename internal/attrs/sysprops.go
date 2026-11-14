@@ -52,6 +52,24 @@ func fileManagerPropertiesCommand(path string) *exec.Cmd {
 		"array:string:"+u, "string:")
 }
 
+// UIThread, when set, runs a function on the app's UI thread and waits for it
+// to finish. The app sets it on Windows, where the Explorer property sheet
+// has to be created on the window thread: Wails runs bound methods on plain
+// goroutines, which have no message loop, so a sheet created there may never
+// appear. Left nil (tests, other platforms) the work runs where it is called.
+var UIThread func(func())
+
+// onUIThread runs fn through UIThread when one is set, otherwise directly,
+// and passes fn's error back.
+func onUIThread(fn func() error) error {
+	if UIThread == nil {
+		return fn()
+	}
+	var err error
+	UIThread(func() { err = fn() })
+	return err
+}
+
 // startDetached starts a helper and reaps it in the background so it never
 // lingers as a zombie.
 func startDetached(cmd *exec.Cmd) error {

@@ -3,6 +3,7 @@
 package attrs
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -33,5 +34,29 @@ func TestFileManagerPropertiesCommand(t *testing.T) {
 	}
 	if cmd.Args[0] != "dbus-send" {
 		t.Errorf("program = %q", cmd.Args[0])
+	}
+}
+
+func TestOnUIThreadDirect(t *testing.T) {
+	old := UIThread
+	defer func() { UIThread = old }()
+	UIThread = nil
+	ran := false
+	if err := onUIThread(func() error { ran = true; return nil }); err != nil || !ran {
+		t.Errorf("ran=%v err=%v", ran, err)
+	}
+}
+
+func TestOnUIThreadDispatches(t *testing.T) {
+	old := UIThread
+	defer func() { UIThread = old }()
+	dispatched := 0
+	UIThread = func(fn func()) { dispatched++; fn() }
+	want := errors.New("boom")
+	if err := onUIThread(func() error { return want }); err != want {
+		t.Errorf("err = %v, want %v", err, want)
+	}
+	if dispatched != 1 {
+		t.Errorf("dispatched %d times, want 1", dispatched)
 	}
 }
