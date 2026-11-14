@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.86 – 2026-11-14
+
+### Security
+
+- Issue #116 (advisory review, no change in behaviour): checked the Wails v3.1.0 fix for GHSA-2p5f-2gx8-mh8m. Reserved messages from child frames are dropped, but bound Go calls (fetch to /wails/runtime) are not frame-checked, so any script-capable frame with the app's origin could still reach Go. Our exposure is low (no page creates frames, only bundled pages are loaded, viewer HTML is sanitized into a shadow root). As hardening, the viewer now draws an <embed> only for PDF; any other type shows a "can't be shown here" message. No current format is affected. Tests added on both sides. The Wails upgrade itself is not done: Wails stays at v3.1.0 until a later v3 release can be tried by hand on every platform.
+
 ## 0.9.85 – 2026-11-14
 
 ### Added
