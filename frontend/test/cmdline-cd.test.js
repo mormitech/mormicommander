@@ -11,7 +11,7 @@ vi.mock('../src/core/app.js', () => ({
     platform: 'darwin',
     home: '/Users/me',
     cur: { path: '/Users/me/A', go: (p) => { went.push(p); return Promise.resolve(); } },
-    resolvePath: (p, from) => (p.startsWith('/') ? p : `${from}/${p}`),
+    resolvePath: (p, from) => (p.startsWith('/') || /^[a-z]+:\/\//i.test(p) ? p : `${from}/${p}`),
     run: () => Promise.resolve(),
     flash: () => {},
   },
@@ -25,8 +25,8 @@ vi.mock('../src/core/registry.js', () => ({
   run: (name) => { ran.push(name); return Promise.resolve(); },
 }));
 
-const { cdArg } = await import('../src/features/cmdline.js');
-const { cmdline } = await import('../src/core/cmdline.js');
+const { cdArg, serverUrlArg } = await import('../src/features/cmdline.js');
+const { cmdline, withoutUrlPasswords } = await import('../src/core/cmdline.js');
 
 beforeEach(() => {
   document.body.innerHTML = '<input id="cmd" type="text">';
@@ -61,4 +61,26 @@ test('environment variables are expanded', async () => {
   await enter('cd %HOME%');
   await enter('cd sub');
   expect(went).toEqual(['/Users/me', '/Users/me/Documents', '/Users/me', '/Users/me/A/sub']);
+});
+
+// F-636: a server URL alone on the command line opens in the panel like "cd <url>", instead of being run as a program.
+test('a server URL alone opens in the active panel', async () => {
+  expect(serverUrlArg('sftp://bob@host/home/bob')).toBe('sftp://bob@host/home/bob');
+  expect(serverUrlArg('  ftp://example.com ')).toBe('ftp://example.com');
+  expect(serverUrlArg('"sftp://h/a folder"')).toBe('sftp://h/a folder');
+  expect(serverUrlArg('sftp://h/a folder')).toBe(null); // spaces need quotes
+  expect(serverUrlArg('open sftp://h')).toBe(null);
+  expect(serverUrlArg('https://example.com')).toBe(null);
+  expect(serverUrlArg('sftp://')).toBe(null);
+  expect(await enter('sftp://bob@host/x')).toBe(true);
+  expect(await enter('cd ftp://h/pub')).toBe(true);
+  expect(went).toEqual(['sftp://bob@host/x', 'ftp://h/pub']);
+});
+
+// The history is saved in the settings file, so a password typed in a server URL is left out of it (F-634, F-636).
+test('the history never keeps a password of a server URL', () => {
+  expect(withoutUrlPasswords('cd sftp://bob:s3cret@host/x')).toBe('cd sftp://bob@host/x');
+  expect(withoutUrlPasswords('ftp://u:p%40ss@h:21/a ftps://x:y@z/')).toBe('ftp://u@h:21/a ftps://x@z/');
+  expect(withoutUrlPasswords('cd ftp://bob@host:21/x')).toBe('cd ftp://bob@host:21/x');
+  expect(withoutUrlPasswords('echo a:b@c')).toBe('echo a:b@c');
 });

@@ -1,7 +1,8 @@
 // The Net menu (FEATURES.md sections 15 and 30): FTP, FTPS, SFTP and WebDAV servers in a panel.
 //
 //   Ctrl+F        cm_FtpConnect        the connection manager: saved servers in folders; connect, new, duplicate,
-//                                      edit, delete, folders, master password
+//                                      edit, delete, folders, master password, and "Keep saved passwords in the
+//                                      system keychain" (off by default; switching moves the saved passwords)
 //   Ctrl+N        cm_FtpNew            quick connect: type ftp://user@host:port/folder (sftp://, webdav:// too)
 //   Ctrl+Shift+F  cm_FtpDisconnect     closes the connection of the panel and goes back to a local folder
 //   Ctrl+Shift+M  cm_FtpTransferMode   binary → ASCII → automatic
@@ -28,6 +29,7 @@ import { track } from '../core/busy.js';
 import { app as theApp } from '../core/app.js';
 import { holdProgress, showWhenFree } from '../core/progresshold.js';
 import { jobWaiter } from '../core/jobwait.js';
+import { savePasswordLabel, passwordStoreNote, sitePasswordNote, keychainTitle, keychainResult } from './net-lib.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
 export const isRemote = (p) => SCHEMES.test(p || '');
@@ -201,9 +203,11 @@ async function manager(app, args = {}) {
           <button type="button" data-a="master">Master password…</button>
         </div>
       </div>
+      <label class="mc-check mc-net-kc"><input type="checkbox" id="keychain"> Keep saved passwords in the system keychain</label>
       <p class="mc-note mc-net-info"></p><p class="mc-err" hidden></p>
       <div class="mc-btns"><button type="button" class="cancel">Close</button></div>`;
     const sel = box.querySelector('#site'), info = box.querySelector('.mc-net-info'), err = box.querySelector('.mc-err');
+    const kc = box.querySelector('#keychain');
     const showErr = (e) => { err.hidden = !e; err.textContent = e ? errText(e) : ''; };
     const cur = () => sel.value || '';
     const siteOf = (v) => (v.startsWith('s:') ? list.sites.find((s) => s.id === v.slice(2)) : null);
@@ -231,8 +235,11 @@ async function manager(app, args = {}) {
     const update = () => {
       const s = siteOf(cur());
       const f = cur().startsWith('f:');
-      info.textContent = s ? `${PROTOCOLS.find((p) => p[0] === s.protocol)?.[1] || s.protocol} · ${s.user || (s.protocol === 'sftp' ? 'your login name' : 'anonymous')}@${s.host}${s.port ? `:${s.port}` : ''}${s.remoteDir ? ` · ${s.remoteDir}` : ''}${s.hasPassword ? ' · password saved' : ''}${s.comment ? ` · ${s.comment}` : ''}`
-        : f ? `Folder ${cur().slice(2)}` : list.hasMaster ? 'Saved passwords are protected by the master password.' : '';
+      info.textContent = s ? `${PROTOCOLS.find((p) => p[0] === s.protocol)?.[1] || s.protocol} · ${s.user || (s.protocol === 'sftp' ? 'your login name' : 'anonymous')}@${s.host}${s.port ? `:${s.port}` : ''}${s.remoteDir ? ` · ${s.remoteDir}` : ''}${sitePasswordNote(s)}${s.comment ? ` · ${s.comment}` : ''}`
+        : f ? `Folder ${cur().slice(2)}` : passwordStoreNote(list);
+      kc.checked = !!list.keychain;
+      kc.disabled = !list.keychainAvailable && !list.keychain; // on without a keychain: can still be switched off
+      kc.closest('label').title = keychainTitle(list);
       for (const b of box.querySelectorAll('[data-a="connect"], [data-a="copy"], [data-a="edit"]')) b.disabled = !s && !(f && b.dataset.a === 'edit');
       box.querySelector('[data-a="connect"]').disabled = !s;
       box.querySelector('[data-a="delete"]').disabled = !cur();
@@ -296,10 +303,15 @@ async function manager(app, args = {}) {
             return;
           }
           case 'master': { await go.Net.ChangeMasterPassword(); await reload(); app.flash('The master password is set.'); return; }
+          case 'keychain': {
+            try { app.flash(keychainResult(await go.Net.SetKeychain(kc.checked))); } finally { await reload(); }
+            return;
+          }
         }
       } catch (e) { showErr(e); }
     };
     box.querySelectorAll('[data-a]').forEach((b) => { if (b.type !== 'submit') b.onclick = () => act(b.dataset.a); });
+    kc.addEventListener('change', () => act('keychain'));
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => { ev.preventDefault(); act('connect'); };
     sel.addEventListener('change', () => { selected = cur(); update(); });
@@ -334,7 +346,7 @@ async function editSite(app, s, list) {
     <div class="mc-row"><label for="protocol">Protocol</label><select id="protocol">${PROTOCOLS.map(([v, l]) => opt(v, l, s.protocol || 'ftp')).join('')}</select></div>
     <div class="mc-net-2">${txt('host', 'Server (name, address or URL)', s.host)}${txt('port', 'Port', s.port || '', 'inputmode="numeric"')}</div>
     <div class="mc-net-2">${txt('user', 'User name', s.user)}<div class="mc-row"><label for="password">Password</label><input id="password" type="password" class="mc-net-in" placeholder="${s.hasPassword ? 'saved (type to change)' : 'asked when connecting'}"></div></div>
-    <div class="mc-net-row">${chk('anon', 'Anonymous login', !s.user && (s.protocol || 'ftp').startsWith('ftp') && !!s.id)}${chk('savePassword', 'Save the password (encrypted with the master password)', s.savePassword)}</div>
+    <div class="mc-net-row">${chk('anon', 'Anonymous login', !s.user && (s.protocol || 'ftp').startsWith('ftp') && !!s.id)}${chk('savePassword', savePasswordLabel(list), s.savePassword)}</div>
     <div class="mc-net-2">${txt('remoteDir', 'Remote folder', s.remoteDir, 'placeholder="the login folder"')}${txt('localDir', 'Local folder (other panel)', s.localDir)}</div>
     <fieldset class="mc-net-ftp"><legend>FTP</legend>
       <div class="mc-net-row">${chk('passive', 'Passive mode (through firewalls)', s.passive !== false)}${chk('tryTLS', 'Use TLS when the server offers it', s.tryTLS)}${chk('showHidden', 'Show hidden files (LIST -a)', s.showHidden)}${chk('noMLSD', 'Don\'t use MLSD', s.noMLSD)}</div>

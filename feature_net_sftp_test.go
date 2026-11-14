@@ -23,6 +23,8 @@ import (
 
 	pkgsftp "github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+
+	"mormicommander/internal/keychain"
 )
 
 const netSSHUser, netSSHPass = "tester", "s3cret"
@@ -175,6 +177,7 @@ func netSSHIsolate(t *testing.T) string {
 func netSSHNet(t *testing.T, answer func(kind, message string) (string, bool)) (*Net, *[]string) {
 	t.Helper()
 	n := newNet(&App{})
+	n.openKeychain = func() (keychain.Keychain, error) { return keychain.NewFake(), nil } // never the real keychain
 	var mu sync.Mutex
 	var asked []string
 	n.asker = func(kind string, data map[string]any) (map[string]any, bool) {

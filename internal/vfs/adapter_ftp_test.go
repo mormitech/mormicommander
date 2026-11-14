@@ -362,3 +362,28 @@ func TestRemoteURLHelpers(t *testing.T) {
 		t.Error("hasScheme")
 	}
 }
+
+// A password typed in the URL of the path bar ("ftp://u:pw@host/pub", F-636) logs in: List opens the session with it
+// before the URL is cleaned (the clean form, which the panel shows, never has the password). Without a password in
+// the URL nothing changes: the session needs one from Configure.
+func TestRouterListUsesURLPassword(t *testing.T) {
+	s := newAuthFTPServer(t)
+	s.write("pub/a.txt", "x")
+	r, base := ftpRouter(t, s)
+	ctx := context.Background()
+	l, err := r.List(ctx, base+"/pub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(l.Path, "pw") || len(l.Entries) != 1 {
+		t.Fatalf("listing %q %+v", l.Path, l.Entries)
+	}
+	// the session is open now: the clean form lists too
+	if _, err := r.List(ctx, l.Path); err != nil {
+		t.Fatal(err)
+	}
+	r2, _ := ftpRouter(t, s)
+	if _, err := r2.List(ctx, fmt.Sprintf("ftp://u@127.0.0.1:%d/pub", s.port)); err == nil {
+		t.Fatal("logged in without a password")
+	}
+}

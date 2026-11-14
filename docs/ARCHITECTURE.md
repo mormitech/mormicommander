@@ -30,6 +30,7 @@ internal/vfs          file systems for the panels: Local, Mock (demo); Register(
 internal/disk         volumes and free space, per platform (volumes_darwin.go, _linux, _windows, _other)
 internal/fileops      the job engine: queue, progress events, cancel, overwrite questions (no UI)
 internal/trash        Trash / Recycle Bin per platform
+internal/keychain     named secrets in the system keychain (macOS login keychain, Windows Credential Manager, Secret Service)
 
 frontend/index.html   the layout: #toolbar, two .panel sections, #splitter, #vbar, #cmdline, #fkeys, #flash
 frontend/src/main.js  start-up of the page; imports every file of src/features/ automatically

@@ -86,6 +86,11 @@ type Store struct {
 	Sites   []Site        `json:"sites"`
 	Proxies []NamedProxy  `json:"proxies,omitempty"`
 	Crypto  *CryptoHeader `json:"crypto,omitempty"`
+
+	// Keychain says new and changed passwords go to the system keychain, and the list keeps only a reference to
+	// them ("keychain:<name>", see KeyRefPrefix). It is off by default; passwords saved before keep their form until
+	// the option is switched, which moves them (the UI does that, as it knows the keychain).
+	Keychain bool `json:"keychain,omitempty"`
 }
 
 const storeVersion = 1

@@ -1,6 +1,7 @@
 // The command line's own commands (FEATURES.md section 10): Enter runs it; "cd <folder>" changes the active panel's
 // folder (F-062, F-297); a cm_* name runs that command (F-301); Ctrl+E brings back the one before; Ctrl+Enter,
-// Ctrl+Shift+Enter and Ctrl+P put names and paths into it. Running programs is a feature of its own: it adds a handler
+// Ctrl+Shift+Enter and Ctrl+P put names and paths into it. A server URL alone (sftp://host/x, ftp://host) opens in the
+// active panel like "cd" with it (F-636). Running programs is a feature of its own: it adds a handler
 // with addCmdlineHandler and gets every line that isn't "cd" or a cm_* name.
 
 import { command, hasCommand, commandList, run } from '../core/registry.js';
@@ -61,6 +62,22 @@ addCmdlineHandler(async (text) => {
   await p.go(app.resolvePath(arg, p.path));
   return true;
 });
+
+// serverUrlArg: a line that is only a server URL ("sftp://bob@host/home/bob", "ftp://example.com", also in quotes)
+// is the URL; it opens in the active panel like "cd <url>" (F-636), instead of being run as a program. Anything else:
+// null.
+export function serverUrlArg(text) {
+  const t = text.trim().replace(/^"(.*)"$/, '$1');
+  return /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\/[^\s/]+(\/.*)?$/i.test(t) && (!/\s/.test(t) || /^".*"$/.test(text.trim())) ? t : null;
+}
+
+addCmdlineHandler(async (text) => {
+  const url = serverUrlArg(text);
+  if (url === null) return false;
+  const app = theApp, p = app.cur;
+  await p.go(app.resolvePath(url, p.path));
+  return true;
+}, { first: true });
 
 addCmdlineHandler(async (text) => {
   if (!/^cm_\w+$/i.test(text)) return false;

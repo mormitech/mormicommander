@@ -10,6 +10,13 @@
 import { setSetting, getSetting } from './settings.js';
 
 const handlers = [];
+
+// withoutUrlPasswords drops the password of every server URL in s ("cd sftp://bob:secret@host/x" → "cd
+// sftp://bob@host/x"): the command line history is written to the settings file, and a password must never be kept
+// there in plain text (F-634, F-636). The line itself still runs with the password.
+export function withoutUrlPasswords(s) {
+  return String(s).replace(/\b((?:ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\/[^:@/\s]*):[^@/\s]*@/gi, '$1@');
+}
 // the Tab completer (features/cmdline-complete.js): async (input, back) => whether it completed something
 let completer = null;
 export function setCmdlineCompleter(fn) { completer = fn; }
@@ -128,12 +135,14 @@ export const cmdline = {
     i.setSelectionRange(i.value.length, i.value.length);
   },
 
-  // submit runs the text: the first handler that takes it wins. The line is cleared afterwards.
+  // submit runs the text: the first handler that takes it wins. The line is cleared afterwards. The history keeps
+  // the line without a password typed in a server URL (see withoutUrlPasswords), like quick connect's history.
   async submit({ shift = false } = {}) {
     const text = this.text.trim();
     if (!text) return false;
-    const h = this.history.filter((x) => x !== text);
-    h.unshift(text);
+    const kept = withoutUrlPasswords(text);
+    const h = this.history.filter((x) => x !== kept);
+    h.unshift(kept);
     setSetting('cmdHistory', h.slice(0, 50));
     histPos = -1;
     this.clear();
