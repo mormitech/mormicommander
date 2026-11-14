@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.23 – 2026-11-14
+
+### Added
+
+- Zero-network test of the whole app (#14): a CI job (`zero-network`, Linux) starts the built app under a virtual
+  display in control mode with temporary folders, drives a session (browsing, the Lister on text, Markdown, HTML and SVG
+  files full of remote content, quick view, thumbnails, copy, Find files, the Options and Ask AI dialogs) and watches
+  every process of the app, the web view's included, with strace and ss. Any connection that leaves the machine, or a
+  DNS lookup, fails the build; a self-test first proves the watcher catches a planted connection. Releases wait for it.
+  docs/privacy.md and the README describe it.
+
 ## 0.10.22 – 2026-11-14
 
 ### Added
