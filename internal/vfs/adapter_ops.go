@@ -34,6 +34,11 @@ var (
 	// particular location is read-only (a spanned zip set, an archive nested
 	// inside another archive, an archive opened from an FTP server).
 	ErrReadOnly = errors.New("vfs: location is read-only")
+	// ErrNestedReadOnly is the ErrReadOnly of an archive that lives inside
+	// another archive or was opened from a server: its format may well be
+	// writable, but the copy that is shown is a temporary one. It wraps
+	// ErrReadOnly, so errors.Is(err, ErrReadOnly) holds for it too.
+	ErrNestedReadOnly = fmt.Errorf("%w (the archive is inside another archive or on a server)", ErrReadOnly)
 	// ErrCrossFS is returned by Rename when source and target live on
 	// different file systems (two archives, an archive and the disk, two
 	// servers). The job engine then copies and deletes instead.

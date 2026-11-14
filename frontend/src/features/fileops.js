@@ -28,6 +28,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { sameNameTarget } from './fileops-target.js';
 import { copiedNames } from './fileops-sel.js';
+import { archiveRefusal } from './fileops-readonly.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -301,6 +302,9 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     remember(app, 'copyHistory', a.text);
   }
   const t = a.t;
+  // into an archive that can't be changed: say why now, before any "Replace file?" question (board #143)
+  const why = archiveRefusal(await go.FS.PathInfo(t.dir).catch(() => null));
+  if (why) { await messageDialog({ Title: move ? 'Move' : 'Copy', Message: why }); return false; }
   let rename = t.rename === '*.*' || t.rename === '*' ? '' : t.rename;
   let overwrite = a.overwrite;
   // onto itself (Shift+F5 with the name unchanged): a copy gets a free name, "a(2).txt" (F-479, F-464); a move does nothing
@@ -366,11 +370,15 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
   if (!items.length) return false;
   // inside an archive or on a server there is no trash: the entries are removed for good (VfsJobs), as TC asks
   let place = isRemote(src.path) ? 'server' : '';
+  let why = '';
   if (!place && !isFeed(src.path)) {
     const info = await go.FS.PathInfo(src.path).catch(() => null);
     if (info?.kind === 'archive') place = 'archive';
+    why = archiveRefusal(info);
   }
   if (place && wipe) { app.flash(`Wiping works only for files on this computer, not in ${place === 'archive' ? 'an archive' : 'a server folder'}.`, 'err'); return false; }
+  // an archive that can't be changed says so instead of asking to delete "for good" first (board #143)
+  if (why) { await messageDialog({ Title: 'Delete', Message: why }); return false; }
   const useTrash = !!opt(app, 'useTrash');
   const trashOK = place ? false : await go.Jobs.TrashSupported().catch(() => false);
   let toTrash = !place && !wipe && (useTrash ? !permanent : permanent); // F-810: with the trash off, Shift+F8 is the trash
@@ -431,6 +439,9 @@ const MKDIR_TEMPLATES = [['[Y]-[M]-[D]', 'today'], ['[Y]-[M]-[D] [h].[m]', 'now'
 async function makeFolder(app) {
   const src = app.cur;
   const e = src.cur;
+  // in an archive that can't be changed: say why instead of offering the dialog (board #143)
+  const why = isFeed(src.path) ? '' : archiveRefusal(await go.FS.PathInfo(src.path).catch(() => null));
+  if (why) { await messageDialog({ Title: 'New folder', Message: why }); return false; }
   const initial = e && !e.up ? (e.dir ? e.name : e.base) : '';
   const first = await modal((box, done) => {
     box.classList.add('mc-fileops-mkdir');

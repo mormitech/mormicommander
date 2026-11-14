@@ -121,6 +121,12 @@ func fileopsParseVFS(r *vfs.Router, in string, sources int, from string) (Fileop
 		if err != nil {
 			return false, false
 		}
+		if e.Flags&vfs.FlagDir == 0 && r != nil && r.Kind(p) == vfs.KindArchive {
+			// an archive inside an archive that a panel has entered: its root, as the panel shows it (board #143)
+			if ai, err := r.Archives.FolderInfo(p); err == nil && ai.Nested && ai.Inner == "" && ai.Root == p {
+				return true, true
+			}
+		}
 		return true, e.Flags&vfs.FlagDir != 0
 	}
 	t := FileopsTarget{}
@@ -207,6 +213,9 @@ func (j *Jobs) MkDir(parent, name string) (string, error) {
 		return "", errors.New("Type a name for the new folder.")
 	}
 	if r, ok := fileopsVFSPath(j.app, parent, true); ok {
+		if why := vfsArchiveReadOnly(r, parent, true); why != "" {
+			return "", errors.New(why) // (board #143)
+		}
 		return fileopsMkdirVFS(j.app, r, parent, name)
 	}
 	name = fileopsExpandHome(name)
@@ -327,6 +336,9 @@ func (j *Jobs) Rename(path, newName string) (string, error) {
 		}
 		if err := fileopsCheckName(newName); err != nil {
 			return "", err
+		}
+		if why := vfsArchiveReadOnly(r, path, false); why != "" {
+			return "", errors.New(why) // (board #143)
 		}
 		dst := fsys.Join(fsys.Parent(path), newName)
 		if err := vfs.Rename(context.Background(), fsys, path, dst); err != nil {

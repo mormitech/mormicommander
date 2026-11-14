@@ -52,6 +52,9 @@ type PathInfo struct {
 	ReadOnly bool   `json:"readOnly"` // nothing can be written here
 	Remote   bool   `json:"remote"`   // on a server (also an archive downloaded from one)
 	Nested   bool   `json:"nested"`   // an archive inside another archive or on a server
+	// ReadOnlyWhy is the sentence that tells why an archive folder can't be changed ("" when it can), shown before F5,
+	// F6, F7 or F8 would change it (board #143)
+	ReadOnlyWhy string `json:"readOnlyWhy,omitempty"`
 }
 
 // PathInfo tells what kind of place path is: a local folder, the inside of an archive, a server folder.
@@ -66,8 +69,10 @@ func (f *FS) PathInfo(path string) PathInfo {
 	kind := vfsPathKind(f.router, path)
 	info := PathInfo{Kind: kind, Remote: kind == "ftp" || kind == "sftp" || strings.Contains(path, "://")}
 	if kind == "archive" {
-		if ai, err := f.router.Archives.Info(f.router.Clean(path)); err == nil {
+		// FolderInfo: an archive entered from inside another one is that inner archive here, not a file of the outer one
+		if ai, err := f.router.Archives.FolderInfo(f.router.Clean(path)); err == nil {
 			info.Format, info.Archive, info.Inner, info.ReadOnly, info.Nested = ai.Format, ai.Root, ai.Inner, ai.ReadOnly, ai.Nested
+			info.ReadOnlyWhy = vfsArchiveReadOnly(f.router, path, true)
 		}
 		return info
 	}
@@ -76,6 +81,33 @@ func (f *FS) PathInfo(path string) PathInfo {
 		info.ReadOnly = !c.Write
 	}
 	return info
+}
+
+// vfsArchiveReadOnly says why nothing can be changed at p inside an archive, as a sentence, or "" when it can be
+// changed (or p is not in an archive). With folder, p is a folder a panel shows (a copy target, where F7 makes a
+// folder), so an archive entered from inside another one counts as that inner archive; otherwise p is an entry to
+// delete, move or rename, which belongs to the archive that holds it (TC: "This archive type cannot be modified").
+func vfsArchiveReadOnly(r *vfs.Router, p string, folder bool) string {
+	if r == nil || vfsPathKind(r, p) != "archive" {
+		return ""
+	}
+	p = r.Clean(p)
+	var ai vfs.ArchiveInfo
+	var err error
+	if folder {
+		ai, err = r.Archives.FolderInfo(p)
+	} else {
+		ai, err = r.Archives.Info(p)
+	}
+	if err != nil || !ai.ReadOnly {
+		return ""
+	}
+	name := vfsBase(ai.Root)
+	if ai.Nested {
+		return fmt.Sprintf("%s is inside another archive (or on a server), so it can't be changed here. Unpack it, change the files and pack it again.", name)
+	}
+	return fmt.Sprintf("%s can't be changed: this archive type (%s) is read-only here. Unpack it, or pack a new archive with Alt+F5.",
+		name, strings.ToUpper(ai.Format))
 }
 
 // IsArchive says whether Enter opens a file of this name as a folder (by its extension, like TC's packers).
@@ -192,6 +224,8 @@ func vfsErrText(err error) string {
 		return "checksum error: the data is damaged (or the password is wrong)."
 	case errors.Is(err, archive.ErrMissingVolume), errors.Is(err, sevenrar.ErrMissingVolume):
 		return "a part of the multi-volume archive is missing."
+	case errors.Is(err, vfs.ErrNestedReadOnly):
+		return "this archive is inside another archive (or on a server), so it can't be changed here."
 	case errors.Is(err, archive.ErrReadOnly), errors.Is(err, vfs.ErrReadOnly), errors.Is(err, arcapi.ErrNotSupported):
 		return "this archive can't be changed (its format is read-only here)."
 	case errors.Is(err, archive.ErrFormat):

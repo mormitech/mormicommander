@@ -533,8 +533,19 @@ func TestArchiveNested(t *testing.T) {
 	if err != nil || !info.Nested || !info.ReadOnly || info.Root != nested {
 		t.Errorf("nested info %+v %v", info, err)
 	}
-	if err := r.Mkdir(ctx, filepath.Join(nested, "x")); !errors.Is(err, ErrReadOnly) {
+	if err := r.Mkdir(ctx, filepath.Join(nested, "x")); !errors.Is(err, ErrReadOnly) || !errors.Is(err, ErrNestedReadOnly) {
 		t.Errorf("write into nested archive: %v", err)
+	}
+	// Board #143: at the nested archive's own path, Info sees the file in the outer archive and FolderInfo the
+	// entered inner archive's root.
+	if info, err := r.Archives.Info(nested); err != nil || info.Nested || info.ReadOnly || info.Inner != "old/inner.tar.gz" {
+		t.Errorf("Info at the nested archive's path %+v %v", info, err)
+	}
+	if info, err := r.Archives.FolderInfo(nested); err != nil || !info.Nested || !info.ReadOnly || info.Inner != "" || info.Root != nested {
+		t.Errorf("FolderInfo at the nested archive's path %+v %v", info, err)
+	}
+	if info, err := r.Archives.FolderInfo(filepath.Join(zp, "old")); err != nil || info.Nested || info.Inner != "old" {
+		t.Errorf("FolderInfo of a plain folder %+v %v", info, err)
 	}
 	if got := r.Parent(nested); got != filepath.Join(zp, "old") {
 		t.Errorf("parent of nested root %q", got)

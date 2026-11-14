@@ -787,6 +787,29 @@ func (a *ArchiveFS) Info(p string) (ArchiveInfo, error) {
 		ReadOnly: h.readOnly || !h.be.writable(), Nested: h.nested}, nil
 }
 
+// FolderInfo describes the archive folder a panel shows at p. It differs
+// from Info only for a path that names an archive which was entered from
+// inside another archive (or from a server): Info sees that path as the file
+// in the outer archive, FolderInfo as the root of the inner archive, which is
+// what the panel shows there. It never unpacks anything: an inner archive
+// that has not been entered yet is reported as the outer archive's file.
+func (a *ArchiveFS) FolderInfo(p string) (ArchiveInfo, error) {
+	p = a.Clean(p)
+	a.mu.Lock()
+	m := a.mounts[p]
+	a.mu.Unlock()
+	if m == nil || m.parent == "" {
+		return a.Info(p)
+	}
+	h, inner, err := a.locate(context.Background(), p, locDir)
+	if err != nil {
+		return ArchiveInfo{}, err
+	}
+	defer a.release(h)
+	return ArchiveInfo{Format: h.be.format(), Root: h.display, File: h.file, Inner: inner,
+		ReadOnly: h.readOnly || !h.be.writable(), Nested: h.nested}, nil
+}
+
 // arcReader keeps the archive open while a member is being read.
 type arcReader struct {
 	io.ReadCloser
@@ -901,6 +924,9 @@ func (a *ArchiveFS) modifyLocked(ctx context.Context, p string, mode locateMode,
 	}
 	if h.readOnly {
 		a.release(h)
+		if h.nested {
+			return "", opErr("write", p, ErrNestedReadOnly)
+		}
 		return "", opErr("write", p, ErrReadOnly)
 	}
 	ch, err := build(h, inner)

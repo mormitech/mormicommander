@@ -121,6 +121,19 @@ func (js *VfsJobs) Start(req VfsRequest) (int, error) {
 	if len(req.Sources) == 0 {
 		return 0, errors.New("Nothing is selected.")
 	}
+	// an archive that can't be changed says so before any question is asked (board #143)
+	if req.Kind == "copy" || req.Kind == "move" {
+		if why := vfsArchiveReadOnly(r, req.Target, true); why != "" {
+			return 0, errors.New(why)
+		}
+	}
+	if req.Kind == "delete" || req.Kind == "trash" {
+		for _, s := range req.Sources {
+			if why := vfsArchiveReadOnly(r, s, false); why != "" {
+				return 0, errors.New(why)
+			}
+		}
+	}
 	if req.Kind != "delete" && req.Kind != "trash" && req.Kind != "wipe" && req.Kind != "test" && strings.TrimSpace(req.Target) == "" {
 		return 0, errors.New("No target is given.")
 	}
@@ -805,6 +818,9 @@ func vfsSamePlace(r *vfs.Router, a, b string) bool {
 // names already there are asked about, and then everything is added at once (one archive rewrite).
 func (job *vfsJob) copyInto(r *vfs.Router, sources []string, target string) ([]bool, error) {
 	arrived := make([]bool, len(sources))
+	if why := vfsArchiveReadOnly(r, target, true); why != "" {
+		return arrived, errors.New(why)
+	}
 	if c := r.Caps(target); !c.Write && vfsPathKind(r, target) == "archive" {
 		return arrived, errors.New("this archive can't be changed (its format is read-only here); unpack it or pack a new one with Alt+F5")
 	}

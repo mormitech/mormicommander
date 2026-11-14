@@ -149,7 +149,7 @@ Pause/Continue, Start now, Stop job, Clear finished, Close).
 
 | Command | Answer |
 |---|---|
-| `{"cmd": "vfs"}` | `left` / `right`: what each panel shows (`kind`: local, archive, ftp, sftp; `format`, `archive`, `inner`, `readOnly`, `remote`, `nested`), and `packers` (the Pack dialog's list with what each can do) |
+| `{"cmd": "vfs"}` | `left` / `right`: what each panel shows (`kind`: local, archive, ftp, sftp; `format`, `archive`, `inner`, `readOnly`, `remote`, `nested`; `readOnlyWhy`: the sentence F5/F6/F7/F8 show when an archive can't be changed), and `packers` (the Pack dialog's list with what each can do) |
 
 Dialog kinds: `pack` (fields `mc-pack-target`, `mc-pack-format`, `mc-pack-level`, `mc-pack-paths`, `mc-pack-recurse`,
 `mc-pack-split`, `mc-pack-size`, `mc-pack-move`, `mc-pack-separate`, `mc-pack-encrypt`, `mc-pack-cipher`,
