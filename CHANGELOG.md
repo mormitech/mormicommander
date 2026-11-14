@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.60 – 2026-11-14
+
+### Fixed
+
+- Compare directories (Shift+F2) now treats a name in the decomposed form macOS uses and its composed twin as the same name, as Find and Synchronize directories already did, so one file is no longer shown as two one-sided entries. Each side keeps its own spelling in the lists, and no panel names or paths change (issue #98).
+
 ## 0.9.59 – 2026-11-14
 
 ### Fixed
