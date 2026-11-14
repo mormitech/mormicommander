@@ -139,3 +139,19 @@ func TestMediaFields(t *testing.T) {
 		t.Errorf("missing file: %q", got)
 	}
 }
+
+func TestLoadFactsExported(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "x.jpg"), buildExifJPEG("2021:05:06 07:08:09", binary.LittleEndian), 0o644)
+	os.WriteFile(filepath.Join(dir, "s.mp3"), id3v23(map[string]string{"TPE1": "Band"}), 0o644)
+	jpg := Item{Name: "x.jpg", Dir: dir}
+	LoadImageFacts(&jpg)
+	if d, ok := jpg.Extra[ExtraExifDate].(time.Time); !ok || d.Year() != 2021 || d.Second() != 9 {
+		t.Errorf("exif date: %v", jpg.Extra)
+	}
+	mp3 := Item{Name: "s.mp3", Dir: dir}
+	LoadAudioFacts(&mp3)
+	if mp3.Extra[ExtraArtist] != "Band" {
+		t.Errorf("artist: %v", mp3.Extra)
+	}
+}

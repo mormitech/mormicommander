@@ -32,6 +32,7 @@ type MultiRename struct {
 	last     *multirename.Result
 	lastLog  *multirename.UndoLog // the last batch of this session, for the result list
 	editFile string               // the temporary file of "Edit names"
+	media    mrMediaCache         // EXIF, image size and audio tag facts for [=img.*] and [=audio.*]
 }
 
 func init() {
@@ -74,6 +75,7 @@ type mrStart struct {
 	Rows     []mrRow              `json:"rows"`
 	Defaults multirename.Settings `json:"defaults"`
 	Fields   []string             `json:"fields"`
+	Media    []string             `json:"media"` // the media fields ([=img.exifdate], [=audio.artist], ...)
 	Presets  []string             `json:"presets"`
 	Undo     mrUndoInfo           `json:"undo"`
 }
@@ -124,10 +126,11 @@ func (m *MultiRename) Start(dir string, names []string) (mrStart, error) {
 	m.real = items
 	m.virt = append([]multirename.Item(nil), items...)
 	m.names, m.last, m.lastLog = nil, nil, nil
+	m.media = mrMediaCache{}
 	rows := m.plainRowsLocked()
 	m.mu.Unlock()
 	presets, _ := m.Presets()
-	return mrStart{Rows: rows, Defaults: multirename.DefaultSettings(), Fields: multirename.FieldNames(), Presets: presets, Undo: m.UndoInfo()}, nil
+	return mrStart{Rows: rows, Defaults: multirename.DefaultSettings(), Fields: multirename.FieldNames(), Media: mrMediaFieldNames, Presets: presets, Undo: m.UndoInfo()}, nil
 }
 
 // Close ends the session (the dialog was closed).
@@ -136,6 +139,7 @@ func (m *MultiRename) Close() {
 	defer m.mu.Unlock()
 	m.cleanupLocked()
 	m.real, m.virt, m.names, m.last, m.lastLog = nil, nil, nil, nil, nil
+	m.media = mrMediaCache{}
 }
 
 func (m *MultiRename) cleanupLocked() {
@@ -164,6 +168,17 @@ func (m *MultiRename) computeLocked(s multirename.Settings) (*multirename.Result
 	if err != nil {
 		return nil, err
 	}
+	// Media fields are read from the files on disk (m.real), whatever names the chained F5 steps gave them.
+	pos := make(map[*multirename.Item]int, len(m.virt))
+	for i := range m.virt {
+		pos[&m.virt[i]] = i
+	}
+	r.SetFieldSource(func(it *multirename.Item, name string) (multirename.FieldValue, bool) {
+		if i, ok := pos[it]; ok {
+			return m.media.source(&m.real[i], name)
+		}
+		return m.media.source(it, name)
+	})
 	names, warns := r.NewNames(m.virt)
 	var extra []string
 	if m.names != nil {

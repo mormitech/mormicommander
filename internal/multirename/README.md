@@ -46,7 +46,7 @@ batch.
 | `[Y]` `[y]` `[M]` `[D]` `[h]` `[m]` `[s]` | modification date/time parts, zero padded |
 | `[d]` `[t]` | date / time using `Settings.DateFormat`/`TimeFormat` (Go layouts) |
 | `[U]` `[L]` `[F]` `[n]` | upper / lower / Each Word / unchanged case from here on |
-| `[=field]` | built-in field (`FieldNames()`), `tc.` prefix optional, or `Item.Fields[key]` (EXIF etc.) |
+| `[=field]` | built-in field (`FieldNames()`), `tc.` prefix optional, `Item.Fields[key]`, or the `Renamer.SetFieldSource` hook (the app answers `img.*` EXIF date / image size and `audio.*` ID3 tags, plus `exif.*` / `id3.*` aliases) |
 | `[[]` `[]]` | literal `[` and `]` |
 
 Note: `[n]` follows Total Commander (switch case handling back to

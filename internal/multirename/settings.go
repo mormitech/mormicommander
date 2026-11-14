@@ -84,7 +84,12 @@ type Renamer struct {
 	name     *Mask
 	ext      *Mask
 	repl     *replacer
+	source   FieldSource // extra [=field] values; nil = only built-in fields
 }
+
+// SetFieldSource sets where [=field] values that are not built in come from
+// (EXIF dates, image sizes, audio tags); nil turns that off again.
+func (r *Renamer) SetFieldSource(f FieldSource) { r.source = f }
 
 // SettingsError reports which input field is invalid, so the dialog can
 // highlight it.
@@ -128,6 +133,7 @@ type renderCtx struct {
 	total    int // size of the counter group, for automatic width
 	position int // position in the whole list
 	listLen  int
+	source   FieldSource
 }
 
 func (c *renderCtx) dateFormat() string {
@@ -219,7 +225,7 @@ func (r *Renamer) newName(it *Item, index, total, pos, n int) (string, []string)
 	}
 	ctx := &renderCtx{
 		item: it, settings: s, name: base, ext: ext, parent: parent, grand: grand,
-		index: index, total: total, position: pos, listLen: n,
+		index: index, total: total, position: pos, listLen: n, source: r.source,
 	}
 	newBase, w1 := r.name.render(ctx)
 	newExt, w2 := r.ext.render(ctx)

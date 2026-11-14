@@ -12,6 +12,7 @@ import { modal, messageDialog, inputDialog, formDialog, infoDialog, esc } from '
 import { go, on, errText } from '../core/go.js';
 import { addControlCommand } from '../core/control.js';
 import { size as fmtSize, date as fmtDate, plural } from '../core/format.js';
+import { fieldMenuItems } from './multirename-lib.js';
 
 const SETTING = 'multiRename';
 const HISTORY_MAX = 20;
@@ -103,7 +104,7 @@ async function openTool(app) {
   const saved = app.setting(SETTING, {}) || {};
   const hist = { ...(saved.history || {}) };
   const st = {
-    app, box: null, rows: start.rows, defaults: start.defaults, fields: start.fields || [], presets: start.presets || [],
+    app, box: null, rows: start.rows, defaults: start.defaults, fields: start.fields || [], media: start.media || [], presets: start.presets || [],
     undo: start.undo, preview: null, sel: new Set([0]), focus: 0, seq: 0, timer: 0, stale: false, busy: false, renamed: 0,
     preset: '', status: '', sort: { key: '', desc: false }, menu: null,
   };
@@ -149,7 +150,7 @@ function build(st, box, done, saved, hist) {
       <div class="mc-multirename-ph" data-target="mr-name">
         ${btn('', '[N] Name', 'The old name', 'data-ins="[N]"')}${btn('', '[N#-#] Range…', 'Part of the old name', 'data-range="N"')}
         ${btn('', '[C] Counter', 'The counter', 'data-ins="[C]"')}${btn('', '[YMD] Date', 'Year, month and day of the file date', 'data-ins="[Y][M][D]"')}
-        ${btn('', '[hms] Time', 'Hour, minute and second of the file time', 'data-ins="[h][m][s]"')}${btn('', '[=?] Field…', 'A field such as the size or the week day', 'data-fields="1"')}
+        ${btn('', '[hms] Time', 'Hour, minute and second of the file time', 'data-ins="[h][m][s]"')}${btn('', '[=?] Field…', 'A field such as the size, the week day, the photo date (EXIF) or an audio tag', 'data-fields="1"')}
         ${btn('', '+ More…', 'All other placeholders', 'data-more="1"')}
       </div>
       <p class="mc-multirename-ferr" data-for="nameMask" hidden></p>
@@ -158,7 +159,7 @@ function build(st, box, done, saved, hist) {
       <input id="mr-ext" type="text" spellcheck="false" list="mr-hist-ext" aria-label="Extension mask">${dl('mr-hist-ext', 'extMask')}
       <div class="mc-multirename-ph" data-target="mr-ext">
         ${btn('', '[E] Extension', 'The old extension', 'data-ins="[E]"')}${btn('', '[E#-#] Range…', 'Part of the old extension', 'data-range="E"')}
-        ${btn('', '[C] Counter', 'The counter', 'data-ins="[C]"')}${btn('', '[=?] Field…', 'A field such as the size or the week day', 'data-fields="1"')}
+        ${btn('', '[C] Counter', 'The counter', 'data-ins="[C]"')}${btn('', '[=?] Field…', 'A field such as the size, the week day, the photo date (EXIF) or an audio tag', 'data-fields="1"')}
       </div>
       <p class="mc-multirename-ferr" data-for="extMask" hidden></p>
     </fieldset>
@@ -229,7 +230,7 @@ function build(st, box, done, saved, hist) {
       if (!b) return;
       if (b.dataset.ins) insertAt(target(), b.dataset.ins);
       else if (b.dataset.range) rangePicker(st, target(), b.dataset.range);
-      else if (b.dataset.fields) showMenu(st, b, st.fields.map((f) => ({ label: `[=tc.${f}]`, detail: f, run: () => insertAt(target(), `[=tc.${f}]`) })), 'fields');
+      else if (b.dataset.fields) showMenu(st, b, fieldMenuItems(st.fields, st.media).map((m) => m.sep ? m : { label: m.label, detail: m.detail, run: () => insertAt(target(), m.text) }), 'fields');
       else if (b.dataset.more) showMenu(st, b, MORE.map((m) => m === '-' ? { sep: true } : { label: `${m[0]} ${m[1]}`, run: () => insertAt(target(), m[0]) }), 'more');
     });
   });
@@ -483,6 +484,7 @@ function showMenu(st, anchor, items, kind) {
     b.setAttribute('role', 'menuitem');
     b.textContent = it.label;
     if (it.disabled) b.disabled = true;
+    if (it.detail) b.title = it.detail;
     b.onclick = () => { closeMenu(st); it.run(); };
     el.append(b);
   }

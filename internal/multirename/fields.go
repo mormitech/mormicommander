@@ -6,8 +6,12 @@
 // any other value, such as EXIF or audio tags read elsewhere, through the
 // Item.Fields map. Field names are matched without regard to case and an
 // optional "tc." prefix is accepted so masks copied from Total Commander
-// keep working. Unknown fields render as empty text and add a warning to the
-// preview entry instead of stopping the whole preview.
+// keep working. Values that cost a file read, such as EXIF dates, image sizes
+// and audio tags, come from an optional FieldSource set on the Renamer, which
+// is asked only for names that are neither in Item.Fields nor built in, so a
+// mask without such fields never opens a file. Unknown fields render as empty
+// text and add a warning to the preview entry instead of stopping the whole
+// preview.
 
 package multirename
 
@@ -15,7 +19,23 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
+
+// FieldValue is a value given by a FieldSource. A time value (IsTime) is
+// written with the dialog's date and time layouts for [d] and [t], so a photo
+// date taken from EXIF looks like a file date in the new name.
+type FieldValue struct {
+	Text   string
+	Time   time.Time
+	IsTime bool
+}
+
+// FieldSource supplies [=field] values the engine does not know itself. name
+// is the field name in lower case without a "tc." prefix. ok is false when
+// the source has no such field at all; a known field that is empty for this
+// item (a photo without EXIF, say) returns ok with an empty value.
+type FieldSource func(it *Item, name string) (v FieldValue, ok bool)
 
 // fieldFunc computes a built-in field for the item being rendered.
 type fieldFunc func(c *renderCtx) string
@@ -96,6 +116,17 @@ func lookupField(name string, c *renderCtx) (string, bool) {
 	key := strings.TrimPrefix(lname, "tc.")
 	if f, ok := builtinFields[key]; ok {
 		return f(c), true
+	}
+	if c.source != nil {
+		if v, ok := c.source(c.item, key); ok {
+			if v.IsTime {
+				if v.Time.IsZero() {
+					return "", true
+				}
+				return v.Time.Format(c.dateFormat()) + " " + v.Time.Format(c.timeFormat()), true
+			}
+			return v.Text, true
+		}
 	}
 	return "", false
 }

@@ -74,6 +74,14 @@ func openRegular(it *Item) (*os.File, bool) {
 	return f, true
 }
 
+// LoadImageFacts reads an item's image size and EXIF date into Item.Extra (keys ExtraImgWidth, ExtraImgHeight,
+// ExtraExifDate), once per item. Other tools, such as the Multi-Rename tool's [=img.*] fields, use it to get the same
+// values the file list shows.
+func LoadImageFacts(it *Item) { loadImage(it) }
+
+// LoadAudioFacts reads an item's ID3 tags into Item.Extra (keys ExtraTitle ... ExtraGenre), once per item.
+func LoadAudioFacts(it *Item) { loadAudio(it) }
+
 // loadImage reads dimensions and EXIF date once per item.
 func loadImage(it *Item) {
 	if it.Extra[extraImgDone] != nil || it.IsDir() || it.Dir == "" {
