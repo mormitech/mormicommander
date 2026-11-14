@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.8 – 2026-11-14
+
+### Changed
+
+- macOS: while the window is not full screen, the main window keeps a strip of room at the bottom, so its rounded
+  corners no longer cut into the command line or the function key buttons. In full screen the strip goes away.
+
 ## 0.10.7 – 2026-11-14
 
 ### Changed

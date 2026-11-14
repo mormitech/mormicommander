@@ -27,6 +27,8 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 
 #app { display: flex; flex-direction: column; height: 100%; }
 #app[hidden] { display: none; }
+/* macOS, not full screen: room at the bottom so the window's rounded corners do not cut the last bar (core/safearea.js) */
+html[data-platform="darwin"]:not(.mc-fullscreen) #app { box-sizing: border-box; padding-bottom: 8px; background: var(--panel); }
 .bar { display: flex; gap: 4px; align-items: center; padding: 4px 6px; background: var(--panel); border-bottom: 1px solid var(--line); }
 .bar[hidden] { display: none; }
 

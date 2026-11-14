@@ -16,6 +16,7 @@ import { initControl } from './core/control.js';
 import { initTips } from './core/tooltip.js';
 import { initSplitter } from './core/splitter.js';
 import { showAbout } from './core/about.js';
+import { watchFullscreen } from './core/safearea.js';
 
 const features = import.meta.glob('./features/*.js', { eager: true });
 
@@ -32,6 +33,7 @@ async function start() {
   ]);
   Object.assign(app, { platform, sep, home, demo: !!info.demo });
   document.documentElement.dataset.platform = platform;
+  if (platform === 'darwin') watchFullscreen(); // the bottom strip for the rounded window corners (core/safearea.js)
   await loadSettings();
   const theme = info.theme || getSetting('theme', '');
   if (theme === 'light' || theme === 'dark') document.documentElement.dataset.theme = theme;
