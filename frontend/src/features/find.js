@@ -11,6 +11,10 @@
 // With the option FindFiles.Modeless (off by default; board issue #110) the dialog is modeless, as TC's is: its window
 // leaves the main window usable (core/dialogs.js meta.modeless), so the panels keep working while a search runs, and
 // Alt+F7 brings the open Find files window back to the front.
+//
+// After a search for duplicate files, Duplicates… (board issue #32, find-dups-lib.js) keeps one file of each group by a
+// rule (newest, oldest, first path) and marks the other copies, moves them to the trash (an ordinary trash job) or
+// replaces them with hard links (Find.LinkDuplicates, which compares the contents first). Nothing else changes.
 
 import './find.css';
 import { command } from '../core/registry.js';
@@ -24,6 +28,8 @@ import { track } from '../core/busy.js';
 import { comboFromEvent } from '../core/keys.js';
 import { findIncludeHidden } from '../core/hidden.js';
 import { on as optOn } from './config/util.js';
+import { runJob } from '../core/jobs.js';
+import { DUP_RULES, planDuplicates, hasDuplicates, dropGone } from './find-dups-lib.js';
 
 // ---- result lists in panels (Feed to listbox, F-541) ----
 
@@ -172,6 +178,7 @@ function html(setup) {
     <button type="button" class="ff-feed">Feed to listbox</button>
     <button type="button" class="ff-copy">Copy list</button>
     <button type="button" class="ff-savelist">Save list…</button>
+    <button type="button" class="ff-dups" title="Keep one file of each group of duplicates; mark, trash or hard-link the others">Duplicates…</button>
   </div>
   ${datalist('ff-for-list', setup.history?.name)}${datalist('ff-in-list', setup.history?.in)}${datalist('ff-text-list', setup.history?.text)}`;
 }
@@ -251,6 +258,7 @@ function syncEnabled() {
   $('.ff-cancel').textContent = S.running ? 'Stop' : 'Cancel';
   for (const c of ['.ff-goto', '.ff-view', '.ff-edit', '.ff-copy', '.ff-savelist']) $(c).disabled = none;
   $('.ff-feed').disabled = none || S.running;
+  $('.ff-dups').disabled = S.running || !hasDuplicates(S.items);
 }
 
 function showErr(text) {
@@ -294,6 +302,7 @@ async function startSearch() {
     return;
   }
   S.runId = id;
+  S.req = req;
   S.items = []; S.files = 0; S.dirs = 0; S.cur = -1; S.sel = new Set(); S.anchor = -1;
   S.running = true; S.progress = null; S.last = null; S.error = '';
   let resolve;
@@ -515,6 +524,96 @@ async function saveList() {
   theApp.flash(`Saved ${plural(list.length, 'name')} to ${file}.`);
 }
 
+// ---- actions on duplicates (board issue #32, F-862) ----
+
+const trashWord = () => (theApp.platform === 'windows' ? 'Recycle Bin' : theApp.platform === 'darwin' ? 'Trash' : 'trash');
+
+// dupPreview tells what the chosen rule and action would do (the dialog's live summary).
+function dupPreview(plan, action) {
+  if (!plan.drop.length) return 'There is nothing to do: no group has two files that can be acted on.';
+  const copies = plural(plan.drop.length, 'copy', 'copies');
+  const groups = plural(plan.groups, 'group');
+  let t = action === 'mark' ? `Marks ${copies} in ${groups}; one file of each group stays unmarked.`
+    : action === 'link' ? `Replaces ${copies} in ${groups} with hard links to the kept file. Saves up to ${size(plan.bytes)}.`
+      : `Moves ${copies} in ${groups} to the ${trashWord()}. Saves ${size(plan.bytes)}.`;
+  if (action === 'link') t += ' Copies whose contents differ from the kept file are left as they are.';
+  else if (action === 'trash' && !S.req?.dupContent) t += ' This search did not compare contents, so the files of a group may differ.';
+  return t;
+}
+
+async function duplicateActions() {
+  if (S.running || !hasDuplicates(S.items)) return;
+  const ruleRows = DUP_RULES.map(([v, t], k) => `<label class="mc-check"><input type="radio" name="ff-dup-rule" value="${v}"${k ? '' : ' checked'}>${esc(t)}</label>`).join('');
+  const acts = [['mark', 'Mark the other copies in the list'], ['trash', `Move the other copies to the ${trashWord()}`], ['link', 'Replace the other copies with hard links']];
+  const actRows = acts.map(([v, t], k) => `<label class="mc-check"><input type="radio" name="ff-dup-act" value="${v}"${k ? '' : ' checked'}>${esc(t)}</label>`).join('');
+  const pick = (box, name) => box.querySelector(`input[name=${name}]:checked`)?.value;
+  const r = await formDialog('Duplicates', `<div class="mc-find-dups"><div class="mc-find-sub">In every group:</div>${ruleRows}
+    <div class="mc-find-sub">Then:</div>${actRows}<p class="mc-note ff-dup-preview" aria-live="polite"></p></div>`,
+  (box) => {
+    const rule = pick(box, 'ff-dup-rule'), action = pick(box, 'ff-dup-act');
+    const plan = planDuplicates(S.items, rule);
+    if (!plan.drop.length) return 'There is nothing to do.';
+    return { rule, action, plan };
+  }, (box) => {
+    const upd = () => { box.querySelector('.ff-dup-preview').textContent = dupPreview(planDuplicates(S.items, pick(box, 'ff-dup-rule')), pick(box, 'ff-dup-act')); };
+    box.querySelectorAll('input[type=radio]').forEach((el) => el.addEventListener('change', upd));
+    upd();
+  }, { okLabel: 'Continue', kind: 'find-dups' });
+  if (!r || !S.box) return;
+  const { action, plan } = r;
+  if (action === 'mark') {
+    S.sel = new Set(plan.drop.map((d) => d.i));
+    S.cur = plan.drop[0].i; S.anchor = S.cur;
+    ensureVisible(); render();
+    $('.mc-find-list')?.focus();
+    theApp.flash(`Marked ${plural(plan.drop.length, 'copy', 'copies')} (${size(plan.bytes)}).`);
+    return;
+  }
+  const copies = plural(plan.drop.length, 'copy', 'copies');
+  if (action === 'trash') await trashDuplicates(plan, copies);
+  else await linkDuplicates(plan, copies);
+}
+
+async function trashDuplicates(plan, copies) {
+  const T = trashWord();
+  if (!(await go.Jobs.TrashSupported().catch(() => false))) { showErr(`There is no ${T} here, so nothing was deleted.`); return; }
+  const b = await messageDialog({ Title: 'Duplicates', Message: `Move ${copies} to the ${T}?\n\nOne file of each of ${plural(plan.groups, 'group')} is kept. This frees ${size(plan.bytes)}.`,
+    Buttons: [`Move to ${T}`, 'Cancel'], DefaultButton: `Move to ${T}`, Kind: 'find-dups-trash' });
+  if (b !== `Move to ${T}`) return;
+  const sources = plan.drop.map((d) => S.items[d.i].p);
+  try { await runJob({ kind: 'trash', sources, onError: 'ask' }, { title: `Moving to the ${T}` }); } catch (e) { showErr(errText(e)); }
+  const gone = await go.Find.Missing(sources).catch(() => []);
+  if (!S.box) return;
+  forgetResults(gone || []);
+  theApp.flash(`Moved ${plural((gone || []).length, 'copy', 'copies')} to the ${T}.`);
+}
+
+async function linkDuplicates(plan, copies) {
+  const b = await messageDialog({ Title: 'Duplicates', Message: `Replace ${copies} with hard links to the kept files?\n\nEach copy is compared with its kept file first; a copy whose contents differ is left as it is. Afterwards the names share one file: changing one changes them all.`,
+    Buttons: ['Replace', 'Cancel'], DefaultButton: 'Replace', Kind: 'find-dups-link' });
+  if (b !== 'Replace') return;
+  const pairs = plan.drop.map((d) => ({ keep: S.items[d.keep].p, dup: S.items[d.i].p }));
+  let res = [];
+  try { res = await track(go.Find.LinkDuplicates(pairs)) || []; } catch (e) { showErr(errText(e)); return; }
+  const done = res.filter((x) => x.linked), bad = res.filter((x) => x.error);
+  const saved = done.reduce((n, x) => n + (x.saved || 0), 0);
+  let msg = `Replaced ${plural(done.length, 'copy', 'copies')} with hard links; ${size(saved)} saved.`;
+  if (bad.length) {
+    msg += `\n\n${plural(bad.length, 'copy was', 'copies were')} left as ${bad.length === 1 ? 'it was' : 'they were'}:\n`
+      + bad.slice(0, 8).map((x) => `${x.dup}: ${x.error}`).join('\n') + (bad.length > 8 ? `\n… and ${bad.length - 8} more` : '');
+    await messageDialog({ Title: 'Duplicates', Message: msg, Kind: 'find-dups-result' });
+  } else theApp.flash(msg);
+}
+
+// forgetResults takes results that no longer exist out of the list (after moving copies to the trash).
+function forgetResults(gonePaths) {
+  if (!gonePaths.length) return;
+  S.items = dropGone(S.items, gonePaths);
+  S.files = S.items.filter((x) => !x.f).length; S.dirs = S.items.length - S.files;
+  S.sel = new Set(); S.cur = S.items.length ? Math.min(Math.max(S.cur, 0), S.items.length - 1) : -1; S.anchor = S.cur;
+  syncEnabled(); render();
+}
+
 function newSearch() {
   if (S.running) stopSearch();
   S.items = []; S.files = 0; S.dirs = 0; S.cur = -1; S.sel = new Set(); S.last = null; S.progress = null;
@@ -661,6 +760,7 @@ async function openDialog(app, args = {}) {
     box.querySelector('.ff-feed').onclick = feed;
     box.querySelector('.ff-copy').onclick = copyList;
     box.querySelector('.ff-savelist').onclick = saveList;
+    box.querySelector('.ff-dups').onclick = duplicateActions;
     box.querySelector('.ff-load').onclick = loadSaved;
     box.querySelector('.ff-save').onclick = saveSearch;
     box.querySelector('.ff-delete').onclick = deleteSaved;

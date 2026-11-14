@@ -744,7 +744,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required) — audit #103: wired: Find files searches remote folders through the panels' file systems (feature_find_fs.go, findVFS); no test against an FTP/SFTP server yet
 - [ ] F-837 Find: exclude folders by pattern ('|vendor/' or '|.git\') — — — `*.go|vendor/` skips everything under vendor folders
 - [~] F-838 Find: copy results to clipboard / save results to a file — — — result names (with paths) copied or written as text
-- [ ] F-862 Actions on duplicate search results: keep newest/oldest/first path, send the rest to trash, or replace with hardlinks — — — after an F-534 duplicate search, one command marks all but one per group by the chosen rule; preview shows space saved; delete goes to trash
+- [x] F-862 Actions on duplicate search results: keep newest/oldest/first path, send the rest to trash, or replace with hardlinks — — — after an F-534 duplicate search, one command marks all but one per group by the chosen rule; preview shows space saved; delete goes to trash
 
 ## 25. Synchronize directories
 

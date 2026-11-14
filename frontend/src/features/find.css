@@ -72,3 +72,9 @@
 .mc-find-qs .l { color: var(--muted); }
 .mc-find-qs .t { font-weight: 600; white-space: pre; min-width: 1ch; border-right: 1px solid var(--text); padding-right: 1px; }
 .mc-find-qs.filter { border-top-color: var(--sel); }
+
+/* the Duplicates… dialog (board issue #32): the keep rule, the action and the live summary */
+.mc-find-dups { min-width: min(460px, 90vw); }
+.mc-find-dups .mc-check { display: block; margin: 3px 0 3px 8px; }
+.mc-find-dups .mc-find-sub { margin-top: 8px; }
+.mc-find-dups .ff-dup-preview { margin-top: 10px; }
