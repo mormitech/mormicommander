@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.56 – 2026-11-14
+
+### Added
+
+- F4 on a file inside an archive now works (issue #8): the file is unpacked to a temporary copy that opens in your editor. Each time you save a real change, mormiCommander asks whether to pack the new version back into the archive; a save that changes nothing is ignored, later saves ask again, and a failed update is offered again. Archives that cannot be changed (7z, RAR, an archive inside another archive) still open the copy, with a note that the changes stay in the copy. Files on servers still say the editor is not ready. Nothing else changes.
+
 ## 0.9.55 – 2026-11-14
 
 ### Added
