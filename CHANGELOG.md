@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.0 – 2026-11-14
+
+Release of everything since 0.10.0 (0.10.1 to 0.10.27, listed below): **AI search and Ask AI** through
+mormiCommander's own non-destructive tools (Claude Code CLI over a local MCP endpoint, or OpenRouter with the key in
+the system keychain); the **branch view** (Ctrl+B) and Multi-rename across subfolders; **Synchronize folders with an
+archive or a server** as one side; saved passwords in the **system keychain**; **undo of delete to Trash**; terminal
+words (cmd, terminal, shell names) and Ctrl+Alt+T; Tab completion and Ctrl+E history in the command line;
+middle-button panning; a faster key repeat option; big dialogs keeping their size; universal macOS build and signing
+ready in CI; and two new CI guards, the **zero-network** test of the whole app and **live tests** against real FTP,
+SFTP, WebDAV servers and 7-Zip, which found and fixed an FTPS upload bug and a WebDAV redirect bug.
+
 ## 0.10.27 – 2026-11-14
 
 ### Fixed
