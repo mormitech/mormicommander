@@ -196,6 +196,10 @@ type Progress struct {
 	Verified    int       `json:"verified"` // files re-read and found equal (Verify)
 	Ask         *Conflict `json:"ask,omitempty"`
 	Summary     string    `json:"summary,omitempty"` // a sentence with the statistics, set when the job ends
+	// Left lists, for a copy or move that has ended, the sources (as given in the request) that did not get across
+	// whole: one of their files was skipped or failed, or the job stopped before reaching them. The panel keeps just
+	// these selected, as Total Commander does. It is nil until the job ends and for the other kinds of job.
+	Left []string `json:"left"`
 }
 
 const maxErrors = 100

@@ -27,6 +27,7 @@ import { plural, F } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { sameNameTarget } from './fileops-target.js';
+import { copiedNames } from './fileops-sel.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -327,8 +328,10 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
   const names = items.map((e) => e.name);
   const firstName = items.length === 1 && rename && !/[*?]/.test(rename) ? rename : names[0];
   const after = (final) => {
-    if (final.state === 'done' && !final.skipped && !(final.errors || []).length) {
-      for (const n of names) src.selected.delete(n);
+    // only the sources that got across are unselected; the skipped or failed ones stay selected (#132)
+    const copied = copiedNames(final, req.sources, names);
+    if (copied.length) {
+      for (const n of copied) src.selected.delete(n);
       src.selectionChanged();
     }
     for (const p of app.panels) if (samePath(app, p.path, t.dir) && p !== src) p.focusName(firstName);

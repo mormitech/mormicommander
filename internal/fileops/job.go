@@ -40,6 +40,9 @@ type job struct {
 	delROAll   int  // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip
 	delDirSkip bool // AskDeleteDir answered Skip all
 
+	problems int          // errors and skips so far, uncapped (Errors stops at maxErrors); guarded by mu
+	left     map[int]bool // copy and move: indices of the sources that did not get across whole (see Progress.Left)
+
 	limit    atomic.Int64 // bytes per second, 0 = none
 	limStart time.Time    // speed limit bookkeeping: start of the current measuring window
 	limBytes int64        // bytes written since limStart
@@ -114,6 +117,14 @@ func (j *job) finish() {
 			p.State = StateDone
 		}
 		p.Summary = summary(*p, p.BytesDone-j.passed)
+		if j.req.Kind == Copy || j.req.Kind == Move {
+			p.Left = []string{}
+			for i, src := range j.req.Sources {
+				if j.left[i] {
+					p.Left = append(p.Left, src)
+				}
+			}
+		}
 	})
 	close(j.done)
 	j.log("done", "", "", nil)
@@ -162,6 +173,9 @@ func (j *job) snapshot() Progress {
 	defer j.mu.Unlock()
 	p := j.p
 	p.Errors = append([]string(nil), j.p.Errors...)
+	if j.p.Left != nil {
+		p.Left = append([]string{}, j.p.Left...)
+	}
 	if j.p.Ask != nil {
 		c := *j.p.Ask
 		c.Choices = append([]Choice(nil), c.Choices...)
@@ -246,11 +260,27 @@ func (j *job) fail(format string, args ...any) {
 	if len(j.p.Errors) < maxErrors {
 		j.p.Errors = append(j.p.Errors, msg)
 	}
+	j.problems++
 	j.mu.Unlock()
 	j.logMsg("error", msg)
 }
 
-func (j *job) skipped() { j.update(func(p *Progress) { p.Skipped++ }) }
+func (j *job) skipped() { j.update(func(p *Progress) { p.Skipped++; j.problems++ }) }
+
+// problemCount is the number of errors and skips so far, so a step can tell whether it ran into one.
+func (j *job) problemCount() int {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.problems
+}
+
+// markLeft notes that source i did not get across whole.
+func (j *job) markLeft(i int) {
+	if j.left == nil {
+		j.left = map[int]bool{}
+	}
+	j.left[i] = true
+}
 
 // setPaused pauses or resumes; the job notices at its next gate.
 func (j *job) setPaused(on bool) {

@@ -55,17 +55,29 @@ func (j *job) copyAll(move bool) {
 	// A folder copied into itself is refused before anything is made: when every source is a folder that holds the
 	// target, the target (say dir/sub) must not be created just to be left behind empty.
 	if j.allIntoItself(target) {
-		for _, src := range j.req.Sources {
+		for i, src := range j.req.Sources {
 			j.fail("Can't %s the folder %s into itself.", verb, filepath.Base(filepath.Clean(src)))
+			j.markLeft(i)
 		}
 		return
 	}
 	if err, _ := j.try("Can't make the target folder "+target, "", target, nil, func() error { return mkdirAll(target, 0o777) }); err != nil {
+		j.leaveFrom(nil, 0)
 		return
 	}
 	var items []item
+	// a source that ran into an error or a skip while it was looked at (or renamed, for a move) did not get across
+	// whole; prev is the problem count before the source being looked at
+	prev := j.problemCount()
 	for i, src := range j.req.Sources {
+		if i > 0 {
+			if n := j.problemCount(); n > prev {
+				j.markLeft(i - 1)
+				prev = n
+			}
+		}
 		if j.ctx.Err() != nil {
+			j.leaveFrom(items, i)
 			return
 		}
 		src = filepath.Clean(src)
@@ -107,6 +119,7 @@ func (j *job) copyAll(move bool) {
 		if same && j.filter.Empty() {
 			if _, err := lstat(dst); isNotExist(err) {
 				if !j.at(src, 0) {
+					j.leaveFrom(items, i)
 					return
 				}
 				err := rename(src, dst)
@@ -136,7 +149,11 @@ func (j *job) copyAll(move bool) {
 		}
 		items = append(items, its...)
 	}
+	if n := len(j.req.Sources); n > 0 && j.problemCount() > prev {
+		j.markLeft(n - 1)
+	}
 	if j.ctx.Err() != nil {
+		j.leaveFrom(items, len(j.req.Sources))
 		return
 	}
 	var total, need int64
@@ -155,21 +172,27 @@ func (j *job) copyAll(move bool) {
 	j.update(func(p *Progress) { p.Files += files; p.Bytes = total })
 	j.tick(true)
 	if !j.checkSpace(need) {
+		j.leaveFrom(items, len(j.req.Sources))
 		return
 	}
 
 	var dirs []item // folders made or merged, to give them their dates and rights at the end
 	var srcDirs []item
-	for _, it := range items {
+	for k, it := range items {
 		size := int64(0)
 		if it.info.Mode().IsRegular() {
 			size = it.info.Size()
 		}
 		if !j.at(it.src, size) {
+			j.leaveFrom(items[k:], len(j.req.Sources))
 			break
 		}
+		before := j.problemCount()
 		if it.info.IsDir() {
 			made, ok := j.copyDir(it, verb)
+			if !ok || j.problemCount() > before {
+				j.markLeft(it.top)
+			}
 			if ok {
 				if made {
 					dirs = append(dirs, it)
@@ -180,8 +203,12 @@ func (j *job) copyAll(move bool) {
 			}
 			continue
 		}
-		if j.copyEntry(it, verb, move) {
+		copied := j.copyEntry(it, verb, move)
+		if copied {
 			j.update(func(p *Progress) { p.FilesDone++ })
+		}
+		if !copied || j.problemCount() > before {
+			j.markLeft(it.top)
 		}
 		j.tick(false)
 	}
@@ -196,6 +223,17 @@ func (j *job) copyAll(move bool) {
 		if remove(srcDirs[i].src) == nil {
 			j.log("rmdir", srcDirs[i].src, "", nil)
 		}
+	}
+}
+
+// leaveFrom notes, when a copy or move stops early, that the sources it did not finish did not get across whole:
+// those of the listed items not yet done, and every source from index from on (not looked at yet).
+func (j *job) leaveFrom(items []item, from int) {
+	for _, it := range items {
+		j.markLeft(it.top)
+	}
+	for i := from; i < len(j.req.Sources); i++ {
+		j.markLeft(i)
 	}
 }
 

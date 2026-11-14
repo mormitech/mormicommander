@@ -5,6 +5,7 @@ package fileops
 // big-buffer mode and the clean-up after a cancel.
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -243,5 +244,44 @@ func TestCancelRemovesPartialFile(t *testing.T) {
 	p := q.Wait(id)
 	if p.State != StateCancelled || exists(filepath.Join(dst, "big")) {
 		t.Fatalf("%+v, partial file left: %v", p, exists(filepath.Join(dst, "big")))
+	}
+}
+
+// Issue #132: a copy reports which sources did not get across whole (Progress.Left), so the panel can unselect the
+// ones that were copied and keep only the skipped or failed ones selected.
+func TestCopyLeftListsSkippedSources(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	sizes := []int{6, 15, 22, 32, 2, 15} // the targets; every source has 15 bytes, so "copy all larger" takes r1 and r5
+	var sources []string
+	for i, n := range sizes {
+		name := fmt.Sprintf("r%d.txt", i+1)
+		write(t, filepath.Join(src, name), strings.Repeat("s", 15))
+		write(t, filepath.Join(dst, name), strings.Repeat("t", n))
+		sources = append(sources, filepath.Join(src, name))
+	}
+	// a folder with one skipped file inside stays in Left as a whole; a new folder does not
+	write(t, filepath.Join(src, "d", "new.txt"), "n")
+	write(t, filepath.Join(src, "d", "old.txt"), strings.Repeat("s", 15))
+	write(t, filepath.Join(dst, "d", "old.txt"), strings.Repeat("t", 40))
+	write(t, filepath.Join(src, "e", "x.txt"), "x")
+	sources = append(sources, filepath.Join(src, "d"), filepath.Join(src, "e"))
+	p := start(t, NewQueue(nil), Request{Kind: Copy, Sources: sources, Target: dst, Overwrite: Larger})
+	if p.State != StateDone || p.Skipped != 5 {
+		t.Fatalf("%+v", p)
+	}
+	want := []string{sources[1], sources[2], sources[3], sources[5], sources[6]}
+	if strings.Join(p.Left, "\n") != strings.Join(want, "\n") {
+		t.Errorf("left = %q, want %q", p.Left, want)
+	}
+	// a job with nothing skipped leaves nothing selected
+	p = start(t, NewQueue(nil), Request{Kind: Copy, Sources: sources[:2], Target: t.TempDir()})
+	if p.State != StateDone || p.Left == nil || len(p.Left) != 0 {
+		t.Errorf("clean job: %+v", p)
+	}
+	// a source that is not there failed
+	missing := filepath.Join(src, "gone.txt")
+	p = start(t, NewQueue(nil), Request{Kind: Copy, Sources: []string{missing, sources[0]}, Target: t.TempDir()})
+	if len(p.Left) != 1 || p.Left[0] != missing {
+		t.Errorf("missing source: %+v", p)
 	}
 }
