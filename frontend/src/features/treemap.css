@@ -1,0 +1,27 @@
+/* The folder size treemap (features/treemap.js, F-872): while it is open in a panel (.mc-treemap-on) it takes the
+   place of the column header and the file list; blocks are absolutely placed in .mc-tm-area. Folders are blue, files
+   get a hue per extension (--h), files without one are grey; a folder still being counted is striped. Colours mix
+   with the theme's background, so both themes work. */
+.mc-treemap-on > .header, .mc-treemap-on > .list { display: none; }
+.mc-treemap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.mc-tm-head { display: flex; align-items: center; gap: 8px; padding: 3px 6px; border-bottom: 1px solid var(--line); min-width: 0; }
+.mc-tm-head .p { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-tm-head .t { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.mc-tm-head button { padding: 0 8px; }
+.mc-tm-area { flex: 1; min-height: 0; position: relative; overflow: hidden; contain: strict; }
+.mc-tm-b {
+    position: absolute; box-sizing: border-box; overflow: hidden; padding: 2px 4px; cursor: pointer;
+    border: 1px solid var(--bg); border-radius: 2px; color: var(--text); font-size: 11px; line-height: 14px;
+    background: color-mix(in srgb, hsl(var(--h, 0) 55% 52%) 55%, var(--bg));
+}
+.mc-tm-b.dir { background: color-mix(in srgb, var(--accent) 45%, var(--bg)); font-weight: 600; }
+.mc-tm-b.grey, .mc-tm-b.others { background: color-mix(in srgb, var(--muted) 35%, var(--bg)); }
+.mc-tm-b.others { cursor: default; font-style: italic; }
+.mc-tm-b.counting {
+    background-image: repeating-linear-gradient(45deg, transparent 0 6px, color-mix(in srgb, var(--bg) 35%, transparent) 6px 12px);
+}
+.mc-tm-b:hover { filter: brightness(1.12); }
+.mc-tm-b.hot { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 1; }
+.mc-tm-b .n, .mc-tm-b .s { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-tm-b .s { font-weight: 400; color: var(--muted); }
+.mc-tm-empty { position: absolute; left: 0; right: 0; top: 40px; text-align: center; color: var(--muted); }

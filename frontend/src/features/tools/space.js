@@ -3,6 +3,10 @@
 // shows the occupied space of the selection (cm_GetFileSpace, F-244, F-325, F-737). Counted sizes replace <DIR> in the
 // size column (F-091) and count in the status line's selected total (F-752). While a folder is counted, its size
 // column shows the running number and the status line says what is going on; Esc stops the count.
+//
+// Other features may count through countSizes too (the folder size treemap, features/treemap.js): they name themselves
+// as owner, get onUpdate calls whenever a size changes, and stop their own counts with stopCounting; Esc then belongs
+// to them, so the Esc handler here leaves counts that have an owner alone.
 
 import { command } from '../../core/registry.js';
 import { go } from '../../core/go.js';
@@ -13,10 +17,12 @@ import { track } from '../../core/busy.js';
 import { bytes, size, plural } from '../../core/format.js';
 import { newId, onProgress, runTool, isLocal, needLocal, targets, showError } from './common.js';
 
-const scans = new Map(); // id → {panel, path, names, cancel}
+const scans = new Map(); // id → {panel, path, names, cancel, owner}
 
-// countSizes counts folders of a panel in the background and writes the sizes into the size column.
-export function countSizes(app, p, entries) {
+// countSizes counts folders of a panel in the background and writes the sizes into the size column. opts.owner names
+// the feature that started it (Esc does not stop it then), opts.onUpdate runs after every change of a size and
+// opts.hint replaces "Esc stops" in the status line.
+export function countSizes(app, p, entries, { owner = '', onUpdate = null, hint = 'Esc stops' } = {}) {
   const dirs = entries.filter((e) => e.dir && !e.up);
   if (!dirs.length || !isLocal(app, p.path)) return Promise.resolve(null);
   const id = newId('size');
@@ -26,7 +32,7 @@ export function countSizes(app, p, entries) {
   const status = (pr) => {
     if (p.path !== path) return;
     const what = names.length === 1 ? names[0] : `${pr.itemsDone ?? 0} of ${plural(names.length, 'folder')}`;
-    p.$.status.textContent = `Counting ${what}… ${size(pr.bytes || 0)} in ${plural(pr.files || 0, 'file')} (Esc stops)`;
+    p.$.status.textContent = `Counting ${what}… ${size(pr.bytes || 0)} in ${plural(pr.files || 0, 'file')} (${hint})`;
   };
   const stop = onProgress(id, (pr) => {
     if (p.path !== path) return;
@@ -35,16 +41,17 @@ export function countSizes(app, p, entries) {
       if (pr.complete) p.dirSizes.set(names[pr.itemDone], pr.bytes);
       if (e) e.dirSize = pr.complete ? pr.bytes : undefined;
       p.renderRows();
+      onUpdate?.();
       return;
     }
     // running total of the folder being counted: its share is the total minus the folders already done
     const done = names.slice(0, pr.item).reduce((n, nm) => n + (p.dirSizes.get(nm) || 0), 0);
     const e = live(names[pr.item]);
-    if (e) { e.dirSize = Math.max(0, (pr.bytes || 0) - done); p.renderRows(); }
+    if (e) { e.dirSize = Math.max(0, (pr.bytes || 0) - done); p.renderRows(); onUpdate?.(); }
     status(pr);
   });
   status({ bytes: 0, files: 0, itemsDone: 0 });
-  const scan = { panel: p, path, names, cancel: () => go.Tools.Cancel(id) };
+  const scan = { panel: p, path, names, owner, cancel: () => go.Tools.Cancel(id) };
   scans.set(id, scan);
   return track(go.Tools.Space(id, dirs.map((e) => p.fullPath(e.name))).then((r) => {
     if (p.path === path) {
@@ -55,15 +62,24 @@ export function countSizes(app, p, entries) {
       });
       p.renderRows();
       p.renderStatus();
-      if (r.canceled) app.flash('Stopped counting.');
+      onUpdate?.();
+      if (r.canceled && !owner) app.flash('Stopped counting.');
     }
     return r;
   }).catch((e) => {
-    if (p.path === path) { for (const n of names) { const en = live(n); if (en && !p.dirSizes.has(n)) en.dirSize = undefined; } p.renderRows(); p.renderStatus(); }
+    if (p.path === path) { for (const n of names) { const en = live(n); if (en && !p.dirSizes.has(n)) en.dirSize = undefined; } p.renderRows(); p.renderStatus(); onUpdate?.(); }
     app.flash(String(e?.message ?? e).replace(/^Error:\s*/, ''), 'err');
     return null;
   }).finally(() => { stop(); scans.delete(id); }));
 }
+
+// stopCounting stops the counts a feature started (owner), only those of panel p when given.
+export function stopCounting(owner, p = null) {
+  for (const s of scans.values()) if (s.owner === owner && (!p || s.panel === p)) s.cancel();
+}
+
+// counting says whether a feature (owner) has a count running, in panel p when given.
+export const counting = (owner, p = null) => [...scans.values()].some((s) => s.owner === owner && (!p || s.panel === p));
 
 command({
   name: 'cm_CountDirContent', label: 'Calculate folder sizes',
@@ -110,8 +126,9 @@ export function init(app) {
   });
   // Esc stops counting (only while a count runs and no dialog is open).
   addKeyHandler((ev, combo) => {
-    if (combo !== 'Esc' || !scans.size || dialogOpen()) return false;
-    for (const s of scans.values()) s.cancel();
+    const own = [...scans.values()].filter((s) => !s.owner);
+    if (combo !== 'Esc' || !own.length || dialogOpen()) return false;
+    for (const s of own) s.cancel();
     return true;
   });
 }

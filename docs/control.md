@@ -323,7 +323,7 @@ same for `created` and `accessed`.
 
 | command | answer |
 |---|---|
-| `{"cmd": "tools"}` | `{counting: [{side, path, names}]}`: folder sizes being counted (Space on a folder, Alt+Shift+Enter) |
+| `{"cmd": "tools"}` | `{counting: [{side, path, names}]}`: folder sizes being counted (Space on a folder, Alt+Shift+Enter, the treemap) |
 
 Settings: `countSpace` (default true: Space on a folder counts its size, TC's CountSpace); the dialogs remember their
 choices under `tools`.
@@ -377,3 +377,13 @@ The palette (Ctrl+Shift+P, Cmd+Shift+P on macOS) and "All commands…" are page 
 | command | answer |
 |---|---|
 | `{"cmd": "palette", "query": "sync"}` | `{ok, items: [{key, group, label, detail, hint, disabled}]}`: what the palette would list, best first (`"only": "commands"` as in All commands, `"limit"`, default 50) |
+
+## Folder size treemap
+
+`cm_ShowTreemap` (Show menu, board #24, F-872) replaces the active panel's file list with a treemap of its folder and
+counts the folder sizes in the background (owner `treemap`; Esc returns to the list instead of only stopping the count).
+Running it again, or Esc, returns to the list.
+
+| command | answer |
+|---|---|
+| `{"cmd": "treemap"}` / `{"cmd": "treemap", "side": "left"}` | `{ok, open, side}`, and while open `path`, `counting`, `hot` (highlighted block or -1) and `blocks: [{name, bytes, dir, counting, others, x, y, w, h}]`, biggest first |
