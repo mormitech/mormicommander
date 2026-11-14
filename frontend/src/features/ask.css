@@ -1,0 +1,18 @@
+/* The Ask AI dialog (features/ask.js): the prompt, the provider lines, the run's log (as in the Find dialog's AI tab),
+   the buttons. The log takes the height that is left, so a long run scrolls inside it. */
+.mc-box.mc-ask { width: min(720px, 94vw); max-width: none; height: min(560px, 88vh); display: flex; flex-direction: column; gap: 6px; overflow: hidden; padding-bottom: 12px; }
+.mc-ask h2 { margin-bottom: 2px; }
+.mc-ask textarea#ask-prompt { flex: none; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  padding: 4px 6px; resize: vertical; min-height: 3.6em; }
+.mc-ask-provider { flex: none; font-size: 12px; color: var(--muted); }
+.mc-ask-provider > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-ask-provider > div.bad { color: var(--danger); white-space: normal; }
+.mc-ask-provider.ok > div.bad { color: var(--muted); } /* (another provider is ready: one that is not set up is no error) */
+.mc-ask-log { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; background: var(--bg);
+  font-size: 12px; line-height: 1.4; }
+.mc-ask-log > div { white-space: pre-wrap; overflow-wrap: anywhere; margin: 1px 0; }
+.mc-ask-log .ai-tool, .mc-ask-log .ai-note, .mc-ask-log .ai-empty { color: var(--muted); }
+.mc-ask-log .ai-tool::before { content: '› '; }
+.mc-ask-log .ai-answer { font-weight: 600; margin-top: 4px; }
+.mc-ask-log .ai-error { color: var(--danger); }
+.mc-ask-note { flex: none; margin: 0; font-size: 11px; color: var(--muted); }
