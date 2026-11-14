@@ -55,7 +55,7 @@ type Net struct {
 	asks    map[int]chan map[string]any
 	askSeq  int
 	asker   func(kind string, data map[string]any) (map[string]any, bool) // tests answer questions here
-	connCtx context.Context                                              // the connection being made (Cancel stops it)
+	connCtx context.Context                                               // the connection being made (Cancel stops it)
 	cancel  context.CancelFunc
 
 	xfers    map[int]*netXfer

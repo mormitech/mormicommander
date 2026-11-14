@@ -258,7 +258,7 @@ func (l *Launcher) insertValue(s string, quote byte) string {
 
 // escapeInQuote escapes s for SplitArgs. Outside quotes and inside double quotes a backslash before each special
 // character works. Inside single quotes backslashes are literal, so the quote is closed, the escaped value written,
-// and the quote reopened: '%N' with "it's a.txt" becomes ''it\'s\ a.txt'', which splits back to the plain name.
+// and the quote reopened: '%N' with "it's a.txt" becomes ”it\'s\ a.txt”, which splits back to the plain name.
 func escapeInQuote(s string, quote byte) string {
 	e := EscapeArg(s)
 	if quote != '\'' || e == s {

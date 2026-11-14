@@ -27,7 +27,9 @@ const findFeedScheme = "find"
 func init() { vfs.Register(findFeedScheme, findFeedFS{}) }
 
 // findFeedPath says whether p is a fed result list.
-func findFeedPath(p string) bool { return strings.HasPrefix(strings.TrimSpace(p), findFeedScheme+"://") }
+func findFeedPath(p string) bool {
+	return strings.HasPrefix(strings.TrimSpace(p), findFeedScheme+"://")
+}
 
 type findFeedItem struct {
 	name   string // as the panel shows it

@@ -27,7 +27,6 @@ import (
 	"mormicommander/internal/config"
 	"mormicommander/internal/find"
 	"mormicommander/internal/vfs"
-
 )
 
 // Find is what the page calls for Find files, Feed to listbox and quick search (window.go.main.Find).
@@ -437,17 +436,17 @@ func findItemOf(r find.Result) findItem {
 
 // FindDone is the end of a search, as the "find-done" event and Wait tell it.
 type FindDone struct {
-	ID       int               `json:"id"`
-	Files    int               `json:"files"`
-	Dirs     int               `json:"dirs"`
-	Stopped  bool              `json:"stopped"`
-	Error    string            `json:"error,omitempty"`
-	Errors   int64             `json:"errors"`
-	Problems []find.PathError  `json:"problems,omitempty"` // the first few paths that could not be read
-	Examined int64             `json:"examined"`
-	Elapsed  int64             `json:"elapsed"` // milliseconds
-	Groups   int               `json:"groups,omitempty"`
-	Cut      bool              `json:"cut,omitempty"`
+	ID       int              `json:"id"`
+	Files    int              `json:"files"`
+	Dirs     int              `json:"dirs"`
+	Stopped  bool             `json:"stopped"`
+	Error    string           `json:"error,omitempty"`
+	Errors   int64            `json:"errors"`
+	Problems []find.PathError `json:"problems,omitempty"` // the first few paths that could not be read
+	Examined int64            `json:"examined"`
+	Elapsed  int64            `json:"elapsed"` // milliseconds
+	Groups   int              `json:"groups,omitempty"`
+	Cut      bool             `json:"cut,omitempty"`
 }
 
 // Start checks the request and starts the search; the answer is the search's number for the events and Stop. The

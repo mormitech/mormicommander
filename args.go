@@ -45,7 +45,7 @@ type startOpts struct {
 // app); no argument ever stops the app.
 func parseArgs(args []string) startOpts {
 	var o startOpts
-	var rest []string // what is left for the TC parameters
+	var rest []string                                      // what is left for the TC parameters
 	value := func(i *int, a, name string) (string, bool) { // --name=v or --name v
 		if v, ok := strings.CutPrefix(a, name+"="); ok {
 			return v, true
