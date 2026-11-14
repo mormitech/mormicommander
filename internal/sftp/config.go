@@ -72,6 +72,14 @@ type Config struct {
 	// Password.
 	KeyboardInteractive func(name, instruction string, questions []string, echos []bool) ([]string, error)
 
+	// PasswordFunc is asked for the password when Password is empty and the
+	// server wants the plain "password" method. It is offered last, after the
+	// agent, the keys and keyboard-interactive, so it is only called when
+	// nothing else logged in (like OpenSSH asking "bob@host's password:").
+	// attempt counts from 0; a refused password is asked again up to three
+	// times in all. Returning an error stops the login with that error.
+	PasswordFunc func(attempt int) (string, error)
+
 	// KnownHostsFiles are the known_hosts files to check the server key
 	// against. The first file is the one new keys are written to. When empty,
 	// ~/.ssh/known_hosts is used.

@@ -348,6 +348,19 @@ func (n *Net) configureSFTP(c *sftp.Config) error {
 		return p, nil
 	}
 	c.KeyboardInteractive = n.askInteractive(c.User, c.Host)
+	// A server that only takes a plain password, reached without one (an sftp:// URL typed in the path bar or after
+	// "cd"), asks for it once the agent and the keys did not log in, like OpenSSH does; a refused one is asked again.
+	// The password is remembered for the session, so a reconnect does not ask again (F-632, F-636).
+	c.PasswordFunc = func(attempt int) (string, error) {
+		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", c.User, c.Host), netRetryMessage(attempt > 0))
+		if !ok {
+			return "", errNetCancelled
+		}
+		n.mu.Lock()
+		n.passwords[key] = pw
+		n.mu.Unlock()
+		return pw, nil
+	}
 	if o.Keepalive > 0 {
 		c.KeepAlive = time.Duration(o.Keepalive) * time.Second
 	}

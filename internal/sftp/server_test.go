@@ -57,6 +57,7 @@ type testServer struct {
 	keepalives  atomic.Int32
 	logins      atomic.Int32
 	kbdOnly     bool   // no plain password method
+	pwOnly      bool   // no keyboard-interactive method
 	otp         string // when set, keyboard-interactive also asks "Verification code:"
 	ignoreAlive atomic.Bool
 }
@@ -67,6 +68,7 @@ func withAuthorizedKey(k ssh.PublicKey) serverOpt {
 	return func(s *testServer) { s.authKeys = append(s.authKeys, k) }
 }
 func withNoSFTP() serverOpt              { return func(s *testServer) { s.noSFTP = true } }
+func withPasswordOnly() serverOpt        { return func(s *testServer) { s.pwOnly = true } }
 func withKbdOnly(otp string) serverOpt   { return func(s *testServer) { s.kbdOnly = true; s.otp = otp } }
 func withHostKey(k ssh.Signer) serverOpt { return func(s *testServer) { s.HostKey = k } }
 func withExtraHostKey(k ssh.Signer) serverOpt {
@@ -154,6 +156,9 @@ func newTestServer(t *testing.T, opts ...serverOpt) *testServer {
 			}
 			return nil, errors.New("unknown key")
 		},
+	}
+	if s.pwOnly {
+		conf.KeyboardInteractiveCallback = nil
 	}
 	if !s.kbdOnly {
 		conf.PasswordCallback = func(c ssh.ConnMetadata, pw []byte) (*ssh.Permissions, error) {

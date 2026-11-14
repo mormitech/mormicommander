@@ -2,9 +2,9 @@
 // list of SSH authentication methods offered to the server. The order mirrors
 // OpenSSH and Total Commander's SFTP plugin: first the SSH agent (no secrets
 // leave the agent), then explicit private key files (asking for a passphrase
-// only when a key is encrypted), then the password, and finally
+// only when a key is encrypted), then the password, then
 // keyboard-interactive, which many PAM-based servers use to ask for the very
-// same password. Offering them all in one handshake means the user is not
+// same password, and last a password asked for on the spot (PasswordFunc). Offering them all in one handshake means the user is not
 // asked to pick a method; the server simply accepts the first that works.
 package sftp
 
@@ -93,6 +93,17 @@ func (c *Config) authMethods() ([]ssh.AuthMethod, func(), error) {
 	}
 	if c.Password != "" || c.KeyboardInteractive != nil {
 		methods = append(methods, ssh.KeyboardInteractive(c.answerChallenge))
+	}
+
+	// 5. A password asked for only now, when nothing above logged in.
+	if c.Password == "" && c.PasswordFunc != nil {
+		attempt := 0
+		ask := func() (string, error) {
+			pw, err := c.PasswordFunc(attempt)
+			attempt++
+			return pw, err
+		}
+		methods = append(methods, ssh.RetryableAuthMethod(ssh.PasswordCallback(ask), 3))
 	}
 
 	if len(methods) == 0 {

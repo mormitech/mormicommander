@@ -9,7 +9,7 @@ can treat it like any other remote file system.
 
 | ID | What this package provides |
 |----|----------------------------|
-| F-632 | `Dial` with password, private keys (encrypted keys via `Passphrase` / `PassphraseFunc`), SSH agent (`UseAgent`, `AgentSocket`, `Agent`), keyboard-interactive; known_hosts check with `HostKeyPrompt` (unknown / changed / new key type; reject, accept once, accept and save) |
+| F-632 | `Dial` with password, private keys (encrypted keys via `Passphrase` / `PassphraseFunc`), SSH agent (`UseAgent`, `AgentSocket`, `Agent`), keyboard-interactive, a password asked only when nothing else logged in (`PasswordFunc`, retried up to three times); known_hosts check with `HostKeyPrompt` (unknown / changed / new key type; reject, accept once, accept and save) |
 | F-633 | `Chmod`, `ChmodAll`, `Chown`, `Chtimes`, `Symlink`, `Link`, `ReadLink`, link resolution in `ReadDir`; resume via `TransferOptions.Resume` in `Download` / `Upload` |
 | F-636 | `ParseURL("sftp://user:pw@host:port/path")` (also `scp://`, `ssh://`, `/~/` = home-relative) and `Config.String()` for display |
 | F-637 | `Config.Proxy`: SOCKS5 (user/password), SOCKS4a, HTTP CONNECT (basic auth) |

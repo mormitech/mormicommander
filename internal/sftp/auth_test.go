@@ -310,3 +310,81 @@ func TestAgentAuth(t *testing.T) {
 		}
 	})
 }
+
+// PasswordFunc is the last resort: asked only when nothing else logs in, asked again after a refused password, and
+// its error ends the login.
+func TestPasswordFunc(t *testing.T) {
+	t.Run("asked again after a wrong password", func(t *testing.T) {
+		s := newTestServer(t, withPasswordOnly())
+		cfg := s.baseConfig(t)
+		cfg.Password = ""
+		var attempts []int
+		cfg.PasswordFunc = func(attempt int) (string, error) {
+			attempts = append(attempts, attempt)
+			if attempt == 0 {
+				return "wrong", nil
+			}
+			return testPassword, nil
+		}
+		c, err := Dial(t.Context(), cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Close()
+		if len(attempts) != 2 || attempts[0] != 0 || attempts[1] != 1 {
+			t.Fatalf("attempts %v", attempts)
+		}
+	})
+	t.Run("gives up after three refused passwords", func(t *testing.T) {
+		s := newTestServer(t, withPasswordOnly())
+		cfg := s.baseConfig(t)
+		cfg.Password = ""
+		calls := 0
+		cfg.PasswordFunc = func(int) (string, error) { calls++; return "wrong", nil }
+		if c, err := Dial(t.Context(), cfg); err == nil {
+			c.Close()
+			t.Fatal("expected failure")
+		}
+		if calls != 3 {
+			t.Fatalf("calls %d", calls)
+		}
+	})
+	t.Run("not asked when a key logs in", func(t *testing.T) {
+		keyPEM, pub := newKeyPEM(t, "")
+		s := newTestServer(t, withPasswordOnly(), withAuthorizedKey(pub))
+		cfg := s.baseConfig(t)
+		cfg.Password = ""
+		cfg.KeyData = [][]byte{keyPEM}
+		cfg.PasswordFunc = func(int) (string, error) { t.Error("asked for a password"); return "", errors.New("no") }
+		c, err := Dial(t.Context(), cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Close()
+	})
+	t.Run("not asked when a password is set", func(t *testing.T) {
+		s := newTestServer(t, withPasswordOnly())
+		cfg := s.baseConfig(t)
+		cfg.PasswordFunc = func(int) (string, error) { t.Error("asked for a password"); return "", errors.New("no") }
+		c, err := Dial(t.Context(), cfg)
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.Close()
+	})
+	t.Run("its error stops the login", func(t *testing.T) {
+		s := newTestServer(t, withPasswordOnly())
+		cfg := s.baseConfig(t)
+		cfg.Password = ""
+		stop := errors.New("cancelled by the user")
+		cfg.PasswordFunc = func(int) (string, error) { return "", stop }
+		c, err := Dial(t.Context(), cfg)
+		if err == nil {
+			c.Close()
+			t.Fatal("expected failure")
+		}
+		if !errors.Is(err, stop) {
+			t.Fatalf("got %v, want the callback's error", err)
+		}
+	})
+}
