@@ -6,6 +6,18 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.22 – 2026-11-14
+
+### Added
+
+- Undo of delete to Trash (#13): Cmd+Z (cm_UndoFileOp) and the undo list now also bring back files and folders moved
+  to the Trash / Recycle Bin, to their old place; undo refuses when something else is there now. The item is found in
+  the trash of its own volume (macOS ~/.Trash and .Trashes, the freedesktop Trash on Linux, $Recycle.Bin on Windows).
+  Items that can't be found (for example macOS without Full Disk Access for the app, or network shares) are named, with
+  a hint to use Put Back / Restore. Permanent deletes are still not undoable.
+- Options > Operation > "Keep an undo journal of file operations" (on by default, as before).
+- The copy/move dialog says that files replaced with "Overwrite all" can't be undone.
+
 ## 0.10.21 – 2026-11-14
 
 ### Added
