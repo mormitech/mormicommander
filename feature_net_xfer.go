@@ -306,13 +306,18 @@ func (x *netXfer) run() {
 	x.emit("net-job", true)
 	// copy
 	failed := make([]bool, len(x.req.Sources))
+	var blocked []string // target folders that could not be made: what belongs inside them is not tried
 	for _, it := range items {
 		if x.ctx.Err() != nil {
 			break
 		}
+		if netUnder(it.dst, blocked) {
+			failed[it.top] = true
+			continue
+		}
 		if it.dir {
-			if err := r.Mkdir(x.ctx, it.dst); err != nil && !errors.Is(err, fs.ErrExist) {
-				x.fail(netBase(it.dst), err)
+			if !x.makeDir(r, it.dst) {
+				blocked = append(blocked, it.dst)
 				failed[it.top] = true
 			}
 			continue
@@ -338,6 +343,37 @@ func (x *netXfer) run() {
 			}
 		}
 	}
+}
+
+// makeDir makes the target folder dst, or merges into it when a folder of that name is already there (F-460: a
+// folder copied onto a same-named folder is merged, never replaced). A file of that name in the way is one clear
+// error, and it reports false so the folder's contents are not tried one by one.
+func (x *netXfer) makeDir(r *vfs.Router, dst string) bool {
+	err := r.Mkdir(x.ctx, dst)
+	if err == nil {
+		return true
+	}
+	if errors.Is(err, fs.ErrExist) {
+		// the file systems answer "exists" for a file too, so look at what is there
+		if e, serr := r.Stat(dst); serr != nil || e.Flags&vfs.FlagDir != 0 {
+			return true // a folder (or it can't be told): merge, and let the files report their own problems
+		}
+		x.fail(netBase(dst), errors.New("a file of that name is in the way of the folder"))
+		return false
+	}
+	x.fail(netBase(dst), err)
+	return false
+}
+
+// netUnder says whether p lies inside one of the folders in dirs (both written the same way, as the router joins them).
+func netUnder(p string, dirs []string) bool {
+	for _, d := range dirs {
+		d = strings.TrimRight(d, `/\`)
+		if len(p) > len(d) && strings.HasPrefix(p, d) && (p[len(d)] == '/' || p[len(d)] == '\\') {
+			return true
+		}
+	}
+	return false
 }
 
 // walk adds the contents of the folder src (copied to dst) to items.
