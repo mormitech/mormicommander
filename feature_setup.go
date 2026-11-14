@@ -12,7 +12,10 @@ package main
 
 import (
 	"errors"
+	"io"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 )
@@ -36,7 +39,57 @@ var (
 		return nil
 	}
 	setupDefaults = func(args ...string) ([]byte, error) { return exec.Command("defaults", args...).Output() }
+	setupRead     = readProtected // (the home folder is setupHome, feature_setup_marta.go)
 )
+
+// fdaProbes are files and folders under the home folder that macOS lets only apps with Full Disk Access read. macOS
+// has no call for "please list me under Full Disk Access": an app appears in that list (switched off) only after it
+// tried to read data the permission guards, or when the user adds it with the + button. So before the pane opens,
+// mormiCommander tries to read a few of these. Without the permission every attempt just fails (nothing is read and
+// nothing is changed), and macOS adds the app to the list, ready to be switched on; with it, a read works, which is
+// how HasFullDiskAccess tells.
+var fdaProbes = []string{
+	"Library/Application Support/com.apple.TCC/TCC.db",
+	"Library/Safari/Bookmarks.plist",
+	"Library/Safari",
+	"Library/Mail",
+	"Library/Messages",
+}
+
+// readProtected tries to read one byte of a file, or the first name in a folder. It returns whether that worked.
+func readProtected(p string) bool {
+	f, err := os.Open(p)
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	if st, err := f.Stat(); err == nil && st.IsDir() {
+		_, err := f.Readdirnames(1)
+		return err == nil || err == io.EOF
+	}
+	var b [1]byte
+	_, err = f.Read(b[:])
+	return err == nil || err == io.EOF
+}
+
+// probeFullDiskAccess tries every probe (so macOS sees the attempt even where one of them does not exist on this Mac)
+// and returns whether any of them could be read: the app has Full Disk Access. Not on macOS: false, nothing tried.
+func probeFullDiskAccess() bool {
+	if setupGOOS != "darwin" {
+		return false
+	}
+	home, err := setupHome()
+	if err != nil {
+		return false
+	}
+	granted := false
+	for _, rel := range fdaProbes {
+		if setupRead(filepath.Join(home, filepath.FromSlash(rel))) {
+			granted = true
+		}
+	}
+	return granted
+}
 
 // Setup is what the page calls for the first-run setup page (window.go.main.Setup).
 type Setup struct{ app *App }
@@ -89,8 +142,16 @@ func fnKeysFromDefaults(out string, err error) string {
 	return "media"
 }
 
-// OpenFullDiskAccess opens System Settings at Privacy & Security > Full Disk Access.
-func (s *Setup) OpenFullDiskAccess() error { return openSystemSettings(fullDiskAccessURL) }
+// OpenFullDiskAccess opens System Settings at Privacy & Security > Full Disk Access. It first tries to read data the
+// permission guards (probeFullDiskAccess), so mormiCommander is already in the pane's list when it opens.
+func (s *Setup) OpenFullDiskAccess() error {
+	probeFullDiskAccess()
+	return openSystemSettings(fullDiskAccessURL)
+}
+
+// HasFullDiskAccess says whether mormiCommander can read the data Full Disk Access guards (macOS; false elsewhere).
+// Asking also lists the app in the Full Disk Access pane when it is not there yet.
+func (s *Setup) HasFullDiskAccess() bool { return probeFullDiskAccess() }
 
 // OpenKeyboardSettings opens System Settings at Keyboard (where the function keys are set).
 func (s *Setup) OpenKeyboardSettings() error { return openSystemSettings(keyboardSettingsURL) }

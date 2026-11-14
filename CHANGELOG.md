@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.1 – 2026-11-14
+
+### Fixed
+
+- macOS: "Open Full Disk Access settings" on the first-run page now puts mormiCommander in the Full Disk Access list,
+  ready to be switched on. macOS lists an app there only after it tried to read data the permission guards, so the
+  button first tries to read a few such files (TCC, Safari, Mail, Messages folders), which simply fails without the
+  permission and reads nothing else. The page also says to reopen the app after switching it on, and to use + if the
+  app is still missing.
+
 ## 0.11.0 – 2026-11-14
 
 Release of everything since 0.10.0 (0.10.1 to 0.10.27, listed below): **AI search and Ask AI** through

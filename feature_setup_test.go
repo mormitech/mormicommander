@@ -16,11 +16,16 @@ import (
 func withSetupFakes(t *testing.T, goos string, defaultsOut string, defaultsErr error) *[]string {
 	t.Helper()
 	opened := []string{}
-	oldGOOS, oldOpen, oldDefaults := setupGOOS, setupOpen, setupDefaults
+	oldGOOS, oldOpen, oldDefaults, oldHome, oldRead := setupGOOS, setupOpen, setupDefaults, setupHome, setupRead
 	setupGOOS = goos
 	setupOpen = func(url string) error { opened = append(opened, url); return nil }
 	setupDefaults = func(args ...string) ([]byte, error) { return []byte(defaultsOut), defaultsErr }
-	t.Cleanup(func() { setupGOOS, setupOpen, setupDefaults = oldGOOS, oldOpen, oldDefaults })
+	// the Full Disk Access probe never reads the real protected data in a test
+	setupHome = func() (string, error) { return "/fake-home", nil }
+	setupRead = func(string) bool { return false }
+	t.Cleanup(func() {
+		setupGOOS, setupOpen, setupDefaults, setupHome, setupRead = oldGOOS, oldOpen, oldDefaults, oldHome, oldRead
+	})
 	return &opened
 }
 
@@ -98,5 +103,51 @@ func TestSetupOpensSystemSettings(t *testing.T) {
 	}
 	if len(*opened) != 0 {
 		t.Fatalf("nothing should be opened outside macOS: %v", *opened)
+	}
+}
+
+// TestFullDiskAccessProbe: opening the pane first tries every protected path (so macOS lists the app even when some of
+// them don't exist on this Mac), HasFullDiskAccess is true when any of them could be read, and nothing is tried
+// outside macOS.
+func TestFullDiskAccessProbe(t *testing.T) {
+	opened := withSetupFakes(t, "darwin", "", nil)
+	var tried []string
+	readable := ""
+	setupRead = func(p string) bool { tried = append(tried, p); return p == readable }
+	s := &Setup{}
+	if err := s.OpenFullDiskAccess(); err != nil {
+		t.Fatal(err)
+	}
+	if len(tried) != len(fdaProbes) || tried[0] != filepath.Join("/fake-home", filepath.FromSlash(fdaProbes[0])) {
+		t.Fatalf("tried %v, want every probe under the home folder", tried)
+	}
+	if len(*opened) != 1 || (*opened)[0] != fullDiskAccessURL {
+		t.Fatalf("opened %v", *opened)
+	}
+	if s.HasFullDiskAccess() {
+		t.Error("nothing readable, yet Full Disk Access is reported")
+	}
+	readable = filepath.Join("/fake-home", filepath.FromSlash(fdaProbes[len(fdaProbes)-1]))
+	if !s.HasFullDiskAccess() {
+		t.Error("a probe could be read, yet no Full Disk Access is reported")
+	}
+
+	withSetupFakes(t, "windows", "", nil)
+	tried = nil
+	setupRead = func(p string) bool { tried = append(tried, p); return true }
+	if s.HasFullDiskAccess() || len(tried) != 0 {
+		t.Errorf("outside macOS nothing is tried (tried %v)", tried)
+	}
+}
+
+// TestReadProtected reads a file and a folder it may read, and fails on one that is not there.
+func TestReadProtected(t *testing.T) {
+	dir := t.TempDir()
+	f := filepath.Join(dir, "a.txt")
+	if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !readProtected(f) || !readProtected(dir) || readProtected(filepath.Join(dir, "missing")) {
+		t.Error("readProtected gives the wrong answer")
 	}
 }

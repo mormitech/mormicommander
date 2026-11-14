@@ -48,7 +48,7 @@ async function showSetup(app) {
         ${mac ? '<button type="button" class="setup-keyboard">Open Keyboard settings</button>' : ''}
       </fieldset>
       ${mac ? `<fieldset class="mc-setup-part"><legend>Full Disk Access</legend>
-        <p class="mc-note">macOS asks before an app may read some folders (Desktop, Documents, Downloads, other disks…). To see every folder without being asked, add mormiCommander in Privacy & Security > Full Disk Access.</p>
+        <p class="mc-note">macOS asks before an app may read some folders (Desktop, Documents, Downloads, other disks…). To see every folder without being asked, switch mormiCommander on in Privacy & Security > Full Disk Access, then quit and reopen it. (The button below puts mormiCommander in that list; if it is not there, click + and choose it in Applications.)</p>
         <button type="button" class="setup-fda">Open Full Disk Access settings</button></fieldset>` : ''}
       ${marta.show ? `<fieldset class="mc-setup-part"><legend>Coming from Marta</legend>
         <p class="mc-note" id="setup-marta" aria-live="polite">${esc(marta.text)}</p>
