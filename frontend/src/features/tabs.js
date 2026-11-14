@@ -27,7 +27,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
 import { TAB_DEFAULTS } from './tabs-defaults.js';
-import { tabFields, lockField } from './tabs-saved.js';
+import { tabFields, lockField, tabHistory, backFromHistory } from './tabs-saved.js';
 
 export const LOCK_NONE = 0, LOCK_FULL = 1, LOCK_DIRS = 2;
 
@@ -161,7 +161,8 @@ async function restore(p, t, opts = {}) {
     const skip = new Set(['path', 'parent', 'all', 'entries', 'index', 'cursor', 'selected', 'dirSizes', 'filter', 'filterLabel', 'error']);
     for (const k of Panel.STATE_KEYS) if (k in st && !skip.has(k)) p[k] = st[k];
   } else {
-    p.back = []; p.fwd = []; p.lastCursor = new Map();
+    // (a tab read back after a restart gets the folder history it was saved with, board issue #112)
+    p.back = backFromHistory(t.saved?.history, target, samePath); p.fwd = []; p.lastCursor = new Map();
     if (t.saved) for (const [k, h] of tabStates) { const v = h.load(t.saved); if (v != null) p[k] = v; }
   }
   p.selected = new Set();
@@ -556,7 +557,13 @@ function saveNow() {
   if (!sides.left || !sides.right) return;
   const max = +theApp.setting('historyLength', 30) || 30;
   const hist = (p) => [...p.back].reverse();
-  go.TabsHotlist.SaveTabs({ left: tabSet('left'), right: tabSet('right'), leftHistory: hist(theApp.left), rightHistory: hist(theApp.right), historyMax: max }).catch(() => {});
+  // the tabs that are not active save their own folder history too (board issue #112; .tab files and favourites don't)
+  const withHistory = (side) => {
+    const ts = tabSet(side), s = sides[side];
+    ts.tabs.forEach((x, i) => { const h = tabHistory(s.tabs[i], i === s.active); if (h.length) x.history = h; });
+    return ts;
+  };
+  go.TabsHotlist.SaveTabs({ left: withHistory('left'), right: withHistory('right'), leftHistory: hist(theApp.left), rightHistory: hist(theApp.right), historyMax: max }).catch(() => {});
 }
 
 // ---- .tab files and favourite tabs ----

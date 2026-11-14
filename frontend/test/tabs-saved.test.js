@@ -1,7 +1,7 @@
 // Tests for tabs-saved.js (board issue #12): a saved tab comes back with its folder, caption, lock, sort and the
 // folder a "locked, but folder changes allowed" tab was locked to, and only a lock folder that differs is saved.
 import { describe, it, expect } from 'vitest';
-import { tabFields, lockField } from '../src/features/tabs-saved.js';
+import { tabFields, lockField, tabHistory, backFromHistory } from '../src/features/tabs-saved.js';
 
 describe('tabFields', () => {
   it('restores a tab locked to another folder than it shows', () => {
@@ -24,5 +24,32 @@ describe('lockField', () => {
     expect(lockField(2, '/a', '/a')).toEqual({});
     expect(lockField(1, '', '/a')).toEqual({});
     expect(lockField(0, '/a', '/b')).toEqual({});
+  });
+});
+
+// Board issue #112: every tab's folder history survives a restart, not only the active tab's.
+describe('tabHistory', () => {
+  it('saves nothing for the active tab (its history is the panel one)', () => {
+    expect(tabHistory({ state: { back: ['/a'] } }, true)).toEqual([]);
+  });
+  it('saves the back list of a tab that was left, newest first', () => {
+    expect(tabHistory({ state: { back: ['/old', '/new'] }, saved: { history: ['/x'] } }, false)).toEqual(['/new', '/old']);
+  });
+  it('keeps what a tab not shown since the restart was read back with', () => {
+    const saved = { history: ['/n', '/o'] };
+    const h = tabHistory({ state: null, saved }, false);
+    expect(h).toEqual(['/n', '/o']);
+    expect(h).not.toBe(saved.history);
+    expect(tabHistory({ state: null, saved: null }, false)).toEqual([]);
+  });
+});
+
+describe('backFromHistory', () => {
+  const same = (a, b) => a.toLowerCase() === b.toLowerCase();
+  it('gives the panel back list oldest first without the shown folder', () => {
+    expect(backFromHistory(['/b', '/A', '', '/c'], '/a', same)).toEqual(['/c', '/b']);
+  });
+  it('gives an empty list for a tab saved without history (older files)', () => {
+    expect(backFromHistory(undefined, '/a', same)).toEqual([]);
   });
 });

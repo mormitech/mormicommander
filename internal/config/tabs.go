@@ -3,7 +3,9 @@
 // with keys "<n>_path", "<n>_caption" (a custom title), "<n>_options" (sort
 // and view flags, kept as is) and activetab=<n>; we add "<n>_view" and
 // "<n>_columnset" (the tab's own view, issue #128) and "<n>_lockpath" (the folder a "locked, but folder
-// changes allowed" tab was locked to, when it now shows another one; board issue #12), which TC ignores; the state of the visible
+// changes allowed" tab was locked to, when it now shows another one; board issue #12) and "<n>_history<k>" (the folder
+// history of a tab that is not the active one, newest first, k from 0; board issue #112 — the active tab's history
+// stays in TC's [LeftHistory]/[RightHistory]), which TC ignores; the state of the visible
 // folder of each panel (path, sort column, view) lives in [left] and
 // [right]. A tab set can also be saved to a .tab file whose [activetabs] and
 // [inactivetabs] sections hold the tabs of the active and the other panel;
@@ -48,9 +50,10 @@ type Tab struct {
 	Caption   string // custom title ("" = folder name)
 	Options   string // TC option flags, kept as is
 	Lock      LockMode
-	View      string // the tab's view ("brief", "full", "comments", "custom", "thumbs"; "" = the panel's)
-	ColumnSet string // custom column set name when View is "custom"
-	LockPath  string // the folder the tab was locked to, when it differs from Path ("" = Path)
+	View      string   // the tab's view ("brief", "full", "comments", "custom", "thumbs"; "" = the panel's)
+	ColumnSet string   // custom column set name when View is "custom"
+	LockPath  string   // the folder the tab was locked to, when it differs from Path ("" = Path)
+	History   []string // the tab's own folder history, newest first (saved for tabs that are not active)
 }
 
 // TabSet is the tabs of one panel.
@@ -85,6 +88,13 @@ func loadTabSet(m map[string]string, prefix string) TabSet {
 		if lock != 0 {
 			ts.Tabs[len(ts.Tabs)-1].LockPath = m[n+"lockpath"]
 		}
+		for k := 0; ; k++ {
+			h, ok := m[n+"history"+strconv.Itoa(k)]
+			if !ok {
+				break
+			}
+			ts.Tabs[len(ts.Tabs)-1].History = append(ts.Tabs[len(ts.Tabs)-1].History, h)
+		}
 	}
 	ts.Active, _ = strconv.Atoi(m[prefix+"activetab"])
 	if ts.Active < 0 || ts.Active >= len(ts.Tabs) {
@@ -115,6 +125,14 @@ func (t TabSet) kvs(prefix string) []KV {
 		}
 		if tab.Lock != TabUnlocked && tab.LockPath != "" && tab.LockPath != tab.Path {
 			kvs = append(kvs, KV{n + "lockpath", tab.LockPath})
+		}
+		k := 0
+		for _, h := range tab.History {
+			if strings.TrimSpace(h) == "" || !SafeValue(h) {
+				continue
+			}
+			kvs = append(kvs, KV{n + "history" + strconv.Itoa(k), h})
+			k++
 		}
 	}
 	return append(kvs, KV{prefix + "activetab", strconv.Itoa(t.Active)})

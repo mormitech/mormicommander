@@ -7,6 +7,7 @@ package config
 
 import (
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -25,7 +26,7 @@ func TestTabSetRoundTrip(t *testing.T) {
 		}
 	}
 	got := LoadTabSet(ParseString(s), SectionRightTabs)
-	if got.Active != 1 || len(got.Tabs) != 2 || got.Tabs[0] != ts.Tabs[0] || got.Tabs[1] != ts.Tabs[1] {
+	if got.Active != 1 || len(got.Tabs) != 2 || !reflect.DeepEqual(got.Tabs, ts.Tabs) {
 		t.Errorf("got %+v", got)
 	}
 	if got.ActiveTab().Path != "/tmp" {
@@ -38,7 +39,7 @@ func TestTabSetBadValues(t *testing.T) {
 	if len(got.Tabs) != 1 || got.Tabs[0].Lock != TabUnlocked || got.Active != 0 {
 		t.Errorf("got %+v", got)
 	}
-	if (TabSet{}).ActiveTab() != (Tab{}) {
+	if !reflect.DeepEqual((TabSet{}).ActiveTab(), Tab{}) {
 		t.Error("empty ActiveTab")
 	}
 }
@@ -148,7 +149,7 @@ func TestTabSetView(t *testing.T) {
 	}
 	got := LoadTabSet(ParseString(s), SectionLeftTabs)
 	for i := range ts.Tabs {
-		if got.Tabs[i] != ts.Tabs[i] {
+		if !reflect.DeepEqual(got.Tabs[i], ts.Tabs[i]) {
 			t.Errorf("tab %d: got %+v, want %+v", i, got.Tabs[i], ts.Tabs[i])
 		}
 	}
@@ -179,5 +180,24 @@ func TestTabSetLockPath(t *testing.T) {
 	stray := LoadTabSet(ParseString("[righttabs]\n0_path=/a\n0_lockpath=/x\nactivetab=0\n"), SectionRightTabs)
 	if stray.Tabs[0].LockPath != "" {
 		t.Errorf("an unlocked tab got a lock folder: %+v", stray.Tabs[0])
+	}
+}
+
+// Board issue #112: each tab can keep its own folder history in "<n>_history<k>" keys, newest first; a tab without
+// one writes no keys, and empty or multi-line entries are skipped without leaving gaps.
+func TestTabSetHistory(t *testing.T) {
+	ts := TabSet{Tabs: []Tab{
+		{Path: "/a", History: []string{"/a/old", "", "/bad\nline", "/older"}},
+		{Path: "/b"},
+	}, Active: 1}
+	f := NewFile()
+	SaveTabSet(f, SectionLeftTabs, ts)
+	s := f.String()
+	if !strings.Contains(s, "0_history0=/a/old") || !strings.Contains(s, "0_history1=/older") || strings.Contains(s, "0_history2") || strings.Contains(s, "1_history") {
+		t.Fatalf("history keys:\n%s", s)
+	}
+	got := LoadTabSet(ParseString(s), SectionLeftTabs)
+	if strings.Join(got.Tabs[0].History, ",") != "/a/old,/older" || got.Tabs[1].History != nil {
+		t.Fatalf("read back: %+v", got)
 	}
 }

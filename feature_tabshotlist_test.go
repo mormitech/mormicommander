@@ -184,3 +184,32 @@ func TestTHTabsRestoreAll(t *testing.T) {
 		t.Fatalf("right tabs after a restart: %+v", r)
 	}
 }
+
+// Board issue #112: the folder history of every tab survives a restart, not only the active tab's. The active tab's
+// stays in [LeftHistory]; the others are trimmed to the history size and lose repeats.
+func TestTHTabsHistoryPerTab(t *testing.T) {
+	th, path := thTest(t)
+	s := THTabs{
+		Left: THTabSet{Tabs: []THTab{
+			{Path: "/a", History: []string{"/a1", "/a2", "/a1", "/a3", "/a4"}},
+			{Path: "/b", History: []string{"/ignored"}},
+			{Path: "/c"},
+		}, Active: 1},
+		Right:       THTabSet{Tabs: []THTab{{Path: "/r"}, {Path: "/s", History: []string{"/s1"}}}},
+		LeftHistory: []string{"/b1"}, HistoryMax: 3,
+	}
+	if err := th.SaveTabs(s); err != nil {
+		t.Fatal(err)
+	}
+	th.flush()
+	got := thOpen(&App{}, path).Tabs()
+	if h := strings.Join(got.Left.Tabs[0].History, ","); h != "/a1,/a2,/a3" {
+		t.Fatalf("inactive tab history: %q", h)
+	}
+	if got.Left.Tabs[1].History != nil || got.Left.Tabs[2].History != nil {
+		t.Fatalf("active or empty tab got a history: %+v", got.Left.Tabs)
+	}
+	if strings.Join(got.LeftHistory, ",") != "/b1" || strings.Join(got.Right.Tabs[1].History, ",") != "/s1" {
+		t.Fatalf("other histories: %v %+v", got.LeftHistory, got.Right)
+	}
+}

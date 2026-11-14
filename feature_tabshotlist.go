@@ -67,16 +67,18 @@ type THMatch struct {
 // THTab is one folder tab: its folder, custom caption, lock mode (0 not locked, 1 locked, 2 locked but folder
 // changes allowed), sort and view (issue #128: "" = none saved, the tab shows the panel's view; Set is the custom
 // column set of the "custom" view). LockPath is the folder a locked tab was locked to when it shows another one now
-// (a "locked, but folder changes allowed" tab; board issue #12), "" when it is Path.
+// (a "locked, but folder changes allowed" tab; board issue #12), "" when it is Path. History is the folder history of
+// a tab that is not the active one, newest first (board issue #112; the active tab's is THTabs.LeftHistory/RightHistory).
 type THTab struct {
-	Path     string `json:"path"`
-	Caption  string `json:"caption"`
-	Lock     int    `json:"lock"`
-	Sort     string `json:"sort"`
-	Desc     bool   `json:"desc"`
-	View     string `json:"view,omitempty"`
-	Set      string `json:"set,omitempty"`
-	LockPath string `json:"lockPath,omitempty"`
+	Path     string   `json:"path"`
+	Caption  string   `json:"caption"`
+	Lock     int      `json:"lock"`
+	Sort     string   `json:"sort"`
+	Desc     bool     `json:"desc"`
+	View     string   `json:"view,omitempty"`
+	Set      string   `json:"set,omitempty"`
+	LockPath string   `json:"lockPath,omitempty"`
+	History  []string `json:"history,omitempty"`
 }
 
 // THTabSet is the tabs of one panel and which one is active.
@@ -409,7 +411,7 @@ func thTabsTo(s THTabSet) config.TabSet {
 			lock = config.TabUnlocked
 		}
 		ts.Tabs = append(ts.Tabs, config.Tab{Path: thOneLine(tb.Path), Caption: thOneLine(tb.Caption), Options: fmt.Sprintf("%d|%d", o, neg), Lock: lock,
-			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set)})
+			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set), History: tb.History})
 		if lock != config.TabUnlocked {
 			ts.Tabs[len(ts.Tabs)-1].LockPath = thOneLine(tb.LockPath)
 		}
@@ -423,7 +425,7 @@ func thTabsTo(s THTabSet) config.TabSet {
 func thTabsFrom(ts config.TabSet) THTabSet {
 	out := THTabSet{Tabs: []THTab{}, Active: ts.Active}
 	for _, tb := range ts.Tabs {
-		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name", View: tb.View, Set: tb.ColumnSet, LockPath: tb.LockPath}
+		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name", View: tb.View, Set: tb.ColumnSet, LockPath: tb.LockPath, History: tb.History}
 		parts := strings.Split(tb.Options, "|")
 		if n, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
 			for k, v := range thSortOrder {
@@ -467,12 +469,26 @@ func thHistory(items []string, max int) *config.History {
 func (t *TabsHotlist) SaveTabs(s THTabs) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	config.SaveTabSet(t.file, config.SectionLeftTabs, thTabsTo(s.Left))
-	config.SaveTabSet(t.file, config.SectionRightTabs, thTabsTo(s.Right))
+	config.SaveTabSet(t.file, config.SectionLeftTabs, thTabsTo(thTrimTabHistories(s.Left, s.HistoryMax)))
+	config.SaveTabSet(t.file, config.SectionRightTabs, thTabsTo(thTrimTabHistories(s.Right, s.HistoryMax)))
 	thHistory(s.LeftHistory, s.HistoryMax).Save(t.file, config.SectionLeftHistory)
 	thHistory(s.RightHistory, s.HistoryMax).Save(t.file, config.SectionRightHistory)
 	t.saveSoon()
 	return nil
+}
+
+// thTrimTabHistories gives each tab of a set its folder history without repeats and with at most max entries; the
+// active tab's own history is saved in [LeftHistory]/[RightHistory], so it gets none here (board issue #112).
+func thTrimTabHistories(s THTabSet, max int) THTabSet {
+	out := THTabSet{Active: s.Active, Tabs: make([]THTab, len(s.Tabs))}
+	for i, tb := range s.Tabs {
+		tb.History = nil
+		if i != s.Active && len(s.Tabs[i].History) > 0 {
+			tb.History = thHistory(s.Tabs[i].History, max).Items()
+		}
+		out.Tabs[i] = tb
+	}
+	return out
 }
 
 // TrimHistory returns a newest-first folder history without repeats and with at most max entries (the history size
