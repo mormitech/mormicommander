@@ -59,7 +59,7 @@ async function chooseServer(app, panel) {
   const items = [TYPE, ...serverItems(found.servers || [])];
   if (found.note && items.length === 1) app.flash(found.note);
   else app.flash(items.length > 1 ? '' : 'No servers found on the local network; type one.');
-  const r = await showList({ title: 'Network', items, anchor: panel.$.drives, kind: 'network', filter: true });
+  const r = await showList({ title: 'Network', items, anchor: panel.$.drives, index: items.length > 1 ? 1 : 0, kind: 'network', filter: true });
   if (!r) return null;
   if (r.item.value.typed) return typeServer(app);
   return r.item.value;
