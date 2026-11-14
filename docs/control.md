@@ -292,7 +292,7 @@ thumbnail cache…), `clear-thumbs`. Popups: `column-sets` (Shift+F1, header rig
 
 | command | fields | result |
 |---|---|---|
-| `tabs` | — | `left` / `right`: `{active, hidden, tabs: [{path, caption, shown, lock, lockPath, sort}]}` (lock 0 none, 1 locked, 2 folder changes allowed; `shown` has the `*` and the width limit), `closed`: tabs that `cm_ReopenClosedTab` can bring back |
+| `tabs` | — | `left` / `right`: `{active, hidden, tabs: [{path, caption, shown, lock, lockPath, sort, view, set}]}` (lock 0 none, 1 locked, 2 folder changes allowed; `shown` has the `*` and the width limit; `view`/`set`: the tab's own view and custom column set, absent for a tab that saved none), `closed`: tabs that `cm_ReopenClosedTab` can bring back |
 | `tab_menu` | `side`, `index` | opens the right-click menu of a tab (a popup of kind `tab-menu`; answer it with `popup_choose`) |
 | `hotlist` | — | the hotlist tree: `[{kind: "cmd"/"menu"/"sep", title, label, key, cmd, target, items}]` |
 | `frequent` | — | the frequently used folders, most used first |

@@ -10,7 +10,9 @@
 //
 // Settings: "views" = {sizeFormat, dateFormat, attrFormat, namesWhole, thumbSize, columnSets: [{name, autoSwitch,
 // columns: [{title, template, width, align}]}], left: {mode, set}, right: {mode, set}}; plus the core's "naturalSort"
-// and "dirsLikeFiles".
+// and "dirsLikeFiles". "left"/"right" are the views of the panels' active tabs: each folder tab keeps its own view
+// (issue #128, registered with features/tabs.js; the pure helpers are in views-tab.js), saved with the tab as
+// "view"/"set".
 
 import './views.css';
 import { command } from '../core/registry.js';
@@ -22,6 +24,8 @@ import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
 import { bytes, date, attr, size as shortSize } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { addTabState } from './tabs.js';
+import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
 
 // ---- settings ----
 
@@ -47,7 +51,7 @@ const thumbSize = () => Math.max(32, Math.min(512, Number(cfg().thumbSize) || 96
 const MODES = ['brief', 'full', 'comments', 'custom', 'thumbs', 'tree'];
 
 function vsOf(p) {
-  if (!p.vs) p.vs = { mode: 'full', set: '', manual: { mode: 'full', set: '' }, auto: false, cells: null, cellsSig: '', thumbs: null, tree: null, prev: null };
+  if (!p.vs) p.vs = freshView();
   return p.vs;
 }
 const modeOf = (p) => vsOf(p).mode;
@@ -1200,8 +1204,27 @@ addControlCommand('views', async () => ({ ok: true, left: viewInfo(theApp.left),
 
 // ---- start ----
 
+// tabSwitched draws a panel again when its view state is another object than last time: another folder tab became
+// active (each tab has its own p.vs). The thumbnails the tab left was making are stopped; its tree is left as it is.
+const seenVs = new WeakMap();
+function tabSwitched(p) {
+  const vs = vsOf(p), old = seenVs.get(p);
+  seenVs.set(p, vs);
+  if (!old || old === vs) return false;
+  if (old.thumbs && old.mode !== 'tree') {
+    clearTimeout(old.thumbs.firstTimer);
+    old.thumbs = null;
+    if (vs.mode !== 'thumbs') go.Views.ThumbsStop(p.side).catch(() => {});
+  }
+  if (vs.mode === 'tree') { renderHeader(p); p.render(); return true; }
+  applyView(p);
+  save();
+  return true;
+}
+
 export function init(app) {
   Panel.STATE_KEYS.push('vs');
+  addTabState('vs', { copy: copyView, save: viewToSaved, load: (saved) => viewFromSaved(saved, (name) => !!findSet(name)) });
   for (const p of app.panels) install(p);
   cursorCommands();
   addKeyHandler(treeKey);
@@ -1221,14 +1244,18 @@ export function init(app) {
     }
   }
   for (const p of app.panels) if (/^col\d+$/.test(p.sort.key || '') && !(vsOf(p).mode === 'custom' || vsOf(p).mode === 'comments')) p.sort = { key: 'name', desc: false };
+  for (const p of app.panels) seenVs.set(p, vsOf(p));
   app.on('panel', (p, info = {}) => {
+    const switched = tabSwitched(p);
     const vs = vsOf(p);
     if (vs.mode === 'tree') return;
     if (info.moved) autoSwitch(p);
+    if (switched) return; // (applyView told the panel again, which asked for the cells and thumbnails)
     if (isColumnMode(p)) requestCells(p);
     if (vs.mode === 'thumbs') startThumbs(p);
   });
   app.on('exchange', () => {
+    for (const p of app.panels) seenVs.set(p, vsOf(p));
     for (const p of app.panels) {
       const vs = vsOf(p);
       if (vs.thumbs) vs.thumbs.key = '';

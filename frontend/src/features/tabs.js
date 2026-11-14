@@ -7,7 +7,9 @@
 // How a tab keeps its state: the active tab of a side *is* the panel (its folder, sort, history, cursor, selection all
 // live in the Panel object). When another tab becomes active, the panel's fields (Panel.STATE_KEYS, so features that add
 // per-panel state are included) are copied into the tab being left and the new tab's copy is put back, then the folder
-// is read again. Back/forward (Alt+Left/Right) is therefore per tab (F-047), and so is the sort (F-117).
+// is read again. Back/forward (Alt+Left/Right) is therefore per tab (F-047), and so is the sort (F-117). Features
+// whose per-panel state is an object they change in place (views: the view mode, issue #128) register it with
+// addTabState, so the tab being left keeps its object and the panel goes on with a copy, and it is saved with the tab.
 //
 // Locked tabs: each panel's go() is wrapped once at start; in a locked tab a change to another folder opens it in a new
 // tab instead (or reuses a tab, per the "lockedChange" option), whatever asked for it: Enter, Backspace, the hotlist,
@@ -57,10 +59,33 @@ const lockedHistory = new WeakMap();         // panel → {back, fwd} of a locke
 let nextId = 1;
 let favIndex = -1;                           // for cm_NextFavoriteTab / cm_PrevFavoriteTab
 
-// tab: {id, path, caption, lock, lockPath, sort, state}; state is the panel snapshot of a tab that is not active.
+// tab: {id, path, caption, lock, lockPath, sort, state, saved}; state is the panel snapshot of a tab that is not
+// active; saved is what the tab was read back from (a restart, a .tab file, favourite tabs, a closed tab), whose fields
+// the features of addTabState read when the tab is first shown.
 function makeTab(o = {}) {
   return { id: nextId++, path: o.path || '', caption: o.caption || '', lock: o.lock || LOCK_NONE, lockPath: o.lockPath || (o.lock ? o.path : '') || '',
-    sort: o.sort ? { ...o.sort } : null, state: o.state || null };
+    sort: o.sort ? { ...o.sort } : null, state: o.state || null, saved: o.saved || null };
+}
+
+// ---- per-tab state of other features ----
+
+// tabStates: Panel field → {copy(v): the tab's own copy, save(v): the fields saved with the tab, load(saved): the value
+// for a tab read back from those fields, or null to keep what the panel has}.
+const tabStates = new Map();
+export function addTabState(key, hooks) { tabStates.set(key, hooks); }
+
+// forkState gives the panel its own copy of each registered field, so the tab just left keeps the object it had.
+function forkState(p) { for (const [k, h] of tabStates) p[k] = h.copy(p[k]); }
+
+// tabExtra is the fields the registered features save with a tab.
+function tabExtra(p, t) {
+  const out = {};
+  for (const [k, h] of tabStates) {
+    let v = t === activeTab(p) ? p[k] : t.state && k in t.state ? t.state[k] : undefined;
+    if (v === undefined && t.saved) v = h.load(t.saved) ?? undefined;
+    if (v !== undefined) Object.assign(out, h.save(v));
+  }
+  return out;
 }
 
 const panelOf = (side) => (side === 'left' ? theApp.left : theApp.right);
@@ -93,6 +118,7 @@ function cloneState(s) {
     else if (Array.isArray(v) && (k === 'back' || k === 'fwd')) c[k] = [...v];
   }
   if (s.sort) c.sort = { ...s.sort };
+  for (const [k, h] of tabStates) if (k in s) c[k] = h.copy(s[k]);
   return c;
 }
 
@@ -140,6 +166,7 @@ async function restore(p, t, opts = {}) {
     for (const k of Panel.STATE_KEYS) if (k in st && !skip.has(k)) p[k] = st[k];
   } else {
     p.back = []; p.fwd = []; p.lastCursor = new Map();
+    if (t.saved) for (const [k, h] of tabStates) { const v = h.load(t.saved); if (v != null) p[k] = v; }
   }
   p.selected = new Set();
   p.filter = null; p.filterLabel = '';
@@ -171,7 +198,7 @@ export async function activate(side, i, opts = {}) {
   const p = panelOf(side);
   if (i === s.active) { if (opts.focus) p.focusName(opts.focus); render(side); return true; }
   const cur = s.tabs[s.active];
-  if (cur) { cur.state = snapshot(p); cur.path = p.path; cur.sort = { ...p.sort }; }
+  if (cur) { cur.state = snapshot(p); cur.path = p.path; cur.sort = { ...p.sort }; forkState(p); }
   s.active = i;
   render(side);
   const ok = await restore(p, s.tabs[i], opts);
@@ -186,7 +213,7 @@ export async function newTab(side, o = {}) {
   const s = sides[side];
   if (!s) return false;
   const p = panelOf(side);
-  const t = makeTab({ path: o.path || p.path, caption: o.caption, lock: o.lock, lockPath: o.lockPath, sort: o.sort || { ...p.sort } });
+  const t = makeTab({ path: o.path || p.path, caption: o.caption, lock: o.lock, lockPath: o.lockPath, sort: o.sort || { ...p.sort }, saved: o.saved });
   if (o.same) { t.state = cloneState(snapshot(p)); t.state.path = p.path; t.path = p.path; }
   else if (o.state) t.state = o.state;
   const at = tabOpt('nextToCurrent') ? s.active + 1 : s.tabs.length;
@@ -208,7 +235,7 @@ export async function closeTab(side, i, { force = false } = {}) {
     const a = await messageDialog({ Title: 'Close tab', Message: `The tab ${tabCaption(p, t, { plain: true })} is locked. Close it anyway?`, Buttons: ['Close', 'Cancel'], Kind: 'tab-close-locked' });
     if (a !== 'Close') return false;
   }
-  closedTabs.push({ side, path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) } });
+  closedTabs.push({ side, path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) }, saved: tabExtra(p, t) });
   if (closedTabs.length > 30) closedTabs.shift();
   const wasActive = i === s.active;
   s.tabs.splice(i, 1);
@@ -236,7 +263,7 @@ async function closeOthers(side, keep, { ask = true } = {}) {
   if (keep !== s.active) await activate(side, keep);
   const p = panelOf(side);
   const keepTab = s.tabs[s.active];
-  for (const t of s.tabs) if (t !== keepTab && !t.lock) closedTabs.push({ side, path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) } });
+  for (const t of s.tabs) if (t !== keepTab && !t.lock) closedTabs.push({ side, path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) }, saved: tabExtra(p, t) });
   s.tabs = s.tabs.filter((t) => t === keepTab || t.lock);
   s.active = s.tabs.indexOf(keepTab);
   render(side);
@@ -252,7 +279,7 @@ async function copyToOther(side, i, { move = false } = {}) {
   if (!t) return false;
   const other = side === 'left' ? 'right' : 'left';
   const st = t === activeTab(p) ? cloneState(snapshot(p)) : t.state ? cloneState(t.state) : null;
-  await newTab(other, { path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) }, state: st });
+  await newTab(other, { path: tabPath(p, t), caption: t.caption, lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(p, t) }, state: st, saved: tabExtra(p, t) });
   if (move && s.tabs.length > 1) await closeTab(side, s.tabs.indexOf(t), { force: true });
   return true;
 }
@@ -261,7 +288,7 @@ async function copyToOther(side, i, { move = false } = {}) {
 async function replaceTabs(side, set) {
   const s = sides[side];
   if (!s || !set?.tabs?.length) return false;
-  s.tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc } }));
+  s.tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x }));
   s.active = Math.max(0, Math.min(set.active || 0, s.tabs.length - 1));
   render(side);
   await restore(panelOf(side), s.tabs[s.active]);
@@ -274,7 +301,7 @@ async function replaceTabs(side, set) {
 function tabSet(side) {
   const s = sides[side], p = panelOf(side);
   if (!s) return { tabs: [], active: 0 };
-  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); return { path: tabPath(p, t), caption: t.caption, lock: t.lock, sort: so.key, desc: !!so.desc }; }), active: s.active };
+  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); return { path: tabPath(p, t), caption: t.caption, lock: t.lock, sort: so.key, desc: !!so.desc, ...tabExtra(p, t) }; }), active: s.active };
 }
 
 // ---- the lock rule ----
@@ -548,7 +575,7 @@ export async function loadTabFile(path, p = theApp.cur, { append = false } = {})
   const f = await go.TabsHotlist.LoadTabFile(path);
   const side = p.side, other = side === 'left' ? 'right' : 'left';
   if (append) {
-    for (const x of f.active.tabs) await newTab(side, { path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, background: true });
+    for (const x of f.active.tabs) await newTab(side, { path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x, background: true });
     return true;
   }
   await replaceTabs(side, f.active);
@@ -695,7 +722,7 @@ command({
   run: async () => {
     const c = closedTabs.pop();
     if (!c) return false;
-    return newTab(c.side, { path: c.path, caption: c.caption, lock: c.lock, lockPath: c.lockPath, sort: c.sort });
+    return newTab(c.side, { path: c.path, caption: c.caption, lock: c.lock, lockPath: c.lockPath, sort: c.sort, saved: c.saved });
   },
 });
 command({
@@ -756,7 +783,7 @@ for (const [pre, f] of Object.entries(whichSide)) {
 // ---- control mode: the tabs of both sides (for QA) ----
 addControlCommand('tabs', async () => {
   const side = (s) => ({ active: sides[s]?.active ?? 0, hidden: panelOf(s).$.tabbar.hidden,
-    tabs: (sides[s]?.tabs || []).map((t) => ({ path: tabPath(panelOf(s), t), caption: tabCaption(panelOf(s), t, { plain: true }), shown: tabCaption(panelOf(s), t), lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(panelOf(s), t) } })) });
+    tabs: (sides[s]?.tabs || []).map((t) => ({ path: tabPath(panelOf(s), t), caption: tabCaption(panelOf(s), t, { plain: true }), shown: tabCaption(panelOf(s), t), lock: t.lock, lockPath: t.lockPath, sort: { ...tabSort(panelOf(s), t) }, ...tabExtra(panelOf(s), t) })) });
   return { ok: true, left: side('left'), right: side('right'), closed: closedTabs.length };
 });
 addControlCommand('tab_menu', async (m) => { const side = m.side || theApp.cur.side; tabMenu(side, m.index ?? sides[side]?.active ?? 0, theApp.cur.$.tabbar); return { ok: true }; });
@@ -786,13 +813,17 @@ export function init(app) {
       const set = saved?.[side];
       const hist = saved?.[`${side}History`] || [];
       if (set?.tabs?.length) {
-        const tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc } }));
+        const tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x }));
         const active = Math.max(0, Math.min(set.active || 0, tabs.length - 1));
         // the active tab is what the panel shows now (the start folder from the command line wins over the saved one)
         if (samePath(tabs[active].path, p.path) && !p.back.length) p.back = [...hist].reverse().filter((x) => !samePath(x, p.path));
         if (tabs[active].sort) { const so = tabs[active].sort; if (so.key !== p.sort.key || so.desc !== p.sort.desc) p.sortBy(so.key, so.desc); }
         tabs[active].path = p.path;
+        // the active tab's saved view (and other registered state) is what the panel shows; the panel is told below
+        let changed = false;
+        for (const [k, h] of tabStates) { const v = h.load(tabs[active].saved); if (v != null) { p[k] = v; changed = true; } }
         sides[side] = { tabs, active };
+        if (changed) app.panelChanged(p, { moved: false });
         if (tabs[active].lock === LOCK_FULL) lockedHistory.set(p, { back: [...p.back], fwd: [...p.fwd] });
       } else {
         sides[side] = { tabs: [makeTab({ path: p.path })], active: 0 };

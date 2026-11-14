@@ -127,3 +127,33 @@ func TestWindowPos(t *testing.T) {
 		t.Errorf("round trip %+v", p)
 	}
 }
+
+// Issue #128: each tab keeps its own view, in keys of our own that TC ignores; tabs saved without them have none.
+func TestTabSetView(t *testing.T) {
+	ts := TabSet{Tabs: []Tab{
+		{Path: "/a", View: "brief"},
+		{Path: "/b", View: "custom", ColumnSet: "Media"},
+		{Path: "/c"},
+	}}
+	f := NewFile()
+	SaveTabSet(f, SectionLeftTabs, ts)
+	s := f.String()
+	for _, want := range []string{"0_view=brief", "1_view=custom", "1_columnset=Media"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("missing %q:\n%s", want, s)
+		}
+	}
+	if strings.Contains(s, "2_view") || strings.Contains(s, "0_columnset") {
+		t.Errorf("empty view keys written:\n%s", s)
+	}
+	got := LoadTabSet(ParseString(s), SectionLeftTabs)
+	for i := range ts.Tabs {
+		if got.Tabs[i] != ts.Tabs[i] {
+			t.Errorf("tab %d: got %+v, want %+v", i, got.Tabs[i], ts.Tabs[i])
+		}
+	}
+	old := LoadTabSet(ParseString("[lefttabs]\n0_path=/a\n0_options=1|0\nactivetab=0\n"), SectionLeftTabs)
+	if old.Tabs[0].View != "" || old.Tabs[0].ColumnSet != "" {
+		t.Errorf("a tab saved by an older version got a view: %+v", old.Tabs[0])
+	}
+}

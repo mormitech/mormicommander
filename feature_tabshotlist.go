@@ -65,13 +65,16 @@ type THMatch struct {
 }
 
 // THTab is one folder tab: its folder, custom caption, lock mode (0 not locked, 1 locked, 2 locked but folder
-// changes allowed) and sort.
+// changes allowed), sort and view (issue #128: "" = none saved, the tab shows the panel's view; Set is the custom
+// column set of the "custom" view).
 type THTab struct {
 	Path    string `json:"path"`
 	Caption string `json:"caption"`
 	Lock    int    `json:"lock"`
 	Sort    string `json:"sort"`
 	Desc    bool   `json:"desc"`
+	View    string `json:"view,omitempty"`
+	Set     string `json:"set,omitempty"`
 }
 
 // THTabSet is the tabs of one panel and which one is active.
@@ -403,7 +406,8 @@ func thTabsTo(s THTabSet) config.TabSet {
 		if lock < config.TabUnlocked || lock > config.TabLockedChangeOK {
 			lock = config.TabUnlocked
 		}
-		ts.Tabs = append(ts.Tabs, config.Tab{Path: thOneLine(tb.Path), Caption: thOneLine(tb.Caption), Options: fmt.Sprintf("%d|%d", o, neg), Lock: lock})
+		ts.Tabs = append(ts.Tabs, config.Tab{Path: thOneLine(tb.Path), Caption: thOneLine(tb.Caption), Options: fmt.Sprintf("%d|%d", o, neg), Lock: lock,
+			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set)})
 	}
 	if ts.Active < 0 || ts.Active >= len(ts.Tabs) {
 		ts.Active = 0
@@ -414,7 +418,7 @@ func thTabsTo(s THTabSet) config.TabSet {
 func thTabsFrom(ts config.TabSet) THTabSet {
 	out := THTabSet{Tabs: []THTab{}, Active: ts.Active}
 	for _, tb := range ts.Tabs {
-		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name"}
+		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name", View: tb.View, Set: tb.ColumnSet}
 		parts := strings.Split(tb.Options, "|")
 		if n, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
 			for k, v := range thSortOrder {

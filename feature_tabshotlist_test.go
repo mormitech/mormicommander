@@ -148,3 +148,17 @@ func TestTHFrequentAndImport(t *testing.T) {
 		t.Fatal("a file without [DirMenu] imported")
 	}
 }
+
+// Issue #128: the view of each tab comes back after a restart; a tab saved without one has none.
+func TestTHTabsView(t *testing.T) {
+	th, path := thTest(t)
+	s := THTabs{Left: THTabSet{Tabs: []THTab{{Path: "/a", Sort: "size", View: "brief"}, {Path: "/b", View: "custom", Set: "Media"}, {Path: "/c"}}}}
+	if err := th.SaveTabs(s); err != nil {
+		t.Fatal(err)
+	}
+	th.flush()
+	got := thOpen(&App{}, path).Tabs().Left.Tabs
+	if len(got) != 3 || got[0].View != "brief" || got[0].Sort != "size" || got[1].View != "custom" || got[1].Set != "Media" || got[2].View != "" || got[2].Set != "" {
+		t.Fatalf("tab views after a restart: %+v", got)
+	}
+}
