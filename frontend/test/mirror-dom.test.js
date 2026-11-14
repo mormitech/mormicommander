@@ -42,6 +42,8 @@ describe('mirror-events', () => {
     expect(k('a')).toBe(false);
     expect(k('a', el('input [data-keycapture]'))).toBe(true);
     expect(k('Tab', el('input [data-keycapture]'))).toBe(false);
+    expect(k('Enter', el('textarea [data-enter-submits]'))).toBe(true);
+    expect(k('Enter', el('textarea [data-enter-submits]'), { shiftKey: true })).toBe(false);
   });
   test('messages name elements by their number and carry the modifiers', () => {
     const t = { id: 7 };

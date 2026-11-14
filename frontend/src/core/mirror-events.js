@@ -20,11 +20,13 @@ export function keyMsg(copy, ev, type, focused) {
 // keyTakenHere tells whether the window's browser must not do what a key does by default: Enter (outside text areas:
 // the owning page submits), Esc (it cancels there), F-keys and the browser's own shortcuts (reload, print, find), and
 // every key in a key-capture field (Options > Keyboard shortcuts: the owning page writes the key's name into it, the
-// window must not type the character as well).
+// window must not type the character as well). A text area marked data-enter-submits (the Find files dialog's AI
+// prompt) starts something with a plain Enter, so the window must not add a new line to it; Shift+Enter still does.
 export function keyTakenHere(ev) {
   const k = ev.key;
   const t = ev.target;
   if (t?.matches?.('[data-keycapture]') && k !== 'Tab') return true;
+  if (k === 'Enter' && !ev.shiftKey && t?.matches?.('[data-enter-submits]')) return true;
   const area = t?.matches?.('textarea, [contenteditable=""], [contenteditable="true"]');
   if (k === 'Enter' && !area) return true;
   if (k === 'Escape' || /^F\d{1,2}$/.test(k)) return true;

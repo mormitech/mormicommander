@@ -15,6 +15,9 @@
 // After a search for duplicate files, Duplicates… (board issue #32, find-dups-lib.js) keeps one file of each group by a
 // rule (newest, oldest, first path) and marks the other copies, moves them to the trash (an ordinary trash job) or
 // replaces them with hard links (Find.LinkDuplicates, which compares the contents first). Nothing else changes.
+//
+// Other features add tabs after Load/Save with addFindTab (the AI tab, find-ai.js, issue #146) and run searches in
+// the open dialog through findDialog, so their results land in the same list as a search started by hand.
 
 import './find.css';
 import { command } from '../core/registry.js';
@@ -68,6 +71,17 @@ const S = {
 };
 const inbox = new Map(); // events of a search that arrived before Start answered with its number
 
+// ---- tabs added by other features (the AI tab, find-ai.js) ----
+
+// addFindTab adds a tab after Load/Save. t: {id, label, html() (the page's inside), setup(box) (after the dialog is
+// built), shown() (the tab was switched to), start() (Start search while the tab is shown, instead of a normal search),
+// busy() (true while the tab's own work runs: Start is greyed and Cancel says Stop), stop() (Cancel / Esc while busy),
+// key(ev, combo) (true when the tab used a key), closed() (the dialog closed)}. Every hook is optional.
+const extraTabs = [];
+export function addFindTab(t) { extraTabs.push(t); }
+const tabHook = (name, ...args) => { for (const t of extraTabs) { try { t[name]?.(...args); } catch (e) { console.error(e); } } };
+const busyTab = () => extraTabs.find((t) => t.busy?.());
+
 const ROW_H = 20;
 const DEPTHS = [[-1, 'all (unlimited depth)'], [0, 'current folder only'], ...Array.from({ length: 99 }, (_, i) => [i + 1, `${i + 1} level${i ? 's' : ''}`])];
 const ATTRS = [['r', 'Read-only'], ['h', 'Hidden'], ['x', 'Executable'], ['l', 'Symbolic link'], ['a', 'Archive'], ['s', 'System'], ['c', 'Compressed'], ['e', 'Encrypted']];
@@ -103,6 +117,7 @@ function html(setup) {
         <button type="button" class="mc-find-tab" data-tab="advanced" role="tab">Advanced</button>
         <button type="button" class="mc-find-tab" data-tab="plugins" role="tab">Plugins</button>
         <button type="button" class="mc-find-tab" data-tab="saved" role="tab">Load/Save</button>
+        ${extraTabs.map((t) => `<button type="button" class="mc-find-tab" data-tab="${esc(t.id)}" role="tab">${esc(t.label)}</button>`).join('')}
       </div>
       <div class="mc-find-page" data-page="general">
         <div class="mc-find-line"><label for="ff-for">Search for:</label><input id="ff-for" type="text" list="ff-for-list" spellcheck="false" autofocus>
@@ -161,6 +176,7 @@ function html(setup) {
         </div>
         <p class="mc-note">"Last search" is the search you started last. Load fills in the fields; it doesn't start the search.</p>
       </div>
+      ${extraTabs.map((t) => `<div class="mc-find-page" data-page="${esc(t.id)}" hidden>${t.html?.() || ''}</div>`).join('')}
     </div>
     <div class="mc-find-col main">
       <button type="submit" class="primary ff-start">Start search</button>
@@ -254,8 +270,9 @@ function syncEnabled() {
   if ($('#ff-results').disabled) setChk('ff-results', false);
   $('#ff-in').disabled = chk('ff-selected') || chk('ff-results');
   const none = S.items.length === 0;
-  $('.ff-start').disabled = S.running;
-  $('.ff-cancel').textContent = S.running ? 'Stop' : 'Cancel';
+  const busy = S.running || !!busyTab();
+  $('.ff-start').disabled = busy;
+  $('.ff-cancel').textContent = busy ? 'Stop' : 'Cancel';
   for (const c of ['.ff-goto', '.ff-view', '.ff-edit', '.ff-copy', '.ff-savelist']) $(c).disabled = none;
   $('.ff-feed').disabled = none || S.running;
   $('.ff-dups').disabled = S.running || !hasDuplicates(S.items);
@@ -274,9 +291,11 @@ function switchTab(name) {
   S.box.querySelectorAll('.mc-find-tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === name));
   S.box.querySelectorAll('.mc-find-page').forEach((p) => { p.hidden = p.dataset.page !== name; });
   if (name === 'saved') refreshSaved();
+  extraTabs.find((t) => t.id === name)?.shown?.(S.box);
 }
 
 const TABS = ['general', 'advanced', 'plugins', 'saved'];
+const allTabs = () => [...TABS, ...extraTabs.map((t) => t.id)];
 
 async function refreshSaved(select) {
   let names = [];
@@ -290,16 +309,18 @@ async function refreshSaved(select) {
 
 // ---- searching ----
 
-async function startSearch() {
-  if (!S.box || S.running) return;
+// startSearch starts the search the fields describe, or `given` (a request made elsewhere: the AI tab's find_files),
+// which then stays on the shown tab and leaves the focus where it is. It answers the error, or '' when it started.
+async function startSearch(given) {
+  if (!S.box || S.running) return S.running ? 'A search is running already.' : 'The Find files dialog is closed.';
   showErr('');
-  const req = readForm();
+  const req = given && typeof given === 'object' ? given : readForm();
   let id;
   try { id = await go.Find.Start(req); } catch (e) {
     showErr(errText(e));
     const focus = /folder to search in/i.test(errText(e)) ? '#ff-in' : /text|hex|character set/i.test(errText(e)) ? '#ff-text' : null;
-    if (focus) { switchTab('general'); $(focus)?.focus(); }
-    return;
+    if (focus && req !== given) { switchTab('general'); $(focus)?.focus(); }
+    return errText(e);
   }
   S.runId = id;
   S.req = req;
@@ -314,7 +335,8 @@ async function startSearch() {
   if (early) { for (const items of early.items) addItems(items); if (early.done) finished(early.done); }
   syncEnabled();
   render();
-  $('.mc-find-list')?.focus();
+  if (req !== given) $('.mc-find-list')?.focus();
+  return '';
 }
 
 // reset forgets the results of the last dialog (a search still running is stopped and no longer waited for).
@@ -327,6 +349,12 @@ function reset() {
 
 function stopSearch() {
   if (S.running) go.Find.Stop(S.runId);
+}
+
+// stopAll is Stop (Cancel, Esc) while something runs: a tab's own work (an AI run) and the search.
+function stopAll() {
+  busyTab()?.stop?.();
+  stopSearch();
 }
 
 function addItems(items) {
@@ -675,11 +703,13 @@ function onKey(ev) {
   if (!isTop(ev) || ev.isComposing) return;
   const combo = comboFromEvent(ev);
   const stop = () => { ev.preventDefault(); ev.stopImmediatePropagation(); };
-  if (combo === 'Esc' && S.running) { stop(); stopSearch(); return; }
+  if (combo === 'Esc' && (S.running || busyTab())) { stop(); stopAll(); return; }
+  if (extraTabs.some((t) => t.key?.(ev, combo))) { stop(); return; }
   if (combo === 'Ctrl+Tab' || combo === 'Ctrl+PgDn' || combo === 'Ctrl+Shift+Tab' || combo === 'Ctrl+PgUp') {
     stop();
     const d = combo === 'Ctrl+Tab' || combo === 'Ctrl+PgDn' ? 1 : -1;
-    switchTab(TABS[(TABS.indexOf(S.tab) + d + TABS.length) % TABS.length]);
+    const tabs = allTabs();
+    switchTab(tabs[(tabs.indexOf(S.tab) + d + tabs.length) % tabs.length]);
     return;
   }
   if (combo === 'Enter' && ev.target?.id === 'ff-saved') { stop(); loadSaved(); return; }
@@ -738,11 +768,15 @@ async function openDialog(app, args = {}) {
       sel.innerHTML = '<option value="">Volumes…</option>' + `<option value="${esc(vols.join(';'))}">All local volumes</option>` + vols.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
     }).catch(() => {});
     // events
-    box.onsubmit = (ev) => { ev.preventDefault(); startSearch(); };
+    box.onsubmit = (ev) => {
+      ev.preventDefault();
+      const t = extraTabs.find((x) => x.id === S.tab && x.start);
+      if (t) { if (!S.running && !busyTab()) t.start(); } else startSearch();
+    };
     box.querySelectorAll('.mc-find-tab').forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
     box.querySelector('#ff-hidden').onchange = (ev) => setChk('ff-skiphidden', !ev.target.checked);
     box.querySelector('#ff-skiphidden').onchange = (ev) => setChk('ff-hidden', !ev.target.checked);
-    box.querySelector('.ff-cancel').onclick = () => { if (S.running) stopSearch(); else done(null); };
+    box.querySelector('.ff-cancel').onclick = () => { if (S.running || busyTab()) stopAll(); else done(null); };
     box.querySelector('.ff-browse').onclick = async () => {
       const first = (val('ff-in').split(';')[0] || p.path).replace(/^"|"$/g, '');
       const dir = await go.App.PickFolder('Search in', first).catch(() => '');
@@ -773,6 +807,7 @@ async function openDialog(app, args = {}) {
       moveTo(+row.dataset.i, { shift: ev.shiftKey, toggle: ev.ctrlKey || ev.metaKey });
     });
     list.addEventListener('dblclick', (ev) => { if (ev.target.closest('.r')) gotoFile(); });
+    tabHook('setup', box);
     syncEnabled();
     requestAnimationFrame(render);
     if (args.fields) for (const [id, v] of Object.entries(args.fields)) { const el = box.querySelector(`#${CSS.escape(id)}`); if (el) { if (el.type === 'checkbox') el.checked = !!v; else el.value = v; } }
@@ -783,9 +818,39 @@ async function openDialog(app, args = {}) {
     if (S.running) stopSearch();
     S.box = null;
     S.done = null;
+    tabHook('closed');
   });
   return true; // (the dialog stays open; the command is done)
 }
+
+// ---- for other features (the AI tab's find_files, find-ai.js) ----
+
+// findDialog lets a feature use the open dialog: search(req) puts a request in the fields and runs it as Start search
+// would, so the results fill the list and the status line; it answers {items, done, error} when the search is over.
+// A search that runs longer than opts.timeout ms is stopped (what it found so far stays). sync() redraws the buttons
+// after a tab's busy() changed; `box` is the open dialog (null when closed).
+export const findDialog = {
+  get box() { return S.box; },
+  get tab() { return S.tab; },
+  get running() { return S.running; },
+  sync: () => { if (S.box) syncEnabled(); },
+  showError: (t) => showErr(t),
+  status: () => statusText(),
+  async search(req, { timeout = 0 } = {}) {
+    if (!S.box) return { items: [], done: null, error: 'The Find files dialog is closed.' };
+    if (S.running) { stopSearch(); await S.finish; }
+    fill(req, { keepIn: false });
+    const error = await startSearch(req);
+    if (error) return { items: [], done: null, error };
+    const id = S.runId;
+    let timer = 0;
+    if (timeout > 0) timer = setTimeout(() => { if (S.runId === id) stopSearch(); }, timeout);
+    await S.finish;
+    clearTimeout(timer);
+    if (S.runId !== id) return { items: [], done: null, error: 'Another search replaced this one.' };
+    return { items: S.items.slice(), done: S.last, error: '' };
+  },
+};
 
 // ---- commands ----
 

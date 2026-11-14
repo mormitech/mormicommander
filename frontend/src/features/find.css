@@ -59,6 +59,20 @@
 .mc-find-actions { flex: none; display: flex; flex-wrap: wrap; gap: 6px; }
 .mc-find-actions button { padding: 4px 12px; }
 
+/* the AI tab (find-ai.js, issue #146): the prompt, the provider line and the run's log fill the tab's page */
+.mc-find-page[data-page=ai]:not([hidden]) { display: flex; flex-direction: column; gap: 6px; }
+.mc-find textarea#ff-ai-prompt { font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 4px;
+  padding: 4px 6px; resize: none; flex: none; height: 4.6em; }
+.mc-find-ai-provider { flex: none; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mc-find-ai-provider.bad { color: var(--danger); white-space: normal; }
+.mc-find-ai-log { flex: 1; min-height: 0; overflow: auto; border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; background: var(--bg);
+  font-size: 12px; line-height: 1.4; }
+.mc-find-ai-log > div { white-space: pre-wrap; overflow-wrap: anywhere; margin: 1px 0; }
+.mc-find-ai-log .ai-tool, .mc-find-ai-log .ai-note, .mc-find-ai-log .ai-empty { color: var(--muted); }
+.mc-find-ai-log .ai-tool::before { content: '› '; }
+.mc-find-ai-log .ai-answer { font-weight: 600; margin-top: 4px; }
+.mc-find-ai-log .ai-error { color: var(--danger); }
+
 @media (max-width: 640px) {
   .mc-find-top { flex-direction: column; }
   .mc-find-col.main { flex-direction: row; padding-top: 0; width: 100%; }
