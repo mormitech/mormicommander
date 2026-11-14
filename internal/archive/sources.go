@@ -9,7 +9,10 @@
 // archive being written is skipped too, otherwise packing a folder into an
 // archive inside that same folder would try to pack the archive into itself.
 // RemoveSources implements "Move to archive" once the packer has verified the
-// result. All formats share this code so the options behave identically.
+// result. It never deletes what a followed link points to (only the link
+// itself goes), and it keeps any file that changed after it was scanned,
+// because the archive may then hold an older or shorter copy. All formats
+// share this code so the options behave identically.
 package archive
 
 import (
@@ -20,6 +23,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"time"
 )
 
@@ -41,6 +45,13 @@ type SourceFile struct {
 	Open func() (io.ReadCloser, error)
 	// Item is the index into Changes.Add this file came from.
 	Item int
+	// FollowedLink is set when LocalPath is a symbolic link whose target
+	// was packed in its place. "Move to archive" removes only the link.
+	FollowedLink bool
+	// UnderLink is set when LocalPath was reached through a followed link
+	// to a folder: the real file lives outside the selection, so "move to
+	// archive" never deletes it.
+	UnderLink bool
 }
 
 // CollectSources expands the add items into individual files and folders.
@@ -113,7 +124,7 @@ func (c *collector) addItem(i int, it AddItem) error {
 	if dest == "" {
 		return fmt.Errorf("archive: cannot pack %s: no name", it.Source)
 	}
-	fi, err := c.stat(it.Source)
+	fi, followed, err := c.stat(it.Source)
 	if err != nil {
 		return err
 	}
@@ -125,35 +136,37 @@ func (c *collector) addItem(i int, it AddItem) error {
 		if r, err := filepath.EvalSymlinks(it.Source); err == nil {
 			stack = append(stack, r)
 		}
-		return c.walkDir(i, it.Source, dest, fi, stack, true)
+		return c.walkDir(i, it.Source, dest, fi, stack, true, followed, false)
 	}
-	c.addFile(i, it.Source, dest, fi)
+	c.addFile(i, it.Source, dest, fi, followed, false)
 	return nil
 }
 
-// stat follows links unless links are stored as links.
-func (c *collector) stat(p string) (fs.FileInfo, error) {
+// stat follows links unless links are stored as links. followed reports
+// that p is a link whose target is described instead.
+func (c *collector) stat(p string) (fs.FileInfo, bool, error) {
 	fi, err := os.Lstat(p)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	if fi.Mode()&fs.ModeSymlink != 0 && !c.opts.StoreSymlinks {
 		if t, err := os.Stat(p); err == nil {
-			return t, nil
+			return t, true, nil
 		}
 		// A broken link cannot be followed; store it as a link instead of
 		// failing the whole pack.
 	}
-	return fi, nil
+	return fi, false, nil
 }
 
-func (c *collector) addFile(i int, local, dest string, fi fs.FileInfo) {
+func (c *collector) addFile(i int, local, dest string, fi fs.FileInfo, followed, underLink bool) {
 	if c.opts.FlattenPaths {
 		dest = path.Base(dest)
 	}
 	sf := SourceFile{
 		ArchivePath: dest, LocalPath: local, Size: fi.Size(), ModTime: fi.ModTime(),
 		Mode: fi.Mode(), DOSAttrs: localDOSAttrs(fi), Item: i,
+		FollowedLink: followed, UnderLink: underLink,
 	}
 	if fi.Mode()&fs.ModeSymlink != 0 {
 		target, err := os.Readlink(local)
@@ -170,13 +183,16 @@ func (c *collector) addFile(i int, local, dest string, fi fs.FileInfo) {
 	c.out = append(c.out, sf)
 }
 
-func (c *collector) walkDir(i int, local, dest string, fi fs.FileInfo, stack []string, top bool) error {
+func (c *collector) walkDir(i int, local, dest string, fi fs.FileInfo, stack []string, top, followed, underLink bool) error {
 	if !c.opts.FlattenPaths {
 		c.out = append(c.out, SourceFile{
 			ArchivePath: dest, LocalPath: local, IsDir: true, ModTime: fi.ModTime(),
 			Mode: fi.Mode(), DOSAttrs: localDOSAttrs(fi), Item: i,
+			FollowedLink: followed, UnderLink: underLink,
 		})
 	}
+	// Everything below a followed folder link really lives elsewhere.
+	childUnder := underLink || followed
 	if !top && c.opts.NoRecurse {
 		return nil
 	}
@@ -192,7 +208,7 @@ func (c *collector) walkDir(i int, local, dest string, fi fs.FileInfo, stack []s
 		}
 		childLocal := filepath.Join(local, name)
 		childDest := dest + "/" + name
-		cfi, err := c.stat(childLocal)
+		cfi, cfollowed, err := c.stat(childLocal)
 		if err != nil {
 			return err
 		}
@@ -217,12 +233,12 @@ func (c *collector) walkDir(i int, local, dest string, fi fs.FileInfo, stack []s
 			if loop {
 				continue
 			}
-			if err := c.walkDir(i, childLocal, childDest, cfi, append(stack, real), false); err != nil {
+			if err := c.walkDir(i, childLocal, childDest, cfi, append(stack, real), false, cfollowed, childUnder); err != nil {
 				return err
 			}
 			continue
 		}
-		c.addFile(i, childLocal, childDest, cfi)
+		c.addFile(i, childLocal, childDest, cfi, cfollowed, childUnder)
 	}
 	return nil
 }
@@ -240,16 +256,43 @@ func (c *collector) excluded(name string) bool {
 // "Move to archive". Files go first; folders are removed afterwards, deepest
 // first, and only when they ended up empty, so anything the exclude mask kept
 // out of the archive also stays on disk. It returns the removed paths.
+//
+// Two kinds of entry are kept on purpose. Files reached through a followed
+// link to a folder live outside the selection: only the link itself is
+// removed, never what it points to. And a regular file whose size or date no
+// longer matches what was scanned changed while it was being packed, so the
+// archive may hold an older or shorter copy; it is kept and named in the
+// returned error.
 func RemoveSources(files []SourceFile) ([]string, error) {
 	var removed []string
 	var dirs []string
+	var changed []string
 	for _, f := range files {
-		if f.LocalPath == "" {
+		if f.LocalPath == "" || f.UnderLink {
+			continue
+		}
+		if f.FollowedLink {
+			if fi, err := os.Lstat(f.LocalPath); err == nil && fi.Mode()&fs.ModeSymlink != 0 {
+				if err := os.Remove(f.LocalPath); err != nil {
+					return removed, err
+				}
+				removed = append(removed, f.LocalPath)
+			}
 			continue
 		}
 		if f.IsDir {
 			dirs = append(dirs, f.LocalPath)
 			continue
+		}
+		if !f.IsLink {
+			fi, err := os.Lstat(f.LocalPath)
+			if err != nil {
+				continue // already gone
+			}
+			if fi.Mode().IsRegular() && (fi.Size() != f.Size || !fi.ModTime().Equal(f.ModTime)) {
+				changed = append(changed, f.LocalPath)
+				continue
+			}
 		}
 		if err := os.Remove(f.LocalPath); err != nil && !os.IsNotExist(err) {
 			return removed, err
@@ -261,6 +304,9 @@ func RemoveSources(files []SourceFile) ([]string, error) {
 		if os.Remove(d) == nil {
 			removed = append(removed, d)
 		}
+	}
+	if len(changed) > 0 {
+		return removed, fmt.Errorf("archive: changed while being packed, so kept: %s", strings.Join(changed, ", "))
 	}
 	return removed, nil
 }

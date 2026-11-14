@@ -133,6 +133,11 @@ func TestChunkBoundaries(t *testing.T) {
 		{"utf16be", ContentOptions{Text: "needle", Encodings: EncUTF16BE}, func(p int) []byte { return append([]byte(pad(p)), utf16be("needle   ")...) }, true},
 		{"hex", ContentOptions{Text: "DE AD BE EF", Hex: true}, func(p int) []byte { return append(append([]byte(pad(p)), 0xDE, 0xAD, 0xBE, 0xEF), pad(3)...) }, true},
 		{"regex", ContentOptions{Text: `ne+dle`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "needle" + pad(2)) }, true},
+		// A match that spans a line break: the tail kept between chunks must
+		// not be cut forward to just after that line break (issue #91).
+		{"regex across line break", ContentOptions{Text: `foo\nbar`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo\nbar" + pad(2)) }, true},
+		{"regex line start", ContentOptions{Text: `(?m)^bar`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo\nbar" + pad(2)) }, true},
+		{"regex line start false", ContentOptions{Text: `^bar`, Regex: true}, func(p int) []byte { return []byte("\n" + pad(p) + "foobar" + pad(2)) }, false},
 		{"regex whole word false", ContentOptions{Text: `ne+dle`, Regex: true, WholeWords: true}, func(p int) []byte { return []byte(pad(p) + "needles" + pad(2)) }, false},
 	}
 	for _, c := range cases {

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mormicommander/internal/archive/arcapi"
 	"mormicommander/internal/robust"
 	"os"
 	"path"
@@ -386,7 +387,9 @@ func applyMeta(target string, e Entry) {
 	if perm == 0 {
 		perm = 0o644
 	}
-	perm |= 0o600 // the owner must always be able to read and update the copy
+	// Drop what the process umask forbids, as unzip and tar do, then make
+	// sure the owner can always read and update the copy.
+	perm = arcapi.ApplyUmask(perm) | 0o600
 	if e.DOSAttrs&AttrReadOnly != 0 {
 		perm &^= 0o222
 	}

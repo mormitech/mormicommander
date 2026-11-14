@@ -21,6 +21,7 @@ import (
 	"hash"
 	"hash/crc32"
 	"io"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -73,7 +74,17 @@ func (r *run) emitDuplicates() error {
 	c := r.q.dup
 	byKey := map[string][]*entry{}
 	var keys []string
+	seen := map[string]bool{}
 	for _, e := range r.dupFound {
+		// The same file can be reached twice: overlapping start folders
+		// ("C:\a; C:\a\b"), or a followed link to a folder that is also
+		// searched directly. It must not be listed as its own duplicate,
+		// where deleting "the copy" would delete the only one.
+		id := r.fileIdentity(e)
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
 		if c.needContent() && e.archive != "" {
 			// Archive members can only be opened while their archive is being walked,
 			// so they take part in name and size comparisons only.
@@ -128,6 +139,27 @@ func (r *run) emitDuplicates() error {
 		}
 	}
 	return nil
+}
+
+// fileIdentity names the file behind an entry so the same file reached by two
+// paths counts once. On the local disk the path is resolved through symbolic
+// links; hard links keep their own identity, because they are separate names
+// and deleting one leaves the data under the other. Archive members are
+// told apart by archive and member name.
+func (r *run) fileIdentity(e *entry) string {
+	if e.archive != "" {
+		return "a\x00" + e.archive + "\x00" + e.inner
+	}
+	p := e.path
+	if isOSFS(r.q.fs) {
+		if abs, err := filepath.Abs(p); err == nil {
+			p = abs
+		}
+		if real, err := filepath.EvalSymlinks(p); err == nil {
+			p = real
+		}
+	}
+	return "f\x00" + p
 }
 
 // splitByContent splits one same-size group into groups of identical content.

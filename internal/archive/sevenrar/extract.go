@@ -30,6 +30,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"mormicommander/internal/archive/arcapi"
 )
 
 // OverwriteMode is the default answer to "file exists".
@@ -184,7 +186,7 @@ type extractor struct {
 	mode    OverwriteMode
 	res     Result
 	prog    Progress
-	created map[string]bool   // local paths written in this run
+	created map[string]string // local path written in this run -> archive path that wrote it
 	written map[string]string // clean archive path -> local path, for hard links
 	links   []deferredLink
 	dirs    []dirTimes
@@ -212,7 +214,7 @@ func (a *Archive) Extract(ctx context.Context, dest string, opts ExtractOptions)
 		return Result{}, err
 	}
 	x := &extractor{a: a, ctx: ctx, dest: absDest, opts: opts, mode: opts.Overwrite,
-		created: map[string]bool{}, written: map[string]string{}, ours: map[string]bool{},
+		created: map[string]string{}, written: map[string]string{}, ours: map[string]bool{},
 		buf: make([]byte, 256<<10)}
 
 	mask := ParseMask(opts.Mask)
@@ -388,9 +390,13 @@ func (x *extractor) prepareTarget(e Entry, rel string) (string, error) {
 	if st.IsDir() {
 		return "", x.fail(e.Path, fmt.Errorf("a folder named %s already exists", target))
 	}
-	if x.created[target] {
-		// Written earlier in this run (the archive holds the same
-		// path twice): the later entry wins, as when packing.
+	if by, ok := x.created[target]; ok && by == e.Path {
+		// Written earlier in this run by the same archive path (the
+		// archive holds that path twice): the later entry wins, as when
+		// packing. A different entry landing on the same file (two
+		// "same.txt" from different folders with "unpack path names"
+		// off) is a real conflict and goes through the normal rules
+		// instead of silently replacing the file written a moment ago.
 		return target, nil
 	}
 	return x.resolveConflict(e, target, st)
@@ -523,7 +529,7 @@ func (x *extractor) file(e Entry, rel string, r io.Reader) error {
 		os.Remove(tmpName)
 		return x.fail(e.Path, err)
 	}
-	x.created[target] = true
+	x.created[target] = e.Path
 	x.written[e.Path] = target
 	x.res.Files++
 	x.res.Bytes += n
@@ -588,7 +594,9 @@ func renameReplace(src, dst string) error {
 // applyMeta restores permissions and modification time.
 func (x *extractor) applyMeta(p string, e Entry, dir bool) {
 	if !(dir && x.opts.NoPermissions) {
-		perm := e.Mode.Perm() &^ 0o022
+		// The stored bits minus what the process umask forbids (it used
+		// to be a fixed 022), as 7-Zip and unzip do.
+		perm := arcapi.ApplyUmask(e.Mode.Perm())
 		if x.opts.NoPermissions || perm == 0 {
 			perm = 0o644
 			if dir {
@@ -647,7 +655,7 @@ func (x *extractor) finishLinks() {
 			continue
 		}
 		x.ours[l.rel] = true
-		x.created[target] = true
+		x.created[target] = l.e.Path
 		x.res.Links++
 	}
 }
@@ -671,7 +679,7 @@ func (x *extractor) hardLink(l deferredLink) {
 		_ = os.Remove(target)
 	}
 	if !l.e.fileCopy && os.Link(src, target) == nil {
-		x.created[target] = true
+		x.created[target] = l.e.Path
 		x.res.Links++
 		return
 	}

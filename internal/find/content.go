@@ -7,7 +7,9 @@
 // boundary is still seen whole, and we remember the character before that tail so the
 // whole-word test is exact there too. A regular expression match can be at most the
 // tail length (64 KiB) long to be found across a boundary; matches inside one chunk can
-// be any length.
+// be any length. For regular expressions the tail starts at a line start where one is
+// near, so "^" still means "start of line" (inside a single line longer than twice the
+// tail length it may also match where the tail begins).
 
 package find
 
@@ -233,8 +235,14 @@ func (m *contentMatcher) feed(s *stream, raw []byte, eof bool) bool {
 		return false
 	}
 	if m.re != nil {
-		if i := strings.IndexByte(text[cut:], '\n'); i >= 0 {
-			cut += i + 1
+		// Start the tail at a line start so "^" keeps its meaning. Move the
+		// cut back to just after an earlier line break, which only makes the
+		// tail longer: moving it forward instead would drop the start of a
+		// match that spans that line break (issue #91). When no line break
+		// lies within another overlap's length behind the cut, the line is
+		// very long and the tail simply starts inside it.
+		if j := strings.LastIndexByte(text[:cut], '\n'); j >= 0 && cut-(j+1) <= m.overlap {
+			cut = j + 1
 		}
 	}
 	for cut < len(text) && !utf8.RuneStart(text[cut]) {

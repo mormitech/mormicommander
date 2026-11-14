@@ -8,6 +8,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -139,5 +140,38 @@ func TestDuplicatesCancel(t *testing.T) {
 	cancel()
 	if _, err := q.Run(ctx, Handler{}); err == nil {
 		t.Error("want cancellation error")
+	}
+}
+
+// The same file reached twice (overlapping start folders, or a followed link
+// to a folder that is also searched) is not its own duplicate (issue #91).
+// Real hard links are separate names and still count.
+func TestDuplicatesSameFileTwice(t *testing.T) {
+	root := mkTree(t, map[string]string{
+		"a/b/one.txt": "same content",
+		"c/other.txt": "unique text!",
+	})
+	o := DefaultOptions()
+	o.SearchIn = []string{root, filepath.Join(root, "a")}
+	o.Duplicates = DupOptions{Enabled: true}
+	if got := dupGroups(t, o); len(got) != 0 {
+		t.Errorf("overlapping folders: groups %v", got)
+	}
+	if runtime.GOOS == "windows" {
+		return
+	}
+	if err := os.Symlink(filepath.Join(root, "a"), filepath.Join(root, "c", "link")); err != nil {
+		t.Fatal(err)
+	}
+	o.SearchIn = []string{root}
+	o.FollowLinks = true
+	if got := dupGroups(t, o); len(got) != 0 {
+		t.Errorf("followed link: groups %v", got)
+	}
+	if err := os.Link(filepath.Join(root, "a", "b", "one.txt"), filepath.Join(root, "c", "hard.txt")); err != nil {
+		t.Skip("no hard links:", err)
+	}
+	if got := dupGroups(t, o); len(got) != 1 {
+		t.Errorf("hard link: groups %v, want one group", got)
 	}
 }

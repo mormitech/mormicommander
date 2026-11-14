@@ -13,6 +13,7 @@ package tarfmt
 
 import (
 	"archive/tar"
+	"compress/gzip"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
@@ -167,6 +168,9 @@ func (x *extractor) runTar() error {
 	err = x.r.walk(x.ctx, p, func(h *tar.Header, name string, tr *tar.Reader) error {
 		return x.member(h, name, tr)
 	})
+	if err == nil {
+		err = x.checkTrailer(p)
+	}
 	p.Close()
 	if err != nil {
 		return err
@@ -175,6 +179,28 @@ func (x *extractor) runTar() error {
 		return x.resolvePending()
 	}
 	return nil
+}
+
+// checkTrailer reads what is left of the compressed stream after the tar
+// end marker. The tar reader stops at that marker, so without this the
+// gzip CRC32 and size trailer (and the xz index and checksums) at the very
+// end of the file would never be checked, and a damaged archive would
+// unpack without a word. The rest is normally only padding, so this costs
+// next to nothing. A gzip archive followed by unrelated junk (some tape
+// tools pad with garbage) is still accepted: the gzip member itself has
+// been verified by then.
+func (x *extractor) checkTrailer(p *pass) error {
+	if x.r.format.Compression() == CompNone {
+		return nil
+	}
+	_, err := io.Copy(io.Discard, p.dec)
+	if err == nil || errors.Is(err, gzip.ErrHeader) {
+		return nil
+	}
+	if cerr := x.ctx.Err(); cerr != nil {
+		return cerr
+	}
+	return fmt.Errorf("tarfmt: archive is damaged (end of compressed data): %w", err)
 }
 
 // member handles one tar header during the main pass.
@@ -383,9 +409,11 @@ func (x *extractor) writeFile(rel string, e archive.Entry, src io.Reader, atime 
 		}
 		return fmt.Errorf("%s: %w", e.Path, cerr)
 	}
-	mode := e.Mode.Perm()
-	if mode == 0 {
-		mode = 0o644
+	// The stored bits minus what the umask forbids, as tar does for a
+	// normal user.
+	mode := archive.ApplyUmask(e.Mode.Perm())
+	if e.Mode.Perm() == 0 {
+		mode = archive.ApplyUmask(0o644)
 	}
 	_ = x.root.Chmod(local(tmp), mode)
 	if !e.ModTime.IsZero() {
@@ -604,7 +632,7 @@ func (x *extractor) finishDirs() {
 	for _, rel := range rels {
 		m := x.dirs[rel]
 		if m.mode != 0 {
-			_ = x.root.Chmod(local(rel), m.mode)
+			_ = x.root.Chmod(local(rel), archive.ApplyUmask(m.mode))
 		}
 		if !m.mtime.IsZero() {
 			at := m.atime

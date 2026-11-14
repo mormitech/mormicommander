@@ -188,6 +188,11 @@ func Modify(ctx context.Context, archivePath string, ch Changes) error {
 		if err := checkAddConflicts(r, adds, deleted, rename); err != nil {
 			return err
 		}
+		if ch.AddOptions.RemoveSources {
+			if err := checkMoveDuplicates(adds); err != nil {
+				return err
+			}
+		}
 	}
 	addNames := map[string]bool{}
 	prog := progressFn(ch.Progress, r.size, nil)

@@ -63,6 +63,26 @@ type item struct {
 	fi   fs.FileInfo
 	link string // symlink target when stored as a link
 	top  bool   // named directly by the caller
+	// followed is set when src is a symbolic link whose target was stored
+	// (FollowSymlinks). "Move to archive" then removes only the link.
+	followed bool
+	// viaLink is set when src was reached through a followed symbolic link
+	// to a folder, so the real file lives somewhere outside the selection.
+	// "Move to archive" never deletes such files.
+	viaLink bool
+	// packed records the size and date of a regular file as it was actually
+	// stored, so "move to archive" can refuse to delete a file that changed
+	// (or kept growing) while it was being packed. It is a pointer so the
+	// copies of an item that the writers receive all fill the same record.
+	packed *stamp
+}
+
+// stamp is what the packer saw of a regular file when it stored it.
+type stamp struct {
+	done  bool      // the file was stored
+	size  int64     // bytes stored
+	mtime time.Time // modification date when the file was opened
+	grew  bool      // more data appeared after the stored bytes
 }
 
 // collect walks the sources and returns what will be stored, in order.
@@ -81,8 +101,8 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 		}
 		return false
 	}
-	var walk func(src, rel string, fi fs.FileInfo, depth int, top bool) error
-	walk = func(src, rel string, fi fs.FileInfo, depth int, top bool) error {
+	var walk func(src, rel string, fi fs.FileInfo, depth int, top, viaLink bool) error
+	walk = func(src, rel string, fi fs.FileInfo, depth int, top, viaLink bool) error {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
@@ -90,6 +110,7 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 			return fmt.Errorf("tarfmt: %s: folders nested too deeply (symlink loop?)", src)
 		}
 		link := ""
+		followed := false
 		if fi.Mode()&fs.ModeSymlink != 0 {
 			if opt.FollowSymlinks {
 				tfi, err := os.Stat(src)
@@ -97,6 +118,7 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 					return err
 				}
 				fi = tfi
+				followed = true
 			} else {
 				l, err := os.Readlink(src)
 				if err != nil {
@@ -117,13 +139,17 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 		case link != "" || mode.IsRegular():
 			if !seen[src] {
 				seen[src] = true
-				items = append(items, item{src: src, name: name, fi: fi, link: link, top: top})
+				it := item{src: src, name: name, fi: fi, link: link, top: top, followed: followed, viaLink: viaLink}
+				if link == "" {
+					it.packed = &stamp{}
+				}
+				items = append(items, it)
 			}
 			return nil
 		case mode.IsDir():
 			if !opt.NoPaths && !seen[src] {
 				seen[src] = true
-				items = append(items, item{src: src, name: name, fi: fi, top: top})
+				items = append(items, item{src: src, name: name, fi: fi, top: top, followed: followed, viaLink: viaLink})
 			}
 			if opt.NoRecurse && !top {
 				return nil
@@ -140,7 +166,7 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 				if opt.NoRecurse && cfi.IsDir() {
 					continue
 				}
-				if err := walk(filepath.Join(src, de.Name()), path.Join(rel, de.Name()), cfi, depth+1, false); err != nil {
+				if err := walk(filepath.Join(src, de.Name()), path.Join(rel, de.Name()), cfi, depth+1, false, viaLink || followed); err != nil {
 					return err
 				}
 			}
@@ -170,7 +196,7 @@ func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs
 				rel = r
 			}
 		}
-		if err := walk(abs, filepath.ToSlash(rel), fi, 0, true); err != nil {
+		if err := walk(abs, filepath.ToSlash(rel), fi, 0, true, false); err != nil {
 			return nil, err
 		}
 	}
@@ -216,24 +242,54 @@ func (pk *packer) add(it item) error {
 			pk.links[key] = it.name
 		}
 	}
-	pk.prog.file(it.name)
-	if err := pk.tw.WriteHeader(h); err != nil {
-		return fmt.Errorf("%s: %w", it.src, err)
+	if h.Typeflag == tar.TypeLink && it.packed != nil {
+		// The data went in with the first name of this hard-linked file.
+		*it.packed = stamp{done: true, size: it.fi.Size(), mtime: it.fi.ModTime()}
 	}
-	if h.Typeflag != tar.TypeReg || h.Size == 0 {
+	if h.Typeflag != tar.TypeReg {
+		pk.prog.file(it.name)
+		if err := pk.tw.WriteHeader(h); err != nil {
+			return fmt.Errorf("%s: %w", it.src, err)
+		}
 		return nil
 	}
+	// Open the file before writing its header and take the size from the
+	// open file, not from the earlier folder scan: a file that grew in the
+	// meantime is then stored whole instead of being cut at the old size.
 	f, err := os.Open(it.src)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
-	n, err := io.Copy(ctxWriter{pk.ctx, pk.prog.writer(pk.tw)}, io.LimitReader(f, h.Size))
+	st, err := f.Stat()
 	if err != nil {
 		return fmt.Errorf("%s: %w", it.src, err)
 	}
-	if n != h.Size {
-		return fmt.Errorf("%s: file shrank while being packed", it.src)
+	if st.Mode().IsRegular() {
+		h.Size = st.Size()
+		h.ModTime = st.ModTime()
+	}
+	pk.prog.file(it.name)
+	if err := pk.tw.WriteHeader(h); err != nil {
+		return fmt.Errorf("%s: %w", it.src, err)
+	}
+	var n int64
+	if h.Size > 0 {
+		n, err = io.Copy(ctxWriter{pk.ctx, pk.prog.writer(pk.tw)}, io.LimitReader(f, h.Size))
+		if err != nil {
+			return fmt.Errorf("%s: %w", it.src, err)
+		}
+		if n != h.Size {
+			return fmt.Errorf("%s: file shrank while being packed", it.src)
+		}
+	}
+	if it.packed != nil {
+		// Peek for data beyond the stored size: a file still being written
+		// to is stored as far as it went, but must not be deleted by
+		// "move to archive".
+		var one [1]byte
+		m, _ := f.Read(one[:])
+		*it.packed = stamp{done: true, size: n, mtime: h.ModTime, grew: m > 0}
 	}
 	return nil
 }
@@ -285,6 +341,11 @@ func Create(ctx context.Context, archivePath string, sources []string, opt Creat
 	items, err := collect(ctx, sources, opt, skip)
 	if err != nil {
 		return err
+	}
+	if opt.RemoveSources {
+		if err := checkMoveDuplicates(items); err != nil {
+			return err
+		}
 	}
 	prog := progressFn(opt.Progress, 0, nil)
 	for _, it := range items {
@@ -369,10 +430,18 @@ func writeSingle(ctx context.Context, w io.Writer, f Format, level int, items []
 		return err
 	}
 	defer src.Close()
+	opened := it.fi.ModTime()
+	if st, err := src.Stat(); err == nil {
+		opened = st.ModTime()
+	}
 	prog.file(it.name)
-	if _, err := io.Copy(ctxWriter{ctx, prog.writer(cw)}, src); err != nil {
+	n, err := io.Copy(ctxWriter{ctx, prog.writer(cw)}, src)
+	if err != nil {
 		cw.Close()
 		return err
+	}
+	if it.packed != nil {
+		*it.packed = stamp{done: true, size: n, mtime: opened}
 	}
 	return cw.Close()
 }
@@ -391,15 +460,70 @@ func gzipHeaderName(name string) string {
 	return name
 }
 
+// checkMoveDuplicates refuses a "move to archive" in which two different
+// files would be stored under the same name (possible with NoPaths, "pack
+// path names" unchecked). Unpacking can only ever restore one of them, so
+// deleting both originals afterwards would lose the other one.
+func checkMoveDuplicates(items []item) error {
+	byName := map[string]string{}
+	for _, it := range items {
+		if it.link == "" && it.fi.IsDir() {
+			continue
+		}
+		if first, ok := byName[it.name]; ok {
+			return fmt.Errorf("tarfmt: %s and %s would both be stored as %q; nothing was moved (pack path names, or pack them separately)", first, it.src, it.name)
+		}
+		byName[it.name] = it.src
+	}
+	return nil
+}
+
+// unchangedSince reports whether the regular file at p still looks exactly
+// like the copy that was stored: same size, same modification date, and no
+// data appeared after the stored bytes.
+func unchangedSince(p string, s *stamp) bool {
+	if s == nil || !s.done || s.grew {
+		return false
+	}
+	fi, err := os.Lstat(p)
+	if err != nil || !fi.Mode().IsRegular() {
+		return false
+	}
+	return fi.Size() == s.size && fi.ModTime().Equal(s.mtime)
+}
+
 // removeItems deletes packed sources for "move to archive": files and links
 // first, then folders deepest first, and a folder only when it is empty (it
 // may still hold things that were not packed, for example with NoRecurse).
+// Two kinds of item are kept on purpose. Files reached through a followed
+// symbolic link to a folder live outside the selection, so only the link
+// itself is removed, never what it points to. And a file that changed or
+// kept growing while it was packed is kept, because the archive holds an
+// older or shorter copy; it is reported in the returned error.
 func removeItems(items []item) error {
 	var dirs []string
 	var errs []error
 	for _, it := range items {
+		if it.viaLink {
+			continue
+		}
+		if it.followed {
+			// Remove the link, not the file or folder it points to.
+			if fi, err := os.Lstat(it.src); err == nil && fi.Mode()&fs.ModeSymlink != 0 {
+				if err := os.Remove(it.src); err != nil {
+					errs = append(errs, err)
+				}
+			}
+			continue
+		}
 		if it.fi.IsDir() && it.link == "" {
 			dirs = append(dirs, it.src)
+			continue
+		}
+		if it.packed != nil && !unchangedSince(it.src, it.packed) {
+			if _, err := os.Lstat(it.src); err == nil {
+				errs = append(errs, fmt.Errorf("%s changed while being packed; it was kept", it.src))
+			}
 			continue
 		}
 		if err := os.Remove(it.src); err != nil && !errors.Is(err, fs.ErrNotExist) {
