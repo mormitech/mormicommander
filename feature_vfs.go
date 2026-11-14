@@ -164,12 +164,17 @@ func vfsTempDir(prefix string) (string, error) {
 // LocalCopy gives a local path for a file: the path itself for a local file, else a temporary copy unpacked from the
 // archive or downloaded from the server (Enter and F3 inside archives). The copy is removed when the app ends.
 func (f *FS) LocalCopy(path string) (string, error) {
-	if f.router == nil || vfsIsLocal(f.router, path) {
+	return vfsLocalCopy(f.router, path)
+}
+
+// vfsLocalCopy is LocalCopy for any caller that has the router (the Lister opens server files through it, issue #101).
+func vfsLocalCopy(r *vfs.Router, path string) (string, error) {
+	if r == nil || vfsIsLocal(r, path) {
 		return path, nil
 	}
-	e, err := f.router.Stat(path)
+	e, err := r.Stat(path)
 	if err != nil {
-		return "", errors.New(listError(f.router.Clean(path), err))
+		return "", errors.New(listError(r.Clean(path), err))
 	}
 	if e.Flags&vfs.FlagDir != 0 {
 		return "", fmt.Errorf("%s is a folder, not a file.", e.Name)
@@ -181,7 +186,7 @@ func (f *FS) LocalCopy(path string) (string, error) {
 	local := filepath.Join(dir, archive.SanitizeName(e.Name))
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
-	if _, err := f.router.Download(ctx, f.router.Clean(path), local, vfs.TransferOptions{PreserveTime: true}); err != nil {
+	if _, err := r.Download(ctx, r.Clean(path), local, vfs.TransferOptions{PreserveTime: true}); err != nil {
 		return "", fmt.Errorf("Can't unpack %s: %s", e.Name, vfsErrText(err))
 	}
 	return local, nil

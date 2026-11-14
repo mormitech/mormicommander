@@ -25,7 +25,7 @@ import { addControlCommand } from '../core/control.js';
 import { comboFromEvent } from '../core/keys.js';
 import { size as fmtSize, bytes as fmtBytes } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
-import { quickViewSource, ARCHIVE_PREVIEW_LIMIT } from './viewer/qvsource.js';
+import { quickViewSource, viewsFromCopy, downloads, ARCHIVE_PREVIEW_LIMIT, SERVER_PREVIEW_LIMIT } from './viewer/qvsource.js';
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 import { makeWalker, walkList } from './viewer/walk.js';
 import { editNote } from './archive-edit-lib.js';
@@ -188,10 +188,32 @@ async function view(app, args = {}) {
   const s = listerSettings(app);
   const first = sel.length ? sel[0] : e;
   if (s.viewer && !args.internal) return external(app, p.fullPath(first.name), s.viewer);
-  if (remote(p.path)) { app.flash('Viewing files inside archives or on servers is not ready yet.', 'err'); return; }
+  if (viewsFromCopy(p.vfs, p.path)) return viewCopy(app, p, e, sel, first, args);
   const names = sel.length ? sel.map((x) => x.name) : p.entries.filter((x) => !x.dir && !x.up).map((x) => x.name);
   if (sel.length && first !== e) p.focusName(first.name);
   await openViewer(app, { path: p.fullPath(first.name), names, dir: p.path, panel: p, internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
+}
+
+// viewCopy is F3 on a file inside an archive or on a server (FTP, SFTP, WebDAV) when it comes from a menu, the button
+// bar or control mode (the F3 key itself is caught by vfs.js, which does the same; fed search results go this way too): the file is unpacked or downloaded
+// to a temporary copy, and N / P walk the selected files (else all files of the folder), each copied when reached
+// (issue #101).
+async function viewCopy(app, p, e, sel, first, args) {
+  const from = p.fullPath(first.name);
+  const walk = sel.length ? sel : p.entries.filter((x) => !x.dir && !x.up);
+  if (sel.length && first !== e) p.focusName(first.name);
+  if (downloads(p.vfs, p.path)) app.flash(`Downloading ${first.name}…`);
+  let local;
+  try {
+    local = await go.FS.LocalCopy(from);
+  } catch (err) {
+    const t = errText(err);
+    app.flash(/is not available/.test(t) ? 'Viewing files inside archives or on servers is not ready yet.' : t, 'err');
+    return;
+  }
+  if (!local) return;
+  return view(app, { path: local, from, sources: walk.map((x) => p.fullPath(x.name)), side: p.side, dir: p.path,
+    internalOnly: !!args.internalOnly, mode: args.mode || 'auto' });
 }
 
 async function folderSize(app, p, e) {
@@ -245,13 +267,15 @@ function qvUpdate(app, now = false) {
     if (e.dir) { await v.showFolder(e.name, path); return; }
     go.Lister.CancelFolderSize('quickview').catch(() => {});
     try {
-      const kind = quickViewSource(remote(src.path) ? null : await go.FS.PathInfo(src.path).catch(() => null), src.path, e);
+      const kind = quickViewSource(remote(src.path) ? src.vfs || null : await go.FS.PathInfo(src.path).catch(() => null), src.path, e);
       if (qv?.shown !== key) return;
       if (kind === 'remote') { v.showNote('Viewing files on servers is not ready yet.'); return; }
       if (kind === 'too-big') { v.showNote(`${e.name} is larger than ${fmtSize(ARCHIVE_PREVIEW_LIMIT)}, too large to preview inside an archive. F3 views it.`); return; }
-      // a file inside an archive is shown from a temporary copy (unpacked once per quick view)
+      if (kind === 'server-too-big') { v.showNote(`${e.name} is larger than ${fmtSize(SERVER_PREVIEW_LIMIT)}, too large to preview from a server. F3 views it.`); return; }
+      // a file inside an archive or on a server is shown from a temporary copy (unpacked or downloaded once per quick view)
       let file = path;
-      if (kind === 'archive') {
+      if (kind === 'archive' || kind === 'server') {
+        if (kind === 'server' && !qv.copies.has(`${path}\u0000${e.size}\u0000${e.mtime}`)) v.showNote(`Downloading ${e.name}…`);
         const ck = `${path}\u0000${e.size}\u0000${e.mtime}`;
         if (!qv.copies.has(ck)) qv.copies.set(ck, go.FS.LocalCopy(path));
         try { file = await qv.copies.get(ck); } catch (err) { qv?.copies.delete(ck); throw err; }

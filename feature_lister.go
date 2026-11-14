@@ -218,7 +218,15 @@ func (l *Lister) Open(path string, o ListerOptions) (ListerInfo, error) {
 	if l.app.mock != nil {
 		return ListerInfo{}, errors.New("This is the demo: its files are not real, so they can't be viewed.")
 	}
-	if strings.Contains(path, "://") {
+	if rt := vfsRouter(l.app); rt != nil && !vfsIsLocal(rt, path) {
+		// a file inside an archive or on a server (FTP, SFTP, WebDAV) is viewed from a temporary local copy, like the
+		// page does before it opens the Lister (issue #101); the copy is removed when the app ends
+		local, err := vfsLocalCopy(rt, path)
+		if err != nil {
+			return ListerInfo{}, err
+		}
+		path = local
+	} else if strings.Contains(path, "://") {
 		return ListerInfo{}, errors.New("Viewing files inside archives or on servers is not ready yet.")
 	}
 	fi, err := os.Stat(path)
@@ -838,8 +846,9 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 	l.sizes[key] = cancel
 	l.mu.Unlock()
 	defer cancel()
-	if rt := vfsRouter(l.app); rt != nil && rt.Kind(path) == vfs.KindArchive {
-		// a folder inside an archive: there is nothing on the disk to stat, so count it from the archive's listing
+	if rt := vfsRouter(l.app); rt != nil && rt.Kind(path) != vfs.KindLocal {
+		// a folder inside an archive or on a server (issue #101): there is nothing on the disk to stat, so count it from
+		// the listings
 		r, err := vfsFolderSize(ctx, rt, rt.Clean(path))
 		if err != nil && ctx.Err() != nil {
 			return r, errors.New("Stopped counting.")
@@ -859,7 +868,7 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 	return r, nil
 }
 
-// vfsFolderSize counts a folder that lives inside an archive by walking the router's listings: files, bytes and
+// vfsFolderSize counts a folder that lives inside an archive or on a server by walking the router's listings: files, bytes and
 // subfolders, in the same form dirsize gives for a folder on the disk.
 func vfsFolderSize(ctx context.Context, rt *vfs.Router, dir string) (dirsize.Result, error) {
 	r := dirsize.Result{Path: dir, IsDir: true}
