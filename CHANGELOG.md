@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.81 – 2026-11-14
+
+### Fixed
+
+- Engine leftovers from issue #102. File comments (descript.ion): a name containing a quote, such as `a" b`, now survives a save and reload; names that already read back correctly are written exactly as before, and older files still read the same. On Linux the creation date column is now filled from the file system birth time when the kernel and file system record one, and stays empty otherwise. On Windows descript.ion is marked hidden again after each save, as Total Commander keeps it. FTP and SFTP transfers now refuse remote names that are unsafe as local file names. Not done yet: merging the volume code in internal/disk and internal/dirsize is left as its own follow-up change.
+
 ## 0.9.80 – 2026-11-14
 
 ### Added
