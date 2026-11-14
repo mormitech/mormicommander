@@ -99,6 +99,9 @@ type Request struct {
 	ConfirmDirs     bool `json:"confirmDirs"`     // delete/wipe: ask before removing each non-empty folder (Yes/All/Skip)
 	ConfirmReadOnly bool `json:"confirmReadOnly"` // delete/wipe: ask before removing each read-only file
 	WipePasses      int  `json:"wipePasses"`      // wipe: how many times the contents are overwritten; 0 = 1
+
+	// NoJournal keeps the job out of the app's undo journal (the jobs an undo itself runs); the engine ignores it.
+	NoJournal bool `json:"noJournal,omitempty"`
 }
 
 // AskType tells which question a Conflict is.

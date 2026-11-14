@@ -293,12 +293,14 @@ async function overwrite(r, c) {
   const file = (label, path, sz, t, who) => `<div class="mc-jobs-file"><span class="l">${label}</span><span class="p">${esc(path)}</span>
     <span class="i">${esc(bytes(sz))} bytes · <span class="${newer === who ? 'newer' : ''}">${esc(date(t))}${newer === who ? ' (newer)' : ''}</span></span></div>`;
   const same = c.same == null ? '' : `<p class="mc-jobs-same ${c.same ? 'eq' : 'ne'}">${c.same ? 'The two files have the same content.' : 'The two files are different.'}</p>`;
+  // with the undo journal on (board #13), say that this is one of the things it can't take back
+  const noUndo = app.setting('undoJournal', true) === false ? '' : '<p class="mc-jobs-noundo">Replacing a file can\'t be undone.</p>';
   const verb = r.p.kind === 'move' ? 'Move' : 'Copy';
   const hasMore = MORE.some(([, ch]) => offered.has(ch));
   const choice = await modal((box, done) => {
     box.classList.add('mc-jobs-overwrite');
     box.innerHTML = `<h2>Replace file?</h2><p class="mc-msg">${esc(base(c.target))} is already in the target folder.</p>
-      ${file('Overwrite this file:', c.target, c.dstSize, c.dstTime, 'dst')}${file(`With this one (${verb.toLowerCase()}):`, c.source, c.srcSize, c.srcTime, 'src')}${same}
+      ${file('Overwrite this file:', c.target, c.dstSize, c.dstTime, 'dst')}${file(`With this one (${verb.toLowerCase()}):`, c.source, c.srcSize, c.srcTime, 'src')}${same}${noUndo}
       ${row(MAIN)}${row(SECOND)}${hasMore ? `<div class="mc-btns"><button type="button" class="mc-jobs-more">More options</button></div><div class="mc-jobs-morebox" hidden>${row(MORE)}</div>` : ''}`;
     box.querySelectorAll('[data-choice]').forEach((b) => { b.onclick = () => done(b.dataset.choice); });
     const more = box.querySelector('.mc-jobs-more');

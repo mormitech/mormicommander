@@ -22,6 +22,8 @@ func init() {
 	registerFeature("jobs", func(a *App) []any {
 		j := &Jobs{app: a}
 		j.q = fileops.NewQueue(func(event string, data any) { a.emit(event, data) })
+		// what the jobs do also feeds the undo journal (feature_undo.go); a.undo is set before any job can start
+		j.q.Log = func(e fileops.Entry) { a.undo.observe(e) }
 		a.jobs = j
 		return []any{j}
 	})
@@ -43,7 +45,7 @@ func (j *Jobs) Start(r fileops.Request) (int, error) {
 	if j.app.mock != nil {
 		return 0, errors.New("This is the demo: its files are not real, so they can't be copied, moved or deleted.")
 	}
-	id, err := j.q.Start(r)
+	id, err := j.app.undo.startTracked(r, j.q.Start)
 	if err != nil {
 		return 0, errors.New(fileopsSentence(err.Error()))
 	}

@@ -354,3 +354,15 @@ always). Kinds that always stay in the page: `lister` (the Lister over the panel
 can be kept in the page with the setting `dialogsInPage` (a list of kinds, e.g. `["options", "find"]`).
 A dialog window's own close button does what Esc does in the dialog (Compare by content asks to save unsaved changes
 first); a window with another dialog window above it does not close.
+
+## Undo of file operations (feature_undo.go, features/undo.js; board issue #13)
+
+Renames in place, new folders (F7) and copy and move jobs on this computer's disks are written to `undo.json` in the
+settings folder (setting `undoJournal`, on by default; false stops the recording). Commands `cm_UndoFileOp` (Cmd+Z on
+macOS) and `cm_UndoList` take an operation back after a confirm dialog of kind `undo`; the list is a popup of kind
+`undo-list`.
+
+| command | answer |
+|---|---|
+| `{"cmd": "undo-list"}` | `{ok, entries: [{id, time, kind, items: [{from, to, dir}], lost}]}`, oldest first (handled in Go) |
+| `{"cmd": "undo"}` / `{"cmd": "undo", "id": n}` | undoes the newest (or the given) operation without asking; `{ok}` |

@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"mormicommander/internal/fileops"
+	"mormicommander/internal/undo"
 	"mormicommander/internal/vfs"
 )
 
@@ -238,9 +239,18 @@ func (j *Jobs) MkDir(parent, name string) (string, error) {
 		}
 		return "", fmt.Errorf("There is already a file named %s.", filepath.Base(full))
 	}
+	// the first level that is not there yet, for the undo journal (undoing removes the levels this made, no more)
+	firstNew := full
+	for p := filepath.Dir(full); p != filepath.Dir(p); p = filepath.Dir(p) {
+		if _, err := os.Lstat(p); err == nil {
+			break
+		}
+		firstNew = p
+	}
 	if err := os.MkdirAll(full, 0o777); err != nil {
 		return "", fmt.Errorf("Can't make the folder %s: %s.", filepath.Base(full), fileopsPlain(err))
 	}
+	j.app.undo.record(undo.MkDir, undo.Item{From: firstNew, To: full, Dir: true})
 	// the first level that is new and sits directly in parent gets the cursor
 	if rel, err := filepath.Rel(parent, full); err == nil && !strings.HasPrefix(rel, "..") && !filepath.IsAbs(rel) {
 		return strings.Split(rel, string(filepath.Separator))[0], nil
@@ -361,6 +371,9 @@ func (j *Jobs) Rename(path, newName string) (string, error) {
 			return "", fmt.Errorf("There is already a file or folder named %s.", newName)
 		}
 		return "", fmt.Errorf("Can't rename %s: %s.", filepath.Base(path), fileopsPlain(err))
+	}
+	if src := filepath.Clean(path); dst != src {
+		j.app.undo.record(undo.Rename, undo.Item{From: src, To: dst})
 	}
 	return dst, nil
 }

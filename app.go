@@ -29,6 +29,7 @@ type App struct {
 	mock     *vfs.Mock // the fictional file system in a demo run, else nil
 	settings *Settings // see settings.go
 	jobs     *Jobs     // see feature_jobs.go
+	undo     *Undo     // the undo journal of file operations, see feature_undo.go
 	ctl      *control  // control mode (see control.go); nil when off
 	saved    *winState // where the window was left last time
 	winW     int       // the size the window was asked for, before it is fitted to the screen

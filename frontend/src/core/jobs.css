@@ -16,6 +16,7 @@
 .mc-jobs-same { margin: 0 0 10px; font-weight: 600; }
 .mc-jobs-same.eq { color: var(--accent); }
 .mc-jobs-same.ne { color: var(--danger); }
+.mc-jobs-noundo { margin: 0 0 8px; opacity: 0.75; font-size: 0.92em; }
 .mc-jobs-overwrite .mc-btns { justify-content: flex-start; margin-top: 4px; }
 .mc-jobs-overwrite .mc-btns button { padding: 4px 10px; }
 .mc-jobs-morebox[hidden] { display: none; }
