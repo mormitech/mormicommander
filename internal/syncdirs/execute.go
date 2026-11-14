@@ -274,9 +274,21 @@ type ExecOptions struct {
 	// trash" setting (spec 9.7). It gets the side's file system and the
 	// slash path on it; SystemTrash is the implementation for local sides.
 	// An error is handled like any failed operation (OnError); the entry is
-	// never deleted permanently as a fallback. Empty folders are always
-	// removed directly, since nothing in them could be lost.
+	// never deleted permanently as a fallback. By default empty folders are
+	// removed directly, since nothing in them could be lost, and a link that
+	// a link copy replaces is simply overwritten; the two options below send
+	// those to the trash as well.
 	Trash func(f WritableFS, name string) error
+	// TrashEmptyDirs, with Trash set, moves the emptied folders a sync
+	// removes to the trash too instead of removing them directly (board
+	// issue #99). A folder is still only taken when it is empty: one that
+	// still holds something fails like a direct removal would.
+	TrashEmptyDirs bool
+	// TrashReplacedLinks, with Trash set, moves an existing link that a link
+	// copy replaces to the trash before the new link is made, instead of
+	// overwriting it (board issue #99). Only the link itself goes, never what
+	// it points to.
+	TrashReplacedLinks bool
 }
 
 // OpError is one failed operation.
@@ -691,7 +703,12 @@ func (e *executor) copyLink(op *Op) error {
 		if fi.IsDir() && fi.Mode()&fs.ModeSymlink == 0 {
 			return fmt.Errorf("%w: %s is a folder", ErrChanged, op.Dst)
 		}
-		if err := dst.Remove(op.Dst); err != nil {
+		if e.opts.Trash != nil && e.opts.TrashReplacedLinks {
+			err = e.opts.Trash(dst, op.Dst)
+		} else {
+			err = dst.Remove(op.Dst)
+		}
+		if err != nil {
 			return err
 		}
 	}
@@ -719,15 +736,37 @@ func (e *executor) remove(op *Op) error {
 		}
 	}
 	var err error
-	if op.Kind == OpDelete && e.opts.Trash != nil {
+	switch {
+	case op.Kind == OpDelete && e.opts.Trash != nil:
 		err = e.opts.Trash(dst, op.Dst)
-	} else {
+	case op.Kind == OpRemoveDir && e.opts.Trash != nil && e.opts.TrashEmptyDirs:
+		err = trashEmptyDir(dst, op.Dst, e.opts.Trash)
+	default:
 		err = dst.Remove(op.Dst)
 	}
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil
 	}
 	return err
+}
+
+// errDirNotEmpty is the error for a folder that should be trashed as empty
+// but still holds something (a file that failed to go, or one added since the
+// compare).
+var errDirNotEmpty = errors.New("syncdirs: folder is not empty")
+
+// trashEmptyDir moves the folder name to the trash, but only when it is empty,
+// so trashing keeps the promise that a sync only ever takes away emptied
+// folders and never a folder with something left in it.
+func trashEmptyDir(dst WritableFS, name string, trash func(WritableFS, string) error) error {
+	ents, err := dst.ReadDir(name)
+	if err != nil {
+		return err
+	}
+	if len(ents) > 0 {
+		return &fs.PathError{Op: "trash", Path: name, Err: errDirNotEmpty}
+	}
+	return trash(dst, name)
 }
 
 func isGone(f FS, p string) bool {

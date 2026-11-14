@@ -67,6 +67,9 @@ type SyncExecRequest struct {
 	Filter           syncdirs.PlanFilter `json:"filter"`
 	ConfirmOverwrite bool                `json:"confirmOverwrite"`
 	Trash            bool                `json:"trash"`
+	// TrashAll (board issue #99, off by default): with Trash on, the emptied folders a sync removes and the links a
+	// link copy replaces go to the trash too, instead of being removed directly.
+	TrashAll bool `json:"trashAll"`
 	// Left and Right are the folders the window shows; when given, they must be the compared pair, so a sync never
 	// writes into folders the window no longer shows.
 	Left  string `json:"left"`
@@ -438,6 +441,7 @@ func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 	}
 	if r.Trash {
 		opts.Trash = syncdirs.SystemTrash
+		opts.TrashEmptyDirs, opts.TrashReplacedLinks = r.TrashAll, r.TrashAll
 	}
 	go func() {
 		rep, err := syncdirs.Execute(ctx, plan, lfs, rfs, opts)

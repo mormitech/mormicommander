@@ -14,7 +14,8 @@
 //
 // The window is a dialog of kind "syncdirs" (fields sync-left, sync-right, sync-filter, the option checkboxes and the
 // sync-show-* buttons), so control mode reads and answers it; the control command "syncdirs" tells the rows.
-// Setting "syncdirs": {options, show} — the last options and Show buttons.
+// Setting "syncdirs": {options, show} — the last options and Show buttons; also confirmOverwrite, trash and trashAll from
+// the Synchronize dialog (trashAll, off by default: emptied folders and replaced links go to the trash too, issue #99).
 
 import './syncdirs.css';
 import { command } from '../core/registry.js';
@@ -373,17 +374,19 @@ function syncWindow(app, id, args = {}) {
       <hr class="mc-sync-hr">
       <label class="mc-check"><input type="checkbox" id="sync-confirm" ${s.confirmOverwrite === false ? '' : 'checked'}>Ask before replacing a file</label>
       <label class="mc-check"><input type="checkbox" id="sync-trash" ${s.trash === false ? '' : 'checked'}>Delete to the trash</label>
+      <label class="mc-check" style="margin-left:1.5em" title="With the trash on, emptied folders and links replaced by a link copy go to the trash too, instead of being removed directly"><input type="checkbox" id="sync-trash-all" ${s.trashAll ? 'checked' : ''}>Also trash emptied folders and replaced links</label>
       ${plan.unselected ? `<p class="mc-note">${plural(plan.unselected, 'row is', 'rows are')} left out and will not be synchronized.</p>` : ''}
       <p class="mc-note">Only the rows the Show buttons show are synchronized.</p>`;
     const r = await formDialog('Synchronize', html, (b) => {
       const v = { lr: b.querySelector('#sync-do-lr').checked, rl: b.querySelector('#sync-do-rl').checked, del: b.querySelector('#sync-do-del').checked,
-        confirm: b.querySelector('#sync-confirm').checked, trash: b.querySelector('#sync-trash').checked };
+        confirm: b.querySelector('#sync-confirm').checked, trash: b.querySelector('#sync-trash').checked,
+        trashAll: b.querySelector('#sync-trash-all').checked };
       return v.lr || v.rl || v.del ? v : 'Choose at least one thing to do.';
     }, null, { okLabel: 'Synchronize', kind: 'syncdirs-confirm' });
     if (!r) return;
-    app.setSetting('syncdirs', { ...settings(app), confirmOverwrite: r.confirm, trash: r.trash });
+    app.setSetting('syncdirs', { ...settings(app), confirmOverwrite: r.confirm, trash: r.trash, trashAll: r.trashAll });
     if (busy()) return; // the folders may have changed while the dialog was open
-    await runSync({ filter: { leftToRight: r.lr, rightToLeft: r.rl, delete: r.del, show: st.show }, confirmOverwrite: r.confirm, trash: r.trash,
+    await runSync({ filter: { leftToRight: r.lr, rightToLeft: r.rl, delete: r.del, show: st.show }, confirmOverwrite: r.confirm, trash: r.trash, trashAll: r.trash && r.trashAll,
       left: q('#sync-left').value.trim(), right: q('#sync-right').value.trim() });
   };
 

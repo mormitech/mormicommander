@@ -63,6 +63,9 @@ rep, err := syncdirs.Execute(ctx, plan, left, right, syncdirs.ExecOptions{
 - A subfolder that can't be read is skipped and reported in `Result.Errors`. It is never treated as empty, because that would invent copies or deletions.
 - Named pipes, sockets and devices are `KindSpecial`: listed, deletable, but never opened, compared by content or copied (`ErrNotRegular`); opening a pipe without a writer would hang.
 - With `ExecOptions.Trash` set, files and links are moved to the trash; a failing trash is an operation error, never a silent permanent delete.
+  Emptied folders are removed directly and a link replaced by a link copy is overwritten, unless `TrashEmptyDirs` /
+  `TrashReplacedLinks` are set (both off by default, board issue #99; the Synchronize dialog's "Also trash emptied
+  folders and replaced links"). A folder is only trashed when it is empty.
 
 ## Platform notes
 
