@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.45 – 2026-11-14
+
+### Fixed
+
+- The first password question for a WebDAV address like webdav://bob@host/ no longer says "The server did not accept
+  the login" (issue #144). That address is tried without a password first, so nothing had been refused yet. The
+  refused-login text now appears only after a password was actually sent and turned down.
+
 ## 0.9.44 – 2026-11-14
 
 ### Fixed
