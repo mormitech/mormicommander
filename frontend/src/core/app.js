@@ -149,8 +149,11 @@ export const app = {
   // is on that same drive button (the one lit up there), p goes to the other panel's folder; otherwise to the
   // button's own folder. So with the left panel in ~/Downloads, Home on the right opens ~/Downloads, while Macintosh HD
   // opens /; on Windows, with the left panel in d:\games, d opens d:\games and c opens c:\.
+  // The button of the drive p is already on (the one lit up on p's own bar) always takes p to that drive's root, also
+  // in Total Commander: following the other panel only applies when switching to a different drive.
   drivePath(p, v) {
     const o = p.other;
+    if (p.path && this.driveFor(p.path) === v) return v.path;
     if (o && o.path && this.driveFor(o.path) === v) return o.path;
     return v.path;
   },
