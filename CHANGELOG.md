@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.63 – 2026-11-14
+
+### Changed
+
+- Options audit: 18 options in the Options dialog that were saved but never used now control the features they describe (refresh: auto refresh, foreground only, network, excluded folders; drag and drop: confirm drop, spring-loaded folders and delay; hotlist history size; log: enabled and file; folder tabs: show, multi-line, close button, double-click open, new tab next to current, confirm close all, locked icon, title width). The dialog shows each feature's real value, and a value is written only when you change it, so behaviour stays as it was until then.
+- The other 161 options that still have no effect are listed in the code and marked "no effect yet" in the dialog. A new setting, "Hide options that have no effect yet", can hide them; it is off by default. Remaining work stays on issue #94.
+- Folder tabs redraw at once when changed in Options.
+
 ## 0.9.62 – 2026-11-14
 
 ### Changed
