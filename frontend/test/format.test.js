@@ -22,6 +22,11 @@ test('splitExt like vfs.SplitExt', () => {
   expect(splitExt('.bashrc')).toEqual(['.bashrc', '']);
   expect(splitExt('README')).toEqual(['README', '']);
   expect(splitExt('x.')).toEqual(['x.', '']);
+  // names with folders (result lists, branch view): only the last part has an extension
+  expect(splitExt('sub/a.txt')).toEqual(['sub/a', 'txt']);
+  expect(splitExt('sub.d/Makefile')).toEqual(['sub.d/Makefile', '']);
+  expect(splitExt('sub/.bashrc')).toEqual(['sub/.bashrc', '']);
+  expect(splitExt('a.b\\c.txt')).toEqual(['a.b\\c', 'txt']);
 });
 
 test('date', () => {

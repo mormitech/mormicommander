@@ -161,8 +161,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-083 Thumbnails view (cm_SrcThumbs) — Ctrl+Shift+F1 — panel shows image previews as tiles with names; sizes configurable; cached thumbnails
 - [ ] F-084 Custom columns view (cm_SrcCustomViewMenu / custom column sets) — Shift+F1 (column set menu) — user-defined column sets can be chosen per panel
 - [ ] F-085 Comments view (cm_SrcComments) — Ctrl+Shift+F2 — shows file comments (descript.ion) in a column
-- [ ] F-086 Branch view (cm_DirBranch) — Ctrl+B — flat list of all files in current folder and all subfolders with relative path; Ctrl+B again returns
-- [ ] F-087 Branch view of selected files and folders only (cm_DirBranchSel) — Ctrl+Shift+B — flat view only of selected folders
+- [~] F-086 Branch view (cm_DirBranch) — Ctrl+B — flat list of all files in current folder and all subfolders with relative path; Ctrl+B again returns
+- [~] F-087 Branch view of selected files and folders only (cm_DirBranchSel) — Ctrl+Shift+B — flat view only of selected folders
 - [x] F-088 Show all files / programs only / custom filter (cm_SrcAllFiles / cm_SrcExecs / cm_SrcUserSpec) — Ctrl+F10 / Ctrl+F11 / Ctrl+F12 — panel filter changes; status bar or path shows filter is active
 - [x] F-089 Define custom filter (cm_SrcUserDef) — — — dialog lets user enter wildcards like *.jpg;*.png or a saved search; panel shows only matching files
 - [x] F-090 Hide/show hidden and system files (cm_SwitchHidSys) — Ctrl+H (ours; TC: config) — dotfiles and hidden files toggle visible/invisible immediately; while shown, each status line ends with "Hidden: shown" (Options > Layout can turn the marker off)
@@ -697,7 +697,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-508 MRT search & replace (plain, case-sensitive, regex, replace only first, "E" in extension) — — — replacements applied; regex with groups $1
 - [ ] F-509 MRT multiple search/replace pairs separated by `|` — — — "a|b" replaces several strings at once
 - [ ] F-510 MRT upper/lower case options — — — dropdown applies case
-- [ ] F-511 MRT include subdirectories / file list — — — renames files in branch view as well
+- [~] F-511 MRT include subdirectories / file list — — — renames files in branch view as well
 - [ ] F-512 MRT edit names in editor — F3 in MRT (ours) — names written to a temp file, opened in editor, loaded back after save
 - [ ] F-513 MRT save/load settings presets — — — named presets saved
 - [ ] F-514 MRT undo last rename (cm_ "Undo") — — — undo restores old names (from undo log)

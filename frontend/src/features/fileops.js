@@ -65,8 +65,9 @@ function describe(items) {
 }
 
 const trashWord = (app) => (app.platform === 'windows' ? 'Recycle Bin' : app.platform === 'darwin' ? 'Trash' : 'trash');
-// (a Feed to listbox result list, find://results-N, is not remote: its names map to the real files, see find.js)
-const isFeed = (p) => /^find:\/\//i.test(p || '');
+// (a Feed to listbox result list, find://results-N, is not remote: its names map to the real files, see find.js; the
+// same goes for a branch view, branch://<folder> and branchsel://N, see branch.js)
+const isFeed = (p) => /^(find|branch|branchsel):\/\//i.test(p || '');
 const isRemote = (p) => !isFeed(p) && /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 // fromOf: the folder a relative target is read from (for a result list, the folder of the first item)
 const fromOf = (src, items) => (isFeed(src.path) && items.length ? src.fullPath(items[0].name).replace(/[\\/][^\\/]*$/, '') || '/' : src.path);
@@ -504,6 +505,13 @@ async function makeFolder(app) {
 
 let editor = null; // {panel, entry, input, mode, close(commit)}
 
+// subPathPrefix is the folder part of a name that holds folders ("sub/deeper/" of "sub/deeper/a.txt"; "" for "a.txt").
+// Only "/" separates folders on macOS and Linux, where "\" can be part of a file name.
+function subPathPrefix(name, platform) {
+  const i = platform === 'windows' ? Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\')) : name.lastIndexOf('/');
+  return i >= 0 ? name.slice(0, i + 1) : '';
+}
+
 function renameSelection(e, mode) {
   const n = e.name;
   if (e.dir || !e.ext) return [0, n.length];
@@ -522,6 +530,10 @@ function startRename(app) {
     return true;
   }
   if (!e || e.up) { app.flash('No file under the cursor.'); return false; }
+  // In a result list or a branch view a name can hold folders ("sub/a.txt"): only the file's own name is edited, as a
+  // rename never moves a file, and the folder part is put back for the panel's name afterwards.
+  const pre = isFeed(p.path) ? subPathPrefix(e.name, app.platform) : '';
+  const own = pre ? { ...e, name: e.name.slice(pre.length), base: e.dir ? e.name.slice(pre.length) : e.base.slice(pre.length) } : e;
   p.ensureVisible();
   p.renderRows();
   const list = p.$.list;
@@ -537,15 +549,15 @@ function startRename(app) {
   input.className = 'mc-fileops-rename';
   input.spellcheck = false;
   input.autocomplete = 'off';
-  input.value = e.name;
-  input.setAttribute('aria-label', `New name for ${e.name}`);
+  input.value = own.name;
+  input.setAttribute('aria-label', `New name for ${own.name}`);
   input.style.top = `${p.cursor * p.rowH}px`;
   input.style.left = `${Math.max(0, left)}px`;
   input.style.width = `${Math.max(160, right - left)}px`;
   input.style.height = `${p.rowH}px`;
   list.append(input);
   const mode = opt(app, 'renameSelectExt') ? 2 : 0;
-  const ed = { panel: p, entry: e, input, mode, closed: false };
+  const ed = { panel: p, entry: own, input, mode, closed: false };
   editor = ed;
   const finish = () => {
     if (ed.closed) return;
@@ -559,14 +571,14 @@ function startRename(app) {
   const commit = async (keepOnError) => {
     if (committing || ed.closed) return;
     const name = input.value;
-    if (!name.trim() || name === e.name) { finish(); return; }
+    if (!name.trim() || name === own.name) { finish(); return; }
     committing = true;
     try {
       await go.Jobs.Rename(p.fullPath(e.name), name);
-      if (p.selected.delete(e.name)) p.selected.add(name);
+      if (p.selected.delete(e.name)) p.selected.add(pre + name);
       finish();
       await p.reload();
-      p.focusName(name);
+      p.focusName(pre + name);
     } catch (x) {
       app.flash(errText(x), 'err');
       if (keepOnError && !ed.closed) { input.focus(); } else finish();
@@ -583,7 +595,7 @@ function startRename(app) {
   input.addEventListener('blur', () => { setTimeout(() => { if (!ed.closed && document.activeElement !== input) commit(false); }, 0); });
   input.addEventListener('mousedown', (ev) => ev.stopPropagation());
   input.focus();
-  const [a, b] = renameSelection(e, mode);
+  const [a, b] = renameSelection(own, mode);
   input.setSelectionRange(a, b);
   return true;
 }

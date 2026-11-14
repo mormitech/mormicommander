@@ -82,10 +82,12 @@ export function attr(mode, flags, platform) {
 }
 
 // splitExt is the name split at the last dot for the Ext column: "a.tar.gz" → ["a.tar", "gz"]; a dotfile like ".bashrc"
-// is all name, so is "README". (Same rule as vfs.SplitExt in Go.)
+// is all name, so is "README". (Same rule as vfs.SplitExt in Go.) A name that holds folders, as in a result list or a
+// branch view ("sub.d/Makefile", "sub/.bashrc"), is split in its last part only.
 export function splitExt(name) {
   const i = name.lastIndexOf('.');
-  if (i <= 0 || i === name.length - 1) return [name, ''];
+  const s = Math.max(name.lastIndexOf('/'), name.lastIndexOf('\\'));
+  if (i <= 0 || i === name.length - 1 || i <= s + 1) return [name, ''];
   return [name.slice(0, i), name.slice(i + 1)];
 }
 

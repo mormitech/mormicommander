@@ -5,6 +5,8 @@
 // read runs in Go off the page's thread and Go stops waiting for it at once (internal/hang).
 //
 // This feature only watches the panels' loading flag, so it adds the notice without changing how a folder is read.
+// A feature that shows a notice of its own for a read it knows is slow but alive (the branch view counting the files
+// of a big tree) sets the panel's ownLoadingNotice flag, and this notice stays away while it is set.
 
 import { go } from '../core/go.js';
 import { esc } from '../core/dialogs.js';
@@ -16,7 +18,7 @@ export function init(app) {
     const now = Date.now();
     for (const p of app.panels) {
       const s = state.get(p) || { since: null, el: null };
-      const r = slowStep(s.since, p.loading, now);
+      const r = slowStep(s.since, p.loading && !p.ownLoadingNotice, now);
       s.since = r.since;
       if (r.show && !s.el) s.el = show(p);
       else if (!r.show && s.el) { s.el.remove(); s.el = null; }

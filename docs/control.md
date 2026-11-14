@@ -272,6 +272,7 @@ Save list…, Load, Save…, Delete…) are buttons; its fields have ids: `ff-fo
 |---|---|
 | `{"cmd": "find", "wait": true}` | `open`, `running`, `status` (the status line), `count`, `files`, `folders`, `results` (paths; duplicates as `{path, group}`), `cursor`, `selected`, `feeds` (fed result lists and their base folders). `wait` waits for the running search to end. |
 | `{"cmd": "run", "name": "cm_SearchFor", "args": {"fields": {"ff-for": "*.txt"}, "start": true}}` | opens the dialog with those fields and starts at once |
+| `{"cmd": "branch"}` | the branch view (Ctrl+B, Ctrl+Shift+B): `panels` {left, right} with `branch` (the panel shows one), `selection` (of selected folders), `base` (the folder it lists); `walks` [{path, files}], the branch views being read now |
 | `{"cmd": "quicksearch"}` | the quick search box: `open`, `side`, `text`, `filter` (filter mode), `mode`, `filterText` per panel |
 
 Feed to listbox shows the results in the active panel as the folder `find://results-N` (names relative to the folder
