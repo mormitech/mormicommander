@@ -41,6 +41,23 @@ What the app does **not** do, even though it could look like it:
 - **Control mode** (`--control`, off unless you start the app with it) and the hand-over that lets a second start
   open a window in the running app listen on 127.0.0.1 only, so nothing outside your computer can reach them.
 
+## Saved passwords
+
+Passwords of saved connections (Net > FTP connect, Ctrl+F) are never written in plain text, and stay on your computer:
+
+- **By default** they are encrypted with a master password you choose (AES-256-GCM, with a key derived from it by
+  PBKDF2-SHA256), in `ftpsites.json` in the settings folder. The master password itself is not stored; it is asked once
+  per run, when a saved password is first needed.
+- **With "Keep saved passwords in the system keychain"** (in the connection manager, off unless you turn it on) they go
+  to your system's own secret store instead: the login keychain on macOS, the Credential Manager on Windows (kept on
+  this computer, not roamed), or the Secret Service (GNOME Keyring, KWallet) through `secret-tool` on Linux. The
+  settings file then keeps only a reference, never the password. Turning the option on or off moves the passwords
+  already saved. The password is handed to the system store on standard input or in memory, never on a command line,
+  so other programs can't read it from the process list. A password the keychain no longer has is asked when you
+  connect.
+
+A password you type without saving is kept in memory for that session only.
+
 Programs you start from mormiCommander (opening a file with its app, the command line, your editor) are separate
 programs with their own rules.
 
