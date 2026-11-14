@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.27 – 2026-11-14
+
+### Added
+
+- Shift+Left and Shift+Right now mark files, as Shift+Up and Shift+Down do, but a side step at a time. In the Brief view
+  they move one column and mark everything passed over; in the Thumbnails view they move one tile. In the Full view,
+  where there are no side columns, they act like Shift+PgUp and Shift+PgDn. Turning round takes the marks back. The
+  keys are the new commands cm_SelLeft and cm_SelRight, so they can be rebound.
+
 ## 0.9.26 – 2026-11-14
 
 ### Fixed
