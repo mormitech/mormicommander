@@ -6,6 +6,22 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.19 – 2026-11-14
+
+### Added
+
+- Saved connection passwords can be kept in the system keychain (#10, F-634): "Keep saved passwords in the system
+  keychain" in the connection manager (Ctrl+F), off by default, so the master password stays the default. macOS uses
+  the login keychain, Windows the Credential Manager, Linux the Secret Service (secret-tool); the connection list then
+  holds only a reference, never the password. Turning it on or off moves the saved passwords both ways. A password
+  missing from the keychain is asked for when connecting. The secret never appears on a command line.
+- A server URL typed alone on the command line (sftp://…, ftp://…) opens in the active panel, like cd.
+
+### Fixed
+
+- A password in a typed URL (sftp://user:pass@host/) is used instead of being asked for again.
+- The command line history no longer keeps passwords typed in URLs.
+
 ## 0.10.18 – 2026-11-14
 
 ### Added
