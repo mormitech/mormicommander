@@ -64,10 +64,20 @@ func liveSltPaths(out string) []string {
 
 // liveFeedOfArchive searches arc for *.txt and *.md files holding "needle" (Find files with "search in archives"; the
 // mask keeps out the archive file itself, whose raw bytes hold the text when its members are stored), feeds the results
-// to a panel, checks the list holds want (archive members, relative to the archive), and returns the list's path and
-// the real paths the page would build from its names (base + separator + name, frontend/src/features/find.js).
+// to a panel, checks the list holds want (archive members, relative to the archive), and returns the archive it searched
+// (a copy of arc in a folder of its own) and the real paths the page would build from its names (base + separator +
+// name, frontend/src/features/find.js).
 func liveFeedOfArchive(t *testing.T, arc string, want []string) (string, []string) {
 	t.Helper()
+	// The archive is searched in a folder of its own: next to it lie the files it was packed from and an unpacked
+	// copy, which hold the same text and would be found too.
+	alone := filepath.Join(t.TempDir(), filepath.Base(arc))
+	if b, err := os.ReadFile(arc); err != nil {
+		t.Fatal(err)
+	} else if err := os.WriteFile(alone, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	arc = alone
 	fd := newTestFind(t)
 	items := runTestFind(t, fd, FindRequest{SearchFor: "*.txt;*.md", SearchIn: filepath.Dir(arc), Depth: -1, Archives: true,
 		TextOn: true, Text: "needle", Encodings: []string{"utf8"}})
@@ -120,7 +130,7 @@ func liveFeedOfArchive(t *testing.T, arc string, want []string) (string, []strin
 		t.Fatalf("the fed list shows %v, want %v", listed, w)
 	}
 	sort.Strings(reals)
-	return info.Path, reals
+	return arc, reals
 }
 
 // liveCopyOutOfFeed is F5 on the fed list: VfsJobs copies the archive members to a local folder.
@@ -308,7 +318,7 @@ func TestLiveZipFeedCopyDelete(t *testing.T) {
 		zw.Close()
 		zf.Close()
 	}
-	_, reals := liveFeedOfArchive(t, arc, []string{"docs/readme.txt", "notes.md"})
+	arc, reals := liveFeedOfArchive(t, arc, []string{"docs/readme.txt", "notes.md"}) // (the copy the list shows)
 	liveCopyOutOfFeed(t, e, reals, map[string]string{"readme.txt": files["docs/readme.txt"], "notes.md": files["notes.md"]})
 	job := e.vfsJob(VfsRequest{Kind: "delete", Sources: reals})
 	if len(job.p.Errors) > 0 {

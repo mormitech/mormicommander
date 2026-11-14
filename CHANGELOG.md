@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.27 – 2026-11-14
+
+### Fixed
+
+- CI: the live archive tests search each archive in a folder of its own, so the files it was packed from (lying next
+  to it) are not found as well.
+
 ## 0.10.26 – 2026-11-14
 
 ### Fixed
