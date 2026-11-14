@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.95 – 2026-11-14
+
+### Added
+
+- Issue #27 (F-867): Frecency jump. A new command, "Frecency jump" (cm_FrecencyJump, Ctrl+Alt+J when that key is free, and in the Commands menu after "Frequently used folders"), opens a popup of folders ranked by how often and how recently they were used. Typing narrows the list the way zoxide does: the words must appear in the path in the order typed, and the last word must be in the folder's own name (it may be fuzzy, so "dwnl" finds Downloads). Enter opens the folder in the active panel, Shift+Enter in a new tab. The last row switches zoxide's folders on or off (setting frecencyZoxide, on by default). zoxide's database is only read, never written or copied. Nothing existing changes behaviour.
+
 ## 0.9.94 – 2026-11-14
 
 ### Added
