@@ -157,6 +157,11 @@ func closeUpload(conn net.Conn, timeout time.Duration) error {
 		err = tc.CloseWrite()
 		raw = tc.NetConn()
 	}
+	// An HTTP CONNECT tunnel's connection is wrapped (see bufferedConn), and the wrapper does not offer the
+	// half-close; it has to be asked of the TCP connection inside, or the upload ends with a reset after all.
+	if bc, ok := raw.(*bufferedConn); ok {
+		raw = bc.Conn
+	}
 	if hc, ok := raw.(interface{ CloseWrite() error }); ok && err == nil {
 		if err = hc.CloseWrite(); err == nil {
 			if timeout <= 0 || timeout > 30*time.Second {
@@ -259,6 +264,11 @@ func (c *Client) replacePassiveHost(ip net.IP) bool {
 		return true
 	}
 	ctrl := net.ParseIP(c.controlHost())
+	// A loopback address is only right when the server runs on this computer too. From a server on the LAN it would
+	// make the client connect to one of its own local services (an upload sent there, a "listing" read from it).
+	if ip.IsLoopback() && ctrl != nil && !ctrl.IsLoopback() {
+		return true
+	}
 	return nonRoutable(ip) && ctrl != nil && !nonRoutable(ctrl)
 }
 

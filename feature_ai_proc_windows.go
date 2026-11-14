@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	"mormicommander/internal/launch"
@@ -20,4 +21,11 @@ func aiKillTree(cmd *exec.Cmd, exited <-chan struct{}) {
 	if k.Run() != nil {
 		cmd.Process.Kill()
 	}
+}
+
+// aiPrivateDir says whether d is a real folder (not a link). The temporary folder is the user's own here, so that is
+// all aiHome needs to check.
+func aiPrivateDir(d string) bool {
+	fi, err := os.Lstat(d)
+	return err == nil && fi.IsDir()
 }

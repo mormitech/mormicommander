@@ -7,10 +7,22 @@ package main
 // group. It gets SIGTERM first, to end cleanly, and SIGKILL when it is still there after three seconds.
 
 import (
+	"os"
 	"os/exec"
 	"syscall"
 	"time"
 )
+
+// aiPrivateDir says whether d is a real folder (not a link) of this user's that no one else can write to: the
+// condition for running the CLI in it (see aiHome).
+func aiPrivateDir(d string) bool {
+	fi, err := os.Lstat(d)
+	if err != nil || !fi.IsDir() || fi.Mode().Perm()&0o022 != 0 {
+		return false
+	}
+	st, ok := fi.Sys().(*syscall.Stat_t)
+	return ok && int(st.Uid) == os.Getuid()
+}
 
 func aiProcessGroup(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

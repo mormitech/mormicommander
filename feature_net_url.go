@@ -13,6 +13,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"mormicommander/internal/remotefs"
 )
 
 // netURL is a parsed server URL.
@@ -92,7 +94,7 @@ func netParseURL(raw string) (netURL, error) {
 	if strings.HasPrefix(auth, "[") {
 		end := strings.IndexByte(auth, ']')
 		if end < 0 {
-			return netURL{}, fmt.Errorf("The server address %s has a broken host name.", raw)
+			return netURL{}, fmt.Errorf("The server address %s has a broken host name.", remotefs.HidePassword(raw))
 		}
 		host = auth[1:end]
 		if r := auth[end+1:]; strings.HasPrefix(r, ":") {

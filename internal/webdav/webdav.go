@@ -350,8 +350,11 @@ func (c *Client) ReadDir(dir string) ([]remotefs.Entry, error) {
 	}
 	out := all[:0]
 	for _, e := range all {
-		if e.Path == dir {
-			continue // the folder itself
+		// The folder itself is not part of its listing, and neither is anything a server names besides the direct
+		// children (the share root, an item of another folder): such an href came out as an entry named "/" or as a
+		// name whose Path lies elsewhere, and a folder copy entered "/" again and again.
+		if e.Path == dir || path.Dir(e.Path) != dir {
+			continue
 		}
 		out = append(out, e)
 	}
@@ -537,6 +540,11 @@ func (c *Client) Download(ctx context.Context, remote, local string, opts remote
 	defer resp.Body.Close()
 	flags := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	if offset > 0 && resp.StatusCode == http.StatusPartialContent {
+		// Only the tail that starts at offset may be appended: a server that answers with another range (for
+		// example the whole file as "bytes 0-...") would otherwise turn a good partial copy into a broken, larger one.
+		if start, ok := rangeStart(resp.Header.Get("Content-Range")); !ok || start != offset {
+			return 0, fmt.Errorf("webdav: downloading %s: asked for bytes from %d, the server sent %q", remote, offset, resp.Header.Get("Content-Range"))
+		}
 		flags = os.O_WRONLY | os.O_APPEND
 	} else {
 		offset = 0
@@ -560,6 +568,20 @@ func (c *Client) Download(ctx context.Context, remote, local string, opts remote
 		return n, fmt.Errorf("webdav: downloading %s: got %d of %d bytes", remote, offset+n, st.Size)
 	}
 	return n, finishLocal(local, st, opts)
+}
+
+// rangeStart returns the first byte of a Content-Range header such as "bytes 300-999/1000".
+func rangeStart(h string) (int64, bool) {
+	rest, ok := strings.CutPrefix(strings.TrimSpace(h), "bytes ")
+	if !ok {
+		return 0, false
+	}
+	first, _, ok := strings.Cut(strings.TrimSpace(rest), "-")
+	if !ok {
+		return 0, false
+	}
+	n, err := strconv.ParseInt(first, 10, 64)
+	return n, err == nil
 }
 
 func finishLocal(local string, st remotefs.Entry, opts remotefs.TransferOptions) error {

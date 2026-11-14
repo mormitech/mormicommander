@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/http"
 	"os"
 	"os/exec"
@@ -369,13 +370,36 @@ func (x *AI) shutdown() {
 // folder, readable by the user only), not the home folder or a project. Claude Code reads CLAUDE.md, skills and
 // settings from the folder it starts in, and the user's own ones there (rules for unrelated work) must not steer a file
 // search. The folder is made again when it is missing; the temporary folder itself is the fallback.
+//
+// On Linux the temporary folder is /tmp, which every user shares, so another user can make mormicommander-ai there
+// first (writable for all, or a link to a folder of theirs) and put a .claude/settings.json with hooks in it, which
+// the CLI would run as this user. A folder that is not a real folder of this user's, closed to others, is therefore
+// not used; a new private folder (made once per run of the app) takes its place.
 func aiHome() string {
 	d := filepath.Join(os.TempDir(), "mormicommander-ai")
-	if err := os.MkdirAll(d, 0o700); err != nil {
+	if err := os.Mkdir(d, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
 		return os.TempDir()
 	}
-	return d
+	if aiPrivateDir(d) {
+		return d
+	}
+	aiHomeMu.Lock()
+	defer aiHomeMu.Unlock()
+	if aiHomeOwn == "" || !aiPrivateDir(aiHomeOwn) {
+		own, err := os.MkdirTemp("", "mormicommander-ai-")
+		if err != nil {
+			return os.TempDir()
+		}
+		aiHomeOwn = own
+	}
+	return aiHomeOwn
 }
+
+// aiHomeOwn is the private folder aiHome made because the usual one could not be trusted.
+var (
+	aiHomeMu  sync.Mutex
+	aiHomeOwn string
+)
 
 // aiServerHandler is the endpoint's HTTP handler for this AI object.
 func (x *AI) aiServerHandler(token string) http.Handler {

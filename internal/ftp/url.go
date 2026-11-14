@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"mormicommander/internal/remotefs"
 )
 
 // IsURL reports whether s looks like an FTP URL the path bar should hand
@@ -35,7 +37,7 @@ func ParseURL(raw string) (Config, string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil {
-		return Config{}, "", fmt.Errorf("ftp: bad URL: %w", err)
+		return Config{}, "", fmt.Errorf("ftp: bad URL: %w", remotefs.HideURLErrorPassword(err))
 	}
 	var cfg Config
 	switch strings.ToLower(u.Scheme) {

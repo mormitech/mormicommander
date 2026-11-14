@@ -19,6 +19,8 @@ import (
 	"path"
 	"strconv"
 	"strings"
+
+	"mormicommander/internal/remotefs"
 )
 
 // remoteURL is a parsed panel URL.
@@ -41,7 +43,7 @@ var defaultPorts = map[string]int{"ftp": 21, "ftpes": 21, "ftps": 990, "sftp": 2
 func parseRemote(p string) (remoteURL, error) {
 	i := strings.Index(p, "://")
 	if i <= 0 {
-		return remoteURL{}, fmt.Errorf("vfs: %q is not a URL", p)
+		return remoteURL{}, fmt.Errorf("vfs: %q is not a URL", remotefs.HidePassword(p))
 	}
 	u := remoteURL{Scheme: strings.ToLower(p[:i])}
 	rest := p[i+3:]
@@ -68,7 +70,7 @@ func parseRemote(p string) (remoteURL, error) {
 	if strings.HasPrefix(auth, "[") {
 		end := strings.IndexByte(auth, ']')
 		if end < 0 {
-			return remoteURL{}, fmt.Errorf("vfs: bad host in %q", p)
+			return remoteURL{}, fmt.Errorf("vfs: bad host in %q", remotefs.HidePassword(p))
 		}
 		host = auth[1:end]
 		if r := auth[end+1:]; strings.HasPrefix(r, ":") {
@@ -78,13 +80,13 @@ func parseRemote(p string) (remoteURL, error) {
 		host, port = auth[:c], auth[c+1:]
 	}
 	if host == "" {
-		return remoteURL{}, fmt.Errorf("vfs: %q has no host", p)
+		return remoteURL{}, fmt.Errorf("vfs: %q has no host", remotefs.HidePassword(p))
 	}
 	u.Host = strings.ToLower(host)
 	if port != "" {
 		n, err := strconv.Atoi(port)
 		if err != nil || n <= 0 || n > 65535 {
-			return remoteURL{}, fmt.Errorf("vfs: bad port in %q", p)
+			return remoteURL{}, fmt.Errorf("vfs: bad port in %q", remotefs.HidePassword(p))
 		}
 		if n != defaultPorts[u.Scheme] {
 			u.Port = n
