@@ -6,6 +6,24 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.17 – 2026-11-14
+
+### Added
+
+- Branch view (#7, F-086, F-087): Ctrl+B shows every file of the folder and all its subfolders in one flat list, each
+  with its path relative to the folder; Ctrl+Shift+B does the same for the selected folders and files only. Copy, move,
+  delete, view (with N/P), edit, sorting, selection, quick search and Multi-rename work on the real files. Big trees
+  are read in the background with a count, Stop and Esc, up to 200,000 files. Ctrl+B again, Ctrl+Shift+B or ".."
+  returns, with the cursor on the subfolder the file came from. A "BRANCH" badge marks the path bar.
+- Multi-rename in subfolders (F-511): Ctrl+M in a branch view renames each file in its own folder; [P]/[G] and the
+  conflict check are per folder, and Undo restores every file.
+- More tag formats for Multi-rename fields and the Pictures/Music columns: EXIF date from PNG, WebP, TIFF, camera raw
+  (DNG, CR2, NEF…) and HEIC; image size for WebP, TIFF, BMP and HEIC; audio tags from FLAC and Ogg Vorbis/Opus.
+
+### Fixed
+
+- Shift+F6 in a Feed to listbox list edits only the file's own name (it used to start with "sub/a.txt" and fail).
+
 ## 0.10.16 – 2026-11-14
 
 ### Added
