@@ -14,6 +14,10 @@
 //
 // The window is a dialog of kind "syncdirs" (fields sync-left, sync-right, sync-filter, the option checkboxes and the
 // sync-show-* buttons), so control mode reads and answers it; the control command "syncdirs" tells the rows.
+// A side can also be an archive (/backup/2024.zip/docs) or a server folder (sftp://me@host/www), typed or taken from a
+// panel (F-555): the Go side tells what kind of place each side is, and the window says when one can't be changed, that
+// deletes there can't go to the trash, and when a server can't keep file dates (syncdirs-lib.js).
+//
 // Setting "syncdirs": {options, show} — the last options and Show buttons; also confirmOverwrite, trash and trashAll from
 // the Synchronize dialog (trashAll, off by default: emptied folders and replaced links go to the trash too, issue #99).
 
@@ -25,6 +29,7 @@ import { addControlCommand } from '../core/control.js';
 import { size, bytes, date, plural, dateWidth } from '../core/format.js';
 import { openWindow, contextMenu, joinPath } from './synccompare-ui.js';
 import { compareFiles } from './comparefiles.js';
+import { isVirtual, readOnlyNote, dialogNotes, contentTip } from './syncdirs-lib.js';
 
 const ROW_H = 20;
 const SHOW_KEYS = ['leftToRight', 'equal', 'unequal', 'rightToLeft', 'duplicates', 'singles'];
@@ -62,7 +67,7 @@ function syncWindow(app, id, args = {}) {
     cursor: 0, sel: new Set(), anchor: -1,
     show: { ...DEFAULT_SHOW, ...(saved.show || {}), ...(args.show || {}) },
     left: args.left || app.left.path, right: args.right || app.right.path,
-    progress: null,
+    progress: null, sides: null, // sides: {left, right} kinds of place of the last compare (local, archive, ftp…)
   };
   current = st;
   const opts0 = { ...DEFAULT_OPTS, ...(saved.options || {}), ...(args.options || {}) };
@@ -94,6 +99,7 @@ function syncWindow(app, id, args = {}) {
       st.errors = v.errors || [];
       st.compared = v.compared && !st.stale;
       st.cmpLeft = v.left || ''; st.cmpRight = v.right || '';
+      st.sides = v.leftSide && v.rightSide ? { left: v.leftSide, right: v.rightSide } : null;
       if (st.stale) { st.rows = []; st.summary = null; st.errors = []; }
     } catch (e) { app.flash(errText(e), 'err'); }
     const paths = new Set(st.rows.map((r) => r.path));
@@ -145,6 +151,7 @@ function syncWindow(app, id, args = {}) {
     else if (d.cancelled) app.flash('The compare was stopped; the list shows what was compared so far.');
     else if (st.errors.length) app.flash(`${plural(st.errors.length, 'folder')} could not be read: ${st.errors[0]}`, 'err');
     else if (st.summary && allEqual(st.summary)) app.flash('All files are equal.');
+    else if (readOnlyNote(st.sides)) app.flash(readOnlyNote(st.sides));
   };
   const allEqual = (s) => s.leftNewer + s.rightNewer + s.leftOnly + s.rightOnly + s.unequal === 0;
 
@@ -281,10 +288,16 @@ function syncWindow(app, id, args = {}) {
   const compareRow = async (r = st.rows[st.cursor]) => {
     if (!r) return;
     if (r.isDir || !r.left || !r.right || r.left.kind !== 'file' || r.right.kind !== 'file') { app.flash('Compare by content needs a file on both sides.'); return; }
-    const { l, r: rp } = pathsOf(r);
+    let { l, r: rp } = pathsOf(r);
     try {
+      // The compare tool reads files on this computer: a file in an archive or on a server is compared as a temporary
+      // copy, so edits made there are not written back (the row is not read again either).
+      const copied = isVirtual(st.sides?.left) || isVirtual(st.sides?.right);
+      if (isVirtual(st.sides?.left)) l = await go.FS.LocalCopy(l);
+      if (isVirtual(st.sides?.right)) rp = await go.FS.LocalCopy(rp);
+      if (copied) app.flash('A file in an archive or on a server is compared as a copy: changes are not saved back.');
       const res = await compareFiles(app, l, rp);
-      if (res?.saved?.some(Boolean)) {
+      if (res?.saved?.some(Boolean) && !copied) {
         await go.SyncDirs.Recompare(st.id, r.path).catch((e) => app.flash(errText(e), 'err'));
         await refresh(r.path);
       }
@@ -376,6 +389,7 @@ function syncWindow(app, id, args = {}) {
       <label class="mc-check"><input type="checkbox" id="sync-trash" ${s.trash === false ? '' : 'checked'}>Delete to the trash</label>
       <label class="mc-check" style="margin-left:1.5em" title="With the trash on, emptied folders and links replaced by a link copy go to the trash too, instead of being removed directly"><input type="checkbox" id="sync-trash-all" ${s.trashAll ? 'checked' : ''}>Also trash emptied folders and replaced links</label>
       ${plan.unselected ? `<p class="mc-note">${plural(plan.unselected, 'row is', 'rows are')} left out and will not be synchronized.</p>` : ''}
+      ${dialogNotes(plan, st.sides, s.trash !== false).map((n) => `<p class="mc-note">${esc(n)}</p>`).join('')}
       <p class="mc-note">Only the rows the Show buttons show are synchronized.</p>`;
     const r = await formDialog('Synchronize', html, (b) => {
       const v = { lr: b.querySelector('#sync-do-lr').checked, rl: b.querySelector('#sync-do-rl').checked, del: b.querySelector('#sync-do-del').checked,
@@ -405,6 +419,7 @@ function syncWindow(app, id, args = {}) {
       else if (errs.length) await messageDialog({ Title: 'Synchronize', Message: `${plural(errs.length, 'operation')} failed:\n\n${errs.slice(0, 12).join('\n')}${errs.length > 12 ? `\n…and ${errs.length - 12} more.` : ''}`, Kind: 'syncdirs-errors' });
       else if (d.cancelled) app.flash(`Synchronization stopped after ${plural(d.done, 'operation')}.`);
       else app.flash(`Synchronized: ${plural(d.done, 'operation')}${d.skipped ? `, ${d.skipped} skipped` : ''}.`);
+      if (d.warnings?.length) await messageDialog({ Title: 'Synchronize', Message: d.warnings.join('\n\n'), Kind: 'syncdirs-warning' });
       await compare(); // TC compares again, so done rows show as equal
       resolve();
     };
@@ -478,9 +493,9 @@ function syncWindow(app, id, args = {}) {
       const check = (id, label, tip = '') => `<label class="mc-check"${tip ? ` title="${esc(tip)}"` : ''}><input type="checkbox" id="${id}">${esc(label)}</label>`;
       box.innerHTML = `<h2>Synchronize folders</h2>
         <div class="mc-sync-paths">
-          <input type="text" id="sync-left" spellcheck="false" title="Left folder">
+          <input type="text" id="sync-left" spellcheck="false" title="Left folder: a folder, an archive (backup.zip or backup.zip/docs) or a server address (sftp://me@host/folder)">
           <button type="button" class="b-swap" title="Swap the two folders">⇄</button>
-          <input type="text" id="sync-right" spellcheck="false" title="Right folder">
+          <input type="text" id="sync-right" spellcheck="false" title="Right folder: a folder, an archive (backup.zip or backup.zip/docs) or a server address (sftp://me@host/folder)">
         </div>
         <div class="mc-sync-opts">
           <label class="mc-check" for="sync-filter">File types</label><input type="text" id="sync-filter" spellcheck="false" title="Names to compare, as in Find files: *.txt *.md | *.bak, a folder with a trailing slash">
@@ -506,8 +521,11 @@ function syncWindow(app, id, args = {}) {
       writeOpts(opts0);
       writeShow();
       q('#sync-left').setAttribute('autofocus', '');
+      // "By content" reads every file of the same size; on a server that means downloading it, which the tip says.
+      const tip = () => { q('#sync-content').closest('label').title = contentTip(q('#sync-left').value, q('#sync-right').value); };
+      tip();
       q('.b-swap').onclick = () => { const l = q('#sync-left').value; q('#sync-left').value = q('#sync-right').value; q('#sync-right').value = l; invalidate(); };
-      for (const s of ['#sync-left', '#sync-right']) q(s).addEventListener('input', () => invalidate());
+      for (const s of ['#sync-left', '#sync-right']) q(s).addEventListener('input', () => { invalidate(); tip(); });
       q('.b-compare').onclick = () => (st.running ? go.SyncDirs.Cancel(st.id) : compare());
       q('.b-sync').onclick = () => synchronize();
       q('.b-close').onclick = () => done(null);
@@ -616,7 +634,7 @@ addControlCommand('syncdirs', async (m) => {
   }
   return {
     ok: true, open: true, id: st.id, compared: st.compared, running: st.running, syncing: st.syncing, show: st.show, summary: st.summary, errors: st.errors,
-    cursor: st.cursor, selected: [...st.sel],
+    cursor: st.cursor, selected: [...st.sel], sides: st.sides,
     rows: st.rows.map((r) => ({ path: r.path, isDir: r.isDir, category: r.category, action: r.action, unselected: !!r.unselected, left: !!r.left, right: !!r.right, note: r.note || '' })),
   };
 });
