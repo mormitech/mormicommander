@@ -9,6 +9,10 @@ package fileops
 // tools. On a volume without a trash (some USB sticks and network shares) the move fails, and with OnError set to ask
 // the user can choose to delete that item permanently instead (TC's F8 on such volumes).
 //
+// On macOS the trash goes through Finder (for "Put Back"), and a Finder call can fail or hang while macOS waits for
+// the automation permission. The call stops when the job is cancelled, and the error question then also offers to
+// trash the item (or every remaining item) without Finder, through the file system's own trash call (issue #36).
+//
 // Wipe (TC's "secure delete") overwrites the contents of every file with random bytes, as many passes as asked,
 // flushes each pass to the disk, cuts the file to zero length, renames it to a random name so the old name doesn't
 // linger in the folder either, and only then removes it. On SSDs and copy-on-write file systems (APFS, Btrfs) the old
@@ -26,8 +30,13 @@ import (
 	"mormicommander/internal/trash"
 )
 
-// trashMove is trash.Move; the tests replace it, so they never touch the real trash.
-var trashMove = trash.Move
+// trashMove, trashDirect and trashDirectOK are the trash package's calls; the tests replace them, so they never touch
+// the real trash.
+var (
+	trashMove     = trash.MoveContext
+	trashDirect   = trash.MoveDirect
+	trashDirectOK = trash.DirectSupported
+)
 
 // TrashSupported says whether this platform has a trash the engine can use at all.
 func TrashSupported() bool { return trash.Supported() }
@@ -298,8 +307,7 @@ func (j *job) trashAll() {
 		if !j.at(src, 0) {
 			return
 		}
-		err, extra := j.try("Can't move "+filepath.Base(src)+" to the trash", src, "", []Choice{ChoiceDelete},
-			func() error { return trashMove(src) })
+		err, extra := j.trashOne(src)
 		if extra == ChoiceDelete {
 			if j.deleteTree(i, src) {
 				j.update(func(p *Progress) { p.FilesDone++ })
@@ -313,6 +321,29 @@ func (j *job) trashAll() {
 		j.update(func(p *Progress) { p.FilesDone++ })
 		j.tick(false)
 	}
+}
+
+// trashOne trashes one item, asking on errors as try does. Where the platform has a route around Finder (macOS) the
+// question also offers it, for this item or for the rest of the job; once chosen, the item is tried that way at once.
+func (j *job) trashOne(src string) (error, Choice) {
+	what := "Can't move " + filepath.Base(src) + " to the trash"
+	direct := func() error { return trashDirect(j.ctx, src) }
+	if j.trashDirect {
+		return j.try(what, src, "", []Choice{ChoiceDelete}, direct)
+	}
+	choices := []Choice{ChoiceDelete}
+	if trashDirectOK() {
+		choices = []Choice{ChoiceTrashDirect, ChoiceTrashDirectAll, ChoiceDelete}
+	}
+	err, extra := j.try(what, src, "", choices, func() error { return trashMove(j.ctx, src) })
+	switch extra {
+	case ChoiceTrashDirectAll:
+		j.trashDirect = true
+		fallthrough
+	case ChoiceTrashDirect:
+		return j.try(what, src, "", []Choice{ChoiceDelete}, direct)
+	}
+	return err, extra
 }
 
 // deleteTree removes src and everything under it permanently (the fallback when the trash can't take it).

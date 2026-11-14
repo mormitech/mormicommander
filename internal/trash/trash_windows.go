@@ -6,14 +6,18 @@ package trash
 // symbolic link or junction as the link itself. MoveAll calls PowerShell once per item for now.
 
 import (
+	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"strings"
 	"syscall"
 )
 
 const supported = true
+
+const directSupported = false
+
+func moveDirect(ctx context.Context, path string) error { return moveOne(ctx, path) }
 
 const script = `Add-Type -AssemblyName Microsoft.VisualBasic
 $p = $env:MORMICOMMANDER_PATH
@@ -23,14 +27,17 @@ if (Test-Path -PathType Container -LiteralPath $p) {
   [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile($p, 'OnlyErrorDialogs', 'SendToRecycleBin')
 }`
 
-func moveOne(path string) error {
-	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", script)
+func moveOne(ctx context.Context, path string) error {
+	cmd := command(ctx, "powershell", "-NoProfile", "-NonInteractive", "-Command", script)
 	cmd.Env = append(os.Environ(), "MORMICOMMANDER_PATH="+path)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 	if out, err := runCommand(cmd); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		return fmt.Errorf("%s: %s", path, strings.TrimSpace(string(out)))
 	}
 	return nil
 }
 
-func moveMany(paths []string) error { return moveEach(paths) }
+func moveMany(ctx context.Context, paths []string) error { return moveEach(ctx, paths) }

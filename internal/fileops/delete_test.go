@@ -5,6 +5,7 @@ package fileops
 // The real trash is never touched: trashMove is replaced.
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
@@ -94,7 +95,7 @@ func TestOverwriteReplacesContent(t *testing.T) {
 
 func TestTrashFallbackToDelete(t *testing.T) {
 	orig := trashMove
-	trashMove = func(string) error { return errors.New("this volume has no trash") }
+	trashMove = func(context.Context, string) error { return errors.New("this volume has no trash") }
 	defer func() { trashMove = orig }()
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "d", "x"), "x")

@@ -153,6 +153,8 @@ const (
 	ChoiceYes             Choice = "yes"               // AskDeleteDir / AskDeleteReadOnly / AskNoSpace: go ahead
 	ChoiceAll             Choice = "all"               // ... and don't ask again in this job
 	ChoiceDelete          Choice = "delete"            // trash failed: delete this one permanently instead
+	ChoiceTrashDirect     Choice = "trash_direct"      // trash through Finder failed (macOS): trash this one without Finder
+	ChoiceTrashDirectAll  Choice = "trash_direct_all"  // ... and every later item of the job too
 	ChoiceCancel          Choice = "cancel"
 )
 

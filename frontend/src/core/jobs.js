@@ -22,6 +22,7 @@ import { size, date, bytes, plural } from './format.js';
 import { track } from './busy.js';
 import { app } from './app.js';
 import { holdProgress, progressHeld, showWhenFree } from './progresshold.js';
+import { ERROR_BUTTONS, offeredButtons } from './jobchoices.js';
 
 // Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
 // job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
@@ -236,8 +237,7 @@ function answer(r, choice, newName = '') {
 
 // pick shows a question with buttons [label, choice], only those the engine offers; Esc is Cancel.
 async function pick(r, o, buttons) {
-  const offered = new Set(r.p.ask.choices || []);
-  const list = buttons.filter(([, c]) => offered.has(c));
+  const list = offeredButtons(buttons, r.p.ask.choices);
   const b = await messageDialog({ ...o, Buttons: list.map(([l]) => l), CancelButton: list.find(([, c]) => c === 'cancel')?.[0] });
   return list.find(([l]) => l === b)?.[1] || 'cancel';
 }
@@ -261,7 +261,7 @@ async function askNow(r, c) {
         [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     case 'error':
       return answer(r, await pick(r, { Title: 'Problem', Message: c.error || `Something went wrong with ${name}.`, Kind: 'job-error', DefaultButton: 'Retry' },
-        [['Retry', 'retry'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Delete permanently', 'delete'], ['Cancel', 'cancel']]));
+        ERROR_BUTTONS));
     case 'no_space':
       return answer(r, await pick(r, { Title: 'Not enough space', Message: `${c.target} has ${size(c.free)} free, but this needs ${size(c.need)}.\n\nStart anyway?`, Kind: 'no-space', DefaultButton: 'Cancel' },
         [['Start anyway', 'yes'], ['Cancel', 'cancel']]));

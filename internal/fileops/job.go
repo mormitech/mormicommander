@@ -33,12 +33,13 @@ type job struct {
 	passed    int64         // bytes in BytesDone only so the bar reaches the end (skipped or failed files), not written
 
 	// decisions that "… all" answers make for the rest of the job; only the job's goroutine touches them
-	policy     Policy
-	roPolicy   Policy
-	errPolicy  ErrorPolicy
-	delDirsAll bool // AskDeleteDir answered All
-	delROAll   int  // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip
-	delDirSkip bool // AskDeleteDir answered Skip all
+	policy      Policy
+	roPolicy    Policy
+	errPolicy   ErrorPolicy
+	delDirsAll  bool // AskDeleteDir answered All
+	delROAll    int  // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip
+	delDirSkip  bool // AskDeleteDir answered Skip all
+	trashDirect bool // a trash error was answered "… all without Finder": later items skip Finder (macOS)
 
 	problems int          // errors and skips so far, uncapped (Errors stops at maxErrors); guarded by mu
 	left     map[int]bool // copy and move: indices of the sources that did not get across whole (see Progress.Left)

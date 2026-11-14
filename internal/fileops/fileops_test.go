@@ -5,6 +5,7 @@ package fileops
 // deletes, the trash hook and the checks on a request.
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -313,7 +314,7 @@ func TestDelete(t *testing.T) {
 func TestTrashUsesHook(t *testing.T) {
 	var got []string
 	orig := trashMove
-	trashMove = func(p string) error { got = append(got, p); return nil }
+	trashMove = func(_ context.Context, p string) error { got = append(got, p); return nil }
 	defer func() { trashMove = orig }()
 	q := NewQueue(nil)
 	nowhere := filepath.Join(t.TempDir(), "nowhere") // a full path on every platform ("/nowhere" is not one on Windows)

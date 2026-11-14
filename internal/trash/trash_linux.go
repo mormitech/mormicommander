@@ -5,23 +5,30 @@ package trash
 // single call. "--" ends the options, although the paths are absolute anyway.
 
 import (
+	"context"
 	"fmt"
-	"os/exec"
 	"strings"
 )
 
 const supported = true
 
-func moveOne(path string) error { return moveMany([]string{path}) }
+const directSupported = false
 
-func moveMany(paths []string) error {
+func moveDirect(ctx context.Context, path string) error { return moveOne(ctx, path) }
+
+func moveOne(ctx context.Context, path string) error { return moveMany(ctx, []string{path}) }
+
+func moveMany(ctx context.Context, paths []string) error {
 	for _, c := range [][]string{{"gio", "trash", "--"}, {"trash-put", "--"}} {
 		bin, err := lookPath(c[0])
 		if err != nil {
 			continue
 		}
 		args := append(append([]string{}, c[1:]...), paths...)
-		if out, err := runCommand(exec.Command(bin, args...)); err != nil {
+		if out, err := runCommand(command(ctx, bin, args...)); err != nil {
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return fmt.Errorf("%s: %s", strings.Join(paths, ", "), strings.TrimSpace(string(out)))
 		}
 		return nil
