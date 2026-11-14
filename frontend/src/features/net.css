@@ -41,11 +41,11 @@
 @media (prefers-reduced-motion: reduce) { .mc-net-busy i { animation: none; } }
 
 /* the bar above a server panel */
-.mc-net-bar { display: flex; align-items: center; gap: 6px; padding: 2px 6px 2px 8px; background: var(--panel); border-top: 1px solid var(--line); font-size: 12px; min-height: 22px; }
-.mc-net-bar[hidden] { display: none; }
-.mc-net-what { flex: 1; min-width: 0; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.mc-net-bar button { padding: 0 8px; line-height: 17px; font-size: 12px; border-radius: 4px; }
-.mc-net-bar button[hidden] { display: none; }
+.mc-net-bar { display: inline-flex; align-items: center; gap: 1px; flex: none; }
+.mc-net-bar[hidden], .mc-net-bar [hidden] { display: none; }
+.mc-net-what { font-size: 11px; opacity: .8; margin-right: 4px; white-space: nowrap; }
+.mc-net-bar button { display: inline-flex; align-items: center; justify-content: center; padding: 1px 3px; line-height: 0; cursor: pointer; }
+.mc-net-bar svg { width: 15px; height: 15px; }
 
 /* protocol log */
 .mc-box.mc-net-logbox { width: min(760px, 94vw); }

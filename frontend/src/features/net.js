@@ -397,18 +397,34 @@ async function editSite(app, s, list) {
   }
 }
 
-// ---- the bar above a server panel (F-817) ----
+// ---- the server buttons in the path bar of a server panel (F-817) ----
+// Transfer mode (FTP), protocol log and disconnect, as small icons with tooltips, next to the path bar's "FTP" badge
+// (they used to be a bar of their own above the path bar).
 
 const bars = new Map(); // panel → element
+
+const I = (body) => `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const letters = (t, size = 9) => `<text x="12" y="16" text-anchor="middle" font-size="${size}" font-weight="700" fill="currentColor" stroke="none" font-family="system-ui, sans-serif">${t}</text>`;
+// the transfer mode icons: Automatic (A in a circle of arrows), Binary (01), ASCII (a page of text)
+const MODE_ICON = {
+  auto: I('<path d="M20 12a8 8 0 0 1-14 5.3M4 12a8 8 0 0 1 14-5.3"/><path d="M18 3v4h-4M6 21v-4h4"/>' + letters('A', 8)),
+  binary: I('<rect x="3" y="5" width="18" height="14" rx="2"/>' + letters('01', 8.5)),
+  ascii: I('<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 12h7M9 15h7M9 18h4"/>'),
+};
+const LOG_ICON = I('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>');
+const OFF_ICON = I('<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>');
+const keyText = (name) => { const k = theApp.keyLabel?.(name); return k ? ` (${k})` : ''; };
 
 function bar(p) {
   let el = bars.get(p);
   if (el) return el;
-  el = document.createElement('div');
+  el = document.createElement('span');
   el.className = 'mc-net-bar';
   el.hidden = true;
-  el.innerHTML = '<span class="mc-net-what"></span><button type="button" class="mc-net-mode" title="Change the transfer mode (Ctrl+Shift+M)"></button><button type="button" class="mc-net-log" title="Show the protocol log">Log</button><button type="button" class="mc-net-off" title="Disconnect (Ctrl+Shift+F)">Disconnect</button>';
-  p.$.pathbar.before(el);
+  el.innerHTML = `<span class="mc-net-what"></span><button type="button" class="mc-net-mode"></button><button type="button" class="mc-net-log" aria-label="Protocol log">${LOG_ICON}</button><button type="button" class="mc-net-off">${OFF_ICON}</button>`;
+  p.$.pbtns.before(el);
+  // (a click here must not open the path editor of the path bar)
+  el.addEventListener('click', (ev) => ev.stopPropagation());
   el.querySelector('.mc-net-mode').onclick = () => { theApp.setActive(p); theApp.run('cm_FtpTransferMode'); };
   el.querySelector('.mc-net-log').onclick = () => showLog(theApp, p.path);
   el.querySelector('.mc-net-off').onclick = () => { theApp.setActive(p); disconnect(theApp, p.path).catch((e) => theApp.flash(errText(e), 'err')); };
@@ -423,11 +439,22 @@ async function paintBar(p) {
   try { st = await go.Net.Status(p.path); } catch { st = { remote: true, kind: kindOf(p.path) }; }
   if (!isRemote(p.path)) { el.hidden = true; return; }
   el.hidden = false;
-  el.querySelector('.mc-net-what').textContent = `${KIND_LABEL[st.kind] || 'Server'}${st.name ? ` · ${st.name}` : ''}${st.connected === false ? ' · not connected' : ''}`;
+  const server = `${KIND_LABEL[st.kind] || 'server'}${st.name ? ` ${st.name}` : ''}`;
+  const what = el.querySelector('.mc-net-what');
+  what.textContent = st.connected === false ? 'not connected' : ''; // the kind and the server are in the path already
+  what.hidden = st.connected !== false;
   const mode = el.querySelector('.mc-net-mode');
+  const m = MODE_ICON[st.mode] ? st.mode : 'auto';
   mode.hidden = st.kind !== 'ftp';
-  mode.textContent = MODE_LABEL[st.mode] || 'Automatic';
-  el.querySelector('.mc-net-log').hidden = !st.log;
+  mode.innerHTML = MODE_ICON[m];
+  mode.title = `Transfer mode: ${MODE_LABEL[m]}. Click to change it${keyText('cm_FtpTransferMode')}.`;
+  mode.setAttribute('aria-label', `Transfer mode: ${MODE_LABEL[m]}`);
+  const log = el.querySelector('.mc-net-log');
+  log.hidden = !st.log;
+  log.title = `Show the protocol log of ${server}`;
+  const off = el.querySelector('.mc-net-off');
+  off.title = `Disconnect from ${server}${keyText('cm_FtpDisconnect')}`;
+  off.setAttribute('aria-label', `Disconnect from ${server}`);
 }
 
 function refreshBars(app) { for (const p of app.panels) paintBar(p); }

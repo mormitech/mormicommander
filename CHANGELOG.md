@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.15 – 2026-11-14
+
+### Changed
+
+- Server panels (FTP, SFTP, WebDAV) no longer have a bar of their own above the path bar: the transfer mode, protocol
+  log and disconnect buttons sit in the path bar next to the "FTP" badge, as icons with tooltips (the mode icon shows
+  Automatic, Binary or ASCII). "not connected" shows there too when the connection is gone.
+
 ## 0.10.14 – 2026-11-14
 
 ### Changed
