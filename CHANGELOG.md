@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.91 – 2026-11-14
+
+### Changed
+
+- Issue #43: control mode fixes for testing. The `dom` command now takes a `limit` (default 50 as before; 0 or less returns every match) and answers `more` to say whether matches were left out; `count` is still the total. The `about` command now waits until the About window is really visible (or gone, with `close`) instead of answering after a fixed pause, and also answers `visible` and `settled`. scripts/qa_nav.py now expects the cursor on ".." when re-entering a folder (the default) and has a new suite that checks the remember-cursor setting with its own temporary settings folder. No change to normal app behaviour.
+
 ## 0.9.90 – 2026-11-14
 
 ### Changed
