@@ -5,13 +5,17 @@
 // commands need nothing special; F3 and Enter on a file inside an archive use a temporary copy. Pack (Alt+F5,
 // Alt+Shift+F5 with "move to archive"), Unpack (Alt+F9) and Test archives (Alt+Shift+F9) are here, with TC's dialogs.
 //
-// Dialog kinds for control mode: "pack", "unpack", "password", "test-report"; the jobs show the usual "job" progress
-// box and "overwrite" question. Control command "vfs" tells what kind of place each panel shows.
+// F4 on a file inside an archive edits a watched temporary copy (Go: feature_archive_edit.go); each save asks whether
+// to update the archive.
+//
+// Dialog kinds for control mode: "pack", "unpack", "password", "test-report", "archive-edit", "archive-edit-error";
+// the jobs show the usual "job" progress box and "overwrite" question. Control command "vfs" tells what kind of place each panel shows.
 
 import { command, commandForKey, hasCommand } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { runJob, jobBackends, holdProgress } from '../core/jobs.js';
-import { formDialog, infoDialog, esc } from '../core/dialogs.js';
+import { formDialog, infoDialog, messageDialog, esc } from '../core/dialogs.js';
+import { updateQuestion, panelsShowing, UPDATE } from './archive-edit-lib.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
 import { plural } from '../core/format.js';
@@ -98,6 +102,22 @@ export function init(app) {
   });
 
   on('vfs-password', askPassword);
+  on('archive-edit-changed', (c) => askArchiveUpdate(app, c));
+}
+
+// ---- F4 on a file inside an archive: the editor saved the temporary copy ----
+async function askArchiveUpdate(app, c) {
+  const b = await messageDialog(updateQuestion(c));
+  const update = b === UPDATE;
+  try {
+    await go.ListerEdit.AnswerArchiveEdit(c.id, update);
+  } catch (e) {
+    await messageDialog({ Title: 'Edit inside archive', Message: errText(e), Kind: 'archive-edit-error' });
+    return;
+  }
+  if (!update) return;
+  app.flash(`Updated ${c.name} in ${base(c.archive)}.`);
+  for (const p of panelsShowing(app.panels, c.archive)) p.reload();
 }
 
 // ---- the password question of encrypted archives ----

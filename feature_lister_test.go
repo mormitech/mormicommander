@@ -224,7 +224,7 @@ func TestListerDemoRefuses(t *testing.T) {
 		t.Fatalf("demo open: %v", err)
 	}
 	e := &ListerEdit{app: a}
-	if err := e.Edit("/x", "", launch.ParamContext{}); err == nil || !strings.Contains(err.Error(), "demo") {
+	if _, err := e.Edit("/x", "", launch.ParamContext{}); err == nil || !strings.Contains(err.Error(), "demo") {
 		t.Fatalf("demo edit: %v", err)
 	}
 	e2 := &ListerEdit{app: &App{}}

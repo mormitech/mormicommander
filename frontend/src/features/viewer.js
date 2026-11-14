@@ -28,6 +28,7 @@ import { app as theApp } from '../core/app.js';
 import { quickViewSource, ARCHIVE_PREVIEW_LIMIT } from './viewer/qvsource.js';
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 import { makeWalker, walkList } from './viewer/walk.js';
+import { editNote } from './archive-edit-lib.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
@@ -313,7 +314,10 @@ command({
     const p = app.cur;
     const path = args.path || (p.cur && !p.cur.up && !p.cur.dir ? p.fullPath(p.cur.name) : '');
     if (!path) return;
-    await go.ListerEdit.Edit(path, app.setting('editor', '') || '', paramCtx(app));
+    // (a file inside an archive opens as a watched temporary copy: each save asks to update the archive, see vfs.js)
+    const r = await go.ListerEdit.Edit(path, app.setting('editor', '') || '', paramCtx(app));
+    const note = editNote(r, path.split(/[\\/]/).pop());
+    if (note) app.flash(note, r?.watching ? '' : 'err');
   },
 });
 

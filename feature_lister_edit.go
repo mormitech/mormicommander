@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"mormicommander/internal/launch"
+	"mormicommander/internal/vfs"
 )
 
 // ListerEdit is what the page calls to edit files and to view them outside the app (window.go.main.ListerEdit).
@@ -43,15 +44,47 @@ func (e *ListerEdit) check(path string) error {
 	return nil
 }
 
-// Edit opens a file in the editor: the configured line, or the system's text editor when it is empty.
-func (e *ListerEdit) Edit(path, tool string, ctx launch.ParamContext) error {
+// Edit opens a file in the editor: the configured line, or the system's text editor when it is empty. A file inside an
+// archive opens as a temporary copy that is watched for changes (feature_archive_edit.go).
+func (e *ListerEdit) Edit(path, tool string, ctx launch.ParamContext) (ListerEditResult, error) {
 	if err := e.check(path); err != nil {
-		return err
+		return ListerEditResult{}, err
+	}
+	if r := vfsRouter(e.app); r != nil && vfsPathKind(r, path) == "archive" && !vfsIsLocal(r, path) {
+		return e.editInArchive(r, path, tool, ctx)
 	}
 	if err := e.launch.OpenInTool(launch.ParseTool(tool), path, ctx); err != nil {
-		return listerLaunchError("the editor", filepath.Base(path), err)
+		return ListerEditResult{}, listerLaunchError("the editor", filepath.Base(path), err)
 	}
-	return nil
+	return ListerEditResult{}, nil
+}
+
+// editInArchive unpacks an archive entry, opens the copy in the editor and, when the archive can be changed, watches
+// the copy so each save asks whether to update the archive.
+func (e *ListerEdit) editInArchive(r *vfs.Router, path, tool string, ctx launch.ParamContext) (ListerEditResult, error) {
+	local, arc, readOnly, err := arcEditPrepare(r, path)
+	if err != nil {
+		return ListerEditResult{}, err
+	}
+	var w *arcEditWatcher
+	id := 0
+	if readOnly == "" {
+		w = arcEditWatcherOf(e.app, r)
+		if id, err = w.add(r.Clean(path), arc, local); err != nil {
+			return ListerEditResult{}, fmt.Errorf("Can't watch the copy of %s for changes: %v", filepath.Base(local), err)
+		}
+	}
+	if err := e.launch.OpenInTool(launch.ParseTool(tool), local, ctx); err != nil {
+		if w != nil {
+			w.remove(id)
+		}
+		return ListerEditResult{}, listerLaunchError("the editor", filepath.Base(local), err)
+	}
+	if readOnly != "" {
+		return ListerEditResult{Note: readOnly + " Your changes stay in a temporary copy."}, nil
+	}
+	w.start()
+	return ListerEditResult{Watching: true}, nil
 }
 
 // EditNew makes sure the file name (relative to dir, or a full path) exists, creating it empty when it does not, and
