@@ -663,9 +663,18 @@ func (x *extractor) finishLinks() {
 // hardLink creates a RAR hard link or file copy to an entry extracted
 // earlier in this run, copying the data when linking is not possible.
 func (x *extractor) hardLink(l deferredLink) {
-	src, ok := x.written[normalizeQuery(l.target)]
+	name := normalizeQuery(l.target)
+	src, ok := x.written[name]
 	if !ok {
 		x.skip(l.e.Path, "link target was not extracted: "+l.target)
+		return
+	}
+	if x.created[src] != name {
+		// Another entry was written to the same local file after the link
+		// target (two files with one name and "unpack path names" off), so
+		// the file no longer holds the target's data. Linking or copying it
+		// would give the link the wrong content.
+		x.skip(l.e.Path, "link target was replaced by another file: "+l.target)
 		return
 	}
 	target, err := x.prepareTarget(l.e, l.rel)
