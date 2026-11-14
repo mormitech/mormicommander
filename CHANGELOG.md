@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.74 – 2026-11-14
+
+### Fixed
+
+- Control mode: a right-click (`click` with `button: 2`) on a file row now opens that row's context menu (issue #42). Before, the click moved the cursor, the list redrew, and the follow-up events went to a row that was no longer on the page. Control mode now sends each event to the live element (or the one at the same point) after a redraw, as a real mouse does. Nothing changes for normal use of the app.
+
 ## 0.9.73 – 2026-11-14
 
 ### Fixed
