@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.31 – 2026-11-14
+
+### Fixed
+
+- Changes made just before quitting are no longer lost. The folders, sorting and active panel were saved a moment after
+  each change, so quitting right away (Alt+F4, Cmd+Q, the window close button) could skip the last change. The session
+  is now written before the app exits, and a copy is also kept on the Go side that is written at shutdown if the page
+  never got to it. Nothing else about saving the session changes.
+
 ## 0.9.30 – 2026-11-14
 
 ### Fixed
