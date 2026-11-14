@@ -538,6 +538,12 @@ func (a *ArchiveFS) newTempPath(name string) (string, error) {
 	if err := os.Mkdir(sub, 0o700); err != nil {
 		return "", err
 	}
+	// only a plain name goes in: a server name with separators or ".." must not lead out of the private folder,
+	// whose path callers take as filepath.Dir of the result
+	name = filepath.Base(filepath.FromSlash(name))
+	if name == "." || name == ".." || name == string(filepath.Separator) {
+		name = "file"
+	}
 	return filepath.Join(sub, name), nil
 }
 
