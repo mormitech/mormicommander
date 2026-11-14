@@ -296,10 +296,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 			if err != nil {
 				return err
 			}
-			if err := remove(dst); err != nil && !isNotExist(err) {
-				return err
-			}
-			return symlink(target, dst)
+			return replaceWithLink(target, dst)
 		})
 		if err != nil {
 			return false
@@ -335,6 +332,31 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 	}
 	j.log(verb, it.src, dst, nil)
 	return !move || j.removeSource(it)
+}
+
+// replaceWithLink makes the link dst pointing to target. Something already at dst (an overwrite) is replaced only
+// once the new link exists: the link is made under a temporary name first and renamed over it, so a volume that
+// can't hold links (FAT, exFAT) or any other failure leaves the old target as it was.
+func replaceWithLink(target, dst string) error {
+	if _, err := lstat(dst); isNotExist(err) {
+		return symlink(target, dst)
+	}
+	tmp := filepath.Join(filepath.Dir(dst), fmt.Sprintf(".%s.mc-link-%d", tempStem(filepath.Base(dst)), time.Now().UnixNano()))
+	if err := symlink(target, tmp); err != nil {
+		return err
+	}
+	if err := rename(tmp, dst); err != nil {
+		// Windows can't rename a link over some entries (a link to a folder); remove the old one and try once more
+		if rerr := remove(dst); rerr != nil && !isNotExist(rerr) {
+			remove(tmp)
+			return err
+		}
+		if err := rename(tmp, dst); err != nil {
+			remove(tmp)
+			return err
+		}
+	}
+	return nil
 }
 
 // removeSource removes the source of a file that was copied for a move.

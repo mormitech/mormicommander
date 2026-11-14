@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"unicode/utf8"
 )
@@ -81,5 +82,50 @@ func TestCopyIntoItselfOtherSpelling(t *testing.T) {
 		if exists(filepath.Join(dir, "f", "sub", "f")) || exists(filepath.Join(dir, "f", "sub", "deeper")) {
 			t.Fatalf("target %s: the folder was copied into itself", target)
 		}
+	}
+}
+
+// A link copied over an existing file removed that file first and then made the link. Where the link can't be made
+// (FAT and exFAT have no links) the old file was gone and nothing took its place, although an overwrite promises to
+// leave the old target as it was when the copy fails.
+func TestFailedLinkOverwriteKeepsTarget(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	if err := os.Symlink("somewhere", filepath.Join(src, "l")); err != nil {
+		t.Skip(err)
+	}
+	write(t, filepath.Join(dst, "l"), "keep me")
+	old := symlink
+	symlink = func(string, string) error { return &os.LinkError{Op: "symlink", Err: syscall.ENOTSUP} }
+	defer func() { symlink = old }()
+	q := NewQueue(nil)
+	p := start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(src, "l")}, Target: dst, Overwrite: Overwrite})
+	if p.State != StateFailed {
+		t.Errorf("state %s", p.State)
+	}
+	if got := read(t, filepath.Join(dst, "l")); got != "keep me" {
+		t.Errorf("target holds %q", got)
+	}
+	if entries, _ := os.ReadDir(dst); len(entries) != 1 {
+		t.Errorf("left behind: %v", entries)
+	}
+}
+
+// The new link still replaces the old file when it can be made.
+func TestLinkOverwriteReplacesTarget(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	if err := os.Symlink("somewhere", filepath.Join(src, "l")); err != nil {
+		t.Skip(err)
+	}
+	write(t, filepath.Join(dst, "l"), "old")
+	q := NewQueue(nil)
+	p := start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(src, "l")}, Target: dst, Overwrite: Overwrite})
+	if p.State != StateDone {
+		t.Fatalf("state %s %v", p.State, p.Errors)
+	}
+	if got, err := os.Readlink(filepath.Join(dst, "l")); err != nil || got != "somewhere" {
+		t.Errorf("link = %q, %v", got, err)
+	}
+	if entries, _ := os.ReadDir(dst); len(entries) != 1 {
+		t.Errorf("left behind: %v", entries)
 	}
 }

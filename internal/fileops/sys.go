@@ -30,7 +30,6 @@ func remove(p string) error                       { return os.Remove(lp(p)) }
 func rename(a, b string) error                    { return os.Rename(lp(a), lp(b)) }
 func chmod(p string, m fs.FileMode) error         { return os.Chmod(lp(p), m) }
 func readlink(p string) (string, error)           { return os.Readlink(lp(p)) }
-func symlink(target, p string) error              { return os.Symlink(target, lp(p)) }
 func readDir(p string) ([]os.DirEntry, error)     { return os.ReadDir(lp(p)) }
 func truncate(p string, size int64) error         { return os.Truncate(lp(p), size) }
 func sameFile(a, b fs.FileInfo) bool              { return a != nil && b != nil && os.SameFile(a, b) }
@@ -39,6 +38,9 @@ func isPerm(err error) bool                       { return errors.Is(err, fs.Err
 func readOnly(fi fs.FileInfo) bool                { return fi.Mode().IsRegular() && fi.Mode().Perm()&0o200 == 0 }
 func isLink(fi fs.FileInfo) bool                  { return fi.Mode()&fs.ModeSymlink != 0 }
 func makeWritable(p string, fi fs.FileInfo) error { return chmod(p, fi.Mode().Perm()|0o200) }
+
+// symlink is a variable so the tests can make it fail (as it does on FAT and exFAT, which have no links).
+var symlink = func(target, p string) error { return os.Symlink(target, lp(p)) }
 
 // plainErr makes a system error a short plain phrase for the UI ("permission denied", "the disk is full").
 func plainErr(err error) string {
