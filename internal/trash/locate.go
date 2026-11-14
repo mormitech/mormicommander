@@ -26,6 +26,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io/fs"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -33,6 +34,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"mormicommander/internal/robust"
 )
 
 // Mark is what Locate needs to recognise an item once it is in the trash: its old path, its identity, and when it was
@@ -315,7 +318,11 @@ func Restore(trashed, original string) error {
 	if err := os.MkdirAll(filepath.Dir(original), 0o777); err != nil {
 		return err
 	}
-	if err := os.Rename(trashed, original); err != nil {
+	// no replace: something that appears at the old place after the check above is never overwritten
+	if err := robust.RenameNoReplace(trashed, original); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return ErrOccupied
+		}
 		return err
 	}
 	if rec := recordOf(trashed); rec != "" {

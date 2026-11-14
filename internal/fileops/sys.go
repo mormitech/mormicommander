@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"mormicommander/internal/robust"
 )
 
 // LongPath returns p in the form the system accepts for long paths: with the \\?\ prefix on Windows when p is long,
@@ -24,10 +26,13 @@ func open(p string) (*os.File, error)     { return os.Open(lp(p)) }
 func openFile(p string, flag int, perm fs.FileMode) (*os.File, error) {
 	return os.OpenFile(lp(p), flag, perm)
 }
-func mkdir(p string, perm fs.FileMode) error      { return os.Mkdir(lp(p), perm) }
-func mkdirAll(p string, perm fs.FileMode) error   { return os.MkdirAll(lp(p), perm) }
-func remove(p string) error                       { return os.Remove(lp(p)) }
-func rename(a, b string) error                    { return os.Rename(lp(a), lp(b)) }
+func mkdir(p string, perm fs.FileMode) error    { return os.Mkdir(lp(p), perm) }
+func mkdirAll(p string, perm fs.FileMode) error { return os.MkdirAll(lp(p), perm) }
+func remove(p string) error                     { return os.Remove(lp(p)) }
+func rename(a, b string) error                  { return os.Rename(lp(a), lp(b)) }
+
+// renameNew renames a to b only while b does not exist (no gap between a check and the rename).
+func renameNew(a, b string) error                 { return robust.RenameNoReplace(lp(a), lp(b)) }
 func chmod(p string, m fs.FileMode) error         { return os.Chmod(lp(p), m) }
 func readlink(p string) (string, error)           { return os.Readlink(lp(p)) }
 func readDir(p string) ([]os.DirEntry, error)     { return os.ReadDir(lp(p)) }

@@ -123,9 +123,9 @@ func (j *job) copyAll(move bool) {
 					j.leaveFrom(items, i)
 					return
 				}
-				err := rename(src, dst)
+				err := renameNew(src, dst)
 				if err != nil && !crossDevice(err) {
-					err, _ = j.try("Can't move "+filepath.Base(src), src, dst, nil, func() error { return rename(src, dst) })
+					err, _ = j.try("Can't move "+filepath.Base(src), src, dst, nil, func() error { return renameNew(src, dst) })
 					if err != nil {
 						continue
 					}
@@ -308,14 +308,14 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 		return !move || j.removeSource(it)
 	}
 	if it.same && wm == wmCreate {
-		err := rename(it.src, dst)
+		err := renameNew(it.src, dst)
 		if err == nil {
 			j.addBytes(size)
 			j.log(verb, it.src, dst, nil)
 			return true
 		}
 		if !crossDevice(err) {
-			err, _ = j.try("Can't move "+name, it.src, dst, nil, func() error { return rename(it.src, dst) })
+			err, _ = j.try("Can't move "+name, it.src, dst, nil, func() error { return renameNew(it.src, dst) })
 			if err != nil {
 				j.passBytes(size)
 				return false
