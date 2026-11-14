@@ -17,7 +17,7 @@ It uses the standard library, the shared `internal/masks` matcher (filter syntax
 | F-552 | `Options.ByContent` (byte compare, stops at the first difference) |
 | F-553 | `Result.Recompare(ctx, path)` re-reads one pair after the compare tool edited it (the compare tool itself lives elsewhere) |
 | F-554 | `Profile`, `LoadProfiles`, `SaveProfiles`, `PutProfile`, `DeleteProfile` (JSON file) |
-| F-555 | Sides are `FS` / `WritableFS` interfaces: `DirFS(path)` for local disk, `FromFS(fsys)` for any `io/fs` (zip, ...) as a read-only side; VFS adapters can implement `WritableFS` |
+| F-555 | Sides are `FS` / `WritableFS` interfaces: `DirFS(path)` for local disk, `FromFS(fsys)` for any `io/fs` (zip, ...) as a read-only side; the app's archive and server sides are in `feature_syncdirs_vfs.go` (on the vfs router). `Result.SetReadOnly(side, true)` keeps every action away from a side that can't be changed |
 | F-562 | Recursive compare by content = `Subdirs` + `ByContent` |
 
 ## API in short

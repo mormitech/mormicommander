@@ -152,6 +152,7 @@ type Result struct {
 
 	left, right FS
 	index       map[string]*Item
+	readOnly    [2]bool // by Side, see SetReadOnly
 }
 
 // maxFollowDepth limits nesting when links are followed on a file system

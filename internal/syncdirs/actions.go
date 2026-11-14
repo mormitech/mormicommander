@@ -66,15 +66,15 @@ func (it *Item) CanApply(a Action) bool {
 	case NoAction:
 		return true
 	case CopyLeftToRight:
-		return it.Left != nil && it.Left.Kind != KindSpecial && !it.TypeMismatch && writableDest(it.Right, it.rvia)
+		return it.Left != nil && it.Left.Kind != KindSpecial && !it.TypeMismatch && !it.rro && writableDest(it.Right, it.rvia)
 	case CopyRightToLeft:
-		return it.Right != nil && it.Right.Kind != KindSpecial && !it.TypeMismatch && writableDest(it.Left, it.lvia)
+		return it.Right != nil && it.Right.Kind != KindSpecial && !it.TypeMismatch && !it.lro && writableDest(it.Left, it.lvia)
 	case DeleteLeft:
-		return it.Left != nil && !it.lvia
+		return it.Left != nil && !it.lvia && !it.lro
 	case DeleteRight:
-		return it.Right != nil && !it.rvia
+		return it.Right != nil && !it.rvia && !it.rro
 	case DeleteBoth:
-		return it.Left != nil && it.Right != nil && !it.lvia && !it.rvia
+		return it.Left != nil && it.Right != nil && !it.lvia && !it.rvia && !it.lro && !it.rro
 	}
 	return false
 }
@@ -187,6 +187,29 @@ func (r *Result) ReverseAction(path string) error {
 	it.Unselected = false
 	return nil
 }
+
+// SetReadOnly marks one side as a side that can't be changed: an archive
+// format the engine can only read (RAR, 7z), an archive nested in another
+// one or opened from a server (FEATURES.md F-555). Such a side can still be
+// the source of copies, but no row may copy to it or delete on it, so every
+// row gets its default action again under that rule (call it right after
+// Compare, before the user changes actions). ResetActions, Recompare and the
+// action setters keep honouring it, and Plan therefore never needs to write
+// there. Local sides never call it, so nothing changes for them.
+func (r *Result) SetReadOnly(s Side, on bool) {
+	r.readOnly[s] = on
+	for _, it := range r.Items {
+		if s == LeftSide {
+			it.lro = on
+		} else {
+			it.rro = on
+		}
+		it.setDefault(r.Options.Asymmetric)
+	}
+}
+
+// ReadOnly reports whether SetReadOnly marked the side as unchangeable.
+func (r *Result) ReadOnly(s Side) bool { return r.readOnly[s] }
 
 // ResetActions puts every row back to its default action and selection.
 func (r *Result) ResetActions() {
