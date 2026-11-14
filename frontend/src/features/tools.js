@@ -7,6 +7,7 @@
 //   tools/checksums.js  cm_CRCCreate, cm_CRCCheck (and Enter on a checksum file), cm_ChecksumToClip (ours)
 //   tools/split.js      cm_FileSplit, cm_FileCombine, cm_UUEncode, cm_UUDecode
 //   tools/links.js      cm_CreateSymbolicLink, cm_CreateHardLink, Ctrl+Shift+F5 (cm_CreateShortcut)
+//   tools/xattr.js      Remove quarantine flag (cm_RemoveQuarantine, ours, macOS)
 //
 // Their keys and menu items are already in core/keymap.js and core/menus.js; every dialog is a core/dialogs.js dialog,
 // so control mode can read and answer it (kinds: attributes, properties, tools-space, crc-create, crc-verify, crc-clip,
@@ -19,6 +20,7 @@ import { init as initSpace } from './tools/space.js';
 import { init as initChecksums } from './tools/checksums.js';
 import './tools/split.js';
 import './tools/links.js';
+import './tools/xattr.js';
 
 export function init(app) {
   initSpace(app);

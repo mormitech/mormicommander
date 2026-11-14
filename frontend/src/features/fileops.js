@@ -32,6 +32,7 @@ import { app as theApp } from '../core/app.js';
 import { sameNameTarget } from './fileops-target.js';
 import { copiedNames } from './fileops-sel.js';
 import { archiveRefusal } from './fileops-readonly.js';
+import { noteXattrLoss } from './fileops-xattr.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -355,6 +356,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     const final = await app.netJob({ kind: req.kind, sources: req.sources, target: t.dir, rename, overwrite: NET_POLICY[overwrite] || '' }, { title });
     return after(final);
   }
+  noteXattrLoss(app, req.sources, t.dir); // a flash at most once when the target drops Finder tags etc. (#29)
   const job = runJob(req, { title, background });
   if (background) {
     // the command ends once the job has started (a refusal shows as its error); the job goes on and the panels

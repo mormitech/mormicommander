@@ -1,6 +1,7 @@
 // Properties (cm_Properties, Alt+Enter, Cmd+I on macOS; F-184, F-263, F-324, F-681, F-682, F-691): our own window on
 // every platform with name, type, place, size and size on disk (folders are counted at once, internal/dirsize), dates,
-// permissions, owner, attributes, link target; a button for the system's own window (Finder Get Info, Explorer
+// permissions, owner, attributes, link target, extended attribute names (with "Remove quarantine flag" on macOS when the
+// file has it, board #29); a button for the system's own window (Finder Get Info, Explorer
 // properties, the file manager's properties); checksums of a file on demand, and a field to compare a pasted
 // checksum. With several items selected it shows what they hold together.
 
@@ -9,6 +10,8 @@ import { go } from '../../core/go.js';
 import { modal } from '../../core/dialogs.js';
 import { bytes, size, date, plural } from '../../core/format.js';
 import { esc, needLocal, targets, showError, newId, onProgress, dirName, copyText } from './common.js';
+import { xattrLines, hasQuarantine } from './xattr-lib.js';
+import { removeQuarantine } from './xattr.js';
 
 const SYS_LABEL = { darwin: 'Get Info in Finder', windows: 'Windows properties…', linux: 'File manager properties…' };
 const LINK_WORDS = { symlink: 'Symbolic link', junction: 'Junction', hardlink: 'Hard link', url: 'Shortcut file', webloc: 'Web location file', desktop: 'Desktop link file', lnk: 'Windows shortcut', alias: 'Finder alias' };
@@ -57,6 +60,9 @@ function propsTable(app, pr) {
   if (app.platform === 'windows') h += row('Attributes', esc(pr.attrs || 'none'));
   if (pr.hidden) h += row('Hidden', 'yes');
   if (!pr.isDir && pr.hardLinks > 1 && pr.linkKind !== 'hardlink') h += row('Hard links', esc(String(pr.hardLinks)));
+  // extended attributes (macOS, Linux; board #29): one name per line, shown only when the file has any
+  const xl = xattrLines(pr.xattrs);
+  if (xl.length) h += row('Extended attributes', `<span id="tp-xattrs">${xl.map(esc).join('<br>')}</span>`);
   if (pr.volume) h += row('Drive', esc(pr.volume) + (pr.fileSystem ? ` <span class="mc-tools-dim">(${esc(pr.fileSystem)}${pr.blockSize ? `, ${bytes(pr.blockSize)}-byte blocks` : ''})</span>` : ''));
   return h + '</table>';
 }
@@ -94,15 +100,33 @@ async function showProps(app, path, entry) {
   try { pr = await go.Tools.Properties(path); } catch (e) { await showError(String(e?.message ?? e)); return; }
   const algs = pr.isDir ? [] : await go.Tools.ChecksumAlgorithms().catch(() => []);
   let stopCount = () => {}, stopSum = () => {};
+  const quarantined = app.platform === 'darwin' && hasQuarantine(pr.xattrs);
   const after = await modal((box, done) => {
     box.classList.add('mc-info', 'mc-tools-propsbox');
     box.innerHTML = `<button type="button" class="mc-close" aria-label="Close" title="Close (Esc)">×</button>
       <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${algs.length ? checksumPart(algs) : ''}
       <div class="mc-btns"><button type="button" class="mc-tools-sys">${esc(SYS_LABEL[app.platform] || SYS_LABEL.linux)}</button>
+      ${quarantined ? '<button type="button" class="mc-tools-unq">Remove quarantine flag</button>' : ''}
       <button type="button" class="mc-tools-attr">Change attributes…</button><button type="submit" class="primary">Close</button></div>`;
     box.querySelector('.mc-close').onclick = () => done();
     box.onsubmit = (ev) => { ev.preventDefault(); done(); };
     box.querySelector('.mc-tools-attr').onclick = () => done('attrs');
+    const unq = box.querySelector('.mc-tools-unq');
+    if (unq) {
+      unq.onclick = async () => {
+        unq.disabled = true;
+        const r = await removeQuarantine(app, [path]);
+        if (!r || r.failed?.length) { unq.disabled = false; return; }
+        unq.remove();
+        const fresh = await go.Tools.Properties(path).catch(() => null);
+        const cell = box.querySelector('#tp-xattrs');
+        if (fresh && cell) {
+          const lines = xattrLines(fresh.xattrs);
+          if (lines.length) cell.innerHTML = lines.map(esc).join('<br>');
+          else cell.closest('tr')?.remove();
+        }
+      };
+    }
     box.querySelector('.mc-tools-sys').onclick = () => go.Tools.OpenSystemProperties(path).catch((e) => app.flash(String(e?.message ?? e), 'err'));
     if (pr.isDir) stopCount = countInto(box, [path], 0);
     const calc = box.querySelector('.mc-tools-calc');

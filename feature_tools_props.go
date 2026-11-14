@@ -17,47 +17,49 @@ import (
 	"mormicommander/internal/fileutil"
 	"mormicommander/internal/hang"
 	"mormicommander/internal/links"
+	"mormicommander/internal/xattr"
 )
 
 // ToolsProps is everything the Properties dialog shows about one entry.
 type ToolsProps struct {
-	Name         string   `json:"name"`
-	Path         string   `json:"path"`
-	Folder       string   `json:"folder"`
-	Kind         string   `json:"kind"`
-	Type         string   `json:"type"`
-	MIME         string   `json:"mime"`
-	Executable   bool     `json:"executable"`
-	IsDir        bool     `json:"isDir"`
-	Size         int64    `json:"size"`
-	SizeOnDisk   int64    `json:"sizeOnDisk"` // -1 when unknown
-	Modified     int64    `json:"modified"`
-	Accessed     int64    `json:"accessed"`
-	Changed      int64    `json:"changed"`
-	Created      int64    `json:"created"`
-	Perm         string   `json:"perm"` // rwxr-xr-x ("" on Windows)
-	Octal        string   `json:"octal"`
-	Mode         string   `json:"mode"`
-	Attrs        string   `json:"attrs"` // Windows attributes in words
-	Owner        string   `json:"owner"`
-	Group        string   `json:"group"`
-	UID          int      `json:"uid"`
-	GID          int      `json:"gid"`
-	HardLinks    uint64   `json:"hardLinks"`
-	Inode        uint64   `json:"inode"`
-	Hidden       bool     `json:"hidden"`
-	LinkKind     string   `json:"linkKind"` // "", "symlink", "junction", "hardlink", "url", "webloc", "desktop", "lnk", "alias"
-	LinkTarget   string   `json:"linkTarget"`
-	LinkResolved string   `json:"linkResolved"`
-	LinkBroken   bool     `json:"linkBroken"`
-	LinkLoop     bool     `json:"linkLoop"`
-	LinkChain    []string `json:"linkChain"`
-	URL          string   `json:"url"`
-	Arguments    string   `json:"arguments"`
-	WorkingDir   string   `json:"workingDir"`
-	Volume       string   `json:"volume"`
-	FileSystem   string   `json:"fileSystem"`
-	BlockSize    int64    `json:"blockSize"`
+	Name         string       `json:"name"`
+	Path         string       `json:"path"`
+	Folder       string       `json:"folder"`
+	Kind         string       `json:"kind"`
+	Type         string       `json:"type"`
+	MIME         string       `json:"mime"`
+	Executable   bool         `json:"executable"`
+	IsDir        bool         `json:"isDir"`
+	Size         int64        `json:"size"`
+	SizeOnDisk   int64        `json:"sizeOnDisk"` // -1 when unknown
+	Modified     int64        `json:"modified"`
+	Accessed     int64        `json:"accessed"`
+	Changed      int64        `json:"changed"`
+	Created      int64        `json:"created"`
+	Perm         string       `json:"perm"` // rwxr-xr-x ("" on Windows)
+	Octal        string       `json:"octal"`
+	Mode         string       `json:"mode"`
+	Attrs        string       `json:"attrs"` // Windows attributes in words
+	Owner        string       `json:"owner"`
+	Group        string       `json:"group"`
+	UID          int          `json:"uid"`
+	GID          int          `json:"gid"`
+	HardLinks    uint64       `json:"hardLinks"`
+	Inode        uint64       `json:"inode"`
+	Hidden       bool         `json:"hidden"`
+	LinkKind     string       `json:"linkKind"` // "", "symlink", "junction", "hardlink", "url", "webloc", "desktop", "lnk", "alias"
+	LinkTarget   string       `json:"linkTarget"`
+	LinkResolved string       `json:"linkResolved"`
+	LinkBroken   bool         `json:"linkBroken"`
+	LinkLoop     bool         `json:"linkLoop"`
+	LinkChain    []string     `json:"linkChain"`
+	URL          string       `json:"url"`
+	Arguments    string       `json:"arguments"`
+	WorkingDir   string       `json:"workingDir"`
+	Volume       string       `json:"volume"`
+	FileSystem   string       `json:"fileSystem"`
+	BlockSize    int64        `json:"blockSize"`
+	Xattrs       []xattr.Attr `json:"xattrs"` // extended attributes (macOS, Linux); nil when none
 }
 
 // Properties describes one file or folder for the Properties dialog.
@@ -115,6 +117,7 @@ func (t *Tools) Properties(path string) (ToolsProps, error) {
 			p.HardLinks = li.HardLinks
 		}
 	}
+	p.Xattrs = toolsXattrs(path)
 	if v, err := dirsize.VolumeOf(path); err == nil {
 		p.Volume = v.DisplayName()
 		p.FileSystem = v.FileSystem
