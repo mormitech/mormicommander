@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.52 – 2026-11-14
+
+### Added
+
+- Undo journal for file operations (issue #13, first slice): renames in place (Shift+F6), new folders (F7) and copy/move jobs on this computer's disks (F5, F6, drag and drop, paste) are now recorded in undo.json in the settings folder (up to 100 steps, kept across restarts). The new command cm_UndoFileOp (Cmd+Z on macOS only; Ctrl+Z stays Edit comment) asks first and then takes back the newest step; pressing it again goes one step further back. cm_UndoList opens a popup to pick one step. An undo never overwrites anything: items that were changed, moved or put back since are left alone and named in the message. Undoing a delete to the Trash is not done yet. Nothing changes unless you use the new command.
+
 ## 0.9.51 – 2026-11-14
 
 ### Added
