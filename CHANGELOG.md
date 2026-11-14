@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.49 – 2026-11-14
+
+### Fixed
+
+- Move to Trash (issue #36): the job no longer sits at 0% forever when Finder does not answer (for example while macOS waits for permission to control Finder). The Finder call now gives up after a minute plus a second per item (at most ten minutes), and Cancel stops a stuck trash call on every platform.
+- The two common Finder failures, "not allowed" and "no answer in time", now show plain messages.
+
+### Added
+
+- When trashing through Finder fails on macOS, the error question also offers "Trash without Finder" (this item) and "All without Finder" (the rest of the job). These use the system trash call, which needs no permission but loses Finder's Put Back. The normal route is unchanged.
+
 ## 0.9.48 – 2026-11-14
 
 ### Added
