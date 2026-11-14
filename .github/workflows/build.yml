@@ -332,10 +332,50 @@ jobs:
           apt-get remove -y mormicommander
           if [ -e /usr/bin/mormicommander ] || [ -e /usr/share/applications/mormicommander.desktop ]; then echo 'files left after removal'; exit 1; fi
 
+  # The zero-network test of the built app (board issue #14, F-875; docs/privacy.md): the Linux build starts on a
+  # virtual display in control mode with a temporary HOME, a scripted session runs through it (browse, the Lister on
+  # Markdown and HTML full of remote pictures and links, quick view, thumbnails, copy, Find files, the Options and Ask AI
+  # dialogs) while strace follows the app and every process it starts (WebKitGTK's web and network processes too) and
+  # ss takes snapshots; any connection to another machine, DNS lookup or socket open to the network fails the job.
+  # The detector first proves itself on a planted connection (a TEST-NET address) and on its parser's unit tests.
+  zero-network:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: mormicommander-linux
+          path: dist
+      - name: Runtime libraries, virtual display, strace
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-4-1 libwebkitgtk-6.0-4 xvfb xauth dbus strace iproute2
+      - name: Unpack the built app
+        run: |
+          mkdir -p "$RUNNER_TEMP/app"
+          tar -xzf dist/mormicommander-*-linux-x64.tar.gz -C "$RUNNER_TEMP/app"
+          "$RUNNER_TEMP/app/mormicommander" --version
+      - name: Detector unit tests (strace and ss parsing)
+        run: python3 -m unittest discover -s scripts -p 'test_*.py' -v
+      - name: Detector self-test (a planted connection has to be reported)
+        run: scripts/zero_network.sh --selftest --out "$RUNNER_TEMP/zero-network/selftest"
+      - name: Zero-network session
+        timeout-minutes: 8
+        run: scripts/zero_network.sh --out "$RUNNER_TEMP/zero-network/session" "$RUNNER_TEMP/app/mormicommander"
+      - name: Keep the logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zero-network-logs
+          path: ${{ runner.temp }}/zero-network
+          if-no-files-found: ignore
+
   # Pushing a tag like v0.5.0 attaches every package to a GitHub release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, deb]
+    needs: [build, deb, zero-network]
     runs-on: ubuntu-latest
     permissions:
       contents: write

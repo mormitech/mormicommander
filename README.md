@@ -192,10 +192,16 @@ You don't have to take our word for it. The **zero-network test** checks the pro
   the pages load nothing from other sites (no CDNs, no web fonts), and the only web addresses are links you click.
 - [`frontend/test/viewer-noremote.test.js`](frontend/test/viewer-noremote.test.js) checks that the Lister drops remote
   images, styles and frames from HTML and Markdown files, so viewing a file never contacts a server.
+- [`scripts/zero_network.sh`](scripts/zero_network.sh) (the CI job `zero-network`, on Linux) starts the built app on a
+  virtual display, drives a session through its window (browse, view Markdown and HTML full of remote pictures and
+  links, quick view, thumbnails, copy, Find files, the Options and Ask AI dialogs) and watches the app and every process
+  it starts, the web view's included, with `strace` and `ss`: any connection to another machine or DNS lookup fails
+  the build. It first proves it would catch one, on a planted connection.
 
 Run them yourself with `go test -run ZeroNetwork .` and
-`cd frontend && npx vitest run test/privacy.test.js test/viewer-noremote.test.js`. The whole statement, and what the
-tests do not cover yet, is in [docs/privacy.md](docs/privacy.md).
+`cd frontend && npx vitest run test/privacy.test.js test/viewer-noremote.test.js`, and on Linux
+`scripts/zero_network.sh build/bin/mormicommander`. The whole statement, and what the tests do not cover, is in
+[docs/privacy.md](docs/privacy.md).
 
 ## For developers
 

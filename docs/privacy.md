@@ -1,6 +1,7 @@
 <!--
 The privacy statement of mormiCommander: what the app sends over the network (nothing of its own), when it does go on
-the network (only when the user asks), and the zero-network tests that check the promise on every build. The README's
+the network (only when the user asks), and the zero-network tests that check the promise on every build (the Go and page
+tests, and the CI job that watches the running app: scripts/zero_network.sh). The README's
 "Privacy" section is the short version and links here; frontend/test/readme.test.js keeps the links in place.
 -->
 
@@ -79,8 +80,8 @@ programs with their own rules.
 
 ## The zero-network tests
 
-You don't have to take this on trust. These tests run on every build, on macOS, Windows and Linux, and fail the build
-if the promise breaks:
+You don't have to take this on trust. These tests run on every build and fail the build if the promise breaks; the
+Go and page tests on macOS, Windows and Linux, the test of the whole running app on Linux:
 
 | Test | What it checks |
 | --- | --- |
@@ -88,23 +89,36 @@ if the promise breaks:
 | [`privacy_session_test.go`](../privacy_session_test.go) | Runs the app's features the way the app builds them, in a temporary folder with settings of its own, through a scripted session: browse folders, view a text file, a Markdown file with remote pictures and an HTML page with remote styles, search by name and by text, copy files, make thumbnails. It records every HTTP request and host-name lookup, and on macOS and Linux it watches the process's open sockets ([`privacy_sockets_unix_test.go`](../privacy_sockets_unix_test.go)); any attempt to reach another machine fails the test. |
 | [`frontend/test/privacy.test.js`](../frontend/test/privacy.test.js) | Checks the window's code: no script fetches anything, the pages and styles load nothing from other sites, and the only web addresses are links to the project's own sites. |
 | [`frontend/test/viewer-noremote.test.js`](../frontend/test/viewer-noremote.test.js) | Puts Markdown and HTML files full of remote pictures, styles, fonts, frames and scripts through the Lister's own rendering and checks that nothing in the result would load from the network. |
+| [`scripts/zero_network.sh`](../scripts/zero_network.sh) and [`scripts/zero_network.py`](../scripts/zero_network.py) (CI job `zero-network` in [`build.yml`](../.github/workflows/build.yml), Linux) | Starts the **built app** with its window on a virtual display, in control mode, with a temporary home and settings folder, and drives a session through the window: browse folders, the Lister on a text file and on Markdown, HTML and SVG files full of remote pictures, styles, scripts, fonts, frames and links, quick view, thumbnails of a folder of pictures, copying a folder, Find files by name and by text, the Options dialog (its AI page too) and the Ask AI dialog, opened and closed without starting a run. Meanwhile `strace` follows the app and every process it starts, the web view's WebKitWebProcess and WebKitNetworkProcess included, and records each `connect`, `sendto`, `sendmsg` and `sendmmsg`; `ss` snapshots every half second are a second witness. Any connection to another machine, anything sent to port 53 (a DNS lookup, even to the local resolver) or a socket open to the network fails the job with a list of the offending connections. Loopback (127.0.0.1, ::1) and Unix sockets (D-Bus, X11, Wayland) are allowed. |
 
 Run them yourself from a copy of the source:
 
 ```sh
 go test -run ZeroNetwork .
 cd frontend && npx vitest run test/privacy.test.js test/viewer-noremote.test.js
+# Linux, after scripts/build.sh (needs strace, iproute2, xvfb, xauth, dbus):
+scripts/zero_network.sh --selftest && scripts/zero_network.sh build/bin/mormicommander
 ```
 
 Each test also checks itself on made-up examples (a planted `http.Get`, a real connection to a listener of its own on
-127.0.0.1, a remote `<img>`), so a test that stopped looking would fail rather than pass quietly.
+127.0.0.1, a remote `<img>`), so a test that stopped looking would fail rather than pass quietly. The whole-app test
+starts with `--selftest`: a process two levels down the watched tree makes a connection attempt to 192.0.2.1 (an
+address reserved for documentation, which reaches nobody) and sends a DNS query to it, next to a loopback connection
+and a Unix socket; the job goes on only if the planted ones are reported, by the right process, and the loopback and
+Unix ones are not. Its parser is unit-tested on sample
+`strace` and `ss` lines ([`scripts/test_zero_network.py`](../scripts/test_zero_network.py)). Each run keeps its logs and
+report as the `zero-network-logs` artifact of the CI run.
 
-### What the tests do not cover yet
+### What the tests do not cover
 
-The run-time test drives the app's Go side directly; it does not start the whole app with its window. A test that
-launches the built app in control mode, runs the same session through the window and watches the whole process
-(including the web view) for outbound connections is planned. Until then the window's side is covered by reading its
-code (`privacy.test.js`) and by running the Lister's rendering on hostile files (`viewer-noremote.test.js`).
+- **The whole-app test runs on Linux only**, where `strace` can follow a process tree. On macOS and Windows the window
+  is the same code (the page and the Go side are shared), and the Go and page tests above run there.
+- `strace` follows the app and the processes it starts. Services that the session bus starts on the app's behalf are
+  not its children; the `ss` snapshots cover them too, but only connections that stay open for half a second or more.
+- WebKitGTK's web process sandbox is switched off in the test (CI runners do not allow the user namespaces it needs);
+  the app itself never switches it off.
+- By design the session does not open remote locations, start an AI run, click links or choose Check for updates:
+  those are the cases above where you ask for the network.
 
 Found something that goes on the network when it should not? Please
 [open an issue](https://github.com/mormitech/mormicommander/issues).
