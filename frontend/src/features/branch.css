@@ -1,0 +1,5 @@
+/* The branch view's mark in the path bar (branch.js), drawn like the archive and server badge of vfs.css. */
+.mc-branch-badge {
+    display: inline-block; margin: 0 4px; padding: 0 6px; border-radius: 4px; font-size: 11px; line-height: 16px;
+    color: var(--accent-text); background: var(--accent); white-space: nowrap; cursor: default;
+}

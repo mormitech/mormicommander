@@ -40,6 +40,10 @@ func (j *Jobs) ParseTarget(input string, sources int, from string) (FileopsTarge
 	}
 	r := vfsRouter(j.app)
 	in = fileopsExpandHome(in)
+	if real, ok := branchReal(in); ok {
+		// the other panel shows a branch view (feature_branch.go): its files are real, so is the folder it lists
+		in = real + fileopsTrailingSep(in)
+	}
 	if !strings.Contains(in, "://") && !filepath.IsAbs(in) && from != "" {
 		if strings.Contains(from, "://") {
 			if r == nil {

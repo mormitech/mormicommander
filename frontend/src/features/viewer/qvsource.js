@@ -4,18 +4,22 @@
 // through a big archive does not unpack every large entry. A file on a server (FTP, SFTP, WebDAV) is downloaded to a
 // temporary copy the same way (issue #101); quick view does that only up to SERVER_PREVIEW_LIMIT bytes, smaller than
 // the archive limit because every cursor move over a large server file would otherwise start a long download. Search
-// results fed to a panel (find://) are left as they were.
+// results fed to a panel (find://) are left as they were. A branch view (branch://, branchsel://, see branch.js) lists
+// real files on this computer, so quick view shows them as local files; F3 takes the copy route of the result lists,
+// whose LocalCopy hands a local file back as it is, so N / P walk the real files.
 
 export const ARCHIVE_PREVIEW_LIMIT = 10 * 1024 * 1024;
 export const SERVER_PREVIEW_LIMIT = 2 * 1024 * 1024;
 
 const urlLike = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 const feedLike = (p) => /^find:\/\//i.test(String(p || '').trim());
+const branchLike = (p) => /^branch(sel)?:\/\//i.test(String(p || '').trim());
 
 // quickViewSource answers "local", "archive", "too-big", "server", "server-too-big" or "remote" (a place quick view
 // does not preview: search results fed to a panel) for an entry of a panel whose place is described by info
 // (FS.PathInfo of the panel's folder, or the panel's own copy of it: {kind, remote}) and whose folder is dir.
 export function quickViewSource(info, dir, entry) {
+  if (branchLike(dir)) return 'local';
   if (info?.kind === 'results' || feedLike(dir)) return 'remote';
   if (urlLike(dir) || info?.remote) return (entry?.size || 0) > SERVER_PREVIEW_LIMIT ? 'server-too-big' : 'server';
   if (info?.kind === 'archive') return (entry?.size || 0) > ARCHIVE_PREVIEW_LIMIT ? 'too-big' : 'archive';
@@ -32,6 +36,7 @@ export function viewsFromCopy(info, dir) {
 
 // downloads says whether getting that copy means a download from a server (so the page says "Downloading…").
 export function downloads(info, dir) {
+  if (branchLike(dir)) return false;
   if (info?.kind === 'results' || feedLike(dir)) return false;
   return urlLike(dir) || !!info?.remote;
 }

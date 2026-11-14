@@ -66,6 +66,11 @@ func (f *FS) PathInfo(path string) PathInfo {
 		// Feed to listbox: the names stand for real files, which every file command works on (not a server, not read-only)
 		return PathInfo{Kind: "results"}
 	}
+	if branchPath(path) {
+		// Branch view (feature_branch.go): every name is a real file on this computer, so it is a local place for the
+		// commands that ask (quick view, F3, the copy target); the branch feature marks the path bar itself
+		return PathInfo{Kind: "local"}
+	}
 	kind := vfsPathKind(f.router, path)
 	info := PathInfo{Kind: kind, Remote: kind == "ftp" || kind == "sftp" || strings.Contains(path, "://")}
 	if kind == "archive" {

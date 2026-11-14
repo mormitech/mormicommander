@@ -22,6 +22,7 @@ import { trigger } from './find-quick-keys.js';
 import { track } from '../core/busy.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
+import { isBranchPath, leafName } from './branch-lib.js';
 
 const MODES = ['ctrlalt', 'alt', 'letter', 'off'];
 
@@ -53,6 +54,9 @@ function queue(fn) {
 }
 
 const nameOf = (e) => (e.up ? '..' : e.dir ? `${e.name}/` : e.name);
+// In a branch view the names hold folders ("sub/deeper/a.txt"); quick search looks at the file's own name there, as in
+// TC, so typing "a" finds a.txt in any subfolder.
+const branchNameOf = (e) => (e.up ? '..' : leafName(e.name, theApp.platform));
 
 // match asks Go which names of the panel match the text: in search mode among the shown entries (the indexes are
 // cursor positions), in filter mode among all the folder's entries.
@@ -60,7 +64,7 @@ async function match(p, text, filter) {
   const list = filter ? p.all : p.entries;
   const key = `${p.side}:${filter ? 'all' : 'shown'}`;
   if (QS.loaded.get(key) !== list) {
-    await go.Find.QuickLoad(key, list.map(nameOf));
+    await go.Find.QuickLoad(key, list.map(isBranchPath(p.path) ? branchNameOf : nameOf));
     QS.loaded.set(key, list);
   }
   const o = options();

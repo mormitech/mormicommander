@@ -3,7 +3,8 @@
 UI-free engine that turns a raw folder listing into the rows a file panel draws: filtering, sorting, formatting,
 column sets (Brief, Full, Comments, custom) and status line totals. It has no Wails dependency and cross-compiles for
 macOS, Windows and Linux. Its dependencies beyond the standard library are `golang.org/x/text/collate`, used for
-locale-aware name order, and (on Linux) `golang.org/x/sys/unix` for the `statx` birth time.
+locale-aware name order, `golang.org/x/image` (image sizes of WebP, TIFF and BMP), `go4.org/media/heif` (the EXIF item
+and size of HEIF/HEIC photos) and (on Linux) `golang.org/x/sys/unix` for the `statx` birth time.
 
 ## Typical use
 
@@ -36,7 +37,7 @@ status := listing.StatusText(view.Count(isSelected), listing.SizeKB, listing.Num
 | Status | `Totals`, `Count`, `Totals.Add`, `StatusText` ("15 k / 17 k in 2 / 3 file(s), 1 / 2 dir(s)"), `ItemText` |
 | Comments | `Comments`, `ParseComments`, `LoadComments`, `Get`, `Set`, `Rename`, `Bytes`, `Save`, `ApplyComments` (descript.ion, ANSI or UTF-8, TC multi-line marker; saved via `config.WriteFileAtomic`, which keeps the file mode) |
 | Views | `ViewMode` (`ViewBrief`, `ViewFull`, `ViewComments`, `ViewCustom`), `Options`, `Build`, `View{Set, Titles, Rows, Totals}`, `View.Count`, `View.Find`, `SetFor`, `BriefLayout` (`Columns`, `Pos`, `Index`, `Move`) |
-| Media | `ExifDate`, `ReadID3`, `AudioTags`; fields read lazily and cached in `Item.Extra` |
+| Media | `ExifDate`, `ReadID3`, `ReadAudioTags`, `AudioTags`; fields read lazily and cached in `Item.Extra` |
 
 ### Column template fields
 
@@ -48,9 +49,11 @@ sorts by the field's typed value (numbers, instants); empty values stay at the b
   `tc.creationdate`, `tc.accessdate` (unit = date picture), `tc.attributestr` (units `win`, `winfull`, `unix`, `octal`),
   `tc.permissions`, `tc.owner`, `tc.group`, `tc.linktarget`, `tc.comment`, `tc.path`, `tc.fullpath`, `tc.filetype`,
   `tc.mime`
-- `img.width`, `img.height`, `img.size` (WxH, sorts by pixel count), `img.exifdate` (PNG, JPEG, GIF headers; EXIF
-  DateTimeOriginal)
-- `audio.title`, `audio.artist`, `audio.album`, `audio.year`, `audio.track`, `audio.genre` (ID3v1, ID3v2.2/2.3/2.4)
+- `img.width`, `img.height`, `img.size` (WxH, sorts by pixel count), `img.exifdate` (PNG, JPEG, GIF, WebP, TIFF, BMP
+  headers and HEIF's image size property; EXIF DateTimeOriginal from JPEG, PNG eXIf, WebP EXIF, TIFF and the raw formats
+  built on it, and HEIF/HEIC through `go4.org/media/heif`)
+- `audio.title`, `audio.artist`, `audio.album`, `audio.year`, `audio.track`, `audio.genre` (ID3v1, ID3v2.2/2.3/2.4,
+  and the Vorbis comments of FLAC and Ogg Vorbis/Opus files)
 - Other engines add their own namespaces with `RegisterField` (the replacement for TC's WDX content plugins).
 
 ## FEATURES.md IDs backed

@@ -758,7 +758,8 @@ async function openDialog(app, args = {}) {
       // hidden files as the last search had them, or as the panels show them when the option says so (issue #4)
       setHidden(findIncludeHidden({ last: setup.last, followPanel: optOn('FindFiles.HiddenFromPanel'), showHidden: app.showHidden }));
       setVal('ff-for', setup.history?.name?.[0] || setup.last?.searchFor || '*');
-      setVal('ff-in', p.path);
+      // (from a branch view the search starts in the folder it lists: its subfolders are searched anyway)
+      setVal('ff-in', /^branch(sel)?:\/\//i.test(p.path) && p.parent ? p.parent : p.path);
     }
     const f = box.querySelector('#ff-for');
     f.dataset.select = `0,${f.value.length}`;

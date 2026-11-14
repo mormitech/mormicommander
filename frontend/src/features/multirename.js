@@ -13,6 +13,7 @@ import { go, on, errText } from '../core/go.js';
 import { addControlCommand } from '../core/control.js';
 import { size as fmtSize, date as fmtDate, plural } from '../core/format.js';
 import { fieldMenuItems } from './multirename-lib.js';
+import { isBranchPath } from './branch-lib.js';
 
 const SETTING = 'multiRename';
 const HISTORY_MAX = 20;
@@ -93,10 +94,13 @@ async function openTool(app) {
   const p = app.cur;
   const targets = p.targets();
   if (!targets.length) return;
-  if (p.path.includes('://')) { app.flash('Files in archives and on servers can\'t be renamed with the Multi-Rename tool.', 'err'); return; }
+  // A branch view (branch.js) lists real files of many folders, named by their path relative to the folder it lists
+  // (its ".."): Go renames each file in its own folder, so [P] and [G] and the conflict check are per folder (F-511).
+  const branch = isBranchPath(p.path);
+  if (p.path.includes('://') && !branch) { app.flash('Files in archives and on servers can\'t be renamed with the Multi-Rename tool.', 'err'); return; }
   let start;
   try {
-    start = await go.MultiRename.Start(p.path, targets.map((e) => e.name));
+    start = await go.MultiRename.Start(branch ? p.parent : p.path, targets.map((e) => e.name));
   } catch (e) {
     await messageDialog({ Title: 'Multi-Rename tool', Message: errText(e), Kind: 'multirename-error' });
     return;
@@ -805,7 +809,7 @@ command({
   name: 'cm_MultiRenameFiles',
   label: 'Multi-rename tool…',
   short: 'Rename',
-  enabled: (app) => !app.cur?.path?.includes('://'),
+  enabled: (app) => !app.cur?.path?.includes('://') || isBranchPath(app.cur.path),
   run: async (app, args = {}) => {
     const param = String(args.param ?? args.params ?? '').trim();
     if (param === '==<UNDO>' || args.undo === 'noask') return undoFromPanel(app, false);
