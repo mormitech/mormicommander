@@ -6,6 +6,19 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.20 – 2026-11-14
+
+### Added
+
+- AI search step 2 (#146): OpenRouter, or any OpenAI-compatible API, as a second AI provider. Configuration > AI
+  settings… (also a button in the Find files AI tab) chooses the provider, takes the API key (kept only in the system
+  keychain, never in a settings file), lists the models with a filter, prices and context length, and sets the API
+  address. mormiCommander runs the tool loop itself with the same tools Claude Code gets (up to 25 rounds). Claude Code
+  stays the default and works as before.
+- Privacy: the OpenRouter request goes out only when you start an AI search with it chosen, or press Show models; it
+  carries your prompt, the panels' folders and the tool results (file names, sizes, dates). The zero-network test
+  allows exactly this one function.
+
 ## 0.10.19 – 2026-11-14
 
 ### Added
