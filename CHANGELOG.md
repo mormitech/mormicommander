@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.82 – 2026-11-14
+
+### Added
+
+- Options dialog search (issue #109): a new "Whole words" checkbox under the search box. It is off by default, so searching works exactly as before. When ticked, each search word only matches as a word of its own: "two" finds "Two drive button bars" but no longer matches "network". The choice lasts until the app is closed.
+
 ## 0.9.81 – 2026-11-14
 
 ### Fixed
