@@ -136,7 +136,9 @@ def suite_real(app):
             mc.cursor("left", name="a1.txt")
             mc.key("Backspace")
             s = mc.key("Enter")
-            check("F-074", s["left"]["cursorName"] == "a1.txt", "back in a folder, the cursor is where it was")
+            # Restoring the cursor of a folder you come back to (F-074) is the setting "rememberCursor", off by
+            # default: re-entering a folder puts the cursor on "..". suite_remember_cursor checks it switched on.
+            check("F-074", s["left"]["cursorName"] == "..", 'back in a folder, the cursor is on ".." (rememberCursor off)')
             s = mc.key("Ctrl+PgUp")
             check("F-077 F-260", s["left"]["path"] == L and s["left"]["cursorName"] == "alpha", "Ctrl+PgUp goes to the parent")
             mc.cursor("left", name="beta")
@@ -519,6 +521,34 @@ def suite_start_options(app):
         shutil.rmtree(cfg, ignore_errors=True)
 
 
+def suite_remember_cursor(app):
+    """F-074 with the setting "rememberCursor" on (it is off by default): coming back into a folder puts the cursor
+    on the entry it was on when the folder was left. The setting is written to a settings folder of the test's own."""
+    print("== remember cursor (setting on)")
+    tmp = os.path.realpath(tempfile.mkdtemp(prefix="mc-qa-"))
+    cfg = os.path.realpath(tempfile.mkdtemp(prefix="mc-qa-config-"))
+    try:
+        L, R = make_tree(tmp)
+        with open(os.path.join(cfg, "settings.json"), "w") as f:
+            json.dump({"rememberCursor": True}, f)
+        mc = MC.start(app, "-L=" + L, "-R=" + R, config_dir=cfg)
+        try:
+            def remember():
+                mc.focus("left")
+                mc.cd("left", os.path.join(L, "alpha"))
+                mc.cursor("left", name="a1.txt")
+                s = mc.key("Backspace")
+                ok = s["left"]["path"] == L and s["left"]["cursorName"] == "alpha"
+                s = mc.key("Enter")
+                check("F-074", ok and s["left"]["cursorName"] == "a1.txt", "back in a folder, the cursor is where it was (rememberCursor on)")
+            attempt("F-074", remember)
+        finally:
+            mc.quit()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(cfg, ignore_errors=True)
+
+
 def suite_demo(app):
     print("== demo")
     mc = MC.start(app, "--demo")
@@ -572,7 +602,7 @@ def main(argv):
         del args[i:i + 2]
     if args:
         app = args[0]
-    for suite in (suite_real, suite_start_options, suite_demo):
+    for suite in (suite_real, suite_start_options, suite_remember_cursor, suite_demo):
         try:
             suite(app)
         except (MCError, OSError) as e:

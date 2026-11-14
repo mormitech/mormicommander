@@ -182,6 +182,23 @@ func num(m map[string]any, k string, def int) int {
 	return def
 }
 
+// waitUntil waits at least minWait, then checks cond every step until it holds or maxWait has passed since the start.
+// It answers whether cond held. Control mode uses it for things the system does a moment after it is asked (a window
+// appearing), so a command answers once the result can be seen rather than after a guessed pause.
+func waitUntil(cond func() bool, minWait, maxWait, step time.Duration) bool {
+	start := time.Now()
+	time.Sleep(minWait)
+	for {
+		if cond() {
+			return true
+		}
+		if time.Since(start) >= maxWait {
+			return false
+		}
+		time.Sleep(step)
+	}
+}
+
 // do runs one command: the ones about the window here, registered Go commands next, anything else in the page.
 func (c *control) do(m map[string]any) (map[string]any, error) {
 	a := c.app
@@ -248,21 +265,34 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		a.mu.Unlock()
 		return map[string]any{"ok": true, "menus": nativeMenuTree(m)}, nil
 	case "about": // open (or close: {close: true}) the About window, which is a window of this process
-		if shut, _ := m["close"].(bool); shut {
+		aboutNow := func() *application.WebviewWindow {
 			a.mu.Lock()
-			w := a.about
-			a.mu.Unlock()
-			if w != nil {
+			defer a.mu.Unlock()
+			return a.about
+		}
+		shut, _ := m["close"].(bool)
+		if shut {
+			if w := aboutNow(); w != nil {
 				w.Close()
 			}
 		} else {
 			a.ShowAbout()
 		}
-		time.Sleep(time.Duration(num(m, "ms", 500)) * time.Millisecond)
-		a.mu.Lock()
-		w := a.about
-		a.mu.Unlock()
-		return map[string]any{"ok": true, "windows": a.windowNames(), "windowId": windowNumber(w)}, nil
+		// The window is shown (or closed) by the system a moment later, so a fixed pause sometimes answered before it
+		// was on the screen and a "windows" right after saw it hidden. Wait at least "ms", then until the window is
+		// visible (or gone), for at most "timeout" more.
+		minWait := time.Duration(num(m, "ms", 500)) * time.Millisecond
+		maxWait := minWait + time.Duration(num(m, "timeout", 5000))*time.Millisecond
+		settled := waitUntil(func() bool {
+			w := aboutNow()
+			if shut {
+				return w == nil
+			}
+			return w != nil && w.IsVisible()
+		}, minWait, maxWait, 50*time.Millisecond)
+		w := aboutNow()
+		return map[string]any{"ok": true, "windows": a.windowNames(), "windowId": windowNumber(w),
+			"visible": w != nil && w.IsVisible(), "settled": settled}, nil
 	case "screenshot": // the window as a PNG file: {path}; window: "lister-2" takes another window of the app;
 		// dialogs: false leaves the window's dialog windows out of the picture
 		dialogs, set := m["dialogs"].(bool)

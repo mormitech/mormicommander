@@ -18,6 +18,7 @@ import { cmdline } from './cmdline.js';
 import { allSettings } from './settings.js';
 import { menuSpec } from './menus.js';
 import { liveTarget } from './control-target.js';
+import { domInfo } from './control-dom.js';
 
 const extra = new Map();
 export function addControlCommand(name, fn) { extra.set(name, fn); }
@@ -231,10 +232,8 @@ async function ctlRun(m) {
       if (m.clear) clearRecentRuns();
       return { ok: true, runs };
     }
-    case 'dom': { // {selector}: text and count of matching elements (for checks of what is drawn)
-      const els = [...document.querySelectorAll(m.selector)];
-      return { ok: true, count: els.length, texts: els.slice(0, 50).map((e) => e.textContent), visible: els.map((e) => !!(e.offsetWidth || e.offsetHeight)).slice(0, 50), classes: els.slice(0, 50).map((e) => e.className) };
-    }
+    case 'dom': // {selector, limit}: text and count of matching elements (for checks of what is drawn; control-dom.js)
+      return domInfo([...document.querySelectorAll(m.selector)], m.limit);
     case 'wait': case 'idle': await sleep(m.ms || 0); await idle(m.timeout || 15000); return state();
     case 'eval': throw new Error('"eval" does not exist: use the commands');
   }

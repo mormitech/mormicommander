@@ -47,7 +47,7 @@ object as `state`, so a script can check the result at once.
 | `screenshot` | `path`, `window`, `dialogs` | the window as a PNG (macOS: `screencapture -l`; elsewhere `mc_ctl.py shot()` makes it); `window: "lister-2"` takes another window of the app. It first waits (bounded) for the page to be idle and painted and for the window's dialog windows to have drawn their dialog, then lays those dialog windows over the picture where they stand, so the PNG shows what is on the screen; answers `dialogs` (how many were laid over). `dialogs: false` takes the window alone |
 | `menu` | `name` | does what choosing the menu item of that cm_* command does (the native menu can't be clicked from outside) |
 | `nativemenu` | | the native menu bar as built from the page's tree: `{menus: [{label, items, checked, disabled, sep}]}` (`menus`, a page command, is the tree the page sent) |
-| `about` | `close` | opens the About window (a second window of the same process since Wails v3; `close: true` closes it); answers `windows` and the About window's `windowId` (macOS) |
+| `about` | `close`, `ms`, `timeout` | opens the About window (a second window of the same process since Wails v3; `close: true` closes it); waits at least `ms` (500), then until the window is visible (or gone after `close`), for at most `timeout` (5000) ms more, so a `windows` right after sees it shown; answers `windows`, the About window's `windowId` (macOS), `visible` and `settled` (false when the wait ran out) |
 | `answer` / `asked` | `kind`, `value` / `values` | queue answers for system dialogs (kind `folder`: the folder picker); `asked` lists the questions asked |
 | `jobs` | | the file jobs (copy, move, delete) and their progress |
 | `sleep` | `ms` | a pause |
@@ -66,7 +66,7 @@ object as `state`, so a script can check the result at once.
 | `menus` | | the menu tree as sent to the native menu (labels, commands, disabled, check marks) |
 | `settings` | | all settings |
 | `layout` | | boxes of the panels and the splitter, `horizontal`, `rowHeight`, `theme`, `split` |
-| `dom` | `selector` | count, texts, visibility and classes of matching elements (for checks of what is drawn) |
+| `dom` | `selector`, `limit` | count, texts, visibility and classes of matching elements (for checks of what is drawn); `texts`/`visible`/`classes` describe the first `limit` matches (50 when left out, all with `0`), `count` is all of them and `more: true` says some were left out |
 
 A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cursorName`, `count` (entries without
 ".."), `files`, `folders`, `totalBytes`, `selected` (names), `selectedBytes`, `sort` (`{key, desc}`), `filter`,
