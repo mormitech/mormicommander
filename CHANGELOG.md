@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.55 – 2026-11-14
+
+### Added
+
+- Multi-Rename can now use values read from the file itself (issue #7): `[=img.exifdate]` (and exifyear, exifmonth, exifday, exifhour, exifminute, exifsecond) for the photo date, `[=img.width]`, `[=img.height]`, `[=img.size]` for the image size, and `[=audio.artist]`, title, album, track, year, genre for ID3 tags. `exif.*` and `id3.*` work as aliases so masks from Total Commander carry over. A file is read only when the mask uses one of these fields; values are cached and re-read if the file changes. Folders and files without the data give empty text. Nothing existing changes.
+
 ## 0.9.54 – 2026-11-14
 
 ### Fixed
