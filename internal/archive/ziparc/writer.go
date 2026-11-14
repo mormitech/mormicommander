@@ -3,7 +3,8 @@
 // archive, and archive/file comments. The zip format cannot be edited in
 // place, so every update writes a complete new archive into a temporary file
 // in the same folder and renames it over the old one only after everything
-// succeeded; a cancel or error leaves the original untouched. Entries that
+// succeeded (robust.Replace keeps the old file's hard links, owner and
+// extended attributes); a cancel or error leaves the original untouched. Entries that
 // did not change are copied as raw compressed (and possibly encrypted) bytes,
 // so updating a large archive is fast and never needs the password of
 // entries it does not touch. New files are compressed with Store or Deflate
@@ -243,7 +244,7 @@ func (Packer) Update(ctx context.Context, archivePath string, ch archive.Changes
 		}
 	}
 	if !committed {
-		if err := robust.Rename(tmpName, archivePath); err != nil {
+		if err := robust.Replace(tmpName, archivePath); err != nil {
 			return res, err
 		}
 		committed = true

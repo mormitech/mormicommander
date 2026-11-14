@@ -159,3 +159,25 @@ func TestModifyAndCreateThroughSymlink(t *testing.T) {
 		t.Errorf("made.tar = %v", got)
 	}
 }
+
+// A change keeps the archive's other hard links pointing at the changed archive.
+func TestModifyKeepsHardLinks(t *testing.T) {
+	dir := t.TempDir()
+	arc := filepath.Join(dir, "a.tar")
+	writeFile(t, arc, makeTar(t, []member{{name: "a.txt", body: "a"}}))
+	other := filepath.Join(dir, "b.tar")
+	if err := os.Link(arc, other); err != nil {
+		t.Skip("no hard links here:", err)
+	}
+	if err := Modify(context.Background(), arc, Changes{Mkdir: []string{"newdir"}}); err != nil {
+		t.Fatal(err)
+	}
+	a, _ := os.Stat(arc)
+	b, _ := os.Stat(other)
+	if !os.SameFile(a, b) {
+		t.Fatal("hard link broken by the change")
+	}
+	if got := arcNames(t, other); len(got) != 2 || got[1] != "newdir/" {
+		t.Errorf("linked name = %v", got)
+	}
+}

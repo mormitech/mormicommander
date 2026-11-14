@@ -96,3 +96,26 @@ func TestUpdateThroughSymlink(t *testing.T) {
 		t.Errorf("real archive lost f.txt: %v", got)
 	}
 }
+
+// An update keeps the archive's other hard links pointing at the updated archive.
+func TestUpdateKeepsHardLinks(t *testing.T) {
+	dir := t.TempDir()
+	zp := filepath.Join(dir, "a.zip")
+	src := filepath.Join(dir, "f.txt")
+	writeFile(t, src, []byte("f"))
+	pack(t, zp, archive.Changes{Add: []archive.AddItem{{Source: src}}}, archive.PackOptions{})
+	other := filepath.Join(dir, "b.zip")
+	if err := os.Link(zp, other); err != nil {
+		t.Skip("no hard links here:", err)
+	}
+	pack(t, zp, archive.Changes{Mkdir: []string{"newdir"}}, archive.PackOptions{})
+	a, _ := os.Stat(zp)
+	b, _ := os.Stat(other)
+	if !os.SameFile(a, b) {
+		t.Fatal("hard link broken by the update")
+	}
+	got := contents(t, mustOpen(t, other, archive.OpenOptions{}))
+	if _, ok := got["newdir/"]; !ok || got["f.txt"] != "f" {
+		t.Errorf("linked name misses the update: %v", got)
+	}
+}

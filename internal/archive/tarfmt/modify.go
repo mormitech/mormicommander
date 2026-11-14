@@ -6,8 +6,9 @@
 // streamed into a new temporary archive with the same compression, with
 // deleted ones left out, renamed ones given their new name and replaced ones
 // dropped, then folders and added files are appended and the new archive
-// takes the old one's place in a single rename. If anything fails the
-// original stays untouched.
+// takes the old one's place in a single rename (robust.Replace, which keeps
+// the old file's hard links, owner and extended attributes). If anything
+// fails the original stays untouched.
 package tarfmt
 
 import (
@@ -355,7 +356,7 @@ func Modify(ctx context.Context, archivePath string, ch Changes) error {
 	_ = os.Chmod(tmpName, arcInfo.Mode().Perm())
 	r.Close()
 	rClosed = true
-	if err := robust.Rename(tmpName, archivePath); err != nil {
+	if err := robust.Replace(tmpName, archivePath); err != nil {
 		return err
 	}
 	ok = true
