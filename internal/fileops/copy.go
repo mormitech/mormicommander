@@ -407,17 +407,20 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		return err
 	}
 	defer in.Close()
+	// A link in the way is overwritten itself, never the file it points to. It is replaced like an old file, by the
+	// rename of the finished temporary file, so a failed copy leaves the link as it was.
+	overLink := false
 	if di, err := lstat(dst); err == nil && isLink(di) && wm == wmCreate {
-		remove(dst) // overwrite the link itself, never the file it points to
+		overLink = true
 	}
 	var oldSize int64
 	var oldInfo fs.FileInfo
-	if di, err := stat(dst); err == nil {
+	if di, err := stat(dst); err == nil && !overLink {
 		oldSize = di.Size()
 		oldInfo = di
 	}
 	final := dst // where the bytes end up; dst is where they are written
-	if wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular() {
+	if overLink || (wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular()) {
 		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", tempStem(filepath.Base(final)), time.Now().UnixNano()))
 	}
 	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
@@ -513,10 +516,17 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		j.log("verify", src, final, nil)
 	}
 	if dst != final {
-		if j.req.NoPerms {
+		if j.req.NoPerms && oldInfo != nil {
 			chmod(dst, oldInfo.Mode().Perm()) // without permission copying an overwrite keeps the old file's mode
 		}
-		if err := rename(dst, final); err != nil {
+		err := rename(dst, final)
+		if err != nil && overLink {
+			// Windows can't rename a file over a link to a folder; that link goes first, then the rename is tried again
+			if rerr := remove(final); rerr == nil || isNotExist(rerr) {
+				err = rename(dst, final)
+			}
+		}
+		if err != nil {
 			return err // the deferred cleanup removes the temporary file; the old target is still whole
 		}
 		dst = final

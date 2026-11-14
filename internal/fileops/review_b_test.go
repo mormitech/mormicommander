@@ -3,11 +3,13 @@ package fileops
 // Tests for review findings of issue #91 (second engines review).
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 	"unicode/utf8"
 )
 
@@ -127,5 +129,65 @@ func TestLinkOverwriteReplacesTarget(t *testing.T) {
 	}
 	if entries, _ := os.ReadDir(dst); len(entries) != 1 {
 		t.Errorf("left behind: %v", entries)
+	}
+}
+
+// A file copied over a link replaces the link itself, never the file it points to. The link was removed before the
+// copy started, so a cancel (or a read error, or a full disk) left neither the link nor a copy.
+func TestCancelledOverwriteKeepsOldLink(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	big := bytes.Repeat([]byte("n"), 4<<20)
+	if err := os.WriteFile(filepath.Join(src, "f"), big, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	write(t, filepath.Join(dst, "other"), "other")
+	if err := os.Symlink("other", filepath.Join(dst, "f")); err != nil {
+		t.Skip(err)
+	}
+	q := NewQueue(nil)
+	id, err := q.Start(Request{Kind: Copy, Sources: []string{filepath.Join(src, "f")}, Target: dst, Overwrite: Overwrite,
+		SpeedLimit: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	q.Cancel(id)
+	if p := q.Wait(id); p.State != StateCancelled {
+		t.Fatalf("state %s", p.State)
+	}
+	if got, err := os.Readlink(filepath.Join(dst, "f")); err != nil || got != "other" {
+		t.Errorf("the old link is gone: %q, %v", got, err)
+	}
+	if got := read(t, filepath.Join(dst, "other")); got != "other" {
+		t.Errorf("the link's target was written to: %d bytes", len(got))
+	}
+	if entries, _ := os.ReadDir(dst); len(entries) != 2 {
+		t.Errorf("left behind: %v", entries)
+	}
+}
+
+// Overwriting a link with a file still works: the link becomes the file, the file it pointed to stays.
+func TestOverwriteLinkWithFile(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, filepath.Join(src, "f"), "new")
+	write(t, filepath.Join(dst, "other"), "other")
+	if err := os.Symlink("other", filepath.Join(dst, "f")); err != nil {
+		t.Skip(err)
+	}
+	for _, noPerms := range []bool{false, true} {
+		q := NewQueue(nil)
+		p := start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(src, "f")}, Target: dst, Overwrite: Overwrite, NoPerms: noPerms, Verify: true})
+		if p.State != StateDone {
+			t.Fatalf("state %s %v", p.State, p.Errors)
+		}
+		fi, err := os.Lstat(filepath.Join(dst, "f"))
+		if err != nil || !fi.Mode().IsRegular() || read(t, filepath.Join(dst, "f")) != "new" {
+			t.Errorf("target is %v, %v", fi, err)
+		}
+		if got := read(t, filepath.Join(dst, "other")); got != "other" {
+			t.Errorf("the link's target was written to: %q", got)
+		}
+		os.Remove(filepath.Join(dst, "f"))
+		os.Symlink("other", filepath.Join(dst, "f"))
 	}
 }
