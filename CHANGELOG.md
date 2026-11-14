@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.39 – 2026-11-14
+
+### Fixed
+
+- The close button of a dialog window now goes the way Esc goes in that dialog (issue #136). Before, it closed the
+  window and cancelled the dialog at once, so Compare by content threw away unsaved edits without asking; now it asks
+  whether to save, like Esc and its Close button. If a dialog's page does not answer within 3 seconds, the next click
+  on the close button closes the window as before, so a stuck page cannot keep a window open. Closing after an answer,
+  together with the owner window, and at quit work as before.
+
 ## 0.9.38 – 2026-11-14
 
 ### Fixed
