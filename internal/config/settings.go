@@ -169,6 +169,9 @@ type OperationPage struct {
 	MinimizeToTray    bool `ini:"Configuration:MinimizeToTray" def:"0" label:"Minimise to tray / menu bar"`
 	DoubleClickParent bool `ini:"Configuration:DblClickParent" def:"0" label:"Double click on empty space goes up"`
 	RenameSelectsName bool `ini:"Configuration:RenameSelectName" def:"1" label:"Shift+F6 selects the name without extension"`
+	// CursorRepeat: held Up/Down (and Page Up/Down) keys repeat at the system's rate (0, the default) or faster, at
+	// mormiCommander's own pace (core/keyrepeat.js).
+	CursorRepeat int `ini:"Configuration:CursorRepeatSpeed" def:"0" min:"0" max:"3" opts:"0=System setting|1=Fast|2=Faster|3=Fastest" label:"Held Up/Down key repeat speed"`
 }
 
 // ViewerEditorPage (F-420).

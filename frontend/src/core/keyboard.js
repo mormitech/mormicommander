@@ -10,6 +10,7 @@
 import { comboFromEvent, printable } from './keys.js';
 import { commandForKey } from './registry.js';
 import { cmdline } from './cmdline.js';
+import { takeRepeat, watchRepeatEnd } from './keyrepeat.js';
 import { app } from './app.js';
 
 const handlers = [];
@@ -85,6 +86,11 @@ export function onKeyDown(ev) {
     }
   }
   const name = commandForKey(combo, !hasText);
+  // a held Up/Down: with a faster repeat chosen (Operation.CursorRepeat), mormiCommander repeats it at its own pace
+  if (name && !inCmd && takeRepeat(ev, combo, app.config?.values?.['Operation.CursorRepeat'], () => app.run(name, { key: combo }))) {
+    ev.preventDefault();
+    return;
+  }
   if (name) {
     ev.preventDefault();
     app.run(name, { key: combo });
@@ -101,6 +107,7 @@ export function initKeyboard() {
   window.addEventListener('keydown', setMods, true);
   window.addEventListener('keyup', setMods, true);
   window.addEventListener('keydown', onKeyDown);
+  watchRepeatEnd();
   for (const t of ['mousemove', 'mousedown', 'mouseup', 'wheel']) window.addEventListener(t, setMods, { capture: true, passive: true });
   // the window stops being the active one: nothing it saw pressed can be trusted to be still down
   window.addEventListener('blur', releaseModifiers);

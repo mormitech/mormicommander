@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.11 – 2026-11-14
+
+### Added
+
+- Options > Operation > "Held Up/Down key repeat speed": System setting (the default, as before), Fast, Faster or
+  Fastest. With a faster speed, a held Up, Down, Page Up or Page Down key (also with Shift) repeats at
+  mormiCommander's own pace once the system starts repeating it, instead of the system's repeat rate.
+
 ## 0.10.10 – 2026-11-14
 
 ### Added
