@@ -99,7 +99,9 @@ windows)
   if [ -n "${WAILS3:-}" ]; then
     wails3=("$WAILS3")
   else
-    wails3=(go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0)
+    # The tool runs here, so it is built for this machine even when GOOS/GOARCH ask for another one (building the
+    # Windows .exe on a Mac).
+    wails3=(env -u GOOS -u GOARCH go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0)
   fi
   "${wails3[@]}" generate syso -arch "$goarch" -icon build/windows/icon.ico \
     -manifest "$manifest" -info "$winfo" -out "$syso"

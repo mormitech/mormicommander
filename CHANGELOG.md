@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.0 – 2026-11-14
+
+Release of everything since 0.9.0 (0.9.1 to 0.9.103, listed below): Wails v3 with all dialogs as real windows, the
+Home drive and mapped folders, column resizing, live Options, and about 100 board items, among them cut and paste,
+undo journal, transfer error list, command palette, F4 editing inside archives, table preview, folder size treemap,
+zoxide jump, Marta import and many fixes found in real-app testing.
+
+### Fixed
+
+- scripts/build.sh builds the Windows .exe on a Mac too (the Wails resource tool is built for the machine it runs on).
+
 ## 0.9.103 – 2026-11-14
 
 ### Fixed
