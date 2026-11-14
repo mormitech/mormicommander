@@ -194,6 +194,7 @@ tests do not cover yet, is in [docs/privacy.md](docs/privacy.md).
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): how the app is built and how to add a feature.
 - [docs/control.md](docs/control.md): control mode, which lets a script drive the app (tests, screenshots).
 - [docs/keyboard.md](docs/keyboard.md): the keyboard rule on macOS, Windows and Linux.
+- [docs/marta.md](docs/marta.md): coming from Marta (importing favourites, the Marta-like preset, where the actions are).
 - `scripts/qa_smoke.sh`: builds everything and checks the app end to end.
 
 ## Code signing

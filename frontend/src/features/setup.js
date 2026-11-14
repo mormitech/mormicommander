@@ -1,6 +1,8 @@
 // First-run setup (board issue #6, F-NEW-1, ours): one page shown the very first time the app starts on a computer,
-// with the keyboard preset (Total Commander, Mac-native, vim), a "press F5" test that says whether fn is needed, and on
-// macOS a button that opens System Settings > Privacy & Security > Full Disk Access. The choice is saved in
+// with the keyboard preset (Total Commander, Mac-native, Marta-like, vim), a "press F5" test that says whether fn is
+// needed, and on macOS a button that opens System Settings > Privacy & Security > Full Disk Access. When Marta's
+// settings folder is on the Mac, a "Coming from Marta" box offers "Import from Marta", which copies Marta's favourite
+// folders into a "Marta" submenu of the folder hotlist (board issue #22; feature_setup_marta.go, setup-lib.js). The choice is saved in
 // settings.json ("keyPreset", and "setupDone" once the page was shown); Configuration > First-run setup… opens the
 // page again at any time.
 //
@@ -14,6 +16,7 @@ import { go, errText } from '../core/go.js';
 import { modal, esc } from '../core/dialogs.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
+import { martaOffer, martaDone } from './setup-lib.js';
 import { KEY_PRESETS, DEFAULT_PRESET, presetName, presetKeys, shouldShowSetup, fnAdvice } from '../core/keypresets.js';
 
 // applyPreset lays the chosen preset's keys into the keymap (the menus and the function key bar follow by themselves).
@@ -26,6 +29,8 @@ async function showSetup(app) {
   const platform = app.platform;
   const mac = platform === 'darwin';
   let fnKeys = mac ? await go.Setup.FnKeys().catch(() => '') : '';
+  const martaInfo = mac ? await go.Setup.Marta().catch(() => null) : null;
+  const marta = martaOffer(martaInfo);
   const current = presetName(app.setting('keyPreset', DEFAULT_PRESET));
   let pressed = false;
   let say = () => {};
@@ -45,6 +50,9 @@ async function showSetup(app) {
       ${mac ? `<fieldset class="mc-setup-part"><legend>Full Disk Access</legend>
         <p class="mc-note">macOS asks before an app may read some folders (Desktop, Documents, Downloads, other disks…). To see every folder without being asked, add mormiCommander in Privacy & Security > Full Disk Access.</p>
         <button type="button" class="setup-fda">Open Full Disk Access settings</button></fieldset>` : ''}
+      ${marta.show ? `<fieldset class="mc-setup-part"><legend>Coming from Marta</legend>
+        <p class="mc-note" id="setup-marta" aria-live="polite">${esc(marta.text)}</p>
+        ${marta.canImport ? '<button type="button" class="setup-marta">Import from Marta</button>' : ''}</fieldset>` : ''}
       <div class="mc-btns"><button type="button" class="cancel">Later</button><button type="submit" class="primary">OK</button></div>`;
     const fnLine = box.querySelector('#setup-fn');
     say = () => {
@@ -55,6 +63,18 @@ async function showSetup(app) {
     const openPane = (call) => call().catch((e) => app.flash(errText(e), 'err'));
     box.querySelector('.setup-keyboard')?.addEventListener('click', () => openPane(() => go.Setup.OpenKeyboardSettings()));
     box.querySelector('.setup-fda')?.addEventListener('click', () => openPane(() => go.Setup.OpenFullDiskAccess()));
+    const martaBtn = box.querySelector('.setup-marta');
+    martaBtn?.addEventListener('click', async () => {
+      martaBtn.disabled = true;
+      const line = box.querySelector('#setup-marta');
+      try {
+        const added = await go.Setup.ImportMarta();
+        line.textContent = martaDone(added, martaInfo.favorites.length);
+      } catch (e) {
+        line.textContent = errText(e);
+        martaBtn.disabled = false;
+      }
+    });
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();

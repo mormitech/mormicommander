@@ -51,6 +51,18 @@ test('the Mac-native preset keeps Shift+arrows selection and adds Finder keys', 
   expect(reg.commandForKey('Ctrl+K')).toBe('cm_Copy'); // the user's keys stay on top
 });
 
+test('the Marta-like preset adds Mac keys but keeps Space selecting (board issue #22)', () => {
+  reg.setPresetKeys(kp.presetKeys('marta'));
+  expect(kp.KEY_PRESETS.marta.label).toBe('Marta-like');
+  expect(reg.commandForKey('Cmd+O')).toBe('cm_Enter');
+  expect(reg.commandForKey('Shift+Cmd+N')).toBe('cm_MkDir');
+  expect(reg.commandForKey('Cmd+K')).toBe('cm_FtpConnect');
+  expect(reg.commandForKey('Space')).toBe('cm_SelectToggle');
+  expect(reg.commandForKey('Shift+Down')).toBe('cm_SelDown');
+  expect(reg.commandForKey('F5')).toBe('cm_Copy');
+  expect(reg.commandForKey('Ctrl+K')).toBe('cm_Copy'); // the user's keys stay on top
+});
+
 test('the vim preset adds letter keys, but the user keeps the last word', () => {
   reg.setPresetKeys(kp.presetKeys('vim'));
   expect(reg.commandForKey('K')).toBe('cm_CursorUp');

@@ -25,6 +25,15 @@ export const KEY_PRESETS = {
       'Shift+Home': 'cm_SelHome', 'Shift+End': 'cm_SelEnd', 'Shift+PgUp': 'cm_SelPageUp', 'Shift+PgDn': 'cm_SelPageDown',
     },
   },
+  // board issue #22: for people coming from Marta; docs/marta.md maps Marta's common actions to these keys
+  marta: {
+    label: 'Marta-like',
+    note: 'Total Commander keys plus the Mac keys Marta users reach for: ⌘O opens, ⇧⌘N makes a folder, ⌘Y shows the file, ⌘K connects to a server, ⌥⌘⌫ deletes at once, ⌘E ejects. Space and Insert still select; ⇧⌘P opens the command palette.',
+    keys: {
+      'Cmd+O': 'cm_Enter', 'Shift+Cmd+N': 'cm_MkDir', 'Cmd+Y': 'cm_List', 'Cmd+K': 'cm_FtpConnect',
+      'Alt+Cmd+Backspace': 'cm_DeletePermanent', 'Cmd+E': 'cm_EjectVolume',
+    },
+  },
   vim: {
     label: 'Vim',
     note: 'Total Commander keys plus vim movement: J/K down and up, H parent folder, L open, G and Shift+G first and last, / quick search, : command line, V select, Y copy, P paste. Letters no longer go straight into the command line: press : first.',

@@ -276,6 +276,53 @@ func (t *TabsHotlist) AddCommand(title, cmd string) error {
 	return t.save()
 }
 
+// THFolder is one folder to import into the hotlist: its title ("" uses the folder's name) and the folder.
+type THFolder struct {
+	Title  string `json:"title"`
+	Folder string `json:"folder"`
+}
+
+// ImportFolders adds folders to a submenu of the hotlist (made at the end of the top level when there is none with
+// that title yet), skipping every folder the hotlist already opens, and saves. The answer is how many were added.
+// Nothing that is already in the hotlist is changed or moved.
+func (t *TabsHotlist) ImportFolders(submenu string, folders []THFolder) (int, error) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	submenu = thOneLine(submenu)
+	var menu *config.MenuItem
+	for _, it := range t.hot.Items {
+		if it.Kind == config.MenuSubmenu && strings.EqualFold(config.StripAccelerator(it.Title), config.StripAccelerator(submenu)) {
+			menu = it
+			break
+		}
+	}
+	added := 0
+	for _, f := range folders {
+		folder := thOneLine(f.Folder)
+		if folder == "" || t.hot.Contains(folder) {
+			continue
+		}
+		if menu == nil {
+			menu = config.NewHotlistSubmenu(submenu)
+			t.hot.Items = append(t.hot.Items, menu)
+		}
+		title := thOneLine(f.Title)
+		if title == "" {
+			title = filepath.Base(strings.TrimRight(folder, `/\`))
+			if title == "" || title == "." {
+				title = folder
+			}
+		}
+		menu.Children = append(menu.Children, config.NewHotlistEntry(title, folder, ""))
+		added++
+	}
+	if added == 0 {
+		return 0, nil
+	}
+	t.hot.Save(t.file)
+	return added, t.save()
+}
+
 // thOpens says whether a hotlist entry opens folder (the engine's own path comparison: case matters on Linux only).
 func thOpens(it *config.MenuItem, folder string) bool {
 	if it.Kind != config.MenuCommand {
