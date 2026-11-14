@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.43 – 2026-11-14
+
+### Fixed
+
+- Quick view (Ctrl+Q) now previews files inside zip and tar.gz archives and shows the size of folders inside them,
+  instead of a stat error (issue #141). A file in an archive is unpacked to a temporary copy once per quick view
+  session; files over 10 MB are not unpacked and quick view says F3 can view them. Servers and URLs still show the
+  "not ready yet" note. The folder size also fixes F3 on a folder inside an archive.
+
 ## 0.9.42 – 2026-11-14
 
 ### Fixed
