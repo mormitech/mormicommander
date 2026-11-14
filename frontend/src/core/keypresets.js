@@ -38,8 +38,18 @@ export const KEY_PRESETS = {
 // presetName is a known preset's name, or the default for anything else (an unknown or missing setting).
 export const presetName = (name) => (Object.hasOwn(KEY_PRESETS, name) ? name : DEFAULT_PRESET);
 
-// presetKeys is the keys a preset adds or changes, {combo: cm_* name}.
-export const presetKeys = (name) => ({ ...KEY_PRESETS[presetName(name)].keys });
+// QUICK_LOOK_KEYS are the Mac-native preset's keys that open Quick Look instead of the built-in viewer when the setting
+// "quickLookSpace" is on (board issue #19, F-863). It is off by default, so the preset keeps its keys as they were.
+export const QUICK_LOOK_KEYS = { Space: 'cm_QuickLook', 'Cmd+Y': 'cm_QuickLook' };
+
+// presetKeys is the keys a preset adds or changes, {combo: cm_* name}. opts.quickLookSpace: the Mac-native preset's
+// Space and ⌘Y open Quick Look (other presets are not changed by it).
+export const presetKeys = (name, opts = {}) => {
+  const n = presetName(name);
+  const keys = { ...KEY_PRESETS[n].keys };
+  if (n === 'mac' && opts?.quickLookSpace) Object.assign(keys, QUICK_LOOK_KEYS);
+  return keys;
+};
 
 // shouldShowSetup says whether the setup page opens by itself at start: only on the first run of the app on this
 // computer, never in control mode or the demo, and never again once it was shown.

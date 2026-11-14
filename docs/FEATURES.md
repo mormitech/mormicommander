@@ -807,7 +807,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-844 Lister close — Esc (also Q) — window closes; focus returns to the panel
 - [ ] F-845 Lister image zoom — + / - — image zooms in/out; fit-to-window toggles back
 - [~] F-846 Several Lister windows at once and remembered window size — — — F3 on another file opens a second window; size and position kept across uses — audit #103: several Lister windows can be open at once and the last window size is kept (setting listerWindow); the window position is not kept
-- [ ] F-863 Native macOS Quick Look for file under cursor — Cmd+Y (macOS only) — Quick Look window opens for the file under cursor and follows the cursor while open; Space keeps its TC meaning unless the user picks the Mac-native preset
+- [~] F-863 Native macOS Quick Look for file under cursor — Cmd+Y (macOS only) — Quick Look window opens for the file under cursor and follows the cursor while open; Space keeps its TC meaning unless the user picks the Mac-native preset
 - [ ] F-864 HEIC, AVIF and JPEG XL view and thumbnails on Windows and Linux too (pure Go/WASM decoders, no cgo) — — — sample .heic/.avif/.jxl files show in Lister, quick view and thumbnails on all three OSes
 - [ ] F-865 Table preview for CSV, TSV, JSONL, Parquet and SQLite in Lister and quick view — — — file opens as a scrollable grid (first 10,000 rows, virtual scrolling) with column names and types; SQLite shows table list; file opened read-only
 

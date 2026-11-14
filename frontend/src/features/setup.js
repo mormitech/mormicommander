@@ -17,7 +17,9 @@ import { app as theApp } from '../core/app.js';
 import { KEY_PRESETS, DEFAULT_PRESET, presetName, presetKeys, shouldShowSetup, fnAdvice } from '../core/keypresets.js';
 
 // applyPreset lays the chosen preset's keys into the keymap (the menus and the function key bar follow by themselves).
-function applyPreset(name) { setPresetKeys(presetKeys(name)); }
+// The setting "quickLookSpace" (board issue #19, off by default) makes the Mac-native preset's Space and ⌘Y open Quick
+// Look instead of the built-in viewer.
+function applyPreset(name) { setPresetKeys(presetKeys(name, { quickLookSpace: !!theApp.setting('quickLookSpace', false) })); }
 
 // showSetup opens the setup page. The answer is the chosen preset, or null when it was closed without OK.
 async function showSetup(app) {
@@ -27,12 +29,15 @@ async function showSetup(app) {
   const current = presetName(app.setting('keyPreset', DEFAULT_PRESET));
   let pressed = false;
   let say = () => {};
+  const qlBefore = !!app.setting('quickLookSpace', false);
+  let qlAfter = qlBefore;
   const answer = await modal((box, done) => {
     const presets = Object.entries(KEY_PRESETS).map(([id, p]) => `<label class="mc-setup-preset"><input type="radio" name="keyPreset" id="preset-${id}" value="${id}"${id === current ? ' checked' : ''}>
         <span><b>${esc(p.label)}</b>${id === DEFAULT_PRESET ? ' (default)' : ''}<br><span class="mc-note">${esc(p.note)}</span></span></label>`).join('');
     box.innerHTML = `<h2>Welcome to mormiCommander</h2>
       <p class="mc-note">A few choices before you start. You can come back here any time: Configuration > First-run setup….</p>
-      <fieldset class="mc-setup-part"><legend>Keyboard</legend>${presets}</fieldset>
+      <fieldset class="mc-setup-part"><legend>Keyboard</legend>${presets}
+        ${mac ? `<label class="mc-setup-ql"><input type="checkbox" id="setup-ql"${qlBefore ? ' checked' : ''}> With the Mac-native keys, Space and ⌘Y open Quick Look instead of the built-in viewer (⌘Y opens Quick Look with the other keys too)</label>` : ''}</fieldset>
       <fieldset class="mc-setup-part"><legend>Function keys</legend>
         <p class="mc-setup-fn" id="setup-fn" aria-live="polite"></p>
         ${mac ? '<button type="button" class="setup-keyboard">Open Keyboard settings</button>' : ''}
@@ -53,6 +58,7 @@ async function showSetup(app) {
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();
+      qlAfter = !!box.querySelector('#setup-ql')?.checked;
       done(presetName(box.querySelector('input[name="keyPreset"]:checked')?.value));
     };
   }, null, {
@@ -69,6 +75,10 @@ async function showSetup(app) {
   });
   // shown once by itself: closing it with "Later" or Esc does not bring it back at the next start
   if (!app.setting('setupDone', false)) await app.setSetting('setupDone', true);
+  if (answer && qlAfter !== qlBefore) {
+    await app.setSetting('quickLookSpace', qlAfter);
+    if (answer === current) applyPreset(answer);
+  }
   if (answer && answer !== current) {
     await app.setSetting('keyPreset', answer);
     applyPreset(answer);

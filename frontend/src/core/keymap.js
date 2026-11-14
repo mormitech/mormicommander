@@ -61,6 +61,7 @@ export const MAC_KEYS = {
   'Alt+Shift+Cmd+C': 'cm_CopySrcPathToClip', 'Cmd+Z': 'cm_UndoFileOp', // undo of file operations (ours, board #13)
   'Alt+Cmd+Left': 'cm_TransferLeft', 'Alt+Cmd+Right': 'cm_TransferRight', 'Alt+Cmd+Up': 'cm_OpenDirInNewTab',
   'Cmd+=': 'cm_ZoomIn', 'Cmd+-': 'cm_ZoomOut', 'Shift+Cmd+=': 'cm_ZoomIn', 'Cmd+[': 'cm_GoToPreviousDir', 'Cmd+]': 'cm_GoToNextDir',
+  'Cmd+Y': 'cm_QuickLook', // native Quick Look on the file under the cursor (ours, board #19)
 };
 
 // Keyboards without a numpad (most laptops): Shift+= / Shift+- / Shift+8 act as Num+ / Num- / Num*, but only while the
