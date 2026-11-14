@@ -7,6 +7,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -187,5 +188,70 @@ func TestUndoJobsForCrossVolumeMove(t *testing.T) {
 	if len(jobs) != 2 || jobs[0].Request.Rename != "" || jobs[1].Request.Rename != "y.txt" || jobs[0].Request.Overwrite != fileops.Skip ||
 		jobs[0].Request.Target != filepath.FromSlash("/a") || !jobs[1].Request.NoJournal {
 		t.Fatalf("%+v", jobs)
+	}
+}
+
+// TestUndoRecordsTrashJob: a trash job is started with FindTrashed and lands in the journal with the place each item
+// got in the trash; an item whose place was not found is counted as unknown. No job runs here (start is a stand-in
+// and the engine's log entries are fed by hand), so nothing goes to the real trash.
+func TestUndoRecordsTrashJob(t *testing.T) {
+	_, u := newUndoJobs(t)
+	dir := t.TempDir()
+	a, b, c := filepath.Join(dir, "a.txt"), filepath.Join(dir, "folder"), filepath.Join(dir, "c.txt")
+	mkfile(t, a, "a")
+	mkfile(t, filepath.Join(b, "x"), "x")
+	var got fileops.Request
+	start := func(r fileops.Request) (int, error) { got = r; return 7, nil }
+	if _, err := u.startTracked(fileops.Request{Kind: fileops.Trash, Sources: []string{a, b, c}}, start); err != nil {
+		t.Fatal(err)
+	}
+	if !got.FindTrashed {
+		t.Fatal("the trash job does not ask where the items went")
+	}
+	bin := filepath.Join(dir, "Trash")
+	ta, tb := filepath.Join(bin, "a.txt"), filepath.Join(bin, "folder 2")
+	u.observe(fileops.Entry{Job: 7, Action: "trash", Source: a, Trashed: ta})
+	u.observe(fileops.Entry{Job: 7, Action: "trash", Source: b, Trashed: tb})
+	u.observe(fileops.Entry{Job: 7, Action: "trash", Source: c}) // trashed, not found
+	u.observe(fileops.Entry{Job: 7, Action: "done"})
+	e, ok := u.j.Last()
+	if !ok || e.Kind != undo.Trash || len(e.Items) != 2 || e.Unknown != 1 || e.Items[0].To != ta || e.Items[0].From != a ||
+		!e.Items[1].Dir || e.Items[1].To != tb {
+		t.Fatalf("entry: %+v", e)
+	}
+	if l := u.List(); len(l) != 1 || l[0].Items != 3 {
+		t.Fatalf("list: %+v", l)
+	}
+	// as the disk is now: a.txt and folder are still in place (the stand-in did not trash them), so the preview says
+	// they can't come back over themselves, and names the item that was not found
+	pv, err := u.Preview(0)
+	if err != nil || pv.Steps != 0 || len(pv.Problems) != 3 || !strings.Contains(pv.Problems[0], "could not be found") {
+		t.Fatalf("preview: %+v %v", pv, err)
+	}
+	// moved into the fake trash: the preview offers to bring both back
+	os.MkdirAll(bin, 0o755)
+	os.Rename(a, ta)
+	os.Rename(b, tb)
+	pv, _ = u.Preview(0)
+	if pv.Steps != 2 || !strings.Contains(pv.Question, "2 items come back from the") {
+		t.Fatalf("preview after the move: %+v", pv)
+	}
+	// Run hands the restore to internal/trash, which only takes items out of the real trash folders of the old place's
+	// volume: this fake trash is not one, so nothing moves and the reason is given.
+	r, err := u.Run(0)
+	if err != nil || r.Done != 0 || len(r.Problems) != 3 || !strings.Contains(strings.Join(r.Problems, "\n"), "not in the trash") {
+		t.Fatalf("run: %+v %v", r, err)
+	}
+	if _, err := os.Lstat(ta); err != nil {
+		t.Error("an item outside the real trash was moved")
+	}
+	// with the journal off, a trash job runs as before: no lookup, nothing recorded
+	u.app.settings.put("undoJournal", false)
+	got = fileops.Request{}
+	u.startTracked(fileops.Request{Kind: fileops.Trash, Sources: []string{c}}, func(r fileops.Request) (int, error) { got = r; return 8, nil })
+	u.observe(fileops.Entry{Job: 8, Action: "trash", Source: c})
+	u.observe(fileops.Entry{Job: 8, Action: "done"})
+	if got.FindTrashed || len(u.j.List()) != 0 {
+		t.Fatalf("journal off: %+v, %d entries", got, len(u.j.List()))
 	}
 }

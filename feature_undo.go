@@ -3,14 +3,18 @@ package main
 // The undo journal of file operations (board issue #13, F-NEW-2) as the page sees it: a thin layer over internal/undo.
 // Renames in place (Shift+F6), new folders (F7) and copy and move jobs (F5, F6, drag and drop, paste) on this
 // computer's disks are written to undo.json in the settings folder, so Cmd+Z (macOS) takes the newest one back, then
-// the one before it, also after a restart. Operations on servers and in archives are not recorded, and neither are
-// deletes (the trash has its own way back) nor the undo's own work.
+// the one before it, also after a restart. Deletes to the trash (F8) are recorded too, with the place each item got in
+// the trash, so their undo brings the items back to where they were. Operations on servers and in archives are not
+// recorded, and neither are permanent deletes (nothing can bring them back) nor the undo's own work.
 //
 // Copy and move jobs run in internal/fileops, which reports every file it handles through Queue.Log. Before a job
 // starts, startTracked notes which of its targets were already there (those can't be undone: they were replaced or
 // merged); while it runs, observe picks out the entries of its top-level items; when the job is done the entry goes
-// into the journal with what really arrived where (a name the copy got to avoid a clash included). The setting
-// undoJournal (on by default) false stops the recording; the journal that is there stays until it is undone.
+// into the journal with what really arrived where (a name the copy got to avoid a clash included). A trash job is
+// started with FindTrashed, so the engine reports where each item went in the trash; an item it could not find there
+// is counted as one only the system's own tools can put back. The setting undoJournal (on by default; the Options
+// dialog's Operation > "Keep an undo journal of file operations") false stops the recording, and a trash job then
+// runs exactly as before, without looking through the trash; the journal that is there stays until it is undone.
 
 import (
 	"errors"
@@ -41,6 +45,7 @@ type undoPending struct {
 	dir     []bool          // per source: it is a folder
 	pre     map[string]bool // the targets that were already there before the job
 	dst     []string        // per source: where it really arrived ("" = it did not)
+	unknown []bool          // per source (trash): it went to the trash, but its place there was not found
 }
 
 func init() {
@@ -97,7 +102,13 @@ func (u *Undo) record(kind undo.Kind, items ...undo.Item) {
 // startTracked starts a file job through start and, for a copy or move on local disks, watches it for the journal.
 // The lock is held while the job starts, so its first log entries wait until it is known here.
 func (u *Undo) startTracked(r fileops.Request, start func(fileops.Request) (int, error)) (int, error) {
-	if !u.recording() || r.NoJournal || (r.Kind != fileops.Copy && r.Kind != fileops.Move) || !undoLocal(r.Target) {
+	if !u.recording() || r.NoJournal {
+		return start(r)
+	}
+	if r.Kind == fileops.Trash {
+		return u.startTrash(r, start)
+	}
+	if (r.Kind != fileops.Copy && r.Kind != fileops.Move) || !undoLocal(r.Target) {
 		return start(r)
 	}
 	p := &undoPending{kind: undo.Copy, sources: map[string]int{}, pre: map[string]bool{}}
@@ -128,6 +139,30 @@ func (u *Undo) startTracked(r fileops.Request, start func(fileops.Request) (int,
 	return id, err
 }
 
+// startTrash starts a trash job that asks the engine where each item went (FindTrashed) and watches it.
+func (u *Undo) startTrash(r fileops.Request, start func(fileops.Request) (int, error)) (int, error) {
+	p := &undoPending{kind: undo.Trash, sources: map[string]int{}}
+	for i, s := range r.Sources {
+		if !undoLocal(s) {
+			return start(r)
+		}
+		src := filepath.Clean(s)
+		p.sources[src] = i
+		fi, err := os.Lstat(src)
+		p.dir = append(p.dir, err == nil && fi.IsDir())
+	}
+	p.dst = make([]string, len(r.Sources))
+	p.unknown = make([]bool, len(r.Sources))
+	r.FindTrashed = true
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	id, err := start(r)
+	if err == nil {
+		u.jobs[id] = p
+	}
+	return id, err
+}
+
 // observe gets every log entry of the job queue (Queue.Log): the arrival of a top-level item of a watched job, and the
 // job's end, which writes its entry to the journal.
 func (u *Undo) observe(e fileops.Entry) {
@@ -144,6 +179,11 @@ func (u *Undo) observe(e fileops.Entry) {
 	case "copy", "move", "mkdir", "rename":
 		if i, ok := p.sources[e.Source]; ok && p.dst[i] == "" && e.Target != "" {
 			p.dst[i] = e.Target
+		}
+	case "trash":
+		if i, ok := p.sources[e.Source]; ok && p.kind == undo.Trash {
+			p.dst[i] = e.Trashed
+			p.unknown[i] = e.Trashed == ""
 		}
 	case "done":
 		// written before the job is forgotten, so whoever sees it gone finds its entry in the journal
@@ -162,6 +202,10 @@ func (p *undoPending) entry() undo.Entry {
 		src[i] = s
 	}
 	for i, dst := range p.dst {
+		if p.kind == undo.Trash && p.unknown[i] {
+			e.Unknown++
+			continue
+		}
 		if dst == "" {
 			continue
 		}
@@ -232,6 +276,13 @@ func (u *Undo) Preview(id int64) (UndoPreview, error) {
 			q += fmt.Sprintf("\n\nThere is no %s here, so the copies will be deleted permanently.", trashWord())
 		}
 	}
+	if e.Kind == undo.Trash && len(plan.Steps) > 0 {
+		if len(plan.Steps) == 1 {
+			q += fmt.Sprintf("\n\n%s comes back from the %s to where it was.", filepath.Base(plan.Steps[0].From), trashWord())
+		} else {
+			q += fmt.Sprintf("\n\n%d items come back from the %s to where they were.", len(plan.Steps), trashWord())
+		}
+	}
 	if len(plan.Steps) == 0 {
 		q = fmt.Sprintf("%s can't be undone any more.", undoCapital(pv.What))
 	}
@@ -274,7 +325,7 @@ func (u *Undo) List() []UndoListItem {
 	out := make([]UndoListItem, 0, len(l))
 	for i := len(l) - 1; i >= 0; i-- {
 		e := l[i]
-		out = append(out, UndoListItem{ID: e.ID, Kind: e.Kind, What: undo.Describe(e), Time: e.Time.UnixMilli(), Items: len(e.Items) + e.Lost})
+		out = append(out, UndoListItem{ID: e.ID, Kind: e.Kind, What: undo.Describe(e), Time: e.Time.UnixMilli(), Items: len(e.Items) + e.Lost + e.Unknown})
 	}
 	return out
 }

@@ -1,9 +1,10 @@
 // Undo of file operations (board issue #13, F-NEW-2; ours, Total Commander has none). Go keeps the journal
-// (feature_undo.go, internal/undo): renames in place, new folders, copies and moves on this computer's disks. Here are
-// the commands: cm_UndoFileOp takes the newest operation back (Cmd+Z on macOS; no default key elsewhere, where TC's
-// Ctrl+Z edits the comment), and pressing it again goes one further back; cm_UndoList lists what can be undone and
-// takes back the one chosen. Each undo first asks, saying what will happen (copies go to the trash) and what will be
-// left alone (an item that was changed or moved since). The setting undoJournal false stops the recording.
+// (feature_undo.go, internal/undo): renames in place, new folders, copies, moves and deletes to the trash on this
+// computer's disks. Here are the commands: cm_UndoFileOp takes the newest operation back (Cmd+Z on macOS; no default
+// key elsewhere, where TC's Ctrl+Z edits the comment), and pressing it again goes one further back; cm_UndoList lists
+// what can be undone and takes back the one chosen. Each undo first asks, saying what will happen (copies go to the trash, trashed items come
+// back from it) and what will be left alone (an item that was changed or moved since, an old place that is taken
+// again). The setting undoJournal false (Options > Operation) stops the recording.
 
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';

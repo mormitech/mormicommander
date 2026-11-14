@@ -399,14 +399,16 @@ first); a window with another dialog window above it does not close.
 
 ## Undo of file operations (feature_undo.go, features/undo.js; board issue #13)
 
-Renames in place, new folders (F7) and copy and move jobs on this computer's disks are written to `undo.json` in the
-settings folder (setting `undoJournal`, on by default; false stops the recording). Commands `cm_UndoFileOp` (Cmd+Z on
+Renames in place, new folders (F7), copy and move jobs and deletes to the trash (kind `trash`, with the place each item
+got in the trash as `to`) on this computer's disks are written to `undo.json` in the settings folder (setting
+`undoJournal`, on by default, also Options > Operation "Keep an undo journal of file operations"; false stops the
+recording). Commands `cm_UndoFileOp` (Cmd+Z on
 macOS) and `cm_UndoList` take an operation back after a confirm dialog of kind `undo`; the list is a popup of kind
 `undo-list`.
 
 | command | answer |
 |---|---|
-| `{"cmd": "undo-list"}` | `{ok, entries: [{id, time, kind, items: [{from, to, dir}], lost}]}`, oldest first (handled in Go) |
+| `{"cmd": "undo-list"}` | `{ok, entries: [{id, time, kind, items: [{from, to, dir}], lost, unknown}]}` (`unknown`: trashed items whose place in the trash was not found), oldest first (handled in Go) |
 | `{"cmd": "undo"}` / `{"cmd": "undo", "id": n}` | undoes the newest (or the given) operation without asking; `{ok}` |
 
 ## Command palette
