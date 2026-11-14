@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.64 – 2026-11-14
+
+### Fixed
+
+- Viewing files on FTP, SFTP and WebDAV now works from the Lister and quick view instead of saying "not ready yet". The file is copied to a temporary local file first (shown as "Downloading..."), and F3 on a server folder counts its size from the server's listing. F3 from a menu, the button bar or control mode on an archive, server or search-results panel now behaves like the F3 key, and N/P step through the files (issue #101).
+
 ## 0.9.63 – 2026-11-14
 
 ### Changed
