@@ -4,6 +4,7 @@ package undo
 // (or left alone, with a reason) as the disk is now. Everything happens in temporary folders.
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -184,9 +185,61 @@ func TestDescribe(t *testing.T) {
 		{Entry{Kind: Copy, Items: []Item{{From: "/d/a.txt", To: "/e/a.txt"}}}, "the copy of a.txt to /e"},
 		{Entry{Kind: Move, Items: []Item{{From: "/d/a", To: "/e/a"}, {From: "/d/b", To: "/e/b"}}, Lost: 1}, "the move of 3 items to /e"},
 		{Entry{Kind: MkDir, Items: []Item{{From: "/d/n", To: "/d/n/m"}}}, "the new folder n"},
+		{Entry{Kind: Trash, Items: []Item{{From: "/d/a.txt", To: "/T/a.txt"}}}, "the move of a.txt to the " + TrashWord()},
+		{Entry{Kind: Trash, Items: []Item{{From: "/d/a.txt", To: "/T/a.txt"}}, Unknown: 2}, "the move of 3 items to the " + TrashWord()},
+		{Entry{Kind: Trash, Unknown: 1}, "the move of 1 item to the " + TrashWord()},
 	} {
 		if got := Describe(c.e); got != filepath.FromSlash(c.want) && got != c.want {
 			t.Errorf("%v: %q", c.e.Kind, got)
 		}
+	}
+}
+
+// TestUndoTrash: a delete to the trash comes back from the item's place in the trash, never over a new item at the old
+// place; items whose place was not found are named in the problems. restoreTrashed is a plain rename here, so the
+// real trash is never involved (internal/trash tests Restore itself).
+func TestUndoTrash(t *testing.T) {
+	old := restoreTrashed
+	restoreTrashed = func(trashed, original string) error {
+		os.MkdirAll(filepath.Dir(original), 0o755)
+		return os.Rename(trashed, original)
+	}
+	t.Cleanup(func() { restoreTrashed = old })
+	dir := t.TempDir()
+	a, b := filepath.Join(dir, "work", "a.txt"), filepath.Join(dir, "work", "b.txt")
+	ta, tb := filepath.Join(dir, "Trash", "a.txt"), filepath.Join(dir, "Trash", "b 2.txt")
+	write(t, ta, "a")
+	write(t, tb, "b")
+	write(t, b, "a new b")
+	e := Entry{Kind: Trash, Items: []Item{{From: a, To: ta}, {From: b, To: tb}}, Unknown: 2}
+	p := PlanUndo(e, same)
+	if len(p.Steps) != 1 || p.Steps[0].Op != OpRestore || p.Steps[0].From != a || len(p.Problems) != 2 {
+		t.Fatalf("plan: %+v", p)
+	}
+	if !strings.Contains(p.Problems[0], "2 items went to the") || !strings.Contains(p.Problems[1], "is there again") {
+		t.Fatalf("problems: %q", p.Problems)
+	}
+	jobs, done, probs := Apply(p.Steps)
+	if done != 1 || len(jobs) != 0 || len(probs) != 0 || !exists(a) || exists(ta) {
+		t.Fatalf("apply: %d %v %v", done, jobs, probs)
+	}
+	if s, _ := os.ReadFile(b); string(s) != "a new b" {
+		t.Error("the new b was overwritten")
+	}
+	// gone from the trash since (emptied, or put back by hand)
+	if p := PlanUndo(Entry{Kind: Trash, Items: []Item{{From: filepath.Join(dir, "c"), To: filepath.Join(dir, "Trash", "c")}}}, same); len(p.Steps) != 0 || !strings.Contains(p.Problems[0], "not in the") {
+		t.Fatalf("gone: %+v", p)
+	}
+	// a failed restore is a problem, not a step done
+	restoreTrashed = func(string, string) error { return errors.New("something else is at its old place now") }
+	write(t, ta, "a again")
+	os.Remove(a)
+	if _, done, probs := Apply([]Step{{Op: OpRestore, From: a, To: ta}}); done != 0 || len(probs) != 1 || !strings.Contains(probs[0], "old place") {
+		t.Fatalf("failed restore: %d %v", done, probs)
+	}
+	// an entry of unknown items alone is recorded and described
+	j := Open("", 0)
+	if _, ok := j.Add(Entry{Kind: Trash, Unknown: 1}); !ok {
+		t.Error("an entry of unknown items was not recorded")
 	}
 }
