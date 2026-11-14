@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.6 – 2026-11-14
+
+### Changed
+
+- Options > Layout > "Flat interface" now has a visible effect: turned off, the bars, function key buttons, button
+  bar buttons, sort headers and status lines get a raised, bevelled look. On (the default) the look is as before.
+
 ## 0.10.5 – 2026-11-14
 
 ### Changed
