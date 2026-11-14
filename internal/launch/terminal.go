@@ -132,7 +132,10 @@ func (l *Launcher) OpenTerminalCommand(dir string) (Command, error) {
 		switch strings.ToLower(l.Terminal) {
 		case "", "wt", "wt.exe":
 			if l.Terminal != "" || l.has("wt.exe") {
-				return Command{Path: "wt.exe", Params: "-d " + QuoteWindowsArg(dir), Dir: dir}, nil
+				// wt.exe splits its command line at every ";" (quoted or not) into subcommands and runs the text
+				// after one in a new tab, so a folder named "x; calc" would start calc. "\;" is its escape for a
+				// plain semicolon.
+				return Command{Path: "wt.exe", Params: "-d " + QuoteWindowsArg(strings.ReplaceAll(dir, ";", `\;`)), Dir: dir}, nil
 			}
 			return Command{Path: "cmd.exe", Params: "/k", Dir: dir, NewConsole: true}, nil
 		case "powershell", "powershell.exe":
