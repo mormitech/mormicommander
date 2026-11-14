@@ -319,7 +319,7 @@ async function showHistory(p, { anchor } = {}) {
     rows.unshift({ path: line[i], pos: i });
   }
   if (theApp.setting('reverseHistory', false)) rows.reverse();
-  const items = rows.map((r, n) => ({ label: r.path, key: DIGITS[n] || '', detail: r.pos === curPos ? 'current' : '', value: r }));
+  const items = rows.map((r, n) => ({ label: r.path, key: DIGITS[n] || '', detail: r.pos === curPos ? 'current' : '', value: r, path: true }));
   items.push({ sep: true }, { label: 'Frequently used folders…', value: 'frequent' }, { label: 'Clear history', value: 'clear', disabled: rows.length < 2 }, { label: 'History settings…', value: 'settings' });
   const r = await showList({ title: 'Folder history', items, anchor: anchor ?? anchorFor(p), index: Math.max(0, rows.findIndex((x) => x.pos === curPos)), kind: 'history' });
   if (!r) return false;
@@ -341,7 +341,7 @@ async function showHistory(p, { anchor } = {}) {
 
 async function showFrequent(p, { anchor } = {}) {
   const list = await go.TabsHotlist.Frequent(20);
-  const items = list.map((x, n) => ({ label: x, key: DIGITS[n] || '', value: x }));
+  const items = list.map((x, n) => ({ label: x, key: DIGITS[n] || '', value: x, path: true }));
   if (!items.length) items.push({ label: 'No folders counted yet', disabled: true });
   items.push({ sep: true }, { label: 'Clear frequently used folders', value: 'clear', disabled: !list.length });
   const r = await showList({ title: 'Frequently used folders', items, anchor: anchor ?? anchorFor(p), kind: 'frequent' });

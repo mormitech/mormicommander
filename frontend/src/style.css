@@ -126,6 +126,12 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 .mc-popup .it.on { background: var(--accent); color: var(--accent-text); }
 .mc-popup .it.on .d { color: inherit; opacity: .85; }
 .mc-popup .it.off { opacity: .45; }
+/* a folder path row (folder history, frequently used folders; issue #95): the start shrinks behind "…", the last name
+   and the detail ("current") never do, so the row fits the list instead of running past its right edge */
+.mc-popup .it.p .pl { display: flex; min-width: 0; overflow: hidden; }
+.mc-popup .it.p .ph { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.mc-popup .it.p .pt { flex: none; }
+.mc-popup .it.p .d { flex: none; }
 .mc-popup .sep { height: 1px; background: var(--line); margin: 3px 6px; }
 
 /* ---- About window ---- */

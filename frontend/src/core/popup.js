@@ -4,12 +4,17 @@
 // only one. Control mode reads and chooses
 // with currentPopup() / choosePopup().
 //
-//   const r = await showList({title, items: [{label, detail, value, key, disabled} | {sep: true}], anchor, index});
+//   const r = await showList({title, items: [{label, detail, value, key, disabled, path} | {sep: true}], anchor, index});
 //   r → {item, index, shift} or null
+//
+// An item with path: true is a folder path (the folder history, the frequently used folders): when the list is too
+// narrow for it, its start is shortened with "…" and its last name stays whole, and the full path shows as a tooltip,
+// instead of the row being cut at the right edge behind a horizontal scrollbar (issue #95).
 
 import { esc } from './dialogs.js';
 import { waitForUser } from './busy.js';
 import { popupArea } from './overlay.js';
+import { splitTail } from './fitpath.js';
 
 let current = null;
 
@@ -22,7 +27,7 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
     el.className = 'mc-popup';
     el.setAttribute('role', 'listbox');
     el.innerHTML = (title ? `<div class="t">${esc(title)}</div>` : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
-      : `<div class="it${it.disabled ? ' off' : ''}" data-i="${i}" role="option"><span>${esc(it.label)}</span>${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
+      : `<div class="it${it.disabled ? ' off' : ''}${it.path ? ' p' : ''}" data-i="${i}" role="option"${it.path ? ` title="${esc(it.label)}"` : ''}>${labelHTML(it)}${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
     document.body.append(el);
     const usable = (i) => items[i] && !items[i].sep && !items[i].disabled;
     let at = usable(index) ? index : items.findIndex((_, i) => usable(i));
@@ -98,6 +103,14 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
     const api = { close, choose, kind, title, items, get at() { return at; } };
     current = api;
   }));
+}
+
+// labelHTML draws an item's label: a path item as two parts, the start (which CSS may shorten with "…") and the last
+// name (which it never shortens).
+export function labelHTML(it) {
+  if (!it.path) return `<span>${esc(it.label)}</span>`;
+  const [head, tail] = splitTail(it.label);
+  return `<span class="pl"><span class="ph">${esc(head)}</span><span class="pt">${esc(tail)}</span></span>`;
 }
 
 // currentPopup describes the open popup for control mode.

@@ -81,3 +81,17 @@ export function fitText(el, text, box = el) {
   el.textContent = ELLIPSIS + text.slice(i);
   el.dataset.label = text;
 }
+
+// splitTail splits a path into the part before its last name and the last name itself, separator kept on the left:
+// "/Users/me/A/s1" → ["/Users/me/A/", "s1"], "C:\\Data\\x\\" → ["C:\\Data\\", "x\\"]. A popup list of folders (the
+// folder history, Alt+Down, issue #95) shows the left part shortened with "…" when the row is too narrow and always
+// keeps the last name whole, so two long paths that differ only at the end still look different. A path with no
+// separator inside (a root such as "/" or "C:\\", or a bare name) is all tail.
+export function splitTail(path) {
+  const s = String(path ?? '');
+  let end = s.length;
+  while (end > 1 && (s[end - 1] === '/' || s[end - 1] === '\\')) end--;
+  const i = Math.max(s.lastIndexOf('/', end - 1), s.lastIndexOf('\\', end - 1));
+  if (i < 0 || i >= end - 1) return ['', s];
+  return [s.slice(0, i + 1), s.slice(i + 1)];
+}
