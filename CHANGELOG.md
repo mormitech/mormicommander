@@ -6,6 +6,21 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.24 – 2026-11-14
+
+### Added
+
+- Live tests against real servers and archive tools (#106): `go test -tags live` (skipped by default) drives the app's
+  own code against real FTP (passive, active, explicit FTPS), SFTP (password, key, host key checks) and WebDAV servers:
+  F5/F6/F8 jobs, rename, new folder, resume, the download list, copies between servers, and Synchronize folders with
+  each kind as a side. Archives with the real 7-Zip and unrar: pack, read, test, unpack, search inside, Feed to listbox
+  and F5/F8 through it. A CI job (`live`, Linux) starts vsftpd, OpenSSH and Apache mod_dav on the runner and runs them.
+
+### Fixed
+
+- FTPS uploads could lose the end of the file while reporting success (the data connection was closed while the
+  server still had unread data, so the system reset it). Uploads now close the data connection cleanly.
+
 ## 0.10.23 – 2026-11-14
 
 ### Added
