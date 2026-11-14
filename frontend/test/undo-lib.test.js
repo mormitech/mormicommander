@@ -1,6 +1,6 @@
 // The words of the undo of file operations (board issue #13): the flash line after an undo and the undo list.
 import { expect, test } from 'vitest';
-import { undoReport, undoListItems } from '../src/features/undo-lib.js';
+import { undoReport, undoListItems, overwriteNote } from '../src/features/undo-lib.js';
 
 test('a clean undo says what it undid', () => {
   expect(undoReport({ what: 'the rename of a.txt to b.txt', done: 1, jobs: [], problems: [] })).toEqual({ text: 'Undid the rename of a.txt to b.txt.', err: false });
@@ -35,4 +35,11 @@ test('Cmd+Z undoes on macOS only; Ctrl+Z stays TC\'s comment key', async () => {
   expect(MAC_KEYS['Cmd+Z']).toBe('cm_UndoFileOp');
   expect(DEFAULT_KEYS['Cmd+Z']).toBeUndefined();
   expect(DEFAULT_KEYS['Ctrl+Z']).toBe('cm_EditComment');
+});
+
+test('the copy dialog marks the choices that replace files as not undoable, while the journal is on', () => {
+  expect(overwriteNote('overwrite')).toBe('Files replaced this way can\'t be undone.');
+  expect(overwriteNote('older', true)).toBe('Files replaced this way can\'t be undone.');
+  for (const p of ['', 'skip', 'rename', 'rename_target', undefined]) expect(overwriteNote(p)).toBe('');
+  expect(overwriteNote('overwrite', false)).toBe('');
 });

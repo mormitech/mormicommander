@@ -24,3 +24,12 @@ export function undoReport(res, ends = []) {
 export function undoListItems(list, fmtDate = (ms) => new Date(ms).toLocaleString()) {
   return (list || []).map((e) => ({ label: e.what.charAt(0).toUpperCase() + e.what.slice(1), detail: fmtDate(e.time), value: e.id }));
 }
+
+// overwriteNote is the line the copy/move dialog shows under "When a file is already there" when the choice replaces
+// files without asking (Overwrite all, Overwrite all older): the undo journal can't take a replaced file back, so the
+// dialog says so, as the overwrite question does (core/jobs.js). '' for the other choices, and with the journal off,
+// where there is no undo to fall short of.
+export function overwriteNote(policy, journalOn = true) {
+  if (!journalOn) return '';
+  return policy === 'overwrite' || policy === 'older' ? 'Files replaced this way can\'t be undone.' : '';
+}
