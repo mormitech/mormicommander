@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.40 – 2026-11-14
+
+### Fixed
+
+- The "Replace file?" question shown while unpacking an archive or copying out of one now names the file inside the
+  archive (for example `f1.zip/f1.txt`) instead of the hidden temporary staging file (issue #139). Only the path text
+  in the question changed; nothing else behaves differently.
+
 ## 0.9.39 – 2026-11-14
 
 ### Fixed

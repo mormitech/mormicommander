@@ -9,7 +9,7 @@
     "companyName": "Mormitech",
     "productName": "mormiCommander",
     "bundleIdentifier": "com.mormitech.mormicommander",
-    "productVersion": "0.9.39",
+    "productVersion": "0.9.40",
     "copyright": "Copyright (c) 2026 mormiCommander contributors",
     "comments": "Two-panel file manager."
   }
