@@ -141,3 +141,19 @@ func TestIsHiddenPath(t *testing.T) {
 		}
 	}
 }
+
+// When the limit stops a branch view of a selection before every selected item was looked at, the list is
+// incomplete and must say so; it said it was complete when the limit was reached exactly at the end of an item.
+func TestWalkSelectionLimitTruncates(t *testing.T) {
+	root := t.TempDir()
+	write(t, root, "a.txt", "b.txt", "c.txt", "d/x.txt")
+	for _, roots := range [][]string{{"a.txt", "b.txt", "c.txt"}, {"a.txt", "d", "c.txt"}} {
+		r, err := Walk(context.Background(), root, roots, 2, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(r.Entries) != 2 || !r.Truncated {
+			t.Errorf("roots %v: %d entries, truncated %v; want 2, true", roots, len(r.Entries), r.Truncated)
+		}
+	}
+}

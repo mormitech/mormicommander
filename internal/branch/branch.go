@@ -49,6 +49,8 @@ func Walk(ctx context.Context, base string, roots []string, limit int, progress 
 	}
 	for _, r := range roots {
 		if w.full() {
+			// selected items are left that were not looked at, so the list is incomplete
+			w.res.Truncated = true
 			break
 		}
 		full := filepath.Join(base, r)
