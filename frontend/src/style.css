@@ -71,6 +71,7 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 
 .list { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; contain: strict; }
 .list .spacer { width: 1px; }
+html.mc-panning, html.mc-panning * { cursor: grab !important; } /* middle-button panning (core/midpan.js) */
 .list .rows { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
 .row { height: var(--row-h); line-height: var(--row-h); white-space: nowrap; cursor: default; }
 .row > span { overflow: hidden; text-overflow: ellipsis; }

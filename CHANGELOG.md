@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.3 – 2026-11-14
+
+### Added
+
+- Middle-button panning in the file panels on every system: hold the middle mouse button and move the mouse to drag
+  the list up and down (and across when it is wider than the panel). The pointer shows a grab hand while the button is
+  down; the browser's own middle-click autoscroll is off in the panels.
+
 ## 0.10.2 – 2026-11-14
 
 ### Added

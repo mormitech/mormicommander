@@ -15,6 +15,7 @@ import { track } from './busy.js';
 import { esc } from './dialogs.js';
 import { hiddenMarkHTML } from './hidden.js';
 import { historyFocus } from './histfocus.js';
+import { attachMiddlePan } from './midpan.js';
 
 // The columns of the Full view: id, title, extra class. Sort commands per column live in the sorting feature.
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
@@ -97,6 +98,7 @@ export class Panel {
     // a long path is shortened at the start to fit the path bar, again whenever the bar's width changes (issue #129)
     new ResizeObserver(() => fitCrumbs(crumbs)).observe(crumbs);
     list.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
+    attachMiddlePan(list); // middle button held: drag the list up and down with a grab cursor
     // onRow: whether the click was on a row; taken from the event's own target, which is what lies under the pointer
     // for a real click and stays right for control mode's clicks in a window that is hidden or covered (issue #42)
     list.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.app.run('cm_ContextMenu', { x: ev.clientX, y: ev.clientY, mouse: true, onRow: !!ev.target?.closest?.('.row') }, { quiet: true }); });
