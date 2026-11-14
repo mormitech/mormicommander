@@ -103,8 +103,16 @@ func vfsMask(m string) string {
 // vfsExtract unpacks a local archive file into dest (made when missing), which should be an empty folder: existing
 // files there are overwritten (callers unpack into a staging folder and merge it with the overwrite question). Problems
 // with single entries don't stop the run; they come back as sentences.
+//
+// Without paths two members with one name (dir1/x.txt, dir2/x.txt) land on one name in dest. They are kept both, the
+// later one under a free name, so the merge question sees both (#149); tar, which can't rename, skips the later one and
+// says so.
 func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files int, problems []string, err error) {
 	mask := vfsMask(o.Mask)
+	zipPolicy, sevenMode, tarPolicy := archive.PolicyOverwrite, sevenrar.OverwriteAll, arcapi.ConflictOverwrite
+	if o.NoPaths {
+		zipPolicy, sevenMode, tarPolicy = archive.PolicyAutoRename, sevenrar.OverwriteRename, arcapi.ConflictAsk
+	}
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return 0, nil, err
 	}
@@ -120,7 +128,7 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		defer r.Close()
 		res, err := archive.Extract(ctx, r, archive.ExtractOptions{
-			Dest: dest, Paths: o.Paths, Base: o.Base, NoPaths: o.NoPaths, Mask: mask, Policy: archive.PolicyOverwrite,
+			Dest: dest, Paths: o.Paths, Base: o.Base, NoPaths: o.NoPaths, Mask: mask, Policy: zipPolicy,
 			OnError: onErr,
 			Progress: func(p archive.Progress) {
 				if o.Progress != nil {
@@ -153,7 +161,11 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		n := 0
 		err = r.Extract(ctx, names, dest, arcapi.ExtractOptions{
-			Flatten: o.NoPaths, StripPrefix: o.Base, Conflict: arcapi.ConflictOverwrite,
+			Flatten: o.NoPaths, StripPrefix: o.Base, Conflict: tarPolicy,
+			OnConflict: func(c arcapi.Conflict) arcapi.ConflictPolicy {
+				problems = append(problems, fmt.Sprintf("%s: another file named %s was unpacked already, so this one was skipped. Unpack with path names to get both.", c.Entry.Path, path.Base(c.Entry.Path)))
+				return arcapi.ConflictSkip
+			},
 			Filter: func(e arcapi.Entry) bool { return mask == "" || e.IsDir || m.Match(path.Base(e.Path)) },
 			Progress: func(p arcapi.Progress) {
 				n = p.Files
@@ -177,7 +189,7 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		defer a.Close()
 		res, err := a.Extract(ctx, dest, sevenrar.ExtractOptions{
-			Paths: o.Paths, BaseDir: o.Base, Mask: mask, FlattenPaths: o.NoPaths, Overwrite: sevenrar.OverwriteAll,
+			Paths: o.Paths, BaseDir: o.Base, Mask: mask, FlattenPaths: o.NoPaths, Overwrite: sevenMode,
 			OnError: func(e *sevenrar.EntryError) bool { return onErr(e.Path, e.Err) },
 			Progress: func(p sevenrar.Progress) {
 				if o.Progress != nil {
