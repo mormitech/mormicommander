@@ -7,6 +7,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 
 - One line per item: `- [status] F-NNN <feature> — <hotkey> — <acceptance criterion>`.
 - Status: `[ ]` todo, `[~]` partly done, `[x]` done and checked by QA (only QA agents set `[x]`).
+- An item may end with `— audit #NNN: <what exists, what is missing>`: the result of checking the code by hand (board issue #NNN). The mark follows what works, not whether the ID shows up in the code: an ID in an engine README or a parser alone leaves the item `[ ]`. Re-check the note when the item changes.
 - `[N/A]` items can't be done the same way on all platforms: `— reason — our equivalent`.
 - IDs are fixed. New items go at the end of a section with the next free number (never renumber).
 - Hotkey `—` means no default key; the command is still in the command registry (cm_* name) and can be given a key by the user.
@@ -97,7 +98,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-037 Rename tab — — — user can give a tab a custom caption; caption persists
 - [ ] F-038 Duplicate tab / move tab to other panel — — — tab duplicates or moves; tab state (sort, view) is kept
 - [~] F-039 Reorder tabs by dragging — — — dragging a tab header changes order; dropping on other panel's tab bar moves it
-- [ ] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder
+- [ ] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder — audit #103: not built: tab headers take dragged tabs only (reorder, F-039); files dropped there are not copied into the tab's folder (system-dnd.js would need data-drop-path on tabs)
 - [~] F-041 Double-click on tab bar empty area opens new tab; double-click on tab closes it (option) — — — behaviour matches Configuration > Folder tabs settings
 - [~] F-042 Middle-click tab closes it — — — middle-click closes the tab
 - [ ] F-043 Save tabs to file / load tabs from file (cm_SaveTabs / cm_LoadTabs) — — — tabs of a panel are written to a .tab-style file and can be restored
@@ -108,7 +109,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-048 Ctrl+click on folder opens it in new tab (mouse) — — — Ctrl/Cmd+double-click opens folder in a new tab
 - [ ] F-773 Open new tab in background (cm_OpenNewTabBg) — Ctrl+Shift+T — a new tab with the current folder is added; the current tab stays active
 - [~] F-774 Activate tab n in left / right / target panel (cm_LeftActivateTab1..99, cm_RightActivateTab1..99, cm_TrgActivateTab1..99) — — (assignable) — command switches the named panel to its n-th tab
-- [ ] F-775 Favorite tabs (cm_LoadFavoriteTabs, cm_SaveFavoriteTabs, cm_ConfigFavoriteTabs) — — — both panels' tab sets saved under a name; Favorite tabs menu (tab context menu and tab bar button) restores them; optional hotkey per entry
+- [~] F-775 Favorite tabs (cm_LoadFavoriteTabs, cm_SaveFavoriteTabs, cm_ConfigFavoriteTabs) — — — both panels' tab sets saved under a name; Favorite tabs menu (tab context menu and tab bar button) restores them; optional hotkey per entry — audit #103: save, load, configure and next/previous favourite tab sets work (tab bar star button and tab context menu); no hotkey per entry
 - [ ] F-776 Reopen last closed tab (cm_ReopenClosedTab, ours) — — — the closed tab comes back with its folder, lock and sort
 - [~] F-777 Open in new tab from history and hotlist — Shift+Enter — in the Alt+Down history list and the Ctrl+D hotlist, Shift+Enter opens the chosen folder in a new tab
 
@@ -182,7 +183,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-105 Long file name ellipsis and tooltip with full name — — — truncated names end with "..."; hover tooltip shows full name (data-tip tooltip style)
 - [ ] F-106 Hint tooltip with file info on hover (option) — — — hovering a file shows size, dates, type after a delay
 - [ ] F-784 Quick view with the built-in viewer only (cm_SrcQuickInternalOnly) — — — quick view shows text/hex with the built-in viewer, skipping image/media viewers
-- [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them
+- [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them — audit #103: not built: no view modes (column set + icons + colors + font); column sets can switch by folder (F-668), and the ViewModes options have no effect yet
 - [ ] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser
 - [ ] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state
 - [ ] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle
@@ -197,7 +198,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-111 Unsorted (cm_SrcUnsorted) — Ctrl+F7 — file system order
 - [ ] F-112 Reverse sort order (cm_SrcNegOrder) — — — order is reversed
 - [ ] F-113 Sort by clicking column headers incl. custom columns — — — header shows arrow for direction
-- [ ] F-114 Multi-column sort with Ctrl+click header — — — Ctrl+click adds secondary sort key
+- [ ] F-114 Multi-column sort with Ctrl+click header — — — Ctrl+click adds secondary sort key — audit #103: not built in the UI: a header click sorts by one column only; internal/listing can sort by several keys
 - [ ] F-115 Natural sorting (numbers as numbers: file2 before file10) option — — — "file2" sorts before "file10" when option set
 - [ ] F-116 Case-sensitive / Unicode / locale-aware sorting option — — — options change order per spec
 - [~] F-117 Sort settings per tab remembered — — — each tab keeps its sort
@@ -222,8 +223,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-132 Save / load selection to file (cm_SaveSelection / cm_LoadSelection / cm_SaveSelectionToFile / cm_LoadSelectionFromFile) — — — names saved to text file, can be reloaded; also from clipboard (cm_LoadSelectionFromClip)
 - [~] F-133 Compare directories: select newer / missing (cm_CompareDirs) — Shift+F2 — files that are newer or missing on the other side are selected in both panels
 - [~] F-134 Compare directories including subdirectories (cm_CompareDirsWithSubdirs) — — — also marks subfolders that differ
-- [ ] F-135 Select by mouse: left-click+drag selects (TC style) or Windows-style Ctrl+click — — — both mouse modes available (Configuration > Operation); Ctrl/Cmd+click toggles, Shift+click range
-- [ ] F-136 Right mouse button selection mode (TC classic) — — — option: right button selects, long press opens context menu
+- [~] F-135 Select by mouse: left-click+drag selects (TC style) or Windows-style Ctrl+click — — — both mouse modes available (Configuration > Operation); Ctrl/Cmd+click toggles, Shift+click range — audit #103: Ctrl/Cmd+click toggles and Shift+click selects a range (core/panel.js); there is no TC-style left-drag selection and no mouse-mode choice in Configuration > Operation
+- [ ] F-136 Right mouse button selection mode (TC classic) — — — option: right button selects, long press opens context menu — audit #103: not built: right-click only moves the cursor and opens the context menu; no right-button selection mode (UseRightButton)
 - [ ] F-137 Selection count/size shown in status bar — — — status bar shows count and total size of selected files
 - [ ] F-138 Copy names to clipboard (cm_CopyNamesToClip) — — — selected file names (one per line) copied to clipboard
 - [x] F-139 Copy full names with path (cm_CopyFullNamesToClip) — — (assignable; Cmd+Alt+C on macOS) — full paths copied, one per line
@@ -237,7 +238,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-794 Unselect all files only (cm_ClearFiles) — Ctrl+Shift+Num - — files lose selection, folders keep it
 - [ ] F-795 Invert files only / folders only, unselect folders only (cm_ExchangeSelFiles, cm_ExchangeSelFolders, cm_ClearFolders) — — — each command acts on the named kind only
 - [x] F-796 Copy target panel path to clipboard (cm_CopyTrgPathToClip) — — — path of the other panel's folder copied
-- [~] F-797 Option: Space selects only, without counting folder size (Operation > Selection with Space) — Space — with the option off, Space on a folder selects it without calculating the size
+- [~] F-797 Option: Space selects only, without counting folder size (Operation > Selection with Space) — Space — with the option off, Space on a folder selects it without calculating the size — audit #103: built: Configuration > Operation "Space calculates folder size" (SpaceCalcSize, setting countSpace) turns the counting off; waiting for QA
 
 ## 7. Function keys and F-key commands
 
@@ -488,8 +489,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-349 Save / load selection, from file / clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-350 Copy selected names / full names / details to clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-351 Compare directories — Shift+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-352 Mark newer / Hide equal files after compare (cm_CompareDirs + "hide equal") — — — option to show only differing files after compare
-- [ ] F-353 Select by search results ("Feed to listbox" back) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-352 Mark newer / Hide equal files after compare (cm_CompareDirs + "hide equal") — — — option to show only differing files after compare — audit #103: built: Mark > "Compare folders, hide equal files" (cm_CompareDirsHideEqual); Ctrl+F10 shows all files again; waiting for QA
+- [ ] F-353 Select by search results ("Feed to listbox" back) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: no Mark-menu command of its own; Find files has Go to file and Feed to listbox (F-541) and Mark has Load selection from clipboard, which spec area-3 4.2 counts as the TC way, but the criterion asks for a menu entry
 
 ## 14. Commands menu
 
@@ -561,7 +562,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-409 Show hidden/system toggle — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-410 Horizontal arrangement — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-411 Show 2 panels / single panel — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel
+- [ ] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel — audit #103: not built: the Show menu has no view modes submenu (see F-785)
 - [x] F-858 Hidden-files state always visible and honoured by search — — — when hidden files are shown, the status bar (or path bar) shows a "Hidden: shown" marker; Find files (Alt+F7) has an "Include hidden files" checkbox that defaults to the panel's current state; the toggle F-090/F-242 is listed in the Show menu with its key
 
 ## 17. Configuration menu and dialog pages
@@ -610,7 +611,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-825 Page: Find files defaults (search depth, archives, Spotlight/locate use, encoding) — — — defaults appear in a new Find files dialog
 - [~] F-826 Edit settings files directly (cm_ConfigChangeIniFiles) — — — opens the ini file in the editor; after saving the app reloads it (or says a restart is needed)
 - [~] F-827 Search box in Options dialog (ours) — — — typing filters the page tree to pages that contain matching options
-- [ ] F-828 Custom main menu (TC .mnu menu files) — — — user can load a custom main menu file; 'default' brings the built-in menu back
+- [ ] F-828 Custom main menu (TC .mnu menu files) — — — user can load a custom main menu file; 'default' brings the built-in menu back — audit #103: engine only: internal/config parses and writes .mnu files and the Mainmenu option exists, but the option has no effect yet (noeffect.go) and the menu is not replaced
 
 ## 18. Start menu (user menu)
 
@@ -638,7 +639,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-463 Overwrite confirmation dialog — — — shows both files with size and date (and preview option); buttons: Overwrite, Overwrite all, Skip, Skip all, Overwrite all older, Rename, Auto-rename all, Copy all larger, Copy all smaller, Compare by content, Cancel
 - [~] F-464 Auto-rename copied file (name(2).ext) — — — option creates "file(2).txt" instead of overwrite
 - [ ] F-465 Rename target in overwrite dialog — — — lets user type a new name for that file
-- [ ] F-466 Compare from overwrite dialog — — — opens compare by content for the two files
+- [~] F-466 Compare from overwrite dialog — — — opens compare by content for the two files — audit #103: the overwrite dialog's Compare button compares the bytes and says "same content" or "different"; it does not open the compare-by-content tool
 - [ ] F-467 Overwrite read-only/hidden/system files confirmation — — — separate prompt for read-only targets
 - [ ] F-468 Queue (F2 in copy dialog / "Queue" button) — F2 in dialog — operation added to a queue; queued operations run one after another
 - [ ] F-469 Background (separate thread) operation — — — "Background" button runs the copy while the user keeps working; progress window non-modal; TC: copy/move in background
@@ -738,9 +739,9 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-540 Results: view (F3), edit (F4) from list — F3/F4 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-541 Results: feed to listbox (cm_ "Feed to listbox") — — — results shown in a panel as virtual folder; normal file operations (copy, delete, pack) work on it
 - [~] F-542 New search / last search remembered — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: not built: "Find files in a new window" (cm_SearchStandalone) is in the Commands menu but greyed out, the command is not registered; the search itself already runs as a background job (internal/find job.go)
 - [~] F-544 Search in found files (refine) — — — search again only within results
-- [~] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required)
+- [~] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required) — audit #103: wired: Find files searches remote folders through the panels' file systems (feature_find_fs.go, findVFS); no test against an FTP/SFTP server yet
 - [ ] F-837 Find: exclude folders by pattern ('|vendor/' or '|.git\') — — — `*.go|vendor/` skips everything under vendor folders
 - [~] F-838 Find: copy results to clipboard / save results to a file — — — result names (with paths) copied or written as text
 - [ ] F-862 Actions on duplicate search results: keep newest/oldest/first path, send the rest to trash, or replace with hardlinks — — — after an F-534 duplicate search, one command marks all but one per group by the chosen rule; preview shows space saved; delete goes to trash
@@ -756,7 +757,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-552 Compare by content in sync (Ctrl+... ) — — — content compare for "=" vs "≠"
 - [~] F-553 Open compare tool for a pair from sync list — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-554 Save/load sync settings — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it
+- [ ] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it — audit #103: not built: Synchronize folders works only on local folders (feature_syncdirs.go); the engine's FS/WritableFS sides are ready but no archive or FTP adapter is wired
 
 ## 26. Compare by content (file compare tool)
 
@@ -772,7 +773,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 27. Lister (internal viewer)
 
-- [ ] F-564 Lister window opens file — F3 — separate window; Esc closes; F3 or N/P for next/previous file
+- [~] F-564 Lister window opens file — F3 — separate window; Esc closes; F3 or N/P for next/previous file — audit #103: built: F3 opens a Lister window of its own (feature_viewer_window.go); Esc closes it, N/P move to the next/previous file; waiting for QA
 - [ ] F-565 Text mode with automatic encoding detection (ANSI, UTF-8, UTF-16, ASCII/OEM) — — — correct display of UTF-8 Hungarian text (áéíóöőúüű)
 - [ ] F-566 Binary mode (fixed line width) — 2 — key 2 switches to binary mode
 - [ ] F-567 Hex mode — 3 — key 3 switches to hex dump with offsets and ASCII column
@@ -910,8 +911,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [N/A] F-669 Custom columns from content plugins (WDX) — Windows DLLs — built-in field list above
 - [ ] F-670 Sort by custom column — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-671 Show column sets in Show menu and header context menu — Shift+F1 — menu lists sets; choosing one switches the panel
-- [ ] F-672 Header right-click: show/hide columns, resize — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-673 Column auto-width / equal-width — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-672 Header right-click: show/hide columns, resize — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: right-click on the header lists the column sets and "Configure custom columns"; columns resize by dragging the border; no show/hide of single columns from that menu
+- [ ] F-673 Column auto-width / equal-width — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: not built: double-clicking a column border gives back the default width (features/columns.js); no fit-to-content or equal widths
 - [ ] F-674 Built-in tc fields: name, ext, size, writedate, creationdate, accessdate, attributestr, path, fullname, comment, filetype — — — each available
 - [ ] F-868 Git status column and branch indicator — — — in a git work tree a column shows M/A/D/?/ignored per file, ignored files can be dimmed or hidden, the path bar shows branch and dirty/ahead/behind; uses git CLI --porcelain=v2 when installed; no column outside repos
 
@@ -952,9 +953,9 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-695 Drag to/from Finder/Explorer/other apps — — — files dropped from OS file manager into a panel are copied there; dragging from panel to OS app delivers file paths
 - [~] F-696 Drag onto folder in list — — — drops into that folder
 - [~] F-697 Drag onto drive button / tab / path bar segment — — — drops into that location
-- [ ] F-698 Drag onto button bar — — — adds button / passes files to program
+- [~] F-698 Drag onto button bar — — — adds button / passes files to program — audit #103: built through F-306/F-307: dropping a file on the button bar adds a button, dropping files on a button runs it with them (features/config/buttonbar.js); waiting for QA
 - [~] F-699 Drag to command line — — — inserts path
-- [ ] F-700 Rubber-band selection with mouse (option, ours) — — — dragging on empty area selects files in rectangle (Full/Brief/Thumbnails)
+- [ ] F-700 Rubber-band selection with mouse (option, ours) — — — dragging on empty area selects files in rectangle (Full/Brief/Thumbnails) — audit #103: not built: no rubber-band selection
 - [~] F-701 Auto-scroll while dragging near edge — — — list scrolls
 - [~] F-702 Spring-loaded folders (hover opens) — — — hovering over folder while dragging opens it after delay (option)
 - [~] F-851 macOS drag modifiers follow Finder too — — — on macOS Option-drag copies, Cmd-drag moves, Cmd+Option-drag links, besides the TC rules
@@ -1011,7 +1012,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-733 /I= /F= ini paths — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-734 /N (new instance) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-735 Single instance handling (re-exec like mormiview reexec*.go) — — — second launch focuses first window when single-instance option is on
-- [~] F-852 Standalone tools from the command line (TC /S=L Lister) — — — 'mormicommander /S=L file' opens only the Lister; ours: same idea for compare and sync
+- [~] F-852 Standalone tools from the command line (TC /S=L Lister) — — — 'mormicommander /S=L file' opens only the Lister; ours: same idea for compare and sync — audit #103: -S=L / -S=C / -S=S open the Lister, compare or sync on start (config/start.js), but the main window with its panels still opens; the "standalone" flag is not used yet
 
 ## 42. Miscellaneous TC features
 
