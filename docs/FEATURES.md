@@ -163,8 +163,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-085 Comments view (cm_SrcComments) — Ctrl+Shift+F2 — shows file comments (descript.ion) in a column
 - [ ] F-086 Branch view (cm_DirBranch) — Ctrl+B — flat list of all files in current folder and all subfolders with relative path; Ctrl+B again returns
 - [ ] F-087 Branch view of selected files and folders only (cm_DirBranchSel) — Ctrl+Shift+B — flat view only of selected folders
-- [ ] F-088 Show all files / programs only / custom filter (cm_SrcAllFiles / cm_SrcExecs / cm_SrcUserSpec) — Ctrl+F10 / Ctrl+F11 / Ctrl+F12 — panel filter changes; status bar or path shows filter is active
-- [ ] F-089 Define custom filter (cm_SrcUserDef) — — — dialog lets user enter wildcards like *.jpg;*.png or a saved search; panel shows only matching files
+- [x] F-088 Show all files / programs only / custom filter (cm_SrcAllFiles / cm_SrcExecs / cm_SrcUserSpec) — Ctrl+F10 / Ctrl+F11 / Ctrl+F12 — panel filter changes; status bar or path shows filter is active
+- [x] F-089 Define custom filter (cm_SrcUserDef) — — — dialog lets user enter wildcards like *.jpg;*.png or a saved search; panel shows only matching files
 - [x] F-090 Hide/show hidden and system files (cm_SwitchHidSys) — Ctrl+H (ours; TC: config) — dotfiles and hidden files toggle visible/invisible immediately; while shown, each status line ends with "Hidden: shown" (Options > Layout can turn the marker off)
 - [~] F-091 Show folder sizes in Full view after Space/calc — — — folder size column shows <DIR> until calculated, then real size
 - [ ] F-092 Long names vs 8.3: show file extension in separate column option — — — option to show ext in separate column or with name
@@ -265,7 +265,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-164 Find in separate process (cm_SearchStandalone) — — — search window runs independently; main window stays usable
 - [ ] F-165 Delete (cm_Delete) — F8 / Delete — confirmation dialog; deletes to trash (Recycle Bin) by default
 - [ ] F-166 Delete permanently (cm_Delete with Shift) — Shift+F8 / Shift+Delete — deletes without trash after confirmation
-- [ ] F-167 Command line history (cm_ShowCmdLineHistory) — Alt+F8 — dropdown with previous command lines
+- [x] F-167 Command line history (cm_ShowCmdLineHistory) — Alt+F8 — dropdown with previous command lines
 - [ ] F-168 Activate menu above current panel (cm_ActivateMenu) — F9 — focuses the menu; on macOS opens the app menu bar equivalent (in-window menu)
 - [ ] F-169 Unpack — Alt+F9 — see unpack
 - [ ] F-170 Activate main menu — F10 — focuses the main menu
