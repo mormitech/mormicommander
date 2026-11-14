@@ -178,6 +178,7 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 		v.w.SetBackgroundColour(c)
 	}
 	v.w.SetResizable(req.Resizable)
+	v.w.SetMaximiseButtonState(dialogZoomState(req.Resizable)) // (after SetResizable, which redoes the window's style)
 	if req.Resizable {
 		v.w.SetMinSize(dialogMinW, dialogMinH)
 	} else {
@@ -413,20 +414,7 @@ func (dw *DialogWindows) newWindow() *dialogWin {
 	dw.seq++
 	name := fmt.Sprintf("%s%d", dialogWindowPrefix, dw.seq)
 	dw.mu.Unlock()
-	win := a.wapp.Window.NewWithOptions(application.WebviewWindowOptions{
-		Name:             name,
-		Title:            "mormiCommander",
-		Width:            420,
-		Height:           240,
-		URL:              "/dialog.html",
-		Hidden:           true,
-		BackgroundColour: windowBackground,
-		// No menu of its own on Windows and Linux (macOS keeps the app's menu bar); it cannot be minimised on its own.
-		Windows:             application.WindowsWindow{Theme: windowsTheme(a.opts.Theme), DisableMenu: true},
-		Mac:                 application.MacWindow{Appearance: macAppearance(a.opts.Theme)},
-		Linux:               application.LinuxWindow{Icon: appIcon},
-		MinimiseButtonState: application.ButtonDisabled,
-	})
+	win := a.wapp.Window.NewWithOptions(dialogWindowOptions(name, a.opts.Theme))
 	v := &dialogWin{w: win, name: name}
 	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		if top := dw.blockingClose(v); top != nil { // a nested dialog is open above it: that one gets the focus
@@ -444,6 +432,31 @@ func (dw *DialogWindows) newWindow() *dialogWin {
 	dw.wins[name] = v
 	dw.mu.Unlock()
 	return v
+}
+
+// dialogWindowOptions are the options a dialog window is made with: hidden, loading the dialog page. It cannot be
+// minimised on its own, and it can never go full screen (TC's dialogs have no maximise box): on macOS it is kept out of
+// full-screen Spaces, so its green button is greyed out while it cannot be resized and only zooms when it can
+// (issue #138); the maximise box follows dialogZoomState each time a dialog is opened in it.
+func dialogWindowOptions(name, theme string) application.WebviewWindowOptions {
+	return application.WebviewWindowOptions{
+		Name:             name,
+		Title:            "mormiCommander",
+		Width:            420,
+		Height:           240,
+		URL:              "/dialog.html",
+		Hidden:           true,
+		BackgroundColour: windowBackground,
+		// No menu of its own on Windows and Linux (macOS keeps the app's menu bar).
+		Windows: application.WindowsWindow{Theme: windowsTheme(theme), DisableMenu: true},
+		Mac: application.MacWindow{
+			Appearance:         macAppearance(theme),
+			CollectionBehavior: dialogCollectionBehavior,
+		},
+		Linux:               application.LinuxWindow{Icon: appIcon},
+		MinimiseButtonState: application.ButtonDisabled,
+		MaximiseButtonState: dialogZoomState(false),
+	}
 }
 
 // blockingClose is the dialog window that keeps the user from closing v: the newest one open above it (a nested dialog,

@@ -4,7 +4,11 @@
 // Nothing here touches a window, so dialogwin_logic_test.go checks it without starting the app.
 package main
 
-import "time"
+import (
+	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
+)
 
 // dlgRect is a rectangle in screen pixels (a window's frame, a screen's work area); W == 0 means unknown.
 type dlgRect struct{ X, Y, W, H int }
@@ -234,4 +238,17 @@ func closeChoice(byUser, isTop bool, asked, now time.Time) closeAction {
 	default:
 		return closeNow
 	}
+}
+
+// dialogCollectionBehavior keeps a dialog window out of macOS full-screen Spaces: it is never made full screen itself
+// (it still goes along with the window it is a child of), in place of Wails' default, FullScreenPrimary (issue #138).
+const dialogCollectionBehavior = application.MacWindowCollectionBehaviorFullScreenNone
+
+// dialogZoomState is the state of a dialog window's maximise box (the green button on macOS): only a dialog that can be
+// resized may be maximised (zoomed); a fixed-size one has it greyed out (issue #138).
+func dialogZoomState(resizable bool) application.ButtonState {
+	if resizable {
+		return application.ButtonEnabled
+	}
+	return application.ButtonDisabled
 }

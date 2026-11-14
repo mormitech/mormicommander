@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 	"time"
+
+	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
 func TestTakeSpare(t *testing.T) {
@@ -281,5 +283,26 @@ func TestCloseChoice(t *testing.T) {
 		if got := closeChoice(c.byUser, c.isTop, c.asked, now); got != c.want {
 			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
 		}
+	}
+}
+
+// Issue #138: a dialog window can never go full screen, and only a resizable one may be maximised (zoomed).
+func TestDialogWindowNoFullScreen(t *testing.T) {
+	if dialogZoomState(false) != application.ButtonDisabled {
+		t.Fatalf("fixed-size dialog: maximise box should be disabled")
+	}
+	if dialogZoomState(true) != application.ButtonEnabled {
+		t.Fatalf("resizable dialog: maximise box should be enabled")
+	}
+	o := dialogWindowOptions("dlg1", "dark")
+	b := o.Mac.CollectionBehavior
+	if b == application.MacWindowCollectionBehaviorDefault || b&application.MacWindowCollectionBehaviorFullScreenNone == 0 {
+		t.Fatalf("dialog window must be kept out of full screen, behaviour %d", b)
+	}
+	if b&(application.MacWindowCollectionBehaviorFullScreenPrimary|application.MacWindowCollectionBehaviorFullScreenAuxiliary) != 0 {
+		t.Fatalf("dialog window behaviour %d mixes full-screen options", b)
+	}
+	if o.MaximiseButtonState != application.ButtonDisabled || o.MinimiseButtonState != application.ButtonDisabled {
+		t.Fatalf("spare dialog window buttons: max %d min %d", o.MaximiseButtonState, o.MinimiseButtonState)
 	}
 }
