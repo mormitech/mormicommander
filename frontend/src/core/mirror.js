@@ -630,7 +630,9 @@ export function mirrorDialog(entry, back, box, t0, onFail) {
     if (s.closed) { if (r?.name) go.DialogWindows.Close(r.name).catch(() => {}); return; }
     s.name = r.name;
     sessions.set(r.name, s);
-    if (r.sized || Math.abs(r.w - size.w) > 1 || Math.abs(r.h - size.h) > 1) s.fix(r.w, r.h);
+    // a big dialog (one the user can resize: Options, the button bar editor...) keeps the size it opened with; only
+    // the user changes it, not a page with more or less on it. Small dialogs keep following their content.
+    if (r.sized || isBigDialog(size.w, size.h) || Math.abs(r.w - size.w) > 1 || Math.abs(r.h - size.h) > 1) s.fix(r.w, r.h);
     for (const m of s.queue) go.DialogWindows.Push(s.name, m).catch(() => {});
     s.queue = [];
     s.flush();

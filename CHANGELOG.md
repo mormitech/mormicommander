@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.14 – 2026-11-14
+
+### Changed
+
+- Big dialogs in windows of their own (Options, the button bar editor, Find files and the like) keep the size they
+  opened with: switching to a page with more or less on it no longer resizes the window; only the user does. Small
+  dialogs still fit their content.
+
 ## 0.10.13 – 2026-11-14
 
 ### Changed
