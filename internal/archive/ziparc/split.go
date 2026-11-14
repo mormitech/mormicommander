@@ -17,7 +17,11 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
+	"time"
 
 	"mormicommander/internal/archive"
 )
@@ -33,12 +37,18 @@ type volWriter struct {
 	f        *os.File
 	disk     int
 	pos      int64
-	names    []string
+	names    []string // the temporary files of the parts written so far, in order
+	stem     string   // their common prefix
 }
 
+// open starts the next part in a temporary file next to the archive. The parts get their real names (name.z01 ...
+// name.zip) only once all of them are written, so a split that fails leaves the parts of an older set alone.
 func (v *volWriter) open() error {
-	name := volumeNameFor(v.mainPath, v.disk+1)
-	f, err := os.Create(name)
+	if v.stem == "" {
+		v.stem = filepath.Join(filepath.Dir(v.mainPath), fmt.Sprintf(".mc-split-%d-", time.Now().UnixNano()))
+	}
+	name := v.stem + strconv.Itoa(v.disk+1)
+	f, err := os.OpenFile(name, os.O_RDWR|os.O_CREATE|os.O_EXCL, 0o666)
 	if err != nil {
 		return err
 	}
@@ -97,17 +107,25 @@ func (v *volWriter) Write(p []byte) (int, error) {
 	return written, nil
 }
 
-// finish closes the last part, gives it the main name and removes leftover
+// finish closes the last part, gives every part its real name (the last one the main name) and removes leftover
 // parts of an older, longer set with the same name.
 func (v *volWriter) finish() ([]string, error) {
 	if err := v.f.Close(); err != nil {
 		return nil, err
 	}
-	last := len(v.names) - 1
-	if err := os.Rename(v.names[last], v.mainPath); err != nil {
-		return nil, err
+	v.f = nil
+	final := make([]string, len(v.names))
+	for i := range v.names {
+		final[i] = volumeNameFor(v.mainPath, i+1)
 	}
-	v.names[last] = v.mainPath
+	final[len(final)-1] = v.mainPath
+	// the parts are renamed last first, so name.zip (which a reader opens first) is in place only when the set is whole
+	for i := len(v.names) - 1; i >= 0; i-- {
+		if err := os.Rename(v.names[i], final[i]); err != nil {
+			return nil, err
+		}
+		v.names[i] = final[i]
+	}
 	for k := len(v.names); ; k++ {
 		stale := volumeNameFor(v.mainPath, k)
 		if os.Remove(stale) != nil {
@@ -117,12 +135,16 @@ func (v *volWriter) finish() ([]string, error) {
 	return v.names, nil
 }
 
+// abort removes the temporary parts; parts that already have their real names stay (an older set's files are only
+// ever replaced, never removed, by a failed split).
 func (v *volWriter) abort() {
 	if v.f != nil {
 		v.f.Close()
 	}
 	for _, n := range v.names {
-		os.Remove(n)
+		if strings.HasPrefix(n, v.stem) {
+			os.Remove(n)
+		}
 	}
 }
 
