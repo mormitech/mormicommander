@@ -32,3 +32,29 @@ Locally the same works: `MACOS_SIGN_IDENTITY="Developer ID Application: …" GOA
 `APPLE_API_KEY_ID=… APPLE_API_ISSUER=… APPLE_API_KEY_P8=path/to/AuthKey.p8 scripts/notarize.sh`.
 
 Once releases are notarized, the Homebrew cask (`scripts/make-cask.mjs`) no longer needs to clear the quarantine flag.
+
+## Windows: Authenticode through SignPath (board issue #45)
+
+SignPath Foundation signs open-source projects for free (the repository is public, which it requires). The release
+builds stay unpacked (no UPX), as SignPath and virus scanners prefer.
+
+1. **Apply** at signpath.org for the open-source program with the GitHub repository. Once accepted, SignPath sets up
+   the organization and the certificate (issued to SignPath Foundation for the project).
+2. **In SignPath**, create the project with the slug `mormicommander`, link it to the GitHub repository (trusted build
+   system: GitHub.com), and add:
+   - a signing policy with the slug `release-signing`;
+   - two artifact configurations: `exe` (a zip with `mormicommander.exe`, Authenticode) and `installer` (a zip with
+     `mormicommander-setup-*.exe`, Authenticode). GitHub hands artifacts over as zips, so both are zip-wrapped.
+3. **Secrets:**
+
+   | Secret | Value |
+   |---|---|
+   | `SIGNPATH_API_TOKEN` | an API token of a SignPath CI user with submitter rights on the project |
+   | `SIGNPATH_ORGANIZATION_ID` | the organization ID shown in SignPath |
+
+With them, every release tag (`v*`) sends the `.exe` to SignPath, zips and packages the signed one, then signs the
+installer the same way; CI checks both signatures. Pushes to main are not signed. SmartScreen's "unknown publisher"
+warning goes away as the signed releases build up reputation.
+
+Azure Trusted Signing would also work (it signs in the runner, about USD 10 a month) if SignPath does not accept the
+project; the steps in `.github/workflows/build.yml` would then use `azure/trusted-signing-action` instead.

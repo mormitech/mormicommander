@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.2 – 2026-11-14
+
+### Added
+
+- Windows signing ready in CI: release tags send the .exe and then the installer to SignPath (free for open source) and
+  use the signed files, once the SignPath secrets are added (docs/signing.md). Without them the builds stay unsigned as
+  before (#45).
+
 ## 0.10.1 – 2026-11-14
 
 ### Added
