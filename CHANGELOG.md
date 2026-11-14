@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.42 – 2026-11-14
+
+### Fixed
+
+- A very quick network copy no longer leaves the "Copying" box open and the app busy for good (issue #140). A transfer
+  that finished within a few milliseconds could report "done" before the page knew the job number, so the page never
+  noticed it had ended. The page now remembers such early "done" reports and uses them as soon as it starts waiting.
+
 ## 0.9.41 – 2026-11-14
 
 ### Fixed
