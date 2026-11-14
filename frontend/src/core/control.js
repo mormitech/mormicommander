@@ -42,7 +42,7 @@ function state() {
     left: panelState(app.left), right: panelState(app.right),
     cmdline: cmdline.text, focus: ae?.id || (ae?.closest?.('.panel') ? `${ae.closest('.panel').dataset.side}-panel` : ae?.tagName?.toLowerCase() || ''),
     dialog: currentDialog(), popup: currentPopup(), message: app.lastMessage, busy: isBusy(),
-    title: document.getElementById('prompt').textContent.replace(/>$/, ''),
+    title: document.getElementById('prompt').title || document.getElementById('prompt').textContent.replace(/>$/, ''),
   };
 }
 

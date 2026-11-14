@@ -53,6 +53,8 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 .pathbar .crumbs { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: ltr; }
 .pathbar .crumbs span { cursor: pointer; border-radius: 3px; }
 .pathbar .crumbs span:hover { text-decoration: underline; }
+/* the "…" in front of a path shortened at the start (core/fitpath.js); it goes to the deepest hidden folder */
+.pathbar .crumbs .cut { padding-right: 1px; }
 .pathbar .filter { font-size: 11px; padding: 0 5px; border-radius: 8px; background: color-mix(in srgb, currentColor 18%, transparent); }
 .pathbar button { padding: 0 6px; line-height: 18px; border: 0; background: transparent; color: inherit; border-radius: 4px; }
 .pathbar button:hover { background: color-mix(in srgb, currentColor 18%, transparent); }

@@ -10,6 +10,7 @@
 import { go, errText } from './go.js';
 import { F, splitExt, date, attr, size, plural, cellSize, display } from './format.js';
 import { sortEntries } from './sort.js';
+import { fitCrumbs } from './fitpath.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
 import { hiddenMarkHTML } from './hidden.js';
@@ -93,6 +94,8 @@ export class Panel {
     let raf = 0;
     list.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; this.renderRows(); }); });
     new ResizeObserver(() => this.renderRows()).observe(list);
+    // a long path is shortened at the start to fit the path bar, again whenever the bar's width changes (issue #129)
+    new ResizeObserver(() => fitCrumbs(crumbs)).observe(crumbs);
     list.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
     list.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.app.run('cm_ContextMenu', { x: ev.clientX, y: ev.clientY, mouse: true }, { quiet: true }); });
     header.addEventListener('click', (ev) => {
@@ -404,6 +407,7 @@ export class Panel {
     });
     crumbs.innerHTML = splitPath(this.path).map((p) => `<span data-p="${esc(p.path)}">${esc(p.label)}</span>`).join('');
     crumbs.title = this.path;
+    fitCrumbs(crumbs);
     filter.hidden = !this.filterLabel;
     filter.textContent = this.filterLabel;
     if (this.error) { msg.hidden = false; msg.className = 'msg err'; msg.textContent = this.error; }

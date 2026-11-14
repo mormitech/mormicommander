@@ -11,10 +11,12 @@ import { go, errText } from './go.js';
 import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js';
 import { getSetting, setSetting } from './settings.js';
 import { label as keyLabel } from './keys.js';
+import { fitText } from './fitpath.js';
 
 const listeners = new Map();
 let flashTimer = 0;
 let sessionTimer = 0;
+let promptObserved = false; // the prompt is fitted again when the command line's width changes (updateTitle)
 
 export const app = {
   platform: 'darwin',
@@ -182,10 +184,17 @@ export const app = {
   updateTitle() {
     const p = this.cur;
     if (!p?.path) return;
-    // (the prompt is right-to-left so a long path loses its start, not its end; <bdi> keeps the text itself left-to-right)
+    // (a long path loses its start, not its end: fitText cuts it to fit, issue #129; the prompt is also right-to-left
+    // with a <bdi> as a fallback, so it still loses the start where nothing measures)
     const pr = document.getElementById('prompt');
-    pr.replaceChildren(Object.assign(document.createElement('bdi'), { textContent: p.path + '>' }));
+    const bdi = document.createElement('bdi');
+    pr.replaceChildren(bdi);
+    fitText(bdi, p.path + '>', pr);
     pr.title = p.path;
+    if (!promptObserved && typeof ResizeObserver !== 'undefined' && pr.parentElement) {
+      promptObserved = true;
+      new ResizeObserver(() => { const b = pr.querySelector('bdi'); if (b && pr.title) fitText(b, pr.title + '>', pr); }).observe(pr.parentElement);
+    }
     go.App.SetTitle(`mormiCommander – ${p.path}`).catch(() => {});
   },
 
