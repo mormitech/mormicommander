@@ -9,11 +9,12 @@ import { afterEach, expect, test, vi } from 'vitest';
 const calls = [];
 const handlers = new Map();
 let aiMissing = false;
+let providers = null; // what AI.Providers answers instead of Claude Code alone
 const answers = {
   'Find.Setup': () => ({ history: {}, codepages: ['windows-1252', 'cp437'], saved: [], last: null }),
   'Find.Volumes': () => [],
   'Find.Start': () => 41,
-  'AI.Providers': () => { if (aiMissing) throw new Error('AI.Providers is not available (is the Go feature registered?)'); return { claude: { available: true, path: '/bin/claude', version: '2.1.0' } }; },
+  'AI.Providers': () => { if (aiMissing) throw new Error('AI.Providers is not available (is the Go feature registered?)'); return providers || { claude: { available: true, path: '/bin/claude', version: '2.1.0' } }; },
   'AI.Start': () => { if (aiMissing) throw new Error('AI.Start is not available (is the Go feature registered?)'); return 9; },
   'DialogWindows.Open': () => { throw new Error('no windows here'); },
 };
@@ -68,6 +69,7 @@ afterEach(async () => {
   if (b) { key(b, 'Escape'); key(b, 'Escape'); await tick(); }
   calls.length = 0;
   aiMissing = false;
+  providers = null;
 });
 
 test('the AI tab: provider line, Enter starts a run with the context, progress fills the log, Stop stops it', async () => {
@@ -79,7 +81,7 @@ test('the AI tab: provider line, Enter starts a run with the context, progress f
   key(prompt, 'Enter');
   await tick();
   const start = calls.find((c) => c.k === 'AI.Start');
-  expect(start.args[0]).toMatchObject({ prompt: 'pdfs from this week', provider: 'claude' });
+  expect(start.args[0]).toMatchObject({ prompt: 'pdfs from this week', provider: '' }); // (Go uses the provider of the AI settings)
   expect(start.args[0].context).toMatch(/active panel \(left\) shows \/Users\/me\/Code/);
   expect(calls.some((c) => c.k === 'Find.Start')).toBe(false); // (not a normal search)
   expect(b.querySelector('.ff-cancel').textContent).toBe('Stop');
@@ -131,4 +133,29 @@ test('without the Go service the tab says AI is not available', async () => {
   await tick();
   expect(b.querySelector('.mc-find-ai-log').textContent).toMatch(/AI is not available in this build\./);
   expect(b.querySelector('.ff-cancel').textContent).toBe('Cancel');
+});
+
+test('OpenRouter chosen: the provider line names it and the model, and AI settings… opens the settings', async () => {
+  providers = { selected: 'openrouter', claude: { available: false }, openrouter: { available: true, model: 'anthropic/claude-sonnet-4.5', url: 'x' } };
+  await open();
+  const b = box();
+  expect(b.querySelector('.mc-find-ai-provider').textContent).toBe('OpenRouter, model anthropic/claude-sonnet-4.5');
+  b.querySelector('#ff-ai-prompt').value = 'pdfs';
+  b.querySelector('.ff-start').click();
+  await tick();
+  expect(b.querySelector('.mc-find-ai-log').textContent).toMatch(/Asking anthropic\/claude-sonnet-4\.5…/);
+  fire('ai-progress', 9, { kind: 'done', text: 'None.' });
+
+  providers = { selected: 'openrouter', openrouter: { available: false, error: 'No model is chosen.' } };
+  const before = calls.filter((c) => c.k === 'AI.Providers').length;
+  b.querySelector('.mc-find-ai-settings').click();
+  await tick();
+  const dlg = [...document.querySelectorAll('.mc-box')].find((x) => x.querySelector('h2')?.textContent === 'AI settings');
+  expect(dlg).toBeTruthy();
+  expect(calls.some((c) => c.k === 'AI.ModelsFrom')).toBe(false); // (opening the settings sends nothing)
+  dlg.querySelector('.cancel').click();
+  await tick();
+  expect(calls.filter((c) => c.k === 'AI.Providers').length).toBeGreaterThan(before);
+  expect(b.querySelector('.mc-find-ai-provider').textContent).toBe('OpenRouter: No model is chosen.');
+  expect(b.querySelector('.mc-find-ai-provider').className).toMatch(/bad/);
 });

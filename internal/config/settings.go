@@ -460,12 +460,17 @@ type FindFilesPage struct {
 }
 
 // AIPage: the AI layer (issue #146), where the user writes what to do and an LLM does it with the app's own tools.
-// Step 1 has one provider, the Claude Code CLI; the path and model are empty to let the app find the command and the
-// CLI pick its default model.
+// Two providers: the Claude Code CLI (the default; the path and model are empty to let the app find the command and
+// the CLI pick its default model), and OpenRouter or any other OpenAI-compatible chat completions API (step 2). The
+// OpenRouter model is empty until the user chooses one (Configuration > AI settings lists them), since which models
+// exist and what they cost changes too often for a default to stay good. Its API key is not an option: it is kept in
+// the system keychain only (feature_ai_openrouter.go).
 type AIPage struct {
-	Provider    int    `ini:"Configuration:AIProvider" def:"0" min:"0" max:"0" opts:"0=Claude Code (claude command)" label:"AI provider"`
-	ClaudePath  string `ini:"Configuration:AIClaudePath" def:"" label:"Claude command (empty = find it)"`
-	ClaudeModel string `ini:"Configuration:AIClaudeModel" def:"" label:"Claude model (empty = default)"`
+	Provider        int    `ini:"Configuration:AIProvider" def:"0" min:"0" max:"1" opts:"0=Claude Code (claude command)|1=OpenRouter (or another OpenAI-compatible API)" label:"AI provider"`
+	ClaudePath      string `ini:"Configuration:AIClaudePath" def:"" label:"Claude command (empty = find it)"`
+	ClaudeModel     string `ini:"Configuration:AIClaudeModel" def:"" label:"Claude model (empty = default)"`
+	OpenRouterModel string `ini:"Configuration:AIOpenRouterModel" def:"" label:"OpenRouter model (like anthropic/claude-sonnet-4.5)"`
+	OpenRouterURL   string `ini:"Configuration:AIOpenRouterURL" def:"https://openrouter.ai/api/v1" label:"OpenRouter API address (any OpenAI-compatible API)"`
 }
 
 // FieldInfo describes one option for dialogs, search and control mode.

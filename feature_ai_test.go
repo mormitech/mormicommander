@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"mormicommander/internal/ai"
+	"mormicommander/internal/keychain"
 )
 
 // aiEvents records what the AI feature sends to the page, and answers tool calls with reply (when set).
@@ -68,6 +69,7 @@ func testAI(t *testing.T, opt aiOptions) (*AI, *aiEvents) {
 	ev := &aiEvents{progress: map[int][]ai.Progress{}}
 	x.emit = ev.emit
 	x.options = func() aiOptions { return opt }
+	x.openKeychain = func() (keychain.Keychain, error) { return keychain.NewFake(), nil } // never the real keychain
 	home := t.TempDir()
 	x.finder = func() ai.Finder {
 		return ai.Finder{GOOS: runtime.GOOS, Home: home, LookPath: func(string) (string, error) { return "", errors.New("no") },
@@ -87,7 +89,7 @@ func TestAIStartRefusals(t *testing.T) {
 	if _, err := x.Start(AIRequest{Prompt: "  "}); err == nil {
 		t.Error("an empty prompt was started")
 	}
-	if _, err := x.Start(AIRequest{Prompt: "hi", Provider: "openrouter"}); err == nil || !strings.Contains(err.Error(), "openrouter") {
+	if _, err := x.Start(AIRequest{Prompt: "hi", Provider: "gemini"}); err == nil || !strings.Contains(err.Error(), "gemini") {
 		t.Errorf("unknown provider: %v", err)
 	}
 	// Nothing found: the message says how to fix it, and nothing listens yet.

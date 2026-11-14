@@ -9,7 +9,11 @@
 //   - three loopback-only listeners: control mode (control.go, off unless started with --control), the "one app,
 //     several windows" hand-over (feature_config_start.go) and the AI layer's MCP endpoint (feature_ai_mcp.go, only
 //     from the first AI run the user starts, for the Claude CLI that run starts). Their address must be 127.0.0.1,
-//     written in the source.
+//     written in the source;
+//   - one outbound HTTPS client: the AI layer's chat completions client (the function send in internal/ai/chat_http.go,
+//     issue #146 step 2), which talks to the API address the user set in the AI settings (OpenRouter by default). It is
+//     allowed as that one function, not as the file or the package, and TestZeroNetworkAIClient checks the only ways
+//     to reach it: an AI run the user starts with that provider, and the model list the user opens.
 //
 // Anything else, a new http.Get or net.Dial anywhere, fails the test with the file and line. The frontend half of the
 // promise is checked by frontend/test/privacy.test.js.
@@ -56,6 +60,10 @@ var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/web
 // loopbackFiles may listen or dial, but only on 127.0.0.1.
 var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true}
 
+// outboundFuncs are the functions (by file) that may make a request to an address the user configured: only the AI
+// chat completions client's send.
+var outboundFuncs = map[string]map[string]bool{"internal/ai/chat_http.go": set("send")}
+
 // sinkUse is one place a network name is used.
 type sinkUse struct {
 	file string // slash path relative to the repository
@@ -63,6 +71,32 @@ type sinkUse struct {
 	name string // "net.Listen"
 	addr string // the address argument when it could be read ("127.0.0.1:" for "127.0.0.1:"+port), or ""
 	call bool   // used as a call (not only named, as in a type)
+	fn   string // the function it is in ("Type.Method" for a method; "" outside any function)
+}
+
+// funcName is a function declaration's name, "Type.Method" for a method.
+func funcName(d *ast.FuncDecl) string {
+	if d.Recv == nil || len(d.Recv.List) == 0 {
+		return d.Name.Name
+	}
+	t := d.Recv.List[0].Type
+	if s, ok := t.(*ast.StarExpr); ok {
+		t = s.X
+	}
+	if id, ok := t.(*ast.Ident); ok {
+		return id.Name + "." + d.Name.Name
+	}
+	return d.Name.Name
+}
+
+// enclosingFunc is the name of the function of f that contains pos ("" when none does).
+func enclosingFunc(f *ast.File, pos token.Pos) string {
+	for _, d := range f.Decls {
+		if fd, ok := d.(*ast.FuncDecl); ok && fd.Pos() <= pos && pos < fd.End() {
+			return funcName(fd)
+		}
+	}
+	return ""
 }
 
 // goSources returns the repository's non-test Go files (slash paths), leaving out the frontend, builds and worktrees.
@@ -136,7 +170,7 @@ func findSinks(fset *token.FileSet, path string, src any) ([]sinkUse, []string, 
 		if !ok || !networkSinks[ip][s.Sel.Name] {
 			return true
 		}
-		u := sinkUse{file: path, line: fset.Position(s.Pos()).Line, name: id.Name + "." + s.Sel.Name}
+		u := sinkUse{file: path, line: fset.Position(s.Pos()).Line, name: id.Name + "." + s.Sel.Name, fn: enclosingFunc(f, s.Pos())}
 		if c := called[s]; c != nil {
 			u.call = true
 			if len(c.Args) >= 2 {
@@ -178,6 +212,9 @@ func checkSink(u sinkUse) string {
 		if strings.HasPrefix(u.file, d) {
 			return ""
 		}
+	}
+	if outboundFuncs[u.file][u.fn] {
+		return ""
 	}
 	if loopbackFiles[u.file] {
 		if !u.call {
@@ -254,6 +291,11 @@ func TestZeroNetworkChecker(t *testing.T) {
 		{"control.go", `package main; import ("fmt"; "net"); func f(p int) { net.DialTimeout("tcp", fmt.Sprintf("127.0.0.1:%d", p), 0) }`, 0},
 		{"feature_config_start.go", `package main; import "net"; func f(a string) { net.Listen("tcp", a) }`, 1},
 		{"internal/ftp/x.go", `package ftp; import "net"; func f(a string) { net.Dial("tcp", a) }`, 0},
+		{"internal/ai/chat_http.go", `package ai; import "net/http"; func send(u string) { http.NewRequest("GET", u, nil); _ = &http.Client{} }`, 0},
+		{"internal/ai/chat_http.go", `package ai; import "net/http"; func other(u string) { http.Get(u) }`, 1},
+		{"internal/ai/chat_http.go", `package ai; import "net/http"; var c = &http.Client{}`, 1},
+		{"internal/ai/chat.go", `package ai; import "net/http"; func send(u string) { http.Get(u) }`, 1},
+		{"internal/ai/chat_http.go", `package ai; import "net/http"; type T struct{}; func (T) send(u string) { http.Get(u) }`, 1},
 	}
 	for _, c := range cases {
 		uses, _, err := findSinks(token.NewFileSet(), c.file, c.src)
@@ -277,6 +319,109 @@ func TestZeroNetworkChecker(t *testing.T) {
 	} {
 		if got := remoteImportAllowed(file); got != want {
 			t.Errorf("remoteImportAllowed(%q) = %v, want %v", file, got, want)
+		}
+	}
+}
+
+// callSites lists, per function, the calls in the Go files of dir (tests left out) whose callee is named name: a plain
+// call name(...) or a selector call x.name(...).
+func callSites(t *testing.T, dir string, name string) map[string][]string {
+	t.Helper()
+	out := map[string][]string{}
+	paths, _ := filepath.Glob(filepath.Join(dir, "*.go"))
+	fset := token.NewFileSet()
+	for _, p := range paths {
+		if strings.HasSuffix(p, "_test.go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, p, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			callee := ""
+			switch fn := c.Fun.(type) {
+			case *ast.Ident:
+				callee = fn.Name
+			case *ast.SelectorExpr:
+				callee = fn.Sel.Name
+			}
+			if callee == name {
+				file := filepath.ToSlash(p)
+				out[file] = append(out[file], enclosingFunc(f, c.Pos()))
+			}
+			return true
+		})
+	}
+	return out
+}
+
+// TestZeroNetworkAIClient follows the AI client's one network function back to what the user does: send is called by
+// Client.do only, do by Client.Complete (the run's loop) and Client.Models (the model list) only, and a Client is
+// made in two places only: startOpenRouter, when the user starts a run with that provider, and ModelsFrom, when the
+// user opens the model list of the AI settings.
+func TestZeroNetworkAIClient(t *testing.T) {
+	check := func(dir, name string, allowed ...string) {
+		t.Helper()
+		ok := set(allowed...)
+		sites := callSites(t, dir, name)
+		n := 0
+		for file, fns := range sites {
+			for _, fn := range fns {
+				n++
+				if !ok[file+":"+fn] {
+					t.Errorf("%s: %s calls %s; only %v may", file, fn, name, allowed)
+				}
+			}
+		}
+		if n == 0 {
+			t.Errorf("no call of %s found in %s; the check is not looking", name, dir)
+		}
+	}
+	check("internal/ai", "send", "internal/ai/chat.go:Client.do")
+	check("internal/ai", "do", "internal/ai/chat.go:Client.Complete", "internal/ai/chat.go:Client.Models")
+	check("internal/ai", "Complete", "internal/ai/chat.go:Loop.Run")
+	// Every Client made anywhere (ai.Client outside the package, Client inside it), by file and function: the
+	// methods above can only be called on one.
+	fset := token.NewFileSet()
+	made := map[string]bool{}
+	for _, file := range goSources(t) {
+		inAI := strings.HasPrefix(file, "internal/ai/")
+		f, err := parser.ParseFile(fset, file, nil, parser.SkipObjectResolution)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			cl, ok := n.(*ast.CompositeLit)
+			if !ok {
+				return true
+			}
+			switch typ := cl.Type.(type) {
+			case *ast.SelectorExpr:
+				if id, ok := typ.X.(*ast.Ident); ok && id.Name == "ai" && typ.Sel.Name == "Client" {
+					made[file+":"+enclosingFunc(f, cl.Pos())] = true
+				}
+			case *ast.Ident:
+				if inAI && typ.Name == "Client" {
+					made[file+":"+enclosingFunc(f, cl.Pos())] = true
+				}
+			}
+			return true
+		})
+	}
+	want := map[string]bool{"feature_ai_openrouter.go:AI.startOpenRouter": true, "feature_ai_openrouter.go:AI.ModelsFrom": true}
+	for k := range made {
+		if !want[k] {
+			t.Errorf("an ai.Client is made in %s; only %v may make one", k, want)
+		}
+	}
+	for k := range want {
+		if !made[k] {
+			t.Errorf("no ai.Client made in %s; is the check still looking?", k)
 		}
 	}
 }

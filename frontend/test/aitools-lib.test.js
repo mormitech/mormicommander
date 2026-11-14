@@ -132,6 +132,17 @@ describe('texts', () => {
     expect(providerLine({ available: false, error: 'not found' })).toMatchObject({ ok: false, error: 'not found' });
     expect(providerLine({ available: false }).text).toMatch(/install it from claude\.com\/claude-code, or set its path in Options > AI/);
     expect(providerLine(null).text).toBe('AI is not available in this build.');
+    // the whole AI.Providers() answer: the chosen provider's line
+    const claude = { available: true, path: '/bin/claude', version: '2.1.0' };
+    expect(providerLine({ selected: 'claude', claude, openrouter: { available: false } })).toMatchObject({ ok: true, text: 'Claude Code 2.1.0 found at /bin/claude', name: 'Claude' });
+    expect(providerLine({ selected: 'openrouter', claude, openrouter: { available: true, model: 'openai/gpt-5', url: 'https://openrouter.ai/api/v1' } }))
+      .toMatchObject({ ok: true, text: 'OpenRouter, model openai/gpt-5', name: 'openai/gpt-5' });
+    expect(providerLine({ selected: 'openrouter', openrouter: { available: true, model: 'llama3', url: 'http://localhost:11434/v1' } }).text)
+      .toBe('OpenAI-compatible API at localhost:11434, model llama3');
+    expect(providerLine({ selected: 'openrouter', openrouter: { available: false, error: 'No OpenRouter API key is saved.', url: 'https://openrouter.ai/api/v1' } }))
+      .toMatchObject({ ok: false, text: 'OpenRouter: No OpenRouter API key is saved.', error: 'No OpenRouter API key is saved.' });
+    expect(providerLine({ selected: 'openrouter' })).toMatchObject({ ok: false, text: 'OpenRouter: not set up yet.' });
+    expect(providerLine({ selected: 'claude' }).text).toBe('AI is not available in this build.');
   });
   test('the context for a prompt from the dialog', () => {
     const c = findContext({ active: { side: 'left', path: '/a' }, other: { side: 'right', path: '/b' }, platform: 'darwin', home: '/h', searchIn: '/a' }, new Date(2026, 10, 14));
