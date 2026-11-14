@@ -329,6 +329,10 @@ type MiscPage struct {
 	BeepOnError    bool   `ini:"Configuration:BeepOnError" def:"1" label:"Beep on errors"`
 	CmdLineAutoCmp bool   `ini:"Configuration:CmdLineAutoComplete" def:"1" label:"Command line auto-complete"`
 	DialogWindows  bool   `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
+
+	// HideNoEffect (board issue #94): the Options dialog leaves out the options the program does not act on yet
+	// (noeffect.go). Off by default, so the dialog shows every option as before, with those marked.
+	HideNoEffect bool `ini:"Configuration:HideOptionsWithoutEffect" def:"0" label:"Hide options that have no effect yet"`
 }
 
 // FolderTabsPage (F-432).
@@ -458,7 +462,9 @@ type FieldInfo struct {
 	Min     *int
 	Max     *int
 	Options []Option
-	index   []int
+	// NoEffect: the option is kept in the file but the program does not act on it yet (noeffect.go, board issue #94).
+	NoEffect bool
+	index    []int
 }
 
 // Option is a named choice of an int option.
@@ -501,6 +507,7 @@ func buildFields() {
 				Section: sec, Key: key, Label: ff.Tag.Get("label"),
 				Default: ff.Tag.Get("def"), index: []int{i, j},
 			}
+			fi.NoEffect = noEffect[fi.Name]
 			switch ff.Type.Kind() {
 			case reflect.Bool:
 				fi.Type = "bool"

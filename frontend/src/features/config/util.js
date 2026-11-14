@@ -3,6 +3,7 @@
 
 import { go } from '../../core/go.js';
 import { esc } from '../../core/dialogs.js';
+import { MORE_BRIDGE } from './optbridge.js';
 
 // The options as text by "Page.Field" name ("1"/"0" for yes/no), as Go's Configuration.Values returns them.
 export const state = { values: {}, schema: null, loaded: false };
@@ -125,6 +126,8 @@ export const BRIDGE = {
     get: (app) => { const m = li(app, 'defaultMode'); if (m === undefined) return undefined; const i = LISTER_MODES.indexOf(m); return i < 0 ? undefined : String(i); },
     set: (app, v) => merge(app, 'lister', { defaultMode: LISTER_MODES[parseInt(v, 10)] || 'auto' }),
   },
+  // refresh, drag and drop, history size, log file and folder tabs (board issue #94)
+  ...MORE_BRIDGE,
 };
 
 // currentValue is what the dialog shows for an option: the app's live value when another feature keeps it, else the

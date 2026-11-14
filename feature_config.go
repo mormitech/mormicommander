@@ -101,6 +101,8 @@ type configField struct {
 	Min     *int           `json:"min"`
 	Max     *int           `json:"max"`
 	Options []configOption `json:"options"`
+	// NoEffect: kept in the file, but the program does not act on it yet (internal/config/noeffect.go, issue #94).
+	NoEffect bool `json:"noEffect"`
 }
 
 type configOption struct {
@@ -122,7 +124,7 @@ func (c *Configuration) Schema() map[string]any {
 	var fields []configField
 	for _, f := range config.Fields() {
 		cf := configField{Name: f.Name, Page: f.Page, PageID: f.PageID, Section: f.Section, Key: f.Key, Label: f.Label,
-			Type: f.Type, Default: f.Default, Min: f.Min, Max: f.Max}
+			Type: f.Type, Default: f.Default, Min: f.Min, Max: f.Max, NoEffect: f.NoEffect}
 		for _, o := range f.Options {
 			cf.Options = append(cf.Options, configOption{o.Value, o.Label})
 		}

@@ -42,3 +42,24 @@ func TestConfigImportTCHotlistGoesToFolders(t *testing.T) {
 		t.Fatalf("the hotlist was also written to mormicommander.ini:\n%s", ini)
 	}
 }
+
+// The Options dialog learns from Schema which options have no effect yet (board issue #94), so it can mark them.
+func TestConfigSchemaMarksOptionsWithoutEffect(t *testing.T) {
+	c := &Configuration{app: &App{}}
+	fields, _ := c.Schema()["fields"].([]configField)
+	marks := map[string]bool{}
+	for _, f := range fields {
+		marks[f.Name] = f.NoEffect
+	}
+	if len(marks) == 0 {
+		t.Fatal("Schema gave no fields")
+	}
+	if !marks["Layout.MenuBar"] {
+		t.Error("Layout.MenuBar should be marked as having no effect")
+	}
+	for _, n := range []string{"Display.ShowHidden", "Refresh.AutoRefresh", "FolderTabs.Show", "Misc.HideNoEffect"} {
+		if v, ok := marks[n]; !ok || v {
+			t.Errorf("%s: present=%v marked=%v, want present and not marked", n, ok, v)
+		}
+	}
+}

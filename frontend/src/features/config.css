@@ -88,3 +88,7 @@ body.mc-config-no-ext :is(.panel:not([data-view]), .panel[data-view="full"]):not
 .mc-config-filtering .mc-config-page:not(.mc-config-whole) > :not(h3):not(.mc-config-hit) { display: none; }
 .mc-config-filtering .mc-config-hit { background: none; outline: none; }
 .mc-config-filtering .mc-config-page + .mc-config-page:not([hidden]) { margin-top: 14px; }
+
+/* options the program does not act on yet (board issue #94): a small note, and hidden with Misc.HideNoEffect */
+.mc-config-tag { margin-left: 6px; padding: 0 5px; border-radius: 3px; font-size: 0.8em; color: var(--muted, #888); border: 1px solid currentColor; opacity: 0.8; white-space: nowrap; }
+.mc-config-hide-noeffect .mc-config-noeffect { display: none !important; }

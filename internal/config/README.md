@@ -16,6 +16,7 @@ directly. UI-free; standard library only.
 | Settings file location (user config dir, portable mode, `/i=` `/f=` overrides) | `Locate`, `LocateOptions`, `Locations`, `ParseConfigArgs` | paths.go |
 | Whole configuration (open, sync, save, reload, export/restore) | `Open`, `(*Config).Save/Reload/Export/Restore/Expand/LoadButtonBar/LoadUserCommands/ActiveColors` | config.go |
 | Typed Configuration dialog model (one struct per page, field metadata, search) | `Settings`, `Defaults`, `LoadSettings`, `(*Settings).Save/Get/Set/Diff`, `Fields`, `Pages`, `LookupSetting`, `SearchSettings` | settings.go |
+| Options kept but not acted on yet (marked in the dialog, checked by options_audit_test.go) | `HasNoEffect`, `FieldInfo.NoEffect` | noeffect.go |
 | `%COMMANDER_PATH%`, `%COMMANDER_INI%` and environment variable expansion | `Vars`, `DefaultVars`, `(Vars).Expand/Contract` | expand.go |
 | Numbered menus (`menuN`/`cmdN`, `-` submenus, `--` end, separators) | `MenuItem`, `MenuPath`, `ParseNumberedMenu`, `NumberedMenuKVs`, `MenuInsert/Remove/Move/Walk`, `Accelerator` | menu.go |
 | Directory hotlist (nested submenus, separators, target paths, filter) | `Hotlist`, `LoadHotlist`, `(*Hotlist).Save/AddFolder/Insert/Remove/Move/Filter/Action`, `ParseHotlistCommand` | hotlist.go |

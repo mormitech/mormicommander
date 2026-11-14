@@ -76,11 +76,18 @@ export function allCommandNames(platform) {
 export const commandLabel = (n) => (getCommand(n)?.label || LABELS[n] || n).replace(/…$/, '');
 
 // ---- the dialog ----
+// An option the program does not act on yet (Go's internal/config/noeffect.go, board issue #94) carries a small note
+// saying so; Misc.HideNoEffect leaves these options out of the dialog (the class on the dialog, see config.css).
+const NO_EFFECT_TAG = '<span class="mc-config-tag" title="This option is kept in the settings file, but mormiCommander does not act on it yet.">no effect yet</span>';
+const HIDE_NO_EFFECT = 'Misc.HideNoEffect';
+
 function fieldHTML(f, value) {
   const id = esc(f.name);
   const name = f.name.split('.').pop();
+  const ne = f.noEffect ? ' mc-config-noeffect' : '';
+  const tag = f.noEffect ? ` ${NO_EFFECT_TAG}` : '';
   if (f.type === 'bool') {
-    return `<label class="mc-check mc-config-field" data-field="${id}"><input type="checkbox" id="${id}"${value === '1' ? ' checked' : ''}> ${esc(f.label)}</label>`;
+    return `<label class="mc-check mc-config-field${ne}" data-field="${id}"><input type="checkbox" id="${id}"${value === '1' ? ' checked' : ''}> ${esc(f.label)}${tag}</label>`;
   }
   let input;
   if (f.options?.length) {
@@ -90,7 +97,7 @@ function fieldHTML(f, value) {
   } else {
     input = `<input type="text" id="${id}" spellcheck="false" value="${esc(value)}" data-name="${esc(name)}">`;
   }
-  return `<div class="mc-row mc-config-field" data-field="${id}"><label for="${id}">${esc(f.label)}</label>${input}</div>`;
+  return `<div class="mc-row mc-config-field${ne}" data-field="${id}"><label for="${id}">${esc(f.label)}${tag}</label>${input}</div>`;
 }
 
 function colorsHTML() {
@@ -194,6 +201,11 @@ async function showDialog(app, startPage) {
       <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
     const $ = (s) => box.querySelector(s);
     const err = $('.mc-err');
+    // "Hide options that have no effect yet": follows its checkbox at once (off by default: every option is shown)
+    const hideBox = box.querySelector(`[id="${CSS.escape(HIDE_NO_EFFECT)}"]`);
+    const hideNoEffect = () => box.classList.toggle('mc-config-hide-noeffect', hideBox ? hideBox.checked : initial[HIDE_NO_EFFECT] === '1');
+    hideBox?.addEventListener('change', hideNoEffect);
+    hideNoEffect();
     const pageSel = $('#cfg-page');
     const show = (id) => {
       if (!pages.some((p) => p.id === id)) id = pages[0].id;

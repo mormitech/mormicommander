@@ -26,27 +26,14 @@ import { messageDialog, inputDialog, formDialog, modal, esc } from '../core/dial
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
+import { TAB_DEFAULTS } from './tabs-defaults.js';
 
 export const LOCK_NONE = 0, LOCK_FULL = 1, LOCK_DIRS = 2;
 
 // ---- options ----
 
-const DEFAULTS = {
-  show: true,              // show folder tabs at all (cm_VisDirTabs)
-  showOne: false,          // show the tab bar also when there is only one tab
-  confirmCloseAll: true,   // ask before "Close all tabs"
-  dblClickClose: true,     // double-click a tab closes it
-  ctrlUpForeground: false, // Ctrl+Up opens the new tab in the foreground (off: in the background, like TC)
-  nextToCurrent: true,     // new tabs go right after the current tab (off: at the end)
-  multiLine: false,        // tabs on several lines instead of one scrolling line
-  limitWidth: false,       // cut long captions…
-  widthLimit: 32,          // …to this many characters
-  starLocked: true,        // "*" before the caption of a locked tab
-  activateTarget: false,   // Ctrl+Shift+Up also makes the other panel active
-  closeButton: true,       // a × on each tab (shown on hover and on the active tab)
-  resetLocked: false,      // a "folder changes allowed" tab goes back to its locked folder when activated again
-  lockedChange: 0,         // folder change in a locked tab: 0 new tab, 1 reuse a tab with that folder, 2 first unlocked, 3 last unlocked
-};
+// The defaults are in tabs-defaults.js (shared with the Options dialog's Folder tabs page, board issue #94).
+const DEFAULTS = TAB_DEFAULTS;
 export const tabOpt = (k) => { const o = theApp.setting('folderTabs', {}) || {}; return o[k] === undefined ? DEFAULTS[k] : o[k]; };
 const setOpts = (patch) => { theApp.setSetting('folderTabs', { ...(theApp.setting('folderTabs', {}) || {}), ...patch }); renderAll(); theApp.emit('settings'); };
 
@@ -805,6 +792,7 @@ export function init(app) {
     saveSoon();
   });
   app.on('exchange', () => renderAll());
+  app.on('settings', () => renderAll()); // (the Options dialog's Folder tabs page changes "folderTabs" too)
   app.on('ready', async () => {
     let saved = null;
     if (!app.demo) { try { saved = await go.TabsHotlist.Tabs(); } catch { saved = null; } }
