@@ -192,7 +192,7 @@ func (Packer) Update(ctx context.Context, archivePath string, ch archive.Changes
 	conflicts := archive.NewConflictResolver(opts.Policy, opts.OnConflict)
 	for i := range sources {
 		sf := &sources[i]
-		ok, err := addSource(p, sf, conflicts, &res)
+		ok, err := addSource(p, sf, conflicts, &res, opts.MoveSources)
 		if err != nil {
 			return res, err
 		}
@@ -324,8 +324,12 @@ func applyRenames(p *plan, rens []archive.Rename, res *archive.PackResult) error
 
 // addSource puts one collected source into the plan, resolving conflicts
 // with entries that already exist. It reports whether the source will be
-// written.
-func addSource(p *plan, sf *archive.SourceFile, cr *archive.ConflictResolver, res *archive.PackResult) (bool, error) {
+// written. move is set for "move to archive": a source may then not replace
+// another source of the same batch (two files that land on one name with
+// "pack path names" off, or two selected folders with the same name),
+// because the replaced file would be deleted although the archive does not
+// hold it. The tar engine refuses the same case.
+func addSource(p *plan, sf *archive.SourceFile, cr *archive.ConflictResolver, res *archive.PackResult, move bool) (bool, error) {
 	for attempt := 0; attempt < 16; attempt++ {
 		name := sf.ArchivePath
 		existing, ok := p.byPath[name]
@@ -375,6 +379,10 @@ func addSource(p *plan, sf *archive.SourceFile, cr *archive.ConflictResolver, re
 			}
 			continue
 		case archive.ResolveOverwrite:
+			if move && existing.src != nil && existing.src.LocalPath != "" {
+				return false, fmt.Errorf("%w: %s and %s would both be stored as %q; nothing was moved (pack path names, or pack them separately)",
+					archive.ErrExist, existing.src.LocalPath, sf.LocalPath, name)
+			}
 			existing.kind, existing.src, existing.rec, existing.renamed, existing.added = planSource, sf, nil, false, true
 			res.Replaced++
 			return true, nil

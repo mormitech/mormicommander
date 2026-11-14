@@ -1003,6 +1003,53 @@ func TestMoveToArchive(t *testing.T) {
 	}
 }
 
+// TestMoveToArchiveSameName packs two different files that land on one
+// archive name (pack path names off, or two selected folders with the same
+// name) with "move to archive" and the overwrite policy the pack dialog
+// uses. The archive can only hold one of them, so deleting both originals
+// would lose the other one; the move must be refused with both kept.
+func TestMoveToArchiveSameName(t *testing.T) {
+	for _, flat := range []bool{true, false} {
+		d := t.TempDir()
+		var items []archive.AddItem
+		if flat {
+			writeFile(t, filepath.Join(d, "a", "x.txt"), []byte("first"))
+			writeFile(t, filepath.Join(d, "b", "x.txt"), []byte("second"))
+			items = []archive.AddItem{{Source: filepath.Join(d, "a", "x.txt")}, {Source: filepath.Join(d, "b", "x.txt")}}
+		} else {
+			writeFile(t, filepath.Join(d, "a", "docs", "x.txt"), []byte("first"))
+			writeFile(t, filepath.Join(d, "b", "docs", "x.txt"), []byte("second"))
+			items = []archive.AddItem{{Source: filepath.Join(d, "a", "docs")}, {Source: filepath.Join(d, "b", "docs")}}
+		}
+		zp := filepath.Join(d, "m.zip")
+		_, err := Packer{}.Update(bg, zp, archive.Changes{Add: items}, archive.PackOptions{FlattenPaths: flat, MoveSources: true, Policy: archive.PolicyOverwrite})
+		if err == nil {
+			t.Errorf("flat=%v: moving two files to one archive name succeeded", flat)
+		}
+		for _, p := range []string{filepath.Join(d, "a"), filepath.Join(d, "b")} {
+			found := false
+			filepath.WalkDir(p, func(q string, de fs.DirEntry, err error) error {
+				if err == nil && !de.IsDir() {
+					found = true
+				}
+				return nil
+			})
+			if !found {
+				t.Errorf("flat=%v: the file below %s was deleted", flat, p)
+			}
+		}
+	}
+	// Without "move" the later file still replaces the earlier one, as before.
+	d := t.TempDir()
+	writeFile(t, filepath.Join(d, "a", "x.txt"), []byte("first"))
+	writeFile(t, filepath.Join(d, "b", "x.txt"), []byte("second"))
+	zp := filepath.Join(d, "c.zip")
+	pack(t, zp, archive.Changes{Add: []archive.AddItem{{Source: filepath.Join(d, "a", "x.txt")}, {Source: filepath.Join(d, "b", "x.txt")}}}, archive.PackOptions{FlattenPaths: true, Policy: archive.PolicyOverwrite})
+	if got := contents(t, mustOpen(t, zp, archive.OpenOptions{}))["x.txt"]; got != "second" {
+		t.Errorf("copy: x.txt = %q", got)
+	}
+}
+
 func TestNestedArchives(t *testing.T) {
 	d := t.TempDir()
 	inner := filepath.Join(d, "inner.zip")
