@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.41 – 2026-11-14
+
+### Fixed
+
+- Dialog windows can no longer go full screen (issue #138). On macOS they are kept out of full-screen Spaces, and the
+  green button is greyed out on dialogs that have a fixed size (New folder, Delete, Copy and so on). On dialogs that can
+  be resized, such as Find files, the green button now zooms the window instead of opening a full-screen Space. On
+  Windows the maximise box is off for fixed-size dialogs. The main window and the other windows are not changed.
+
 ## 0.9.40 – 2026-11-14
 
 ### Fixed
