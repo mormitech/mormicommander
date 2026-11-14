@@ -29,7 +29,7 @@ type Tools struct {
 }
 
 func init() {
-	registerFeature("tools", func(a *App) []any { return []any{&Tools{app: a, ops: map[string]context.CancelFunc{}}} })
+	registerFeature("tools", func(a *App) []exposed { return []exposed{expose(&Tools{app: a, ops: map[string]context.CancelFunc{}})} })
 }
 
 // Cancel stops the operation with this id; what is done stays done (the engines remove half-written output).

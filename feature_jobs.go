@@ -24,13 +24,13 @@ type Jobs struct {
 }
 
 func init() {
-	registerFeature("jobs", func(a *App) []any {
+	registerFeature("jobs", func(a *App) []exposed {
 		j := &Jobs{app: a}
 		j.q = fileops.NewQueue(func(event string, data any) { a.emit(event, data) })
 		// what the jobs do also feeds the undo journal (feature_undo.go); a.undo is set before any job can start
 		j.q.Log = func(e fileops.Entry) { a.undo.observe(e) }
 		a.jobs = j
-		return []any{j}
+		return []exposed{expose(j)}
 	})
 	onShutdown(func(a *App) {
 		if a.jobs != nil {

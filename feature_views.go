@@ -43,7 +43,7 @@ type viewsBatch struct {
 }
 
 func init() {
-	registerFeature("views", func(a *App) []any { return []any{newViews(a)} })
+	registerFeature("views", func(a *App) []exposed { return []exposed{expose(newViews(a))} })
 	onShutdown(func(a *App) {
 		if v := viewsOf(a); v != nil {
 			v.close()

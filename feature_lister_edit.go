@@ -23,7 +23,7 @@ type ListerEdit struct {
 }
 
 func init() {
-	registerFeature("lister-edit", func(a *App) []any { return []any{&ListerEdit{app: a, launch: launch.New()}} })
+	registerFeature("lister-edit", func(a *App) []exposed { return []exposed{expose(&ListerEdit{app: a, launch: launch.New()})} })
 }
 
 // ListerNewFile is the file Shift+F4 opened.

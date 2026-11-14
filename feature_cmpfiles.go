@@ -42,7 +42,7 @@ type cmpSession struct {
 }
 
 func init() {
-	registerFeature("cmpfiles", func(a *App) []any { return []any{&CompareFiles{app: a, sess: map[int]*cmpSession{}}} })
+	registerFeature("cmpfiles", func(a *App) []exposed { return []exposed{expose(&CompareFiles{app: a, sess: map[int]*cmpSession{}})} })
 }
 
 // CmpOptions are the options of the compare window.

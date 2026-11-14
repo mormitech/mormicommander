@@ -26,7 +26,7 @@ type CompareDirs struct {
 }
 
 func init() {
-	registerFeature("dircmp", func(a *App) []any { return []any{&CompareDirs{app: a}} })
+	registerFeature("dircmp", func(a *App) []exposed { return []exposed{expose(&CompareDirs{app: a})} })
 }
 
 // DirCmpRequest is what Shift+F2 sends: both panels' folders and the options.

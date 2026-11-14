@@ -41,7 +41,7 @@ type syncSession struct {
 }
 
 func init() {
-	registerFeature("syncdirs", func(a *App) []any { return []any{&SyncDirs{app: a, sess: map[int]*syncSession{}}} })
+	registerFeature("syncdirs", func(a *App) []exposed { return []exposed{expose(&SyncDirs{app: a, sess: map[int]*syncSession{}})} })
 }
 
 // SyncCompareRequest is what the Compare button sends: both folders and the options of the window.

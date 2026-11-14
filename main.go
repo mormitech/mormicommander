@@ -92,18 +92,10 @@ func main() {
 	}
 }
 
-// services wraps every object the page can call (the App and the objects of each feature, see features.go) as a v3
+// services is every object the page can call (the App and the objects of each feature, see features.go), each a v3
 // service. The page reaches them as main.<Type>.<Method> through frontend/src/core/go.js.
 func services(a *App) []application.Service {
-	if err := servicesOK(); err != nil {
-		panic(err)
-	}
-	objs := boundObjects(a)
-	out := make([]application.Service, 0, len(objs))
-	for _, o := range objs {
-		out = append(out, asService(o))
-	}
-	return out
+	return boundServices(a)
 }
 
 // The window follows the system's light or dark appearance, unless --theme says otherwise (used for screenshots).

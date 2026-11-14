@@ -101,9 +101,9 @@ type DialogWindows struct {
 var dialogWindows *DialogWindows
 
 func init() {
-	registerFeature("dialogwindows", func(a *App) []any {
+	registerFeature("dialogwindows", func(a *App) []exposed {
 		dialogWindows = &DialogWindows{app: a, wins: map[string]*dialogWin{}, hooked: map[string]bool{}, frame: [2]int{-1, -1}}
-		return []any{dialogWindows}
+		return []exposed{expose(dialogWindows)}
 	})
 }
 

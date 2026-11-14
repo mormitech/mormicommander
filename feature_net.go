@@ -79,10 +79,10 @@ type netOptions struct {
 var theNet *Net // the one Net object (control commands reach it here)
 
 func init() {
-	registerFeature("net", func(a *App) []any {
+	registerFeature("net", func(a *App) []exposed {
 		n := newNet(a)
 		theNet = n
-		return []any{n}
+		return []exposed{expose(n)}
 	})
 	onStartup(func(a *App) {
 		if theNet != nil && a.mode == "" {

@@ -79,9 +79,9 @@ type ListerWindows struct {
 var listerWindows *ListerWindows
 
 func init() {
-	registerFeature("listerwindows", func(a *App) []any {
+	registerFeature("listerwindows", func(a *App) []exposed {
 		listerWindows = &ListerWindows{app: a, wins: map[string]*listerWin{}, waiting: map[int]chan string{}}
-		return []any{listerWindows}
+		return []exposed{expose(listerWindows)}
 	})
 	registerControl("windows", func(a *App, m map[string]any) (map[string]any, error) {
 		return map[string]any{"ok": true, "windows": a.windowList()}, nil

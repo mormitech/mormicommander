@@ -1,6 +1,7 @@
 package main
 
 import (
+	"reflect"
 	"runtime"
 	"testing"
 )
@@ -50,13 +51,30 @@ func TestBaseMenu(t *testing.T) {
 }
 
 func TestServices(t *testing.T) {
-	if err := servicesOK(); err != nil {
-		t.Fatal(err)
-	}
 	a := NewApp(startOpts{})
-	for _, s := range services(a) {
+	seen := map[string]bool{}
+	svcs := services(a)
+	for _, s := range svcs {
 		if s.Instance() == nil {
 			t.Fatal("a service without its object")
+		}
+		// Every bound object must be a pointer with a unique type name, since the page calls it as main.<Type>.
+		rt := reflect.TypeOf(s.Instance())
+		if rt.Kind() != reflect.Pointer {
+			t.Fatalf("bound object %v is not a pointer", rt)
+		}
+		name := rt.Elem().Name()
+		if seen[name] {
+			t.Fatalf("two bound objects named %s", name)
+		}
+		seen[name] = true
+	}
+	if svcs[0].Instance() != any(a) {
+		t.Fatal("the App is not the first bound object")
+	}
+	for _, want := range []string{"App", "FS", "Settings", "Lister", "SystemClip"} {
+		if !seen[want] {
+			t.Errorf("%s is not bound", want)
 		}
 	}
 }

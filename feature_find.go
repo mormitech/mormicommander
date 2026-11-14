@@ -58,10 +58,10 @@ type findRun struct {
 const findMaxKept = 500000
 
 func init() {
-	registerFeature("find", func(a *App) []any {
+	registerFeature("find", func(a *App) []exposed {
 		f := &Find{app: a, runs: map[int]*findRun{}, quick: map[string]*findQuickList{}, arc: vfs.NewArchiveFS()}
 		findFeeds.def = a.fs
-		return []any{f}
+		return []exposed{expose(f)}
 	})
 }
 

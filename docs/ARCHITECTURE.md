@@ -109,7 +109,7 @@ import "mormicommander/internal/hotlist"
 type Hotlist struct{ app *App }
 
 func init() {
-	registerFeature("hotlist", func(a *App) []any { return []any{&Hotlist{app: a}} })
+	registerFeature("hotlist", func(a *App) []exposed { return []exposed{expose(&Hotlist{app: a})} })
 	registerControl("hotlist-import", func(a *App, m map[string]any) (map[string]any, error) { ... }) // optional
 	onStartup(func(a *App) { ... })                                                                  // optional
 }

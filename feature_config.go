@@ -34,9 +34,9 @@ type Configuration struct {
 var configFeature *Configuration
 
 func init() {
-	registerFeature("config", func(a *App) []any {
+	registerFeature("config", func(a *App) []exposed {
 		configFeature = &Configuration{app: a}
-		return []any{configFeature, &ConfigBar{app: a}, &ConfigStart{app: a}}
+		return []exposed{expose(configFeature), expose(&ConfigBar{app: a}), expose(&ConfigStart{app: a})}
 	})
 	registerControl("config-info", func(a *App, m map[string]any) (map[string]any, error) {
 		info, err := configFeature.Info()

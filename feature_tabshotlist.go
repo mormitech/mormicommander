@@ -108,9 +108,9 @@ type THFavorite struct {
 var thInstance *TabsHotlist
 
 func init() {
-	registerFeature("tabshotlist", func(a *App) []any {
+	registerFeature("tabshotlist", func(a *App) []exposed {
 		thInstance = thOpen(a, thFilePath())
-		return []any{thInstance}
+		return []exposed{expose(thInstance)}
 	})
 	onShutdown(func(a *App) {
 		if thInstance != nil {

@@ -52,7 +52,7 @@ type SelectCompareResult struct {
 }
 
 func init() {
-	registerFeature("select", func(a *App) []any { return []any{&Select{app: a}} })
+	registerFeature("select", func(a *App) []exposed { return []exposed{expose(&Select{app: a})} })
 }
 
 // selKind turns "files", "folders" or "both" into a masks.Kind.

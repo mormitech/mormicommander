@@ -43,7 +43,7 @@ type VfsJobs struct {
 }
 
 func init() {
-	registerFeature("vfsjobs", func(a *App) []any { return []any{&VfsJobs{app: a, jobs: map[int]*vfsJob{}}} })
+	registerFeature("vfsjobs", func(a *App) []exposed { return []exposed{expose(&VfsJobs{app: a, jobs: map[int]*vfsJob{}})} })
 }
 
 // VfsRequest is a job for VfsJobs.Start: the fields of fileops.Request the copy dialog fills, plus the options of the

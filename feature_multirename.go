@@ -36,7 +36,7 @@ type MultiRename struct {
 }
 
 func init() {
-	registerFeature("multirename", func(a *App) []any { return []any{&MultiRename{app: a}} })
+	registerFeature("multirename", func(a *App) []exposed { return []exposed{expose(&MultiRename{app: a})} })
 }
 
 // mrRow is one line of the list for the page.

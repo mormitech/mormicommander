@@ -50,7 +50,7 @@ type SetupInfo struct {
 }
 
 func init() {
-	registerFeature("setup", func(a *App) []any { return []any{&Setup{app: a}} })
+	registerFeature("setup", func(a *App) []exposed { return []exposed{expose(&Setup{app: a})} })
 }
 
 // Info tells the page whether this is the first start of the app on this computer.

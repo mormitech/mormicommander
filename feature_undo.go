@@ -44,14 +44,14 @@ type undoPending struct {
 }
 
 func init() {
-	registerFeature("undo", func(a *App) []any {
+	registerFeature("undo", func(a *App) []exposed {
 		path := ""
 		if dir := configDir(); dir != "" {
 			path = filepath.Join(dir, "undo.json")
 		}
 		u := newUndo(a, undo.Open(path, 0))
 		a.undo = u
-		return []any{u}
+		return []exposed{expose(u)}
 	})
 	registerControl("undo-list", func(a *App, m map[string]any) (map[string]any, error) {
 		if a.undo == nil {

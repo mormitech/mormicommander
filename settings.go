@@ -26,7 +26,7 @@ type Settings struct {
 }
 
 func init() {
-	registerFeature("settings", func(a *App) []any {
+	registerFeature("settings", func(a *App) []exposed {
 		a.settings = loadSettings(settingsPath())
 		// Every window of the app keeps a copy of the settings (frontend/src/core/settings.js); a change made in one
 		// (a Lister window, the file manager) reaches the others as the "setting" event, so no copy goes stale.
@@ -36,7 +36,7 @@ func init() {
 		// A value the page staged (Stage: the session, written by the page a moment after each change) reaches the
 		// file even when the app ends before the page wrote it: Alt+F4, the window's close button, a quit from Go.
 		onShutdown(func(a *App) { a.settings.flushPending() })
-		return []any{a.settings}
+		return []exposed{expose(a.settings)}
 	})
 }
 

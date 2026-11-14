@@ -38,9 +38,9 @@ type SystemLog struct {
 var systemWatch *SystemWatch
 
 func init() {
-	registerFeature("system-watch", func(a *App) []any {
+	registerFeature("system-watch", func(a *App) []exposed {
 		systemWatch = &SystemWatch{app: a, keys: map[string]string{}}
-		return []any{systemWatch, &SystemLog{app: a}}
+		return []exposed{expose(systemWatch), expose(&SystemLog{app: a})}
 	})
 	onStartup(func(a *App) {
 		if systemWatch != nil && a.mode == "" {

@@ -27,8 +27,8 @@ type SystemLaunch struct {
 }
 
 func init() {
-	registerFeature("system", func(a *App) []any {
-		return []any{newSystemLaunch(a), &SystemClip{app: a}, &SystemFiles{app: a}}
+	registerFeature("system", func(a *App) []exposed {
+		return []exposed{expose(newSystemLaunch(a)), expose(&SystemClip{app: a}), expose(&SystemFiles{app: a})}
 	})
 }
 

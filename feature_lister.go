@@ -54,10 +54,10 @@ const listerDocLimit = 16 << 20
 const listerChunkLimit = 8 << 20
 
 func init() {
-	registerFeature("lister", func(a *App) []any {
+	registerFeature("lister", func(a *App) []exposed {
 		l := &Lister{app: a, sessions: map[int]*listerSession{}, sizes: map[string]context.CancelFunc{}}
 		listerInstance = l
-		return []any{l}
+		return []exposed{expose(l)}
 	})
 	onShutdown(func(a *App) {
 		if listerInstance != nil {

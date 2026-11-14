@@ -42,7 +42,7 @@ type listing struct {
 }
 
 func init() {
-	registerFeature("fs", func(a *App) []any { return []any{newFS(a)} })
+	registerFeature("fs", func(a *App) []exposed { return []exposed{expose(newFS(a))} })
 	onShutdown(func(a *App) {
 		if f := fsOf(a); f != nil && f.router != nil {
 			f.router.Close() // disconnects servers, closes archives, removes temp copies
