@@ -108,7 +108,7 @@ func TestMerge(t *testing.T) {
 	now := time.Unix(10_000_000, 0)
 	own := map[string]float64{"/Work/Src": 3, "/home/a/notes": 1, "/zero": 0}
 	zox := []Entry{
-		{"/work/src/", 1, now.Unix() - 10},          // same folder by key, recent: +4
+		{"/work/src/", 1, now.Unix() - 10},           // same folder by key, recent: +4
 		{"/home/a/music", 10, now.Unix() - 40*86400}, // old: 2.5
 		{"/home/a/photos", 1, now.Unix()},            // 4
 	}

@@ -8,6 +8,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"mormicommander/internal/config"
@@ -46,6 +47,9 @@ func TestMartaNotFound(t *testing.T) {
 }
 
 func TestMartaImportIntoHotlist(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Marta is a macOS app and its favorites are Unix paths; there is nothing to import on Windows")
+	}
 	home, th := withMartaFakes(t, "darwin")
 	dir := marta.Dir(home)
 	if err := os.MkdirAll(dir, 0o755); err != nil {

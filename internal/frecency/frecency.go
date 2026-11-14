@@ -16,7 +16,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
-	"path/filepath"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -156,7 +156,9 @@ func Score(e Entry, now time.Time) float64 {
 // ZoxideDBPath says where zoxide keeps its database on the platform goos, the way zoxide itself finds it:
 // $_ZO_DATA_DIR, else the platform's local data folder plus "zoxide". It returns "" when no folder can be worked out.
 func ZoxideDBPath(goos string, getenv func(string) string, home string) string {
-	join := filepath.Join
+	// The platform asked for may not be the one running (tests ask for all three), so paths are joined by goos's
+	// rules, not the running system's.
+	join := path.Join
 	if goos == "windows" {
 		join = func(p ...string) string { return strings.Join(p, `\`) }
 	}
@@ -175,7 +177,7 @@ func ZoxideDBPath(goos string, getenv func(string) string, home string) string {
 		}
 		return join(home, "Library", "Application Support", "zoxide", "db.zo")
 	}
-	if d := getenv("XDG_DATA_HOME"); d != "" && filepath.IsAbs(d) {
+	if d := getenv("XDG_DATA_HOME"); d != "" && strings.HasPrefix(d, "/") {
 		return join(d, "zoxide", "db.zo")
 	}
 	if home == "" {

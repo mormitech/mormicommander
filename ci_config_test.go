@@ -39,7 +39,7 @@ func TestCIPinsGoToGoMod(t *testing.T) {
 	if !strings.Contains(yml, "go-version-file: go.mod") {
 		t.Error("build.yml does not take the Go version from go.mod")
 	}
-	if !regexp.MustCompile(`(?m)^go \d+\.\d+\.\d+$`).MatchString(readText(t, "go.mod")) {
+	if !regexp.MustCompile(`(?m)^go \d+\.\d+\.\d+\r?$`).MatchString(readText(t, "go.mod")) {
 		t.Error("go.mod's go line is not an exact version (x.y.z), so the CI pin would float")
 	}
 }

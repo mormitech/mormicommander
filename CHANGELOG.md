@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.103 – 2026-11-14
+
+### Fixed
+
+- CI: gofmt clean again; the zoxide database path is worked out by the asked platform's rules (Windows test runs no longer get backslashes in Linux and macOS paths); the go.mod version check accepts Windows line endings; the Marta import tests are skipped on Windows, where Marta does not exist.
+
 ## 0.9.102 – 2026-11-14
 
 ### Added

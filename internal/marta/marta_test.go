@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"testing"
 	"time"
 )
@@ -46,6 +47,9 @@ list [1, 2, "three"]
 }
 
 func TestCollectShapes(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Marta is a macOS app and its favorites are Unix paths; there is nothing to import on Windows")
+	}
 	home := "/Users/me"
 	cases := []struct {
 		name string
@@ -74,6 +78,9 @@ func TestCollectShapes(t *testing.T) {
 }
 
 func TestFavoritesFromFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Marta is a macOS app and its favorites are Unix paths; there is nothing to import on Windows")
+	}
 	home := t.TempDir()
 	dir := Dir(home)
 	if Found(dir) {
