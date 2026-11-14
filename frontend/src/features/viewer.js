@@ -430,11 +430,12 @@ addControlCommand('lister_select', async (m) => {
   return { ok: true, selection: v.state().selection };
 });
 // lister_menu {menu, item}: chooses an item of a Lister menu by its label (without the check mark)
+// (quick: true chooses from quick view's right-click menu instead; menu is then not needed)
 addControlCommand('lister_menu', async (m) => {
-  const v = lister?.view;
-  if (!v) throw new Error('the Lister is not open');
-  const it = v.menuItems(m.menu).find((x) => !x.sep && x.label.replace(/^✓ /, '').toLowerCase() === String(m.item).toLowerCase());
-  if (!it) throw new Error(`the ${m.menu} menu has no item "${m.item}"`);
+  const v = m.quick ? qv?.view : lister?.view;
+  if (!v) throw new Error(m.quick ? 'quick view is not on' : 'the Lister is not open');
+  const it = (m.quick ? v.quickItems() : v.menuItems(m.menu)).find((x) => !x.sep && x.label.replace(/^✓ /, '').toLowerCase() === String(m.item).toLowerCase());
+  if (!it) throw new Error(`the ${m.quick ? 'quick view' : m.menu} menu has no item "${m.item}"`);
   if (it.disabled) throw new Error(`"${m.item}" is not available now`);
   it.run();
   return { ok: true };

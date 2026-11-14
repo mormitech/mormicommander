@@ -14,6 +14,7 @@ import { size as fmtSize, bytes as fmtBytes } from '../../core/format.js';
 import { label as keyLabel } from '../../core/keys.js';
 import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
+import { quickMenuItems } from './quickmenu.js';
 
 export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown' };
 const MEDIA_LIMIT = 256 * 1024 * 1024; // larger media files are not read into the page
@@ -153,6 +154,13 @@ export class ListerView {
       } else if (h) this.note(`Link: ${h}`);
     });
     el.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input, select, button, video, audio')) setTimeout(() => this.focus(), 0); });
+
+    // quick view has no menu bar: a right-click opens the Lister's menus as one list (video and audio keep their own menu)
+    if (this.quick) el.addEventListener('contextmenu', (ev) => {
+      if (ev.target.closest?.('video, audio')) return;
+      ev.preventDefault();
+      this.quickMenu({ x: ev.clientX, y: ev.clientY });
+    });
   }
 
   focus() { this.el.focus({ preventScroll: true }); }
@@ -1114,6 +1122,23 @@ export class ListerView {
     if (which === 'Encoding') { await this.encodingMenu(anchor); return; }
     const items = this.menuItems(which);
     const r = await showList({ title: '', items, anchor, kind: 'lister-menu' });
+    this.focus();
+    if (r) r.item.run();
+  }
+
+  // quickMenu is the quick view panel's right-click menu (F-082 / F-589): the Lister menus in one list.
+  quickItems() {
+    if (!this.id) return [];
+    const encoding = { label: 'Encoding…', run: () => this.encodingMenu(this.lastMenuAt || this.el) };
+    return quickMenuItems({ File: this.menuItems('File'), Edit: this.menuItems('Edit'), Options: this.menuItems('Options'), Image: this.menuItems('Image') },
+      { media: this.mode === 'media', encoding });
+  }
+
+  async quickMenu(at) {
+    const items = this.quickItems();
+    if (!items.length) return;
+    this.lastMenuAt = at;
+    const r = await showList({ title: '', items, anchor: at, kind: 'lister-quickmenu' });
     this.focus();
     if (r) r.item.run();
   }
