@@ -22,6 +22,9 @@ type Entry struct {
 	Source string    `json:"source,omitempty"`
 	Target string    `json:"target,omitempty"`
 	Err    string    `json:"err,omitempty"` // the error, or the message of an "error" entry
+	// Trashed is where a "trash" entry's item is in the trash now, for a job with Request.FindTrashed ("" when it
+	// could not be found). It is not part of the log line.
+	Trashed string `json:"trashed,omitempty"`
 }
 
 // String is the entry as one log line: "2026-11-13 10:04:05 [3] copy: /a/x.txt -> /b/x.txt".

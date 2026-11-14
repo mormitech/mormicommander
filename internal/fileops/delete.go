@@ -26,16 +26,19 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"mormicommander/internal/trash"
 )
 
-// trashMove, trashDirect and trashDirectOK are the trash package's calls; the tests replace them, so they never touch
-// the real trash.
+// trashMove, trashDirect, trashDirectOK, trashBefore and trashLocate are the trash package's calls; the tests replace
+// them, so they never touch or read the real trash.
 var (
 	trashMove     = trash.MoveContext
 	trashDirect   = trash.MoveDirect
 	trashDirectOK = trash.DirectSupported
+	trashBefore   = trash.Before
+	trashLocate   = trash.Locate
 )
 
 // TrashSupported says whether this platform has a trash the engine can use at all.
@@ -298,7 +301,8 @@ func renameRandom(p string) (string, error) {
 	return p, os.ErrExist
 }
 
-// trashAll moves each source to the system's trash, one by one.
+// trashAll moves each source to the system's trash, one by one. With FindTrashed, each item's identity is noted
+// before the move and its place in the trash looked up after it, for the undo journal.
 func (j *job) trashAll() {
 	j.update(func(p *Progress) { p.Files = len(j.req.Sources) })
 	j.tick(true)
@@ -306,6 +310,11 @@ func (j *job) trashAll() {
 		src = filepath.Clean(src)
 		if !j.at(src, 0) {
 			return
+		}
+		var mark trash.Mark
+		marked := false
+		if j.req.FindTrashed {
+			mark, marked = trashBefore(src)
 		}
 		err, extra := j.trashOne(src)
 		if extra == ChoiceDelete {
@@ -317,10 +326,22 @@ func (j *job) trashAll() {
 		if err != nil {
 			continue
 		}
-		j.log("trash", src, "", nil)
+		place := ""
+		if marked {
+			place, _ = trashLocate(mark)
+		}
+		j.logTrash(src, place)
 		j.update(func(p *Progress) { p.FilesDone++ })
 		j.tick(false)
 	}
+}
+
+// logTrash logs a trashed item with its place in the trash (see Entry.Trashed); without one it is the plain entry.
+func (j *job) logTrash(src, place string) {
+	if j.q.Log == nil {
+		return
+	}
+	j.q.Log(Entry{Time: time.Now(), Job: j.p.ID, Kind: j.req.Kind, Action: "trash", Source: src, Trashed: place})
 }
 
 // trashOne trashes one item, asking on errors as try does. Where the platform has a route around Finder (macOS) the

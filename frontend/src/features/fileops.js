@@ -33,6 +33,7 @@ import { sameNameTarget } from './fileops-target.js';
 import { copiedNames } from './fileops-sel.js';
 import { archiveRefusal } from './fileops-readonly.js';
 import { noteXattrLoss } from './fileops-xattr.js';
+import { overwriteNote } from './undo-lib.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -191,6 +192,8 @@ function copyDialog(app, { move, same, items }) {
   const attrsLabel = app.platform === 'windows' ? 'Copy alternate data streams' : app.platform === 'darwin' ? 'Copy extended attributes and resource forks' : 'Copy extended attributes';
   const ow = opt(app, 'overwriteDefault');
   const showOpts = !!opt(app, 'showOptions');
+  // with the undo journal on (board #13), a choice that replaces files without asking says it can't be undone
+  const journalOn = app.setting('undoJournal', true) !== false;
   return modal((box, done) => {
     box.classList.add('mc-fileops-copy');
     box.innerHTML = `<h2>${verb}</h2>
@@ -200,6 +203,7 @@ function copyDialog(app, { move, same, items }) {
       <div class="mc-row"><label for="filter">Only files of this type:</label><input id="filter" type="text" spellcheck="false" value="*.*" title="For example *.txt *.md | old* — after | what to leave out; a name ending in / leaves out folders"></div>
       <div class="mc-fileops-opts"${showOpts ? '' : ' hidden'}>
         <div class="mc-row"><label for="overwrite">When a file is already there:</label><select id="overwrite">${OVERWRITE.map(([v, l]) => `<option value="${v}"${v === ow ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+        <p class="mc-note mc-fileops-noundo"${overwriteNote(ow, journalOn) ? '' : ' hidden'}>${esc(overwriteNote(ow, journalOn))}</p>
         <div class="mc-fileops-checks">
           ${ch('verify', 'Verify after copying', opt(app, 'verify'), 'Read every copy back and compare it with the original')}
           ${ch('dates', 'Keep file dates', opt(app, 'copyTimes'))}
@@ -236,6 +240,7 @@ function copyDialog(app, { move, same, items }) {
     };
     $('.mc-fileops-hist').onclick = () => box._history();
     $('.tree').onclick = () => box._tree();
+    $('#overwrite').onchange = () => { const t = overwriteNote($('#overwrite').value, journalOn); const n = $('.mc-fileops-noundo'); n.hidden = !t; n.textContent = t; };
     $('.opts').onclick = () => { const o = $('.mc-fileops-opts'); o.hidden = !o.hidden; setOpt(app, 'showOptions', !o.hidden); };
     $('.cancel').onclick = () => done(null);
     let queued = false;

@@ -2,7 +2,7 @@ package fileops
 
 // Tests of delete, wipe and trash beyond fileops_test.go: the per-folder and read-only confirmations, that a folder
 // holding a skipped file stays without extra errors, the wipe itself, and the trash fallback to a permanent delete.
-// The real trash is never touched: trashMove is replaced.
+// The real trash is never touched: trashMove (and trashBefore, trashLocate) are replaced.
 
 import (
 	"context"
@@ -11,7 +11,10 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
+
+	"mormicommander/internal/trash"
 )
 
 func TestDeleteConfirmDirs(t *testing.T) {
@@ -127,5 +130,52 @@ func TestDeleteReadOnlyFile(t *testing.T) {
 	p := start(t, NewQueue(nil), Request{Kind: Delete, Sources: []string{f}})
 	if p.State != StateDone || exists(f) {
 		t.Fatalf("%+v", p)
+	}
+}
+
+// TestTrashFindsPlaces: with FindTrashed, each "trash" log entry says where the item went (board issue #13, the undo
+// journal); an item that can't be found has an empty place, and without FindTrashed nothing is looked up at all. The
+// trash calls are fakes, so nothing is trashed or read in the real trash.
+func TestTrashFindsPlaces(t *testing.T) {
+	dir := t.TempDir()
+	a, b := filepath.Join(dir, "a.txt"), filepath.Join(dir, "b.txt")
+	om, ob, ol := trashMove, trashBefore, trashLocate
+	defer func() { trashMove, trashBefore, trashLocate = om, ob, ol }()
+	trashMove = func(context.Context, string) error { return nil }
+	var noted []string
+	trashBefore = func(p string) (trash.Mark, bool) { noted = append(noted, p); return trash.Mark{}, true }
+	n := 0
+	trashLocate = func(trash.Mark) (string, bool) {
+		n++
+		if n == 1 {
+			return "/Trash/a 2.txt", true
+		}
+		return "", false
+	}
+	run := func(find bool) map[string]string {
+		got := map[string]string{}
+		q := NewQueue(nil)
+		var mu sync.Mutex
+		q.Log = func(e Entry) {
+			mu.Lock()
+			defer mu.Unlock()
+			if e.Action == "trash" {
+				got[e.Source] = e.Trashed
+			}
+		}
+		if p := start(t, q, Request{Kind: Trash, Sources: []string{a, b}, FindTrashed: find}); p.State != StateDone {
+			t.Fatalf("%+v", p)
+		}
+		return got
+	}
+	if got := run(false); len(got) != 2 || got[a] != "" || len(noted) != 0 {
+		t.Fatalf("without FindTrashed: %v, looked up %v", got, noted)
+	}
+	got := run(true)
+	if got[a] != "/Trash/a 2.txt" || got[b] != "" || len(got) != 2 || len(noted) != 2 {
+		t.Fatalf("with FindTrashed: %v, noted %v", got, noted)
+	}
+	if s := (Entry{Action: "trash", Source: a, Trashed: "/Trash/a 2.txt"}).String(); strings.Contains(s, "Trash/a 2") {
+		t.Errorf("the place in the trash is not part of the log line: %q", s)
 	}
 }

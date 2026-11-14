@@ -1,13 +1,18 @@
-// Package undo keeps the undo journal of file operations (board issue #13, F-NEW-2): after a rename, a move, a copy or
-// a new folder, the journal holds what was done, so that the user can take it back later, one step at a time, newest
+// Package undo keeps the undo journal of file operations (board issue #13, F-NEW-2): after a rename, a move, a copy,
+// a new folder or a delete to the trash, the journal holds what was done, so that the user can take it back later, one step at a time, newest
 // first, also after the app was restarted (the journal is a small JSON file in the settings folder).
 //
 // The package has no UI and touches only the paths an entry names. Undoing never overwrites anything: before each step
 // it checks that the item is still where the operation put it and that its old place is free again; an item that
 // fails the check is left alone and named in the plan's problems. Steps that are instant (a rename back on the same
-// volume, removing an empty folder that was made) are carried out here by Apply; steps that are real work (moving a
+// volume, removing an empty folder that was made, bringing an item back from the trash) are carried out here by Apply; steps that are real work (moving a
 // folder back across volumes, removing the copies of a copy) are handed back as file jobs, so the caller runs them
 // with progress, the trash and the usual questions. Removing a copy always prefers the trash.
+//
+// A delete to the trash is recorded with the place each item got in the trash (internal/trash finds it), and its undo
+// moves the item back from there (internal/trash.Restore, which also removes the trash's own record of it). An item
+// whose place in the trash could not be found is only counted (Entry.Unknown): the undo says to put it back with the
+// system's own tools. Permanent deletes are never recorded, because nothing can bring them back.
 package undo
 
 import (
@@ -17,9 +22,12 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
+
+	"mormicommander/internal/trash"
 )
 
 // Kind is the operation an entry records.
@@ -30,6 +38,7 @@ const (
 	Move   Kind = "move"   // items went to another folder (F6)
 	Copy   Kind = "copy"   // items were copied (F5); undo removes the copies
 	MkDir  Kind = "mkdir"  // a folder was made (F7); undo removes it while it is still empty
+	Trash  Kind = "trash"  // items went to the trash (F8); undo brings them back to where they were
 )
 
 // Item is one thing an operation changed.
@@ -37,7 +46,8 @@ type Item struct {
 	// From is where the item was before (rename, move), the source of a copy, or for a new folder the first level that
 	// was made (F7 "a/b/c" in a folder without "a" makes three levels; From is ".../a").
 	From string `json:"from"`
-	// To is where the item is now: the new name, the moved item, the copy, or the deepest folder made.
+	// To is where the item is now: the new name, the moved item, the copy, the deepest folder made, or the item in the
+	// trash.
 	To  string `json:"to"`
 	Dir bool   `json:"dir,omitempty"`
 	// Size and MTime describe a copied file as it was right after the copy (Unix milliseconds), so a copy the user
@@ -55,6 +65,10 @@ type Entry struct {
 	// Lost counts the items of a copy or move that replaced or merged into something that was already there. Those
 	// can't be undone (the old file is gone, or the merged folder holds older files too), so they have no Item.
 	Lost int `json:"lost,omitempty"`
+	// Unknown counts the items of a delete to the trash whose place in the trash could not be found afterwards (the app
+	// may not be allowed to read the macOS Trash, a drive may have no Recycle Bin). They are in the trash, but only the
+	// system's own tools can put them back, so they have no Item either.
+	Unknown int `json:"unknown,omitempty"`
 }
 
 // Journal is the list of operations that can still be undone, oldest first. It is safe for use by several
@@ -101,10 +115,10 @@ func Open(path string, max int) *Journal {
 	return j
 }
 
-// Add records an operation and returns it with its number and time. An entry with neither items nor lost items is
-// not recorded (ok false).
+// Add records an operation and returns it with its number and time. An entry with neither items nor lost or unknown
+// items is not recorded (ok false).
 func (j *Journal) Add(e Entry) (Entry, bool) {
-	if len(e.Items) == 0 && e.Lost == 0 {
+	if len(e.Items) == 0 && e.Lost == 0 && e.Unknown == 0 {
 		return e, false
 	}
 	j.mu.Lock()
@@ -207,10 +221,11 @@ func (j *Journal) save() {
 type Op string
 
 const (
-	OpRename Op = "rename" // instant: To goes back to From (same volume)
-	OpRmdir  Op = "rmdir"  // instant: the empty folders from To up to From are removed
-	OpMove   Op = "move"   // a job: To is moved back to From across volumes
-	OpRemove Op = "remove" // a job: the copy To goes to the trash (or is deleted where there is no trash)
+	OpRename  Op = "rename"  // instant: To goes back to From (same volume)
+	OpRmdir   Op = "rmdir"   // instant: the empty folders from To up to From are removed
+	OpMove    Op = "move"    // a job: To is moved back to From across volumes
+	OpRemove  Op = "remove"  // a job: the copy To goes to the trash (or is deleted where there is no trash)
+	OpRestore Op = "restore" // instant: the item To comes back from the trash to From
 )
 
 // Step is one thing an undo does to one item.
@@ -241,6 +256,14 @@ func PlanUndo(e Entry, sameVolume SameVolumeFunc) Plan {
 		}
 		p.Problems = append(p.Problems, fmt.Sprintf("%d %s replaced or merged with what was already there, so %s can't be undone.",
 			e.Lost, what, map[bool]string{true: "they", false: "it"}[e.Lost > 1]))
+	}
+	if e.Unknown > 0 {
+		what, them := "1 item", "it"
+		if e.Unknown > 1 {
+			what, them = fmt.Sprintf("%d items", e.Unknown), "them"
+		}
+		p.Problems = append(p.Problems, fmt.Sprintf("%s went to the %s, but %s place there could not be found; put %s back with %s.",
+			what, TrashWord(), map[bool]string{true: "their", false: "its"}[e.Unknown > 1], them, systemRestore()))
 	}
 	for i := len(e.Items) - 1; i >= 0; i-- {
 		it := e.Items[i]
@@ -294,6 +317,16 @@ func PlanUndo(e Entry, sameVolume SameVolumeFunc) Plan {
 				continue
 			}
 			p.Steps = append(p.Steps, Step{Op: OpRmdir, From: it.From, To: it.To})
+		case Trash:
+			if _, err := os.Lstat(it.To); err != nil {
+				p.Problems = append(p.Problems, fmt.Sprintf("%s is not in the %s any more.", filepath.Base(it.From), TrashWord()))
+				continue
+			}
+			if _, err := os.Lstat(it.From); err == nil {
+				p.Problems = append(p.Problems, fmt.Sprintf("%s can't come back from the %s: %s is there again.", filepath.Base(it.From), TrashWord(), it.From))
+				continue
+			}
+			p.Steps = append(p.Steps, Step{Op: OpRestore, From: it.From, To: it.To})
 		default:
 			p.Problems = append(p.Problems, fmt.Sprintf("Undoing %q is not known to this version.", e.Kind))
 			return p
@@ -346,11 +379,40 @@ func Apply(steps []Step) (jobs []Step, done int, problems []string) {
 				continue
 			}
 			done++
+		case OpRestore:
+			if err := restoreTrashed(s.To, s.From); err != nil {
+				problems = append(problems, fmt.Sprintf("Can't bring %s back from the %s: %s.", filepath.Base(s.From), TrashWord(), plain(err)))
+				continue
+			}
+			done++
 		case OpMove, OpRemove:
 			jobs = append(jobs, s)
 		}
 	}
 	return jobs, done, problems
+}
+
+// restoreTrashed brings an item back from the trash; the tests replace it, so they work with temporary folders and
+// never with the real trash.
+var restoreTrashed = trash.Restore
+
+// TrashWord is the name of the trash on this system.
+func TrashWord() string {
+	if runtime.GOOS == "windows" {
+		return "Recycle Bin"
+	}
+	return "Trash"
+}
+
+// systemRestore names the system's own way to take an item out of the trash.
+func systemRestore() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "Finder's Put Back"
+	case "windows":
+		return "Restore in the Recycle Bin"
+	}
+	return "your file manager's Restore"
 }
 
 // errTaken is returned when the old place of an item was taken between the plan and the step.
@@ -421,11 +483,14 @@ func plain(err error) string {
 }
 
 // Describe is a short phrase for an entry, for menus and the confirm question: "the copy of report.txt to /b",
-// "the move of 3 items to /c", "the rename of a.txt to b.txt", "the new folder x".
+// "the move of 3 items to /c", "the rename of a.txt to b.txt", "the new folder x", "the move of a.txt to the Trash".
 func Describe(e Entry) string {
-	n := len(e.Items) + e.Lost
+	n := len(e.Items) + e.Lost + e.Unknown
 	what := fmt.Sprintf("%d items", n)
-	if len(e.Items) == 1 && e.Lost == 0 {
+	if n == 1 {
+		what = "1 item"
+	}
+	if len(e.Items) == 1 && e.Lost == 0 && e.Unknown == 0 {
 		what = filepath.Base(e.Items[0].From)
 	}
 	where := ""
@@ -453,6 +518,8 @@ func Describe(e Entry) string {
 			return "the new folder " + filepath.Base(e.Items[0].From)
 		}
 		return "the new folders"
+	case Trash:
+		return fmt.Sprintf("the move of %s to the %s", what, TrashWord())
 	}
 	return string(e.Kind)
 }
