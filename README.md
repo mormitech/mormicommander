@@ -174,11 +174,17 @@ You don't have to take our word for it. The **zero-network test** checks the pro
 - [`privacy_test.go`](privacy_test.go) reads all of the Go code and fails if anything can open a connection, listen on
   a port or look up a host name outside the FTP, SFTP and WebDAV clients (which only the Net menu starts) and two
   listeners bound to 127.0.0.1 (control mode, off unless you start it, and the hand-over between windows of one app).
+- [`privacy_session_test.go`](privacy_session_test.go) runs a scripted session through the app's features (browse,
+  view, search, copy, thumbnails, a Markdown file with remote pictures) and fails on any HTTP request, host-name lookup
+  or connection to another machine.
 - [`frontend/test/privacy.test.js`](frontend/test/privacy.test.js) checks the window's code: no script fetches anything,
   the pages load nothing from other sites (no CDNs, no web fonts), and the only web addresses are links you click.
+- [`frontend/test/viewer-noremote.test.js`](frontend/test/viewer-noremote.test.js) checks that the Lister drops remote
+  images, styles and frames from HTML and Markdown files, so viewing a file never contacts a server.
 
-Run them yourself with `go test -run ZeroNetwork .` and `cd frontend && npx vitest run test/privacy.test.js`. The
-Lister also drops remote images and styles from HTML and Markdown files, so viewing a file never contacts a server.
+Run them yourself with `go test -run ZeroNetwork .` and
+`cd frontend && npx vitest run test/privacy.test.js test/viewer-noremote.test.js`. The whole statement, and what the
+tests do not cover yet, is in [docs/privacy.md](docs/privacy.md).
 
 ## For developers
 

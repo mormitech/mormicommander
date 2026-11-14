@@ -108,11 +108,18 @@ test('the download page does not say there are no releases', () => {
 });
 
 test('the privacy statement links the zero-network test, and the test files exist', () => {
-  for (const f of ['privacy_test.go', 'frontend/test/privacy.test.js']) {
+  for (const f of ['privacy_test.go', 'privacy_session_test.go', 'frontend/test/privacy.test.js', 'frontend/test/viewer-noremote.test.js']) {
     expect(readme).toContain(`(${f})`);
     expect(existsSync(join(repo, f))).toBe(true);
   }
   expect(readme).toMatch(/no telemetry/i);
+  // docs/privacy.md is the full statement: the README links it, and it links every test file that exists.
+  expect(readme).toContain('(docs/privacy.md)');
+  const privacy = readFileSync(join(repo, 'docs', 'privacy.md'), 'utf8');
+  for (const m of privacy.matchAll(/\]\(\.\.\/([^)]+)\)/g)) expect(existsSync(join(repo, m[1])), m[1]).toBe(true);
+  for (const f of ['privacy_test.go', 'privacy_session_test.go', 'frontend/test/privacy.test.js', 'frontend/test/viewer-noremote.test.js']) {
+    expect(privacy).toContain(`(../${f})`);
+  }
 });
 
 test('there is one canonical download page, and releases carry checksums', () => {
