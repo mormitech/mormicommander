@@ -40,6 +40,9 @@ const KeyRefPrefix = "keychain:"
 // DefaultKDFIterations is the PBKDF2 work factor for new master passwords.
 const DefaultKDFIterations = 210000
 
+// MaxKDFIterations is the largest work factor a stored header may ask for (about 50 times the default).
+const MaxKDFIterations = 10_000_000
+
 const checkPlain = "mormiCommander master password check"
 
 // MasterKey is a SecretBox derived from a master password.
@@ -88,6 +91,10 @@ func OpenMasterKey(password string, h CryptoHeader) (*MasterKey, error) {
 	salt, err := base64.StdEncoding.DecodeString(h.Salt)
 	if err != nil {
 		return nil, fmt.Errorf("ftp: bad salt: %w", err)
+	}
+	// the count comes from the settings file: a tampered file must not make the app work for hours
+	if h.Iterations <= 0 || h.Iterations > MaxKDFIterations {
+		return nil, fmt.Errorf("ftp: the key derivation count %d is out of range", h.Iterations)
 	}
 	k, err := deriveKey(password, salt, h.Iterations)
 	if err != nil {

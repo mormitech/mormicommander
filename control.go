@@ -2,6 +2,7 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -140,7 +141,7 @@ func (c *control) guard(next func(http.ResponseWriter, *http.Request)) http.Hand
 			http.Error(w, "refused", http.StatusForbidden)
 			return
 		}
-		if r.Header.Get("Authorization") != "Bearer "+c.token {
+		if subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+c.token)) != 1 {
 			http.Error(w, "token missing or wrong", http.StatusUnauthorized)
 			return
 		}
