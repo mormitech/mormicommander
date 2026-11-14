@@ -74,6 +74,28 @@ func inside(p, dir string) bool {
 	return err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel)
 }
 
+// intoItself says whether p is the folder src (whose Lstat is si) or lies below it. The spelling alone is not enough:
+// a target reached through a link to a subfolder of src, or spelled in another case on a case-insensitive disk, is
+// below src too. So the part of p that exists is resolved to its real path, and every folder on that path is also
+// compared with src by identity.
+func intoItself(p, src string, si fs.FileInfo) bool {
+	if inside(p, src) {
+		return true
+	}
+	q := existingAncestor(p)
+	if real, err := filepath.EvalSymlinks(q); err == nil {
+		q = real
+	}
+	for ; ; q = filepath.Dir(q) {
+		if fi, err := stat(q); err == nil && sameFile(fi, si) {
+			return true
+		}
+		if filepath.Dir(q) == q {
+			return false
+		}
+	}
+}
+
 // samePath says whether two paths name the same file: equal after cleaning, or the same file on disk (which catches
 // case-insensitive systems, so "copy a.txt onto A.TXT" is refused instead of truncating the source, and hard links).
 func samePath(a, b string) bool {

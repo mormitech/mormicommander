@@ -39,7 +39,7 @@ func (j *job) allIntoItself(target string) bool {
 	for _, src := range j.req.Sources {
 		src = filepath.Clean(src)
 		si, err := lstat(src)
-		if err != nil || !si.IsDir() || !inside(target, src) {
+		if err != nil || !si.IsDir() || !intoItself(target, src, si) {
 			return false
 		}
 	}
@@ -112,7 +112,7 @@ func (j *job) copyAll(move bool) {
 				continue
 			}
 		}
-		if si.IsDir() && inside(dst, src) {
+		if si.IsDir() && intoItself(dst, src, si) {
 			j.fail("Can't %s the folder %s into itself.", verb, filepath.Base(src))
 			continue
 		}

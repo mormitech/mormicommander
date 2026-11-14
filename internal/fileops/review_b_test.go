@@ -3,6 +3,7 @@ package fileops
 // Tests for review findings of issue #91 (second engines review).
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -53,5 +54,32 @@ func TestTempStemCutsBetweenCharacters(t *testing.T) {
 	}
 	if got := tempStem("short.txt"); got != "short.txt" {
 		t.Errorf("short name became %q", got)
+	}
+}
+
+// "A folder into itself" was checked on the spelling of the paths only. A target reached through a link to a
+// subfolder of the source, or spelled in another case on a case-insensitive disk, slipped through and the folder was
+// copied into its own subfolder.
+func TestCopyIntoItselfOtherSpelling(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "f", "sub", "x"), "x")
+	link := filepath.Join(dir, "link")
+	if err := os.Symlink(filepath.Join(dir, "f", "sub"), link); err != nil {
+		t.Skip(err)
+	}
+	targets := []string{link, filepath.Join(link, "deeper")}
+	write(t, filepath.Join(dir, "probe"), "x")
+	if exists(filepath.Join(dir, "PROBE")) {
+		targets = append(targets, filepath.Join(dir, "F", "sub"))
+	}
+	for _, target := range targets {
+		q := NewQueue(nil)
+		p := start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(dir, "f")}, Target: target})
+		if p.State != StateFailed || len(p.Errors) == 0 || !strings.Contains(p.Errors[0], "into itself") {
+			t.Errorf("target %s: %s %v", target, p.State, p.Errors)
+		}
+		if exists(filepath.Join(dir, "f", "sub", "f")) || exists(filepath.Join(dir, "f", "sub", "deeper")) {
+			t.Fatalf("target %s: the folder was copied into itself", target)
+		}
 	}
 }
