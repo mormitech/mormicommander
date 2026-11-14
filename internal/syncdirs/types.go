@@ -197,6 +197,10 @@ type Item struct {
 	// through a followed folder link on that side; nothing is written or
 	// deleted there.
 	lvia, rvia bool
+	// lro and rro are true when that side can't be changed at all (a RAR
+	// archive, an archive on a server; see Result.SetReadOnly), so no action
+	// may copy to it or delete on it.
+	lro, rro bool
 	// defUnselected is the Unselected state that goes with Default.
 	defUnselected bool
 }

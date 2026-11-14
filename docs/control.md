@@ -290,6 +290,10 @@ all results share); file commands work on the real files.
   arrow is `.mc-sync-row[data-path="a.txt"] .mc-sync-act` for `click`. The Synchronize dialog has kind
   `syncdirs-confirm` (fields `sync-do-lr`, `sync-do-rl`, `sync-do-del`, `sync-confirm`, `sync-trash`), the progress
   `syncdirs-progress`, the overwrite question `overwrite`, right-click menus `menu` (buttons are the menu items).
+  `sync-left` and `sync-right` also take an archive (`/x/backup.zip`, `/x/backup.zip/docs`) or a server URL
+  (`sftp://me@host/www`, `ftp://…`, `webdav://…`; F-555); `{"cmd": "syncdirs"}` then has `sides`
+  (`{left, right}`, each `{kind, readOnly, why, trash, times}`) after a compare. A note after a sync that lost file
+  dates is a message of kind `syncdirs-warning`.
 - The Compare by content window (`cm_CompareFilesByContent`, args `{left, right, internal: true}`) is a dialog of kind
   `compare`; fields `cmp-case`, `cmp-ws`, `cmp-rep`, `cmp-bin`, `cmp-edit`, `cmp-left`, `cmp-right`, `cmp-enc-left`,
   `cmp-enc-right`, and `cmp-line` while a line is edited. `{"cmd": "compare"}` returns its state (current difference,

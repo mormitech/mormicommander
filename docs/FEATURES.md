@@ -757,7 +757,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-552 Compare by content in sync (Ctrl+... ) — — — content compare for "=" vs "≠"
 - [~] F-553 Open compare tool for a pair from sync list — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-554 Save/load sync settings — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it — audit #103: not built: Synchronize folders works only on local folders (feature_syncdirs.go); the engine's FS/WritableFS sides are ready but no archive or FTP adapter is wired
+- [~] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it — audit #103: built (issue #9): either side of Synchronize folders can be an archive (a.zip, a.zip/sub; zip and tar family written, 7z/RAR/nested/server archives read-only: nothing is copied to them, the window says why) or a server folder (FTP, SFTP, WebDAV URL, typed or from a panel); deletes there are permanent (the dialog says so), lost file dates (WebDAV, FTP without MFMT) are reported (feature_syncdirs_vfs.go); waiting for QA
 
 ## 26. Compare by content (file compare tool)
 
