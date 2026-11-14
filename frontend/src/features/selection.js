@@ -116,8 +116,9 @@ command({
 // ---- the rows as Go sees them ----
 
 // rows turns the shown entries of a panel into what feature_select.go gets; the indexes it answers with are indexes
-// into p.entries. withAttr adds the Attr column (only the details copy needs it).
-function rows(app, p, list = p.entries, withAttr = false) {
+// into p.entries. withAttr adds the Attr column (only the details copy needs it). The AI tool select_files
+// (aitools-basic.js) uses it too, so a model's mask selects exactly what the same mask selects in Num +.
+export function rows(app, p, list = p.entries, withAttr = false) {
   return list.map((e) => ({
     name: e.name,
     dir: !!e.dir,
