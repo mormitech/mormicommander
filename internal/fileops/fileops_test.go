@@ -2,7 +2,7 @@ package fileops
 
 // The basic tests of the engine: copying a tree with dates and links, copy with a new name, refusing to copy a folder
 // into itself, the classic overwrite answers, the "older" rule, cancelling (also while a question is open), moves,
-// deletes, the trash hook and the checks on a request.
+// merging a folder onto a same-named folder (F-460), deletes, the trash hook and the checks on a request.
 
 import (
 	"context"
@@ -286,6 +286,28 @@ func TestMoveMergeKeepsSkipped(t *testing.T) {
 	}
 	if !exists(filepath.Join(src, "d", "keep")) || exists(filepath.Join(src, "d", "go")) {
 		t.Error("move removed a skipped file, or kept a moved one")
+	}
+}
+
+// TestCopyMergesSameNamedFolder checks F-460's merge rule: copying a folder onto a folder of the same name merges the
+// two, never replaces the target folder. Even with "overwrite all", files only the target has stay where they are.
+func TestCopyMergesSameNamedFolder(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, filepath.Join(src, "d", "shared.txt"), "src-shared")
+	write(t, filepath.Join(src, "d", "sub", "new.txt"), "src-new")
+	write(t, filepath.Join(dst, "d", "shared.txt"), "dst-shared")
+	write(t, filepath.Join(dst, "d", "only-in-target.txt"), "dst-only")
+	write(t, filepath.Join(dst, "d", "sub", "old.txt"), "dst-old")
+	q := NewQueue(nil)
+	p := start(t, q, Request{Kind: Copy, Sources: []string{filepath.Join(src, "d")}, Target: dst, Overwrite: Overwrite})
+	if p.State != StateDone || len(p.Errors) != 0 {
+		t.Fatalf("state %s, errors %v", p.State, p.Errors)
+	}
+	if read(t, filepath.Join(dst, "d", "shared.txt")) != "src-shared" || read(t, filepath.Join(dst, "d", "sub", "new.txt")) != "src-new" {
+		t.Error("copied files missing or not overwritten")
+	}
+	if read(t, filepath.Join(dst, "d", "only-in-target.txt")) != "dst-only" || read(t, filepath.Join(dst, "d", "sub", "old.txt")) != "dst-old" {
+		t.Error("the target folder was replaced instead of merged")
 	}
 }
 

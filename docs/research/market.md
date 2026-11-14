@@ -222,6 +222,8 @@ Rationale for F-NEW-22: Marta has the largest Mac commander install base and no 
 
 ## Ranked features to add to docs/FEATURES.md
 
+> **Added.** All F-NEW items are now in docs/FEATURES.md, with the merged order in its "Priorities from the market research" section. F-NEW-1 = F-854, 2 = F-859, 3 = F-875, 4 = F-866, 5 = F-863, 6 = F-857, 7 = F-868, 8 = F-872, 9 = F-864, 10 = F-865, 11 = F-867, 12 = F-869, 13 = F-870, 14 = F-873, 15 = F-856, 16 = F-862, 17 = F-861, 18 = F-874, 19 = F-860, 20 = F-871, 21 = F-858, 22 = F-855. The F-460 merge rule is in F-460.
+
 > **Read this list together with "What this changes in the ranking" above.** The demand pass came later and adds a Finder-gap trio at rank 2, moves multi-rename to 4 and SFTP to 7, moves F-NEW-4 below SFTP, and adds F-NEW-19 to F-NEW-22. Where the two disagree, the demand section wins.
 
 

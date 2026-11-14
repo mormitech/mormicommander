@@ -24,6 +24,28 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 
 
 
+## Priorities from the market research
+
+docs/research/market.md ranks what to do first. Its new items are now in this file (F-854 to F-875), and its later
+demand pass changed the order. Where this list and the ranked list in market.md disagree, this list wins.
+
+1. Exact keys and the command line (§8, §10, §3): F-275, F-300, F-066, F-068, F-290.
+2. Finder-gap trio: cut with a visible cut state (F-237, F-256, F-285), hidden-files toggle (F-090, F-242, F-858) and copy path (F-139, F-141, F-142, F-796).
+3. Keyboard selection (§6): F-118, F-120, F-797.
+4. Multi-rename (§22): F-506, F-508, F-514, F-515 (moved up from rank 6).
+5. First-run setup (F-854), with Shift+arrows (F-119) in the Mac-native preset; Marta onboarding (F-855) builds on it.
+6. Archives as folders with edit-and-repack (§29): F-596, F-600, F-606, F-592.
+7. SFTP (§30): F-632, F-634, F-636 (moved up from rank 12), then network hang resistance (F-871).
+8. Sync dirs and compare (§25, §26): F-546 to F-555 and the §26 compare tool.
+9. Lister and quick view (§27): F-082, F-589, F-571, F-575.
+10. Tabs (§2): F-044 and the locked tab items.
+11. Undo journal (F-859) and the zero-network test (F-875).
+12. Background queue with pause (§20): F-468, F-470, F-471, and the transfer error list (F-860). F-460: copying onto a same-named folder merges.
+13. Cloud via rclone (F-866), only after SFTP, SMB and F-871.
+14. The rest in market.md's order: Quick Look (F-863), native feel (§1, §5, §42, §36), command palette (F-857), Git column (F-868), treemap (F-872), image formats (F-864), table preview (F-865), frecency jump (F-867), tags (F-869), xattrs (F-870), cloud placeholders (F-873), terminal (F-856), duplicate actions (F-862), local AI rename (F-861), snapshots (F-874). The demand pass found no signal for F-868, F-872, F-865, F-861 or F-874; they stay as differentiators.
+
+Root operations stay at F-720 (a macOS privileged helper is a large job; revisit after 1.0).
+
 ## 1. Main window and layout
 
 - [ ] F-001 Main window with two file panels side by side, one active (highlighted header) — — — app starts with left and right panel, active panel has a visibly highlighted path bar; clicking a panel makes it active
@@ -387,6 +409,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-289 System shortcut collisions on macOS (Ctrl+Up Mission Control, Ctrl+Left/Right Spaces, Ctrl+F2 menu focus) — — — doc lists them and offers Cmd-based alternatives (e.g. Cmd+Option+Left/Right for transfer), since the OS swallows those keys
 - [ ] F-290 Windows/Linux AltGr — — — AltGr combinations (e.g. typing \ on Hungarian layout) are not treated as Ctrl+Alt quick search
 - [ ] F-291 Non-US layouts (Hungarian etc.) — — — hotkeys like Ctrl+\ and Num keys work on Hungarian layouts via key code fallback
+- [~] F-854 First-run setup: choose keymap preset (TC-exact default, Mac-native, vim), F-key/fn check and macOS Full Disk Access prompt — — — first launch shows one page: preset picker, "press F5" test that tells the user whether fn is needed, and a button that opens System Settings > Privacy > Full Disk Access; choice saved; reopenable from Configuration; the Mac-native preset selects with Shift+arrows (F-119), so no Insert key is needed
+- [ ] F-855 Marta-refugee onboarding: import Marta favorites and offer a Marta-like keymap preset in first-run setup (F-854) — — — with a Marta config folder present, first-run setup offers "Import from Marta"; its favorites appear in the directory hotlist (§31); a docs page maps Marta's common actions to mormiCommander keys; nothing is changed in Marta's files
 
 ## 10. Command line
 
@@ -404,6 +428,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [N/A] F-303 Run as administrator/root from command line — macOS/Linux have no safe GUI elevation for arbitrary commands — Windows: run elevated via UAC prompt; macOS/Linux: clear message, user runs sudo in terminal
 - [ ] F-812 Enter runs the command line when it has text — Enter — with text in the command line, Enter runs it instead of opening the file under cursor
 - [ ] F-813 Ctrl+Enter adds names one after another — Ctrl+Enter — pressing Ctrl+Enter on two files gives both names separated by a space, quoted if needed
+- [ ] F-856 Embedded terminal pane that follows the active panel folder — — (assignable) — pane opens below the panels running the user's shell in the current folder; changing folder in the panel sends cd; selected names can be inserted at the prompt
 
 ## 11. Button bar (toolbar)
 
@@ -491,6 +516,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-374 Internal command list completeness — — — every cm_* in this file appears in the command browser
 - [ ] F-375 Change start menu (cm_ConfigStartMenu) — — — user menu "Start" editable with items: title, command, parameters, start path, hotkey, submenus
 - [ ] F-376 Open folder in new window / second instance — — — allow multiple instances option (TC: only one instance setting)
+- [ ] F-857 Command palette: fuzzy search over all cm_* commands, hotlist, directory history, open tabs and settings pages — Ctrl+Shift+P (Cmd+Shift+P on macOS) — typing "sync" lists Synchronize dirs with its hotkey; Enter runs it; results ranked by recent use; works with the keyboard only
 
 ## 15. Net menu
 
@@ -536,6 +562,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-410 Horizontal arrangement — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-411 Show 2 panels / single panel — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel
+- [x] F-858 Hidden-files state always visible and honoured by search — — — when hidden files are shown, the status bar (or path bar) shows a "Hidden: shown" marker; Find files (Alt+F7) has an "Include hidden files" checkbox that defaults to the panel's current state; the toggle F-090/F-242 is listed in the Show menu with its key
 
 ## 17. Configuration menu and dialog pages
 
@@ -605,7 +632,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-457 Copy dialog shows source count/name, target path editable, file types filter "Only files of this type" — F5 — target defaults to other panel; filter like *.txt copies only matching files (recursively)
 - [ ] F-458 Target path with rename (copy "a.txt" to "x/b.txt") — — — target ending in a file name renames the copy
 - [ ] F-459 Target with wildcards rename (*.bak) — — — "*.bak" in target renames copies with new extension
-- [ ] F-460 Copy folders recursively — — — full folder tree copied, empty folders included
+- [ ] F-460 Copy folders recursively — — — full folder tree copied, empty folders included; copying a folder onto a same-named folder merges the two, never replaces the target folder (files only the target has stay)
 - [ ] F-461 Move within same volume = rename (instant) — F6 — no data copy when same volume
 - [ ] F-462 Move across volumes = copy + delete after verified copy — F6 — source deleted only after successful copy of each file
 - [ ] F-463 Overwrite confirmation dialog — — — shows both files with size and date (and preview option); buttons: Overwrite, Overwrite all, Skip, Skip all, Overwrite all older, Rename, Auto-rename all, Copy all larger, Copy all smaller, Compare by content, Cancel
@@ -634,7 +661,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-486 Copy file names with long paths (>260 chars on Windows) — — — long paths work on Windows (\\?\ prefix)
 - [ ] F-487 Case-only rename (a.txt -> A.txt) on case-insensitive FS — — — rename succeeds on macOS/Windows
 - [ ] F-488 Move folders across volumes — — — completed and source removed
-- [N/A] F-489 Undo of file operations — TC has no undo either; deletes go to trash — trash restore and MRT undo
+- [N/A] F-489 Undo of file operations — TC has no undo either; deletes go to trash — trash restore and MRT undo; our undo journal is F-859
 - [ ] F-490 Overwrite older files only option in dialog (TC 11 dropdown "Overwrite mode") — — — dropdown: ask, overwrite all, skip all, overwrite older, auto-rename source/target, copy larger/smaller
 - [ ] F-491 Copy free space check before start — — — warn if target lacks free space
 - [ ] F-492 Copy statistics at end (count, bytes, errors) — — — summary shown in log/status
@@ -642,6 +669,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-830 Copy/move dialog target history and other-panel tabs — — — dropdown lists recent targets and the folders of the other panel's tabs
 - [ ] F-831 Move: remove source folders that end up empty — — — after moving a folder tree, no empty source folders stay behind
 - [~] F-832 F5/F6 on '..' or empty selection — F5 / F6 — with no selection the file under cursor is used; on '..' nothing happens and a short message shows
+- [~] F-859 Undo journal for file operations (rename, move, copy, make folder, delete to trash); replaces N/A item F-489 — Cmd+Z on macOS; — elsewhere (Ctrl+Z is TC's edit comment) — after each listed operation in a temp folder, undo restores the previous state; multi-level; journal survives restart; operations that can't be undone (permanent delete, overwrite) are marked as such in the confirm dialog
+- [~] F-860 Transfer error list with skip-and-continue: a background copy/move/delete never stops on a per-file error; failures are collected and the rest of the job runs on — — — with a locked file and an unreadable file in a 100-file copy, 98 files copy without a prompt (when "Skip errors in background" is on); the progress window shows an error count; at the end a list shows each failed path with the plain-English reason (F-718) and buttons Retry failed, Copy list, Save log
 
 ## 21. Delete
 
@@ -679,6 +708,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-834 MRT extra mask forms: [C10+5:3] inline counter, [E2-3] part of extension, [N-8,5] counted from the end, [[] and []] literal brackets — — — each form gives the expected name in unit tests
 - [ ] F-835 MRT load new names from a text file or clipboard — — — new names taken line by line; line count mismatch shows a warning
 - [ ] F-836 MRT remove accents option (ours) — — — 'árvíztűrő' becomes 'arvizturo' in preview and after rename
+- [ ] F-861 Smart rename plan from a plain-English instruction using a local model endpoint (Ollama/llama.cpp on localhost); off by default — — — with no endpoint configured the feature is hidden; with one configured, the instruction produces a regex/template filled into MRT fields, shown in the normal preview and covered by MRT undo; nothing leaves localhost
 
 ## 23. Make folder
 
@@ -713,6 +743,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [~] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required)
 - [ ] F-837 Find: exclude folders by pattern ('|vendor/' or '|.git\') — — — `*.go|vendor/` skips everything under vendor folders
 - [~] F-838 Find: copy results to clipboard / save results to a file — — — result names (with paths) copied or written as text
+- [ ] F-862 Actions on duplicate search results: keep newest/oldest/first path, send the rest to trash, or replace with hardlinks — — — after an F-534 duplicate search, one command marks all but one per group by the chosen rule; preview shows space saved; delete goes to trash
 
 ## 25. Synchronize directories
 
@@ -775,6 +806,9 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-844 Lister close — Esc (also Q) — window closes; focus returns to the panel
 - [ ] F-845 Lister image zoom — + / - — image zooms in/out; fit-to-window toggles back
 - [ ] F-846 Several Lister windows at once and remembered window size — — — F3 on another file opens a second window; size and position kept across uses
+- [ ] F-863 Native macOS Quick Look for file under cursor — Cmd+Y (macOS only) — Quick Look window opens for the file under cursor and follows the cursor while open; Space keeps its TC meaning unless the user picks the Mac-native preset
+- [ ] F-864 HEIC, AVIF and JPEG XL view and thumbnails on Windows and Linux too (pure Go/WASM decoders, no cgo) — — — sample .heic/.avif/.jxl files show in Lister, quick view and thumbnails on all three OSes
+- [ ] F-865 Table preview for CSV, TSV, JSONL, Parquet and SQLite in Lister and quick view — — — file opens as a scrollable grid (first 10,000 rows, virtual scrolling) with column names and types; SQLite shows table list; file opened read-only
 
 ## 28. Editor
 
@@ -840,12 +874,13 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-642 Keepalive (NOOP) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-643 Transfer queue with parallel connections — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-644 HTTP/HTTPS download (TC: URL in FTP connect) — — — URL file downloads to current folder with progress
-- [N/A] F-645 WebDAV / S3 / cloud via FS plugins — WFX plugins are Windows DLLs — later built-in feature; OS-mounted cloud folders work as normal folders
+- [N/A] F-645 WebDAV / S3 / cloud via FS plugins — WFX plugins are Windows DLLs — later built-in feature (F-866, via rclone); OS-mounted cloud folders work as normal folders
 - [ ] F-646 SMB browsing (\\server\share) — — — Windows UNC paths work; macOS/Linux via mounted volumes
 - [N/A] F-647 FS plugins (WFX: registry, process list, etc.) — Windows DLLs, registry is Windows-only — built-in virtual folders (Trash, search results, archives, FTP/SFTP)
 - [ ] F-648 Edit/view remote file (F3/F4) — — — downloads to temp, opens, uploads on change
 - [ ] F-649 Remote file properties — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-650 FTP disconnect on exit / idle timeout — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [ ] F-866 Cloud/object-storage panels via rclone library (S3, R2, B2, Azure, GCS, WebDAV, Drive, Dropbox, OneDrive, SMB) with remotes read from the user's rclone.conf; replaces N/A item F-645 — — — a remote defined in rclone.conf appears in the drive list and opens as a panel; copy, move, delete, rename work between local and remote and between two remotes (server-side copy when both are on the same provider); no network traffic until a remote is opened
 
 ## 31. Directory hotlist and history
 
@@ -864,6 +899,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-663 Hotlist import from TC [DirMenu] — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-664 Hotlist folder for tabs (tab sets) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-849 Hotlist paths with variables ($HOME, %COMMANDER_PATH%-style) — — — entries using variables open the expanded folder on every platform
+- [ ] F-867 Frecency jump: fuzzy jump to frequently and recently used folders, importing zoxide's database when installed — — — typing part of a folder name lists matches ranked by frequency and recency; Enter navigates the active panel; data stored locally only
 
 ## 32. Custom columns and column sets
 
@@ -877,6 +913,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-672 Header right-click: show/hide columns, resize — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-673 Column auto-width / equal-width — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-674 Built-in tc fields: name, ext, size, writedate, creationdate, accessdate, attributestr, path, fullname, comment, filetype — — — each available
+- [ ] F-868 Git status column and branch indicator — — — in a git work tree a column shows M/A/D/?/ignored per file, ignored files can be dimmed or hidden, the path bar shows branch and dirty/ahead/behind; uses git CLI --porcelain=v2 when installed; no column outside repos
 
 ## 33. Thumbnails
 
@@ -896,6 +933,8 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [~] F-684 Change dates recursively — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-685 Attribute filters in attributes dialog via search template — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-686 Show attributes column (rhsa / rwxr-xr-x) — — — column shows Windows attributes on Windows, Unix permissions on macOS/Linux
+- [ ] F-869 File tags: show and edit macOS Finder tags and Linux user.xdg.tags as a column and in the properties dialog — — — tag set in Finder appears in the column; tag set in the app appears in Finder; tags kept on copy/move; Windows: N/A unless a sidecar option is enabled
+- [ ] F-870 Extended attributes column and actions, including remove macOS quarantine flag — — — xattr names listed in properties; "Remove quarantine" clears com.apple.quarantine on selected files; copying to a filesystem that drops xattrs (FAT, exFAT, cloud) warns once
 
 ## 35. Split / combine / checksums / encoding
 
@@ -939,6 +978,10 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-714 Free space indicator in drive bar — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-715 Network drives in list — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-716 Virtual root "My computer" / list of drives as folder — — — "/" root on macOS/Linux; drive list as virtual folder on Windows
+- [x] F-871 Network and unreachable-volume hang resistance: all directory listing, size calculation and refresh on network/removable volumes runs off the UI thread with a timeout — — — with an SMB/NFS mount whose server is unplugged, opening it shows "Not responding, retrying…" within 3 s; the other panel, tabs and menus stay usable; Esc or Cancel returns to the previous folder; the drive list does not block on stale mounts
+- [ ] F-872 Folder size treemap of current folder (shared engine with mormiDiskFree) — — — command shows a treemap of the panel folder with sizes calculated in background; clicking a block navigates there; Esc returns to the list; sizes cached and reused by F-183
+- [ ] F-873 iCloud Drive and OneDrive placeholder awareness — — — a column/icon shows online-only vs downloaded; opening or copying an online-only file triggers the download with progress instead of failing; search and size calculation don't force downloads
+- [ ] F-874 Versions of this file/folder from filesystem snapshots (ZFS/Btrfs first, then APFS local snapshots and Windows VSS) — — — command lists available snapshot versions with dates; choosing one opens it in the other panel for compare or copy back
 
 ## 39. Logging, errors and safety
 
@@ -948,6 +991,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 - [ ] F-720 Elevation when access denied (Windows UAC "Continue as administrator") — — — Windows: retry elevated helper; macOS/Linux: show clear message (N/A sudo)
 - [~] F-721 Protect against copying folder into itself — — — copying a folder into its own subfolder is refused with message
 - [ ] F-722 Never follow symlink loops infinitely — — — recursive copy/size calc detects loops
+- [ ] F-875 Zero-network test: app makes no outbound connection unless the user opens a remote location or clicks Check for updates — — — CI test launches the app in control mode with network monitoring, runs a scripted session (browse, view, copy, search, thumbnails, Markdown preview with remote images) and fails on any outbound connection; docs/privacy.md links the test
 
 ## 40. Scripted control mode and testing infrastructure (our addition)
 
@@ -1005,4 +1049,4 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 
 ---
 
-Total: 853 items (26 marked N/A).
+Total: 875 items (26 marked N/A).
