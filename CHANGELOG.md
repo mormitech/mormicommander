@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.85 – 2026-11-14
+
+### Added
+
+- Issue #110: Find Files can now be a modeless window, like Total Commander's. New switch FindFiles.Modeless (ini key SearchDefaults:Modeless), off by default, so Find Files stays modal as before. When on (and dialogs show in their own windows), the main window is not dimmed and keeps working, keys not meant for Find go to the panels, activating the main window puts focus back on the panel, and Alt+F7 while Find is open brings its window to the front. Dialogs opened from Find (save search, save list, delete, overwrite) appear over the Find window; a modal dialog opened from the main window blocks only the main window. Dialogs that must stay inside the page remain modal.
+
 ## 0.9.84 – 2026-11-14
 
 ### Added
