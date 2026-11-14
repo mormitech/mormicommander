@@ -107,7 +107,9 @@ command({ name: 'cm_OpenWith', label: 'Open with…', menu: 'Files', menuAfter: 
 // ---- terminal, Finder / Explorer, desktop ----
 
 command({
-  name: 'cm_ExecuteDOS', label: 'Open terminal here',
+  // Ctrl+Alt+T (Ctrl+Option+T on a Mac), the usual terminal key of Linux desktops; also "cmd", "terminal" or "term"
+  // in the command line (features/cmdline.js)
+  name: 'cm_ExecuteDOS', label: 'Open terminal here', keys: ['Ctrl+Alt+T'],
   run: async (app) => {
     await go.SystemLaunch.Terminal(app.cur.path);
     app.flash(`Opened a terminal in ${app.cur.path}.`);

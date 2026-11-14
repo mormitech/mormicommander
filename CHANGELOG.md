@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.12 – 2026-11-14
+
+### Added
+
+- Opening a terminal in the current folder from the command line: "terminal" or "term" on every system, and "cmd"
+  on macOS and Linux (Windows runs cmd.exe itself, as before). A shell's name alone (zsh, bash, fish...) on macOS and
+  Linux starts that shell in a terminal in the current folder.
+- Ctrl+Alt+T (Ctrl+Option+T on a Mac) opens a terminal in the current folder (cm_ExecuteDOS), the usual terminal key
+  of Linux desktops.
+
 ## 0.10.11 – 2026-11-14
 
 ### Added

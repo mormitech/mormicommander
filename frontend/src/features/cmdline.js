@@ -6,7 +6,7 @@
 import { command, hasCommand, commandList, run } from '../core/registry.js';
 import { cmdline, addCmdlineHandler } from '../core/cmdline.js';
 import { app as theApp } from '../core/app.js';
-import { go } from '../core/go.js';
+import { go, errText } from '../core/go.js';
 
 const quote = (s) => (/[\s"'&|;<>()$`\\]/.test(s) && theApp.platform !== 'windows') || /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
 
@@ -23,6 +23,32 @@ async function expandEnv(s) {
   if (!/[$%]/.test(s)) return s;
   try { return (await go.SystemLaunch.ExpandEnv(s)) || s; } catch { return s; }
 }
+
+// terminalWord: a line that asks for a terminal in the current folder. "terminal" and "term" everywhere, "cmd" on
+// macOS and Linux (as on Windows, where "cmd" itself already opens one): {kind: 'terminal'}. A shell's name alone
+// ("zsh", "bash"...) on macOS and Linux: {kind: 'shell'}, run in a terminal that stays open, since a shell needs a
+// terminal window of its own. Anything else: null.
+export const SHELLS = ['sh', 'bash', 'zsh', 'fish', 'dash', 'ksh', 'tcsh', 'csh', 'nu', 'pwsh', 'xonsh', 'elvish'];
+export function terminalWord(text, platform) {
+  const t = text.trim();
+  if (/^(terminal|term)$/i.test(t)) return { kind: 'terminal' };
+  if (platform === 'windows') return null;
+  if (/^cmd$/i.test(t)) return { kind: 'terminal' };
+  if (SHELLS.includes(t)) return { kind: 'shell' };
+  return null;
+}
+
+addCmdlineHandler(async (text) => {
+  const w = terminalWord(text, theApp.platform);
+  if (!w) return false;
+  const app = theApp, p = app.cur;
+  if (w.kind === 'terminal') { await app.run('cm_ExecuteDOS'); return true; }
+  try {
+    await go.SystemLaunch.RunLine(text.trim(), p.path, true);
+    app.flash(`Started ${text.trim()} in a terminal.`);
+  } catch (e) { app.flash(errText(e), 'err'); }
+  return true;
+});
 
 addCmdlineHandler(async (text) => {
   const raw = cdArg(text);
