@@ -120,6 +120,15 @@ test('the privacy statement links the zero-network test, and the test files exis
   for (const f of ['privacy_test.go', 'privacy_session_test.go', 'frontend/test/privacy.test.js', 'frontend/test/viewer-noremote.test.js']) {
     expect(privacy).toContain(`(../${f})`);
   }
+  // the whole-app test (board issue #14): the scripts are linked, and CI runs the self-test before the session
+  expect(readme).toContain('(scripts/zero_network.sh)');
+  for (const f of ['scripts/zero_network.sh', 'scripts/zero_network.py', 'scripts/test_zero_network.py']) {
+    expect(privacy).toContain(`(../${f})`);
+  }
+  const workflow = readFileSync(join(repo, '.github', 'workflows', 'build.yml'), 'utf8');
+  const self = workflow.indexOf('zero_network.sh --selftest');
+  expect(self).toBeGreaterThan(0);
+  expect(workflow.indexOf('zero_network.sh --out', self)).toBeGreaterThan(self);
 });
 
 test('there is one canonical download page, and releases carry checksums', () => {
