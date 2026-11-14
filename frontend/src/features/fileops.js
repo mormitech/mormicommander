@@ -550,7 +550,7 @@ function startRename(app) {
     ed.closed = true;
     input.remove();
     if (editor === ed) editor = null;
-    if (app.cur === p && !document.querySelector('.mc-modal')) p.$.list.focus({ preventScroll: true });
+    if (app.cur === p && !document.querySelector('.mc-modal:not(.mc-modeless)')) p.$.list.focus({ preventScroll: true });
   };
   ed.close = finish;
   let committing = false;

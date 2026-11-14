@@ -28,3 +28,5 @@
 .mc-mirror-box > h2:first-of-type, .mc-mirror-box > .mc-close { display: none !important; }
 .mc-box.mc-mirror-box.mc-mirror-fixed { width: var(--mc-mirror-w) !important; height: var(--mc-mirror-h) !important; min-width: 0 !important; max-width: none !important; min-height: 0 !important; max-height: none !important; }
 .mc-mirror-layer { opacity: 0 !important; pointer-events: none !important; }
+/* A modeless dialog in a window (Find files with FindFiles.Modeless, dialogs.js): the page is neither dimmed nor covered. */
+.mc-modal.mc-modeless { background: transparent !important; pointer-events: none !important; }

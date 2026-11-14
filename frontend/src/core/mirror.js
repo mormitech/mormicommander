@@ -440,6 +440,9 @@ class Session {
     globalsIdle();
   }
 
+  // focus brings the window to the front with the focus (Alt+F7 again while the modeless Find files window is open).
+  focus() { if (this.name && !this.closed) go.DialogWindows.Focus(this.name).catch(() => {}); }
+
   info() {
     return { name: this.name || '', shown: this.shown, openMs: this.openMs, paintMs: this.paintMs ?? null, steps: this.steps || null, error: this.error || '', wakes: this.wakes || 0, title: this.title, resized: this.userSized, layers: this.roots.size - 1 };
   }
@@ -478,6 +481,16 @@ function enterDefault(el) {
 }
 
 const topSession = () => { for (let k = stack.length - 1; k >= 0; k--) if (!stack[k].closed) return stack[k]; return null; };
+
+// popupSession is the dialog window a popup list is drawn in: a detached dialog (a modeless Find files window, or one
+// opened from it, dialogs.js) when the focus is in it, else the top dialog window that is not detached (with no
+// detached dialog open, simply the top one). A popup the page opens while only detached dialogs are open stays there.
+function popupSession() {
+  const ae = document.activeElement;
+  for (let k = stack.length - 1; k >= 0; k--) { const s = stack[k]; if (!s.closed && s.entry.detached && s.inTree(ae)) return s; }
+  for (let k = stack.length - 1; k >= 0; k--) { const s = stack[k]; if (!s.closed && !s.entry.detached) return s; }
+  return null;
+}
 
 // ---- the hooks this page needs while a dialog is in a window (installed once) ----
 
@@ -557,7 +570,7 @@ function install() {
   bodyMo = new MutationObserver((recs) => {
     for (const r of recs) {
       for (const n of r.addedNodes) {
-        if (n.nodeType === 1 && n.classList.contains('mc-popup')) topSession()?.addLayer(n);
+        if (n.nodeType === 1 && n.classList.contains('mc-popup')) popupSession()?.addLayer(n);
       }
       for (const n of r.removedNodes) {
         if (n.nodeType !== 1) continue;
@@ -567,7 +580,7 @@ function install() {
   });
   envMo = new MutationObserver(() => { const e = env(); for (const s of live) s.send([{ o: 'e', env: e }]); });
   setPopupArea(() => {
-    const s = topSession();
+    const s = popupSession();
     if (!s) return null;
     const r = s.box.getBoundingClientRect();
     return { left: r.left, top: r.top, right: r.right, bottom: r.bottom };
@@ -612,7 +625,8 @@ export function mirrorDialog(entry, back, box, t0, onFail) {
   s.title = titleOf(box);
   const bg = getComputedStyle(box).backgroundColor;
   const payload = { tree, focus, sel: focus ? selOf(ae) : null, env: env(), t0, sent: now() };
-  go.DialogWindows.Open({ kind: entry.meta.kind || '', title: s.title, w: size.w, h: size.h, resizable: isBigDialog(size.w, size.h), bg, payload }).then((r) => {
+  const detached = entry.detached ? { modeless: true, over: entry.over || '' } : {}; // (dialogs.js: a modeless dialog)
+  go.DialogWindows.Open({ kind: entry.meta.kind || '', title: s.title, w: size.w, h: size.h, resizable: isBigDialog(size.w, size.h), bg, payload, ...detached }).then((r) => {
     if (s.closed) { if (r?.name) go.DialogWindows.Close(r.name).catch(() => {}); return; }
     s.name = r.name;
     sessions.set(r.name, s);

@@ -76,7 +76,7 @@ export const app = {
       panel.el.classList.toggle('active', panel === this.cur);
       panel.renderRows();
     }
-    if (focus && !document.querySelector('.mc-modal')) {
+    if (focus && !document.querySelector('.mc-modal:not(.mc-modeless)')) { // (a modeless Find files window does not count)
       const ae = document.activeElement;
       if (!ae || ae === document.body || ae.closest?.('.panel') || ae.id === 'cmd') this.cur.$.list.focus({ preventScroll: true });
     }

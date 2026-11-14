@@ -306,3 +306,20 @@ func TestDialogWindowNoFullScreen(t *testing.T) {
 		t.Fatalf("spare dialog window buttons: max %d min %d", o.MaximiseButtonState, o.MinimiseButtonState)
 	}
 }
+
+// TestTopOfSkipsModeless checks board issue #110: a modeless dialog window (Find files with FindFiles.Modeless on) is
+// never the top dialog of its owner, so the owner keeps its focus and a modal dialog opened later goes over the owner.
+func TestTopOfSkipsModeless(t *testing.T) {
+	modal, modeless := &DialogOpenRequest{Kind: "copy"}, &DialogOpenRequest{Kind: "find", Modeless: true}
+	dw := &DialogWindows{wins: map[string]*dialogWin{
+		"dialog-1": {name: "dialog-1", req: modeless, ownerName: "main", order: 1},
+	}}
+	if v := dw.topOf("main"); v != nil {
+		t.Fatalf("a modeless window alone is no top: %v", v.name)
+	}
+	dw.wins["dialog-2"] = &dialogWin{name: "dialog-2", req: modal, ownerName: "main", order: 2}
+	dw.wins["dialog-3"] = &dialogWin{name: "dialog-3", req: modeless, ownerName: "main", order: 3}
+	if v := dw.topOf("main"); v == nil || v.name != "dialog-2" {
+		t.Fatalf("top over main: %v", v)
+	}
+}

@@ -295,3 +295,16 @@ func TestHiddenFilesOptions(t *testing.T) {
 		}
 	}
 }
+
+// TestFindModelessOption checks the option of board issue #110: Find files stays modal unless it is turned on, and it
+// is read from and written to its ini key.
+func TestFindModelessOption(t *testing.T) {
+	d := Defaults()
+	if got, err := d.Get("FindFiles.Modeless"); err != nil || got != "0" {
+		t.Errorf("default FindFiles.Modeless = %q, %v; want 0", got, err)
+	}
+	s, _ := LoadSettings(ParseString("[SearchDefaults]\nModeless=1\n"))
+	if !s.FindFiles.Modeless {
+		t.Error("SearchDefaults:Modeless=1 not loaded")
+	}
+}

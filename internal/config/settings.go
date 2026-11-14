@@ -450,6 +450,9 @@ type FindFilesPage struct {
 	HiddenFromPanel bool   `ini:"SearchDefaults:HiddenFollowsPanel" def:"0" label:"New searches include hidden files when the panel shows them"`
 	FollowLinks     bool   `ini:"SearchDefaults:FollowLinks" def:"0" label:"Follow symbolic links"`
 	MaxResults      int    `ini:"SearchDefaults:MaxResults" def:"0" min:"0" max:"10000000" label:"Stop after this many results (0 = none)"`
+	// Modeless (board issue #110): the Find files window leaves the main window usable, as TC's does. Off by default,
+	// so Find files keeps blocking the main window as it always did; it works with dialogs in windows of their own.
+	Modeless bool `ini:"SearchDefaults:Modeless" def:"0" label:"Find files window does not block the main window"`
 }
 
 // FieldInfo describes one option for dialogs, search and control mode.

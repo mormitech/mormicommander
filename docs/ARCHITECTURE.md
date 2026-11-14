@@ -232,6 +232,9 @@ real elements; the box stays invisible in that page and a native window shows a 
 Popup lists and menus drawn as floating boxes (`position: fixed`) are not windows: over a dialog window they are drawn
 inside it as a layer, otherwise in the page. Kinds that cannot be mirrored stay in the page (`PAGE_ONLY_KINDS` in
 `core/mirror-dom.js`, with the reason for each; today only `lister`), and so do the kinds in the setting `dialogsInPage`.
+`meta.modeless` (today only Find files, with the option FindFiles.Modeless, off by default) makes a dialog in a window
+leave its page usable: no dimming, the page keeps the keys not aimed at the dialog (`keyOwner`), and the dialogs opened
+from it go over its window (Go skips modeless windows in `topOf`). In the page it stays modal.
 A feature needs nothing special for its dialog to open in a window; it should only not keep references to elements
 of other windows, and not rely on `getBoundingClientRect` of its box being on the screen.
 

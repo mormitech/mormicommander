@@ -22,7 +22,9 @@
 //     times (dialogWake in dialogwin_logic.go, wakeWindow per system), so a window never stays an empty box.
 //
 // While a dialog window is open, the window that asked for it stays dimmed and gives the keyboard to the dialog; when it
-// gets the focus (a click on it), the top dialog window takes it back, the way system dialogs behave. Control mode
+// gets the focus (a click on it), the top dialog window takes it back, the way system dialogs behave. A modeless dialog
+// window (Find files with the option FindFiles.Modeless, like TC's) is the exception: it stays above its window, but that
+// window is not dimmed and keeps its focus and keys; the dialogs opened from it go over it (Over). Control mode
 // lists the dialog windows with "windows" (kind "dialog", the dialog's kind and title, shown, bounds, timings).
 package main
 
@@ -57,6 +59,12 @@ type DialogOpenRequest struct {
 	Resizable bool            `json:"resizable"` // big tool windows can be resized
 	Bg        string          `json:"bg"`        // the dialog's background ("rgb(r, g, b)"), so the window never flashes another colour
 	Payload   json.RawMessage `json:"payload"`   // the dialog itself, for the window's page (opaque here)
+	// Modeless: the dialog does not block the window that asked for it (Find files with FindFiles.Modeless on, and the
+	// dialogs opened from it): that window keeps its focus and keys, and a modal dialog opened from it later is put
+	// over it, not over this one. Over names the dialog window it was opened from ("" for none: the window below it is
+	// the newest modal one, as always).
+	Modeless bool   `json:"modeless,omitempty"`
+	Over     string `json:"over,omitempty"`
 }
 
 // dialogWin is one dialog window as Go knows it.
@@ -134,7 +142,9 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	v, rest, _ := takeSpare(dw.spares, func(s *dialogWin) bool { return s.ready }) // a loaded spare, else any
 	dw.spares = rest
 	parent := owner
-	if top := dw.topOf(owner.Name()); top != nil {
+	if over := dw.wins[req.Over]; req.Over != "" && over != nil && over.req != nil && over.ownerName == owner.Name() {
+		parent = over.w // (opened from a modeless dialog window: it goes over that one)
+	} else if top := dw.topOf(owner.Name()); top != nil {
 		parent = top.w
 	}
 	dw.mu.Unlock()
@@ -337,6 +347,16 @@ func (dw *DialogWindows) FocusTop(ctx context.Context) {
 	}
 }
 
+// Focus gives the focus to the dialog window named (Alt+F7 while the modeless Find files window is open).
+func (dw *DialogWindows) Focus(name string) {
+	dw.mu.Lock()
+	v := dw.wins[name]
+	dw.mu.Unlock()
+	if v != nil && v.req != nil {
+		v.Focus()
+	}
+}
+
 // Close closes a dialog window after its dialog got its answer.
 func (dw *DialogWindows) Close(name string) {
 	dw.mu.Lock()
@@ -366,8 +386,14 @@ func (dw *DialogWindows) keepOpen(v *dialogWin) bool {
 	dw.mu.Lock()
 	byUser := v.req != nil && !v.byPage && v.owner != nil && !dw.app.isQuitting()
 	top := dw.topOf(v.ownerName)
+	isTop := top == v
+	if v.req != nil && v.req.Modeless {
+		// (a modeless window is not under the modal ones of its owner: only a dialog opened from it, which
+		// blockingClose has already looked for, keeps it from closing)
+		isTop = true
+	}
 	now := time.Now()
-	choice := closeChoice(byUser, top == v, v.asked, now)
+	choice := closeChoice(byUser, isTop, v.asked, now)
 	if choice == closeAskPage {
 		v.asked = now
 	}
@@ -497,6 +523,14 @@ func (dw *DialogWindows) closing(v *dialogWin) {
 	if owner != nil {
 		next = dw.topOf(owner.Name())
 	}
+	if req != nil && req.Modeless && v.parent != nil {
+		// (a dialog opened from the modeless Find files window gives the focus back to that window; the modeless
+		// window itself gives it to its owner, which hands it on to a modal dialog of its own if it has one)
+		next = nil
+		if p := dw.wins[v.parent.Name()]; p != nil && p.req != nil {
+			next = p
+		}
+	}
 	dw.mu.Unlock()
 	if req == nil {
 		return
@@ -570,11 +604,13 @@ func (dw *DialogWindows) watch(v *dialogWin, shownAt time.Time) {
 // Focus gives the window the focus.
 func (v *dialogWin) Focus() { v.w.Focus() }
 
-// topOf is the newest shown-or-showing dialog window over the window named (nil for none). dw.mu is held.
+// topOf is the newest shown-or-showing modal dialog window over the window named (nil for none): the one that has the
+// keyboard, gets the focus when its owner is clicked, and goes below the next dialog. Modeless dialog windows (Find
+// files with FindFiles.Modeless on) never count. dw.mu is held.
 func (dw *DialogWindows) topOf(owner string) *dialogWin {
 	var top *dialogWin
 	for _, v := range dw.wins {
-		if v.req != nil && v.ownerName == owner && (top == nil || v.order > top.order) {
+		if v.req != nil && !v.req.Modeless && v.ownerName == owner && (top == nil || v.order > top.order) {
 			top = v
 		}
 	}

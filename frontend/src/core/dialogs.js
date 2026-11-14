@@ -9,6 +9,12 @@
 // is drawn inside the dialog window below it when there is one, else in the page; the kinds in PAGE_ONLY_KINDS
 // (mirror-dom.js) and in the setting "dialogsInPage" (a list of kinds) always stay in the page.
 //
+// meta.modeless (Find files with the option FindFiles.Modeless, board issue #110) makes a dialog that shows in a window
+// leave the page usable, as TC's Find files is: the page is not dimmed, keys meant for the page reach it, and the page
+// gets its own focus back when its window is activated. Such a dialog and every dialog opened from it are "detached":
+// they take only the keys aimed at them (keyOwner), and a modal dialog the page opens meanwhile goes on top as usual.
+// A modeless dialog that has to stay in the page (no dialog windows) is modal as before.
+//
 //   await messageDialog({Title, Message, Buttons: ['Overwrite', 'Skip', 'Cancel'], DefaultButton, CancelButton}) → label
 //   await inputDialog({title, label, value, select: [0, 4], okLabel}) → text or null
 //   await formDialog(title, html, read, setup) → what read(box) returns, or null
@@ -84,10 +90,48 @@ function windowsWanted(kind) {
   return !(Array.isArray(extra) && extra.includes(kind));
 }
 
+// keyOwner is the open dialog a key aimed at target is for: the detached dialog it is in (or the newest dialog opened
+// from that one), else the newest dialog that is not detached; null when the key is the page's (no modal dialog open).
+// With no modeless dialog open this is always the top dialog, as it has always been.
+export function keyOwner(list, target) {
+  const inside = target && list.findLast((e) => e.detached && e.back?.contains?.(target));
+  if (inside) {
+    const root = rootOf(inside);
+    return list.findLast((e) => e.detached && rootOf(e) === root) || inside;
+  }
+  return list.findLast((e) => !e.detached) || null;
+}
+const rootOf = (e) => { while (e.under?.detached) e = e.under; return e; };
+
+// focusDialog brings the window of the open dialog whose box is given to the front with the focus (nothing for a
+// dialog in the page).
+export function focusDialog(box) { open.find((e) => e.box === box)?.mirror?.focus?.(); }
+
+// keyOwnerBox is the box of the dialog a key aimed at target is for (keyOwner), for features that look at keys first.
+export const keyOwnerBox = (target) => keyOwner(open, target)?.box || null;
+
+// A page that gets the focus back (its window was activated) while the focus is still on the hidden copy of a
+// detached dialog gives it to what had it before that dialog opened, so the panels have the keys again.
+let focusHooked = false;
+function hookPageFocus() {
+  if (focusHooked) return;
+  focusHooked = true;
+  window.addEventListener('focus', () => {
+    const ae = document.activeElement;
+    const e = ae && open.find((x) => x.detached && x.back.contains(ae));
+    if (!e) return;
+    const back = rootOf(e).prevFocus;
+    if (back?.isConnected && !open.some((x) => x.back.contains(back))) back.focus?.({ preventScroll: true });
+    else ae.blur?.();
+  });
+}
+
 export function modal(build, cancelValue, meta = {}) {
   const t0 = now();
   return waitForUser(new Promise((resolve) => {
     const prevFocus = document.activeElement;
+    // the open dialog this one is opened from (the focus is in it); a dialog opened from a detached one is detached too
+    const under = prevFocus ? open.findLast((e) => e.back.contains(prevFocus)) || null : null;
     const back = document.createElement('div');
     back.className = 'mc-modal';
     back.setAttribute('role', 'dialog');
@@ -97,16 +141,18 @@ export function modal(build, cancelValue, meta = {}) {
     box.autocomplete = 'off';
     back.append(box);
     let closed = false;
-    const entry = { box, meta, done: null };
+    const entry = { box, back, meta, done: null, under, prevFocus, detached: false };
     const done = (v) => {
       if (closed) return;
       closed = true;
+      // (a detached dialog gives the focus back only when it still has it: the user may be working in the panels)
+      const hadFocus = !entry.detached || !document.activeElement || document.activeElement === document.body || back.contains(document.activeElement);
       entry.mirror?.close();
       entry.layerOf?.removeLayer(back);
       back.remove();
       open.splice(open.indexOf(entry), 1);
       window.removeEventListener('keydown', key, true);
-      prevFocus?.focus?.();
+      if (hadFocus) prevFocus?.focus?.();
       resolve(v);
     };
     entry.done = done;
@@ -121,10 +167,10 @@ export function modal(build, cancelValue, meta = {}) {
       const ev = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true, composed: true, view: window });
       target.dispatchEvent(ev);
       // (nothing took the key although this dialog is on top: cancel it, as before)
-      if (!closed && !ev.defaultPrevented && open[open.length - 1] === entry) done(cancelValue);
+      if (!closed && !ev.defaultPrevented && keyOwner(open, target) === entry) done(cancelValue);
     };
     const key = (ev) => {
-      if (open[open.length - 1] !== entry) return;
+      if (keyOwner(open, ev.target) !== entry) return;
       // meta.onKey(ev) → true: the dialog used the key itself (F2 Queue in the copy dialog, a dropdown's Esc)
       if (meta.onKey?.(ev)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); done(cancelValue); return; }
@@ -132,7 +178,8 @@ export function modal(build, cancelValue, meta = {}) {
     };
     window.addEventListener('keydown', key, true);
     build(box, done);
-    const below = open[open.length - 1];
+    // the dialog window a floating box is drawn in: the detached dialog it was opened from, else the top modal one
+    const below = under?.detached ? under : open.findLast((e) => !e.detached);
     open.push(entry);
     document.body.append(back);
     // where it shows: a window of its own, a layer of the dialog window below it (a floating box), or the page
@@ -142,10 +189,25 @@ export function modal(build, cancelValue, meta = {}) {
       else if (below?.mirror?.alive) mode = 'layer';
     }
     if (mode === 'page') draggable(box, meta.kind);
+    // detached: a modeless dialog in a window, or a window or layer opened from a detached dialog
+    if (mode !== 'page' && (meta.modeless && mode === 'window' || under?.detached)) {
+      entry.detached = true;
+      entry.over = under?.detached ? (under.mirror?.name || under.layerOf?.name || '') : '';
+      back.classList.add('mc-modeless');
+      back.setAttribute('aria-modal', 'false');
+      hookPageFocus();
+    }
     const first = box.querySelector('[autofocus]') || box.querySelector('.primary') || box.querySelector('button');
     first?.focus();
     if (first?.select && first.dataset.select) { const [a, b] = first.dataset.select.split(',').map(Number); first.setSelectionRange(a, b); }
-    if (mode === 'window') entry.mirror = mirrorDialog(entry, back, box, t0, () => { if (!closed) draggable(box, meta.kind); });
+    if (mode === 'window') {
+      entry.mirror = mirrorDialog(entry, back, box, t0, () => {
+        if (closed) return;
+        draggable(box, meta.kind);
+        // (no window after all: the dialog is in the page, so it is modal again)
+        if (entry.detached && !under?.detached) { entry.detached = false; back.classList.remove('mc-modeless'); back.setAttribute('aria-modal', 'true'); }
+      });
+    }
     if (mode === 'layer') {
       // (placed by its builder in a moment, often in an animation frame: the layer is made after that)
       const layerOf = below.mirror;
@@ -155,7 +217,9 @@ export function modal(build, cancelValue, meta = {}) {
   }));
 }
 
-export const dialogOpen = () => open.length > 0;
+// dialogOpen tells whether a dialog that blocks the page is open (a detached one, such as a modeless Find files
+// window, does not).
+export const dialogOpen = () => open.some((e) => !e.detached);
 
 // currentDialog describes the top dialog for control mode: title, message, buttons, fields.
 export function currentDialog() {

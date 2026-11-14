@@ -7,11 +7,15 @@
 // answers it ("dialog_answer"): fields have ids ff-…, the tabs and every action are buttons. The control command "find"
 // tells the results. A result list fed to a panel is the folder find://results-N; Panel.pathHooks maps its names to the
 // real files, so every file command works on it.
+//
+// With the option FindFiles.Modeless (off by default; board issue #110) the dialog is modeless, as TC's is: its window
+// leaves the main window usable (core/dialogs.js meta.modeless), so the panels keep working while a search runs, and
+// Alt+F7 brings the open Find files window back to the front.
 
 import './find.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
-import { modal, messageDialog, inputDialog, formDialog, esc } from '../core/dialogs.js';
+import { modal, messageDialog, inputDialog, formDialog, esc, keyOwnerBox, focusDialog } from '../core/dialogs.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
@@ -468,11 +472,12 @@ async function viewEdit(cmd) {
   if (!files.length) { theApp.flash('Folders can\'t be viewed; choose a file.', 'err'); return; }
   if (cmd === 'cm_Edit' && files[0].a) { theApp.flash('Editing a file inside an archive is not ready yet. View it (F3), or use Go to file.', 'err'); return; }
   const box = S.box;
+  const modeless = isModeless();
   // (N / P in the Lister walk the selected results, or all the found files when one is viewed)
   const walk = files.length > 1 ? files : S.items.filter((x) => !x.f);
   await theApp.run(cmd, { path: files[0].p, paths: files.map((x) => x.p), sources: walk.map((x) => x.p), from: 'find' });
   const a = document.activeElement;
-  if (box && S.box === box && (!a?.closest('.mc-modal') || box.contains(a))) box.querySelector('.mc-find-list')?.focus({ preventScroll: true });
+  if (box && S.box === box && ((!a?.closest('.mc-modal') && !modeless) || box.contains(a))) box.querySelector('.mc-find-list')?.focus({ preventScroll: true });
 }
 
 async function feed() {
@@ -558,13 +563,17 @@ async function deleteSaved() {
 // The core's modal() takes every key while a dialog is open; this listener runs before it (it is added before the
 // dialog opens) and handles the keys of the Find dialog: Esc stops a running search instead of closing, Ctrl+Tab
 // switches tabs, and the result list's keys (arrows, Enter, F3, F4, Ctrl+A, Ctrl+C).
-function isTop() {
+// A modeless Find files window (FindFiles.Modeless) takes only the keys aimed at it, not the panels' keys.
+const isModeless = () => !!S.box?.parentElement?.classList.contains('mc-modeless');
+
+function isTop(ev) {
+  if (isModeless()) return keyOwnerBox(ev.target) === S.box;
   const all = document.querySelectorAll('.mc-modal');
   return S.box && all[all.length - 1] === S.box.parentElement;
 }
 
 function onKey(ev) {
-  if (!isTop() || ev.isComposing) return;
+  if (!isTop(ev) || ev.isComposing) return;
   const combo = comboFromEvent(ev);
   const stop = () => { ev.preventDefault(); ev.stopImmediatePropagation(); };
   if (combo === 'Esc' && S.running) { stop(); stopSearch(); return; }
@@ -596,7 +605,7 @@ function onKey(ev) {
 // ---- opening the dialog ----
 
 async function openDialog(app, args = {}) {
-  if (S.box) { S.box.querySelector('#ff-for')?.focus(); return; }
+  if (S.box) { S.box.querySelector('#ff-for')?.focus(); focusDialog(S.box); return; }
   listen();
   const p = app.cur;
   let setup;
@@ -668,7 +677,7 @@ async function openDialog(app, args = {}) {
     requestAnimationFrame(render);
     if (args.fields) for (const [id, v] of Object.entries(args.fields)) { const el = box.querySelector(`#${CSS.escape(id)}`); if (el) { if (el.type === 'checkbox') el.checked = !!v; else el.value = v; } }
     if (args.start) queueMicrotask(startSearch);
-  }, null, { kind: 'find' });
+  }, null, { kind: 'find', modeless: optOn('FindFiles.Modeless') });
   shown.then(() => {
     window.removeEventListener('keydown', onKey, true);
     if (S.running) stopSearch();
