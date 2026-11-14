@@ -7,6 +7,9 @@ import { MORE_BRIDGE } from './optbridge.js';
 
 // The options as text by "Page.Field" name ("1"/"0" for yes/no), as Go's Configuration.Values returns them.
 export const state = { values: {}, schema: null, loaded: false };
+// barCounts: how many buttons each button bar has (buttonbar.js keeps it current), so the Options dialog can say a bar
+// is empty: "Show vertical button bar" shows nothing until the vertical bar has buttons, and it has none at first.
+export const barCounts = { main: 0, vertical: 0 };
 
 // loadValues reads the options from Go. With app, options that another feature also keeps (BRIDGE below) take the
 // app's live value, so a change made there (Ctrl+= for the font, Ctrl+Shift+H for the panels) is not undone.

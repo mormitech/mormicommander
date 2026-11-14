@@ -17,7 +17,7 @@ import { go, errText } from '../../core/go.js';
 import { LABELS } from '../../core/app.js';
 import { refreshMenu } from '../../core/menus.js';
 import { renderFkeys } from '../../core/fkeys.js';
-import { state, loadSchema, loadValues, currentValue, BRIDGE, fillSelect } from './util.js';
+import { state, loadSchema, loadValues, currentValue, BRIDGE, fillSelect, barCounts } from './util.js';
 import { keyText } from './keys.js';
 import { applyAll, loadColors } from './layout.js';
 import { matchesAll, searchWords } from './search.js';
@@ -85,12 +85,16 @@ export const commandLabel = (n) => (getCommand(n)?.label || LABELS[n] || n).repl
 // saying so; Misc.HideNoEffect leaves these options out of the dialog (the class on the dialog, see config.css).
 const NO_EFFECT_TAG = '<span class="mc-config-tag" title="This option is kept in the settings file, but mormiCommander does not act on it yet.">no effect yet</span>';
 const HIDE_NO_EFFECT = 'Misc.HideNoEffect';
+// A bar option whose bar has no buttons: turning it on shows nothing, so the option says why (Configuration > Change
+// button bar adds buttons). The option itself works; it is not marked as having no effect.
+const BAR_OF = { 'Layout.ButtonBar': 'main', 'Layout.ButtonBarVertical': 'vertical' };
+const EMPTY_BAR_TAG = '<span class="mc-config-tag" title="This bar has no buttons yet, so it shows nothing. Add buttons with Configuration > Change button bar.">bar is empty</span>';
 
 function fieldHTML(f, value) {
   const id = esc(f.name);
   const name = f.name.split('.').pop();
   const ne = f.noEffect ? ' mc-config-noeffect' : '';
-  const tag = f.noEffect ? ` ${NO_EFFECT_TAG}` : '';
+  const tag = f.noEffect ? ` ${NO_EFFECT_TAG}` : BAR_OF[f.name] && !barCounts[BAR_OF[f.name]] ? ` ${EMPTY_BAR_TAG}` : '';
   if (f.type === 'bool') {
     return `<label class="mc-check mc-config-field${ne}" data-field="${id}"><input type="checkbox" id="${id}"${value === '1' ? ' checked' : ''}> ${esc(f.label)}${tag}</label>`;
   }

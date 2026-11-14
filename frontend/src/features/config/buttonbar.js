@@ -15,7 +15,7 @@ import { addControlCommand } from '../../core/control.js';
 import { track } from '../../core/busy.js';
 import { go, errText, onFileDrop } from '../../core/go.js';
 import { app as theApp } from '../../core/app.js';
-import { on, fillSelect, applyOptions } from './util.js';
+import { on, fillSelect, applyOptions, barCounts } from './util.js';
 import { svg, iconName } from './icons.js';
 import { runButton, realCommand } from './run.js';
 import { applyLayout } from './layout.js';
@@ -45,6 +45,7 @@ const tipOf = (b) => {
 export function renderBars() {
   for (const which of ['main', 'vertical']) {
     const el = document.getElementById(ELS[which]);
+    barCounts[which] = (bars[which].buttons || []).filter((b) => !b.sep).length;
     if (!el) continue;
     el.classList.add('mc-config-bar');
     el.classList.toggle('mc-config-bar-flat', !!look.flat);

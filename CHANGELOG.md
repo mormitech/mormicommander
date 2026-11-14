@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.4 – 2026-11-14
+
+### Changed
+
+- Options > Layout: "Show button bar" and "Show vertical button bar" say "bar is empty" while their bar has no
+  buttons (the vertical bar has none at first), since turning them on shows nothing then; Configuration > Change button
+  bar adds buttons. A review of the other options found none that is read but does nothing, so no new "no effect yet"
+  marks were needed.
+
 ## 0.10.3 – 2026-11-14
 
 ### Added
