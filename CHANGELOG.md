@@ -6,6 +6,26 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.21 – 2026-11-14
+
+### Added
+
+- AI step 3 (#146): **Ask AI…** (Ctrl+Shift+A, also Shift+Cmd+A on a Mac; Commands menu), a modeless dialog for
+  requests like "swap the panels", "sort by date, newest first", "show hidden files", "turn on dark mode", "make up a
+  dark colour scheme" or "pack the selected files into test.zip". It uses the provider chosen in Options > AI, keeps a
+  prompt history (Up/Down) and shows the tool calls and the answer; Stop or closing ends the run.
+- New AI tools, all non-destructive:
+  - `list_commands` / `run_command`: only commands on a reviewed allow-list (navigation, cursor, panels, tabs, views,
+    sorting, hidden files, quick filter, branch view, compare marks, selection, bars, zoom); everything else, and any
+    command added later, is refused.
+  - `open_folder`, `set_panel_paths`.
+  - `list_settings` / `get_setting` / `set_setting`: look and view options only, values checked; nothing about
+    programs, paths, confirmations, the trash, the network or the AI.
+  - `get_colors` / `set_colors` / `restore_colors`: colour schemes with a minimum contrast, and every AI change can be
+    put back for the session.
+  - `pack_files`: a new archive only; it refuses when one of that name already exists.
+- Nothing in the toolset deletes, moves, renames, overwrites or runs programs.
+
 ## 0.10.20 – 2026-11-14
 
 ### Added

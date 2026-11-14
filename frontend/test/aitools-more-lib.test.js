@@ -169,3 +169,13 @@ test('providerLines: Claude Code as in step 1, other providers in the same plain
   expect(providerLines({ openrouter: { available: true, model: 'some/model' } }).lines[0].text).toBe('OpenRouter (some/model) is ready.');
   expect(providerLines(null)).toEqual({ ok: false, lines: [{ ok: false, text: 'AI is not available in this build.' }] });
 });
+
+test('with a selected provider (step 2), the Ask line is that provider only', async () => {
+  const { providerLines } = await import('../src/features/aitools-more-lib.js');
+  const r = providerLines({ selected: 'openrouter', claude: { available: true, path: '/x/claude', version: '2' }, openrouter: { available: true, model: 'm/x', url: 'https://openrouter.ai/api/v1' } });
+  expect(r.ok).toBe(true);
+  expect(r.lines.map((l) => l.text)).toEqual(['OpenRouter, model m/x']);
+  const c = providerLines({ selected: 'claude', claude: { available: false }, openrouter: { available: false } });
+  expect(c.ok).toBe(false);
+  expect(c.lines).toHaveLength(1);
+});

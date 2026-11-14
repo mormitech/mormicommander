@@ -305,6 +305,9 @@ export function historyStep(list, at, dir, draft = '') {
 // provider (step 2 adds "openrouter") in the same plain way. ok is true when at least one can be used.
 export function providerLines(providers) {
   if (!providers || typeof providers !== 'object') return { ok: false, lines: [{ ok: false, text: 'AI is not available in this build.' }] };
+  // Go names the provider Options > AI chose ("selected", step 2): a run with provider '' uses exactly that one, so its
+  // line is the one that matters (providerLine knows both shapes).
+  if (typeof providers.selected === 'string') { const l = providerLine(providers); return { ok: l.ok, lines: [l] }; }
   const lines = [];
   for (const [id, p] of Object.entries(providers)) {
     if (!p || typeof p !== 'object') continue;
