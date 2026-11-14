@@ -154,7 +154,8 @@ type PassiveHost int
 
 const (
 	// PassiveHostAuto replaces an announced address that cannot be right
-	// (0.0.0.0, or a private address while the server itself is public).
+	// (0.0.0.0, a private address while the server itself is public, or
+	// 127.0.0.1 while the server is another computer).
 	PassiveHostAuto PassiveHost = iota
 	// PassiveHostServer always dials the address the server announced.
 	PassiveHostServer

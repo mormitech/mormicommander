@@ -259,6 +259,11 @@ func (c *Client) replacePassiveHost(ip net.IP) bool {
 		return true
 	}
 	ctrl := net.ParseIP(c.controlHost())
+	// A loopback address is only right when the server runs on this computer too. From a server on the LAN it would
+	// make the client connect to one of its own local services (an upload sent there, a "listing" read from it).
+	if ip.IsLoopback() && ctrl != nil && !ctrl.IsLoopback() {
+		return true
+	}
 	return nonRoutable(ip) && ctrl != nil && !nonRoutable(ctrl)
 }
 
