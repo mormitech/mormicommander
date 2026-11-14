@@ -21,6 +21,7 @@ import (
 
 	"mormicommander/internal/dirsize"
 	"mormicommander/internal/lister"
+	"mormicommander/internal/vfs"
 )
 
 // Lister is what the page calls for the viewer (window.go.main.Lister).
@@ -837,6 +838,17 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 	l.sizes[key] = cancel
 	l.mu.Unlock()
 	defer cancel()
+	if rt := vfsRouter(l.app); rt != nil && rt.Kind(path) == vfs.KindArchive {
+		// a folder inside an archive: there is nothing on the disk to stat, so count it from the archive's listing
+		r, err := vfsFolderSize(ctx, rt, rt.Clean(path))
+		if err != nil && ctx.Err() != nil {
+			return r, errors.New("Stopped counting.")
+		}
+		if err != nil {
+			return r, fmt.Errorf("Can't count %s: %s", filepath.Base(path), vfsErrText(err))
+		}
+		return r, nil
+	}
 	r, err := dirsize.Calculate(ctx, path, dirsize.Options{SameVolume: true})
 	if err != nil && ctx.Err() != nil {
 		return r, errors.New("Stopped counting.")
@@ -844,6 +856,37 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 	if err != nil {
 		return r, listerOpenError(path, err)
 	}
+	return r, nil
+}
+
+// vfsFolderSize counts a folder that lives inside an archive by walking the router's listings: files, bytes and
+// subfolders, in the same form dirsize gives for a folder on the disk.
+func vfsFolderSize(ctx context.Context, rt *vfs.Router, dir string) (dirsize.Result, error) {
+	r := dirsize.Result{Path: dir, IsDir: true}
+	stack := []string{dir}
+	for len(stack) > 0 {
+		if err := ctx.Err(); err != nil {
+			return r, err
+		}
+		d := stack[len(stack)-1]
+		stack = stack[:len(stack)-1]
+		ls, err := rt.List(ctx, d)
+		if err != nil {
+			return r, err
+		}
+		for _, e := range ls.Entries {
+			if e.Flags&vfs.FlagDir != 0 {
+				r.Dirs++
+				if e.Flags&vfs.FlagLink == 0 {
+					stack = append(stack, rt.Join(d, e.Name))
+				}
+				continue
+			}
+			r.Files++
+			r.Bytes += e.Size
+		}
+	}
+	r.Allocated = r.Bytes
 	return r, nil
 }
 

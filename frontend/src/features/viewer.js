@@ -25,10 +25,11 @@ import { addControlCommand } from '../core/control.js';
 import { comboFromEvent } from '../core/keys.js';
 import { size as fmtSize, bytes as fmtBytes } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { quickViewSource, ARCHIVE_PREVIEW_LIMIT } from './viewer/qvsource.js';
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
-let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...]}
+let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
 
 const remote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 
@@ -229,9 +230,20 @@ function qvUpdate(app, now = false) {
     const path = src.fullPath(e.name);
     if (e.dir) { await v.showFolder(e.name, path); return; }
     go.Lister.CancelFolderSize('quickview').catch(() => {});
-    if (remote(src.path)) { v.showNote('Viewing files inside archives or on servers is not ready yet.'); return; }
     try {
-      await v.open(path);
+      const kind = quickViewSource(remote(src.path) ? null : await go.FS.PathInfo(src.path).catch(() => null), src.path, e);
+      if (qv?.shown !== key) return;
+      if (kind === 'remote') { v.showNote('Viewing files on servers is not ready yet.'); return; }
+      if (kind === 'too-big') { v.showNote(`${e.name} is larger than ${fmtSize(ARCHIVE_PREVIEW_LIMIT)}, too large to preview inside an archive. F3 views it.`); return; }
+      // a file inside an archive is shown from a temporary copy (unpacked once per quick view)
+      let file = path;
+      if (kind === 'archive') {
+        const ck = `${path}\u0000${e.size}\u0000${e.mtime}`;
+        if (!qv.copies.has(ck)) qv.copies.set(ck, go.FS.LocalCopy(path));
+        try { file = await qv.copies.get(ck); } catch (err) { qv?.copies.delete(ck); throw err; }
+        if (qv?.shown !== key) return;
+      }
+      await v.open(file);
     } catch (err) {
       if (qv?.shown === key) v.showNote(errText(err));
     }
@@ -251,7 +263,7 @@ function quickView(app, internalOnly) {
   panel.el.classList.add('mc-viewer-qv-on');
   const v = new ListerView(app, { quick: true, internalOnly });
   el.append(v.el);
-  qv = { panel, view: v, el, timer: 0, internalOnly, shown: null, off: [] };
+  qv = { panel, view: v, el, timer: 0, internalOnly, shown: null, off: [], copies: new Map() };
   const follow = (p) => { if (qv && p !== qv.panel) qvUpdate(app); };
   qv.off.push(app.on('cursor', follow), app.on('panel', follow));
   // the quick view panel is not a file panel while it shows a file: the other panel stays the active one
