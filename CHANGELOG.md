@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.58 – 2026-11-14
+
+### Fixed
+
+- The Configuration > Display options now also apply outside the core Full view: folder brackets show in Brief, Comments, custom column sets and the views-engine Full view, and the Full column view drops its Ext column when "separate extension" is off.
+- The column views (custom sets, and Full with a views format) use the Display size unit, thousands separator, date format, 12/24-hour clock and seconds whenever the views' own format is left at its default; a format set in the views still wins. With Display at its defaults nothing changes.
+- Changing a Display option makes the panel ask for fresh cells (issue #93).
+
 ## 0.9.57 – 2026-11-14
 
 ### Fixed
