@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.65 – 2026-11-14
+
+### Changed
+
+- The feature list (docs/FEATURES.md) now includes the 22 new items from the market research (F-854 to F-875) with their current status, a ranked "Priorities from the market research" section, and a note that copying a folder onto a same-named folder merges them (F-460). A new test, TestCopyMergesSameNamedFolder, checks that merge rule. No change to how the app behaves (issue #104).
+
 ## 0.9.64 – 2026-11-14
 
 ### Fixed
