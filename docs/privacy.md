@@ -22,12 +22,28 @@ Only when you ask it to, and only to the place you name:
 - **Remote locations you open.** Net > FTP connect (FTP, FTPS), SFTP and WebDAV connect to the server you typed in or
   saved, and only while you use that connection. A network share (SMB, NFS, AFP) that your system has mounted is just a
   folder to the app; the system does the networking for it.
-- **AI search, when you start it.** The AI tab of Find files runs the AI program you chose (step 1: the Claude Code
-  command, `claude`, already installed and signed in by you). That program sends your prompt, and the results of the
-  tools it calls (file names, sizes, dates), to its provider; mormiCommander itself still connects nowhere. The program
-  reaches mormiCommander only through a local endpoint on 127.0.0.1 with a random token, for that one run, and gets
-  **only mormiCommander's own tools**: no shell, no file reading or writing, and nothing that deletes, moves or
-  overwrites (issue #146). Nothing runs unless you start a search there.
+- **AI search, when you start it.** The AI tab of Find files uses the provider you chose in **Configuration > AI
+  settings** (issue #146). Either way the model gets **only mormiCommander's own tools**: no shell, no file reading or
+  writing, and nothing that deletes, moves or overwrites. Nothing runs unless you start a search there.
+  - **Claude Code** (the default): the app runs the `claude` command, already installed and signed in by you. That
+    program sends your prompt, and the results of the tools it calls, to its provider; mormiCommander itself connects
+    nowhere. The program reaches mormiCommander only through a local endpoint on 127.0.0.1 with a random token, for
+    that one run.
+  - **OpenRouter, or another OpenAI-compatible API**: the app itself sends HTTPS requests to the API address set in
+    the AI settings (`https://openrouter.ai/api/v1` unless you change it; plain http is accepted only for a server on
+    your own computer, such as a local model at `http://localhost`). It sends your API key (in the Authorization
+    header), the model you chose, a short description of where you are (the folders of both panels, your platform,
+    home folder and today's date), your prompt, the list of tools, and, as the model calls them, what the tools answer:
+    file and folder names with their paths, sizes and dates. To OpenRouter only, it also names the app (mormiCommander
+    and its GitHub page, nothing about you), which OpenRouter shows in its usage lists. What happens to the data there
+    is up to that provider's own terms; OpenRouter passes it on to the company behind the model you chose.
+  - **The model list** of the AI settings is fetched from the same address (`/models`) only when you press
+    **Show models**; opening the settings sends nothing.
+- **The OpenRouter API key** is kept in your system's secret store only (the login keychain on macOS, the Credential
+  Manager on Windows, the Secret Service through `secret-tool` on Linux), under the name `ai.openrouter` of the
+  service "mormiCommander", never in a settings file. The settings dialog can save, replace or remove it, but never
+  shows it again. Where there is no secret store (Linux without `secret-tool`), the key can't be saved, and the
+  dialog says why.
 - **Links you click.** A web address in the About window, the Help menu or a viewed document opens in your web
   browser on a click. The app does not fetch it.
 
@@ -68,7 +84,7 @@ if the promise breaks:
 
 | Test | What it checks |
 | --- | --- |
-| [`privacy_test.go`](../privacy_test.go) | Reads all of the Go code (its syntax tree, not a text search) and fails on anything that can open a connection, listen on a port or look up a host name outside the FTP, SFTP and WebDAV clients, which only the Net menu starts, and the two listeners on 127.0.0.1. |
+| [`privacy_test.go`](../privacy_test.go) | Reads all of the Go code (its syntax tree, not a text search) and fails on anything that can open a connection, listen on a port or look up a host name outside the FTP, SFTP and WebDAV clients, which only the Net menu starts, the listeners on 127.0.0.1, and the one function of the AI client that sends a request (`send` in `internal/ai/chat_http.go`). It also follows that function back to its only callers: an AI run with the OpenRouter provider, and the model list. |
 | [`privacy_session_test.go`](../privacy_session_test.go) | Runs the app's features the way the app builds them, in a temporary folder with settings of its own, through a scripted session: browse folders, view a text file, a Markdown file with remote pictures and an HTML page with remote styles, search by name and by text, copy files, make thumbnails. It records every HTTP request and host-name lookup, and on macOS and Linux it watches the process's open sockets ([`privacy_sockets_unix_test.go`](../privacy_sockets_unix_test.go)); any attempt to reach another machine fails the test. |
 | [`frontend/test/privacy.test.js`](../frontend/test/privacy.test.js) | Checks the window's code: no script fetches anything, the pages and styles load nothing from other sites, and the only web addresses are links to the project's own sites. |
 | [`frontend/test/viewer-noremote.test.js`](../frontend/test/viewer-noremote.test.js) | Puts Markdown and HTML files full of remote pictures, styles, fonts, frames and scripts through the Lister's own rendering and checks that nothing in the result would load from the network. |

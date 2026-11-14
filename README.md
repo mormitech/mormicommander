@@ -170,16 +170,21 @@ are not used.
 mormiCommander makes no network connections of its own: no telemetry, no crash reports, no usage statistics, no update
 checks in the background, no account. "Check for updates" in the Help menu opens the release page in your browser, and
 only when you choose it. The app goes on the network only when you ask it to: when you connect to an FTP, SFTP or
-WebDAV server, or open a network folder. AI search (Find files > AI) runs only when you start it, through the AI
-program you installed yourself (the Claude Code command), which sends your prompt and the search results to its
-provider; it can use only mormiCommander's own non-destructive tools (see [docs/privacy.md](docs/privacy.md)).
+WebDAV server, or open a network folder. AI search (Find files > AI) runs only when you start it, with the provider you
+chose in Configuration > AI settings: the AI program you installed yourself (the Claude Code command), or OpenRouter
+(or another OpenAI-compatible API at the address you set), which the app then calls itself over HTTPS. Either way
+your prompt, a line about the panels' folders and the tool results (file names, sizes, dates) go to that provider,
+and the model can use only mormiCommander's own non-destructive tools. An OpenRouter API key is kept in the system
+keychain only, never in a settings file (see [docs/privacy.md](docs/privacy.md)).
 
 You don't have to take our word for it. The **zero-network test** checks the promise on every build:
 
 - [`privacy_test.go`](privacy_test.go) reads all of the Go code and fails if anything can open a connection, listen on
-  a port or look up a host name outside the FTP, SFTP and WebDAV clients (which only the Net menu starts) and two
+  a port or look up a host name outside the FTP, SFTP and WebDAV clients (which only the Net menu starts), three
   listeners bound to 127.0.0.1 (control mode, off unless you start it; the hand-over between windows of one app; and
-  the AI tool endpoint, opened by the first AI search you start and answering only searches that are running).
+  the AI tool endpoint, opened by the first AI search you start and answering only searches that are running), and
+  the one function of the OpenRouter client that sends a request, which it follows back to the two things that reach
+  it: an AI search you start with that provider, and the model list you open in the AI settings.
 - [`privacy_session_test.go`](privacy_session_test.go) runs a scripted session through the app's features (browse,
   view, search, copy, thumbnails, a Markdown file with remote pictures) and fails on any HTTP request, host-name lookup
   or connection to another machine.
