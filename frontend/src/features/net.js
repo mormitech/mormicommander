@@ -27,6 +27,7 @@ import { size, date, plural } from '../core/format.js';
 import { track } from '../core/busy.js';
 import { app as theApp } from '../core/app.js';
 import { holdProgress, showWhenFree } from '../core/progresshold.js';
+import { jobWaiter } from '../core/jobwait.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
 export const isRemote = (p) => SCHEMES.test(p || '');
@@ -439,7 +440,7 @@ async function showLog(app, path) {
 
 // ---- transfers to and from servers ----
 
-const jobs = new Map(); // id → {resolve, update, close}
+const jobs = jobWaiter(); // keeps the end of a job that is over before StartJob returns (board issue #140)
 let jobsListening = false;
 const JOB_BUTTONS = { Overwrite: 'overwrite', Resume: 'resume', Skip: 'skip', 'Overwrite all': 'overwrite_all', 'Resume all': 'resume_all', 'Skip all': 'skip_all', 'Overwrite all older': 'older_all', 'Rename…': 'rename', Cancel: 'cancel' };
 
@@ -448,7 +449,7 @@ function listenJobs() {
   jobsListening = true;
   on('net-job', (p) => jobs.get(p.id)?.update(p));
   on('net-job-ask', (p) => { jobs.get(p.id)?.update(p); askOverwrite(p); });
-  on('net-job-done', (p) => { const j = jobs.get(p.id); if (!j) return; jobs.delete(p.id); j.close(); j.resolve(p); });
+  on('net-job-done', (p) => jobs.done(p));
 }
 
 async function askOverwrite(p) {
@@ -480,7 +481,7 @@ export function runNetJob(req, { title } = {}) {
     let p = { id, kind: req.kind, state: 'running', files: 0, filesDone: 0, bytes: 0, bytesDone: 0, current: '' };
     let close = () => {};
     let paint = () => {};
-    const result = new Promise((resolve) => jobs.set(id, { resolve, update: (np) => { p = np; paint(); }, close: () => close() }));
+    const result = jobs.wait(id, { update: (np) => { p = np; paint(); }, close: () => close() });
     const cancelShow = showWhenFree(() => { // waits while a question is open, so it stays on top (board issue #123)
       modal((box, done) => {
         close = () => done();
