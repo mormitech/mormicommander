@@ -369,6 +369,7 @@ class Session {
         return;
       case 'ping': this.send([{ o: 'pong', ts: m.ts }]); return;
       case 'error': this.error = m.msg; console.error('dialog window:', m.msg); return;
+      case 'wake': this.wakes = m.n; return; // (Go's watchdog woke the window: it had not drawn the dialog yet)
       case 'pingres': this.pingWait?.(m.rtts || []); this.pingWait = null; return;
       default: return;
     }
@@ -440,7 +441,7 @@ class Session {
   }
 
   info() {
-    return { name: this.name || '', shown: this.shown, openMs: this.openMs, paintMs: this.paintMs ?? null, steps: this.steps || null, error: this.error || '', title: this.title, resized: this.userSized, layers: this.roots.size - 1 };
+    return { name: this.name || '', shown: this.shown, openMs: this.openMs, paintMs: this.paintMs ?? null, steps: this.steps || null, error: this.error || '', wakes: this.wakes || 0, title: this.title, resized: this.userSized, layers: this.roots.size - 1 };
   }
 
   // ping measures round trips window → Go → this page → Go → window (n of them), in milliseconds.

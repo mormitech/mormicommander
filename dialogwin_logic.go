@@ -1,7 +1,10 @@
 // The pure parts of the dialog windows (feature_dialog_window.go): which spare window a dialog takes, how big a window
-// may get on a screen, where it goes, and how the place a kind of dialog was left in is kept in the settings. Nothing
+// may get on a screen, where it goes, how the place a kind of dialog was left in is kept in the settings, and when the
+// watchdog wakes a shown window whose page has not drawn the dialog. Nothing
 // here touches a window, so dialogwin_logic_test.go checks it without starting the app.
 package main
+
+import "time"
 
 // dlgRect is a rectangle in screen pixels (a window's frame, a screen's work area); W == 0 means unknown.
 type dlgRect struct{ X, Y, W, H int }
@@ -149,4 +152,25 @@ func abs(n int) int {
 		return -n
 	}
 	return n
+}
+
+// dialogWakeAt are the times after a dialog window was shown at which the watchdog wakes it (wakeWindow) while its page
+// has still not said the dialog is on the screen and painted (Shown). A page normally says so within 100 ms.
+var dialogWakeAt = []time.Duration{500 * time.Millisecond, 1500 * time.Millisecond, 3500 * time.Millisecond, 7500 * time.Millisecond}
+
+// dialogWake tells the watchdog of a dialog window what to do: since is how long ago the window was shown, painted
+// whether its page has said the dialog is drawn, open whether the window still shows its dialog, woken how many times
+// it was woken already. It answers whether to wake it now and how long to wait before asking again (0: stop watching).
+func dialogWake(since time.Duration, painted, open bool, woken int) (wake bool, next time.Duration) {
+	if painted || !open || woken >= len(dialogWakeAt) {
+		return false, 0
+	}
+	if since >= dialogWakeAt[woken] {
+		wake = true
+		woken++
+		if woken >= len(dialogWakeAt) {
+			return true, 0
+		}
+	}
+	return wake, max(dialogWakeAt[woken]-since, time.Millisecond)
 }

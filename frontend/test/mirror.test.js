@@ -242,6 +242,19 @@ describe('mirror: what the user does in the window happens to the real dialog', 
     s.close();
   });
 
+  test('a window woken by Go\'s watchdog (it had not drawn the dialog) is counted in the dialog\'s window info', async () => {
+    const { back, box, entry } = makeDialog(FORM);
+    const s = mirrorDialog(entry, back, box, 0);
+    await tick();
+    expect(s.info().wakes).toBe(0);
+    const w = win();
+    w.input({ t: 'wake', n: 1 });
+    w.input({ t: 'wake', n: 2 });
+    expect(s.info().wakes).toBe(2);
+    expect(s.info().shown).toBe(false);
+    s.close();
+  });
+
   test('the window\'s size is given to the hidden dialog once the user resizes it', async () => {
     const { back, box, entry } = makeDialog(FORM);
     const s = mirrorDialog(entry, back, box, 0);

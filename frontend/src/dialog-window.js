@@ -10,6 +10,9 @@
 //   - sends back what the user does (DialogWindows.Input): field values with input/change, clicks and other mouse
 //     events at their place in the dialog, keys, focus, scrolling, drags, and its own size when it is resized.
 //
+// Should the window stay empty after it was shown (its page never hears that the dialog is on the screen), Go's
+// watchdog wakes it ("dlg-wake"): the page then lays the dialog out and paints it again (wake).
+//
 // The window's page never runs a feature's code: Enter and Esc, buttons and links do their work in the owning page,
 // which answers with patches (and closes this window when the dialog is done).
 
@@ -92,6 +95,15 @@ async function render(req) {
   go.DialogWindows.Shown(Math.round((ts - cur.t0) * 10) / 10).catch(() => {});
   send({ t: 'shown', ts, painted, showed, got: cur.got, sent: p.sent || cur.t0, built: cur.built });
   send({ t: 'resize', w: innerWidth, h: innerHeight });
+}
+
+// wake is the answer to Go's watchdog, which found the window shown but not yet drawn: the page is laid out and painted
+// again (a class that changes nothing visible forces that) and the owning page learns of it (control mode's "dialog").
+function wake(n) {
+  const root = document.documentElement;
+  root.classList.toggle('mc-wake');
+  document.body.getBoundingClientRect();
+  if (cur) send({ t: 'wake', n });
 }
 
 // ---- what the user does ----
@@ -191,6 +203,7 @@ async function start() {
   wire();
   on('dlg-open', (req) => { me = req?.name || me; render(req).catch(failed); });
   on('dlg-patch', (m) => { if (m) inSeq.push(m.q, m); });
+  on('dlg-wake', (n) => wake(n));
   const r = await go.DialogWindows.Ready(innerWidth, innerHeight).catch(() => null);
   me = r?.name || me;
   document.body.dataset.window = me;

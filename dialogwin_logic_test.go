@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"testing"
+	"time"
 )
 
 func TestTakeSpare(t *testing.T) {
@@ -183,5 +184,56 @@ func TestPickFrameKeepsUnresizedWindowUnchanged(t *testing.T) {
 	frameW, frameH := pickFrame(0, 32, true, [2]int{0, 0})
 	if _, r := placeChanges(placed, size, 100, 100, 920-frameW, 592-frameH, true); r {
 		t.Fatal("an untouched window was taken as resized")
+	}
+}
+
+// TestDialogWake checks the watchdog of a shown dialog window (issue #134: now and then a window was shown but its page
+// never drew the dialog, and it stayed an empty box): it is woken at each time of dialogWakeAt while its page has not
+// said the dialog is drawn, and it stops once the page has, once the window is closed, or after the last wake.
+func TestDialogWake(t *testing.T) {
+	ms := time.Millisecond
+	// a window that never draws: simulate the watch loop and collect when it is woken
+	var at []time.Duration
+	since, woken := time.Duration(0), 0
+	wait := dialogWakeAt[0]
+	for steps := 0; wait > 0; steps++ {
+		if steps > 100 {
+			t.Fatal("the watchdog never stops")
+		}
+		since += wait
+		var wake bool
+		wake, wait = dialogWake(since, false, true, woken)
+		if wake {
+			woken++
+			at = append(at, since)
+		}
+	}
+	if len(at) != len(dialogWakeAt) {
+		t.Fatalf("woken %d times, want %d (%v)", len(at), len(dialogWakeAt), at)
+	}
+	for i := range at {
+		if at[i] != dialogWakeAt[i] {
+			t.Fatalf("wake %d at %v, want %v", i+1, at[i], dialogWakeAt[i])
+		}
+	}
+	if dialogWakeAt[0] > 600*ms {
+		t.Fatalf("first wake after %v: an empty window should be woken within about half a second", dialogWakeAt[0])
+	}
+	// too early: no wake, wait for the rest of the time
+	if wake, next := dialogWake(200*ms, false, true, 0); wake || next != dialogWakeAt[0]-200*ms {
+		t.Fatalf("early: wake=%v next=%v", wake, next)
+	}
+	// a late check (the loop slept longer) wakes once and waits for the next time
+	if wake, next := dialogWake(2*time.Second, false, true, 1); !wake || next != dialogWakeAt[2]-2*time.Second {
+		t.Fatalf("late: wake=%v next=%v", wake, next)
+	}
+	// drawn, closed, or woken enough: stop
+	for _, c := range []struct {
+		painted, open bool
+		woken         int
+	}{{true, true, 0}, {false, false, 0}, {false, true, len(dialogWakeAt)}} {
+		if wake, next := dialogWake(10*time.Second, c.painted, c.open, c.woken); wake || next != 0 {
+			t.Fatalf("%+v: wake=%v next=%v, want stop", c, wake, next)
+		}
 	}
 }

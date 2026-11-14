@@ -21,3 +21,10 @@ func attachOwned(win, parent *application.WebviewWindow) {}
 func showOwned(win, parent *application.WebviewWindow) bool { return false }
 
 func detachOwned(win, parent *application.WebviewWindow) {}
+
+// prepareShow has nothing to do here.
+func prepareShow(win *application.WebviewWindow) {}
+
+// wakeWindow has nothing to do here (the watchdog only tells the window's page to paint again; showing the window
+// again could bring back one that has just closed).
+func wakeWindow(win *application.WebviewWindow) {}

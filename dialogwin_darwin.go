@@ -2,7 +2,10 @@
 
 // Dialog windows on macOS (feature_dialog_window.go): a dialog window is a child window of the window it belongs to,
 // so it stays above it and moves with it, and it is sized and placed in one step without the animation Wails' SetSize
-// uses (a dialog has to appear at once, at its final size).
+// uses (a dialog has to appear at once, at its final size). A dialog window's web view draws whenever its window is on
+// the screen (WebKit's own guess from the window's occlusion state is not used: for a window that was hidden until a
+// moment ago it now and then stayed "not visible", and the page then never drew the dialog), and the watchdog can wake
+// a window whose page has not drawn (wakeWindow).
 package main
 
 /*
@@ -44,6 +47,51 @@ static void dlgAttach(void *parent, void *child) {
 	[p addChildWindow:c ordered:NSWindowAbove];
 }
 
+// dlgWebView finds the web view inside a window (nil when there is none).
+static NSView *dlgWebView(NSView *v) {
+	Class wk = NSClassFromString(@"WKWebView");
+	if (!v || !wk) return nil;
+	if ([v isKindOfClass:wk]) return v;
+	for (NSView *s in [v subviews]) {
+		NSView *f = dlgWebView(s);
+		if (f) return f;
+	}
+	return nil;
+}
+
+// dlgNoOcclusion makes the window's web view draw whenever the window is on the screen, whatever its occlusion state
+// says (WKWebView's _windowOcclusionDetectionEnabled; nothing happens on a WebKit without it).
+static void dlgNoOcclusion(void *w) {
+	if (!w) return;
+	NSView *wv = dlgWebView([(__bridge NSWindow *)w contentView]);
+	SEL sel = NSSelectorFromString(@"_setWindowOcclusionDetectionEnabled:");
+	if (!wv || ![wv respondsToSelector:sel]) return;
+	void (*set)(id, SEL, BOOL) = (void (*)(id, SEL, BOOL))[wv methodForSelector:sel];
+	set(wv, sel, NO);
+}
+
+// dlgWake wakes a shown window whose page has not drawn: it is put on the screen again if it is not there, its web
+// view is hidden and shown (WebKit then works out again whether the page is visible) and the window is resized by one
+// point and back (the page lays out and paints again).
+static void dlgWake(void *w) {
+	if (!w) return;
+	NSWindow *win = (__bridge NSWindow *)w;
+	dlgNoOcclusion(w);
+	if (![win isVisible]) [win orderFront:nil];
+	NSView *wv = dlgWebView([win contentView]);
+	if (wv) {
+		[wv setHidden:YES];
+		[wv setHidden:NO];
+		[wv setNeedsLayout:YES];
+		[wv setNeedsDisplay:YES];
+	}
+	NSRect f = [win frame];
+	NSRect g = f;
+	g.size.width += 1;
+	[win setFrame:g display:YES animate:NO];
+	[win setFrame:f display:YES animate:NO];
+}
+
 static void dlgDetach(void *child) {
 	if (!child) return;
 	NSWindow *c = (__bridge NSWindow *)child;
@@ -69,6 +117,17 @@ func frameExtra(win *application.WebviewWindow) (int, int, bool) {
 	var ok C.int
 	application.InvokeSync(func() { ok = C.dlgFrameExtra(win.NativeWindow(), &ew, &eh) })
 	return int(ew), int(eh), ok != 0
+}
+
+// prepareShow makes the window's web view draw whenever the window is on the screen (see the top of this file).
+func prepareShow(win *application.WebviewWindow) {
+	application.InvokeSync(func() { C.dlgNoOcclusion(win.NativeWindow()) })
+}
+
+// wakeWindow wakes a shown dialog window whose page has not said the dialog is drawn (the watchdog in
+// feature_dialog_window.go).
+func wakeWindow(win *application.WebviewWindow) {
+	application.InvokeSync(func() { C.dlgWake(win.NativeWindow()) })
 }
 
 // attachOwned is done when the window is shown on macOS (adding a child window puts it on the screen).

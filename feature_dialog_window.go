@@ -14,7 +14,9 @@
 //     and "dlg-input" events sent to that one window only); every message is numbered, so their order is kept;
 //   - closing the window with its close button cancels the dialog ("dlg-closed" to the dialog's page); Close is the
 //     page closing it after an answer; the window's place (and its size, when it was resized) is kept per dialog kind in
-//     the setting "dialogWindows".
+//     the setting "dialogWindows";
+//   - a watchdog wakes a shown window whose page has not said the dialog is drawn (Shown) within half a second, a few
+//     times (dialogWake in dialogwin_logic.go, wakeWindow per system), so a window never stays an empty box.
 //
 // While a dialog window is open, the window that asked for it stays dimmed and gives the keyboard to the dialog; when it
 // gets the focus (a click on it), the top dialog window takes it back, the way system dialogs behave. Control mode
@@ -74,6 +76,8 @@ type dialogWin struct {
 	shownAt   time.Time
 	order     int
 	openMs    float64 // ms from the page's modal() to the window on the screen and painted (its page measures it)
+	painted   bool    // its page said the dialog is on the screen and painted (Shown)
+	woken     int     // how many times the watchdog woke it
 }
 
 // DialogWindows is what the pages call about dialog windows (see the top of this file).
@@ -245,7 +249,12 @@ func (dw *DialogWindows) Shown(ctx context.Context, ms float64) {
 	}
 	dw.mu.Lock()
 	v.openMs = ms
+	v.painted = true
+	woken := v.woken
 	dw.mu.Unlock()
+	if woken > 0 {
+		dlgDebug("painted %s after %d wakes", v.name, woken)
+	}
 }
 
 // Push gives a dialog window's page a patch from the dialog's page (the changes of the dialog since the last one).
@@ -442,10 +451,33 @@ func (dw *DialogWindows) show(v *dialogWin) {
 		}
 	}
 	dlgDebug("show %s", v.name)
+	prepareShow(v.w)
 	v.w.Show()
 	dlgDebug("shown %s visible=%v", v.name, v.w.IsVisible())
 	if !showOwned(v.w, parent) { // (macOS: showing made it the key window already)
 		v.w.Focus()
+	}
+	go dw.watch(v, time.Now())
+}
+
+// watch is the watchdog of a shown dialog window: while its page has not said the dialog is drawn (Shown), the window
+// is woken now and then (dialogWake), and its page is told ("dlg-wake") so it lays the dialog out and paints it again.
+func (dw *DialogWindows) watch(v *dialogWin, shownAt time.Time) {
+	for wait := dialogWakeAt[0]; wait > 0; {
+		time.Sleep(wait)
+		dw.mu.Lock()
+		var wake bool
+		wake, wait = dialogWake(time.Since(shownAt), v.painted, dw.wins[v.name] == v && v.req != nil, v.woken)
+		if wake {
+			v.woken++
+		}
+		n := v.woken
+		dw.mu.Unlock()
+		if wake {
+			dlgDebug("wake %s #%d", v.name, n)
+			wakeWindow(v.w)
+			dispatchTo(v.w, "dlg-wake", n)
+		}
 	}
 }
 
@@ -616,6 +648,9 @@ func (dw *DialogWindows) dialogWindowInfo(name string, e map[string]any) {
 		}
 		if v.openMs > 0 {
 			e["openMs"] = v.openMs
+		}
+		if v.woken > 0 {
+			e["woken"] = v.woken
 		}
 	}
 }

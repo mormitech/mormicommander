@@ -2,6 +2,9 @@
    the dialog's heading, so the heading inside (the box's first h2) is hidden, as it is in the owning page's hidden
    original (core/dialogs.css), and both measure alike; the close button (×) of info boxes is the title bar's too. */
 html, body { background: var(--panel); }
+/* toggled when Go's watchdog wakes a window that has not drawn its dialog: it changes nothing visible, it only makes the
+   page lay out and paint again (dialog-window.js wake) */
+html.mc-wake body { outline: 0 solid transparent; }
 body.mc-dialog-window { overflow: hidden; }
 .mc-modal.mc-window-host { position: fixed; inset: 0; display: block; background: transparent; animation: none; z-index: 1; }
 .mc-box.mc-window-box { position: absolute !important; inset: 0 !important; width: auto !important; height: auto !important; min-width: 0 !important;
