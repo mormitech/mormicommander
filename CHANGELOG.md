@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.66 – 2026-11-14
+
+### Fixed
+
+- Restoring tabs at startup now also remembers the folder a "locked, but folder changes allowed" tab is locked to. Before, a locked tab that showed a different folder at exit came back locked to that other folder, so "go back to the locked folder" went to the wrong place. The lock folder is saved as a new `<n>_lockpath` key (ignored by Total Commander) and also travels in .tab files and favourite tab sets. Older files without the key behave as before (issue #12).
+
 ## 0.9.65 – 2026-11-14
 
 ### Changed
