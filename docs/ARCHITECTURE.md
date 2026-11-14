@@ -42,6 +42,7 @@ frontend/test/        vitest unit tests of the pure core modules
 scripts/build.sh      the build: build/bin/mormicommander.app (macOS), .exe (Windows), binary (Linux)
 scripts/mc_ctl.py     control-mode client = the QA harness
 scripts/qa_nav.py     QA of the core through control mode;  scripts/qa_smoke.sh builds and runs everything
+scripts/prune_merged.sh  removes merged eng/spec/ui branches and their clean worktrees (dry run unless --apply)
 docs/FEATURES.md      the parity checklist (F-IDs);  docs/spec/ TC behaviour specs (on spec/* branches);  docs/control.md
 ```
 
