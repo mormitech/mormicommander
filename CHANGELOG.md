@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.7 – 2026-11-14
+
+### Fixed
+
+- Tests: the zip split test from 0.11.6 closes the archive it opens, so Windows can remove its test folder.
+
 ## 0.11.6 – 2026-11-14
 
 ### Fixed

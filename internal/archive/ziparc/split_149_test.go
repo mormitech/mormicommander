@@ -39,7 +39,9 @@ func TestSplitFailureKeepsExistingParts(t *testing.T) {
 	if b, _ := os.ReadFile(old); string(b) == "an older part" {
 		t.Fatal("a finished split did not replace the older part")
 	}
-	if _, err := Open(main, archive.OpenOptions{}); err != nil {
+	z, err := Open(main, archive.OpenOptions{})
+	if err != nil {
 		t.Fatalf("the split set does not open: %v", err)
 	}
+	z.Close() // Windows can't remove the test folder while a part is open
 }
