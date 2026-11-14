@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.75 – 2026-11-14
+
+### Added
+
+- Window layout (issue #37): right-clicking the bar between the two panels lists fixed shares (50/50, 60/40, 70/30, 80/20 and the other way round), with the current one marked; the choice is applied and saved with the session. The bar's direction and tooltip now follow Ctrl+Shift+H. Ctrl+Shift+= (Ctrl++) and, on macOS, Shift+Cmd+= also make the text larger.
+
+### Fixed
+
+- A maximised window is now remembered even when no size was saved before, and is maximised again once the window is shown. Control mode's `window` command now maximises after setting the size instead of before (setting a size had un-maximised the window).
+
 ## 0.9.74 – 2026-11-14
 
 ### Fixed
