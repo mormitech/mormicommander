@@ -79,10 +79,33 @@ func (a *App) startControl(port string) (string, error) {
 	a.mu.Unlock()
 	c.file = controlFile(a.opts)
 	info, _ := json.Marshal(map[string]any{"url": "http://" + c.addr, "token": c.token, "pid": os.Getpid()})
-	if err := os.WriteFile(c.file, info, 0o600); err != nil {
+	if err := writePrivateFile(c.file, info); err != nil {
 		return c.addr, err
 	}
 	return c.addr, nil
+}
+
+// writePrivateFile puts data at name as a new file only the user can read. The control file's default place is the
+// shared temporary folder (/tmp on Linux), where another user can make the file first: os.WriteFile would keep that
+// file's permissions (the token readable by everyone) and follow a link there (overwriting the file it points to). A
+// new temporary file (always private) renamed over the name replaces whatever is there instead, and the rename fails
+// on another user's file in a sticky folder such as /tmp.
+func writePrivateFile(name string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(name), ".mormicommander-control-*")
+	if err != nil {
+		return err
+	}
+	_, werr := f.Write(data)
+	if cerr := f.Close(); werr == nil {
+		werr = cerr
+	}
+	if werr == nil {
+		werr = os.Rename(f.Name(), name)
+	}
+	if werr != nil {
+		os.Remove(f.Name())
+	}
+	return werr
 }
 
 // stopControl ends the server and removes the control file (when it is still ours).
