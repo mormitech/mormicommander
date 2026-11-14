@@ -213,3 +213,71 @@ func TestMultiRenameMapPath(t *testing.T) {
 		t.Fatalf("got %s", got)
 	}
 }
+
+// TestMultiRenameInBranchView is F-511: the files of a branch view (feature_branch.go), named by their paths relative
+// to the folder it lists, are renamed each in its own folder. [P] is each file's own parent folder, the same new name
+// in two folders is fine while two files of one folder with the same new name are a conflict, and undo puts every
+// file back in its folder.
+func TestMultiRenameInBranchView(t *testing.T) {
+	m, dir := mrSetup(t)
+	for _, n := range []string{"top.txt", "jan/a.txt", "jan/b.txt", "feb/a.txt"} {
+		findWriteFile(t, filepath.Join(dir, filepath.FromSlash(n)), n)
+	}
+	l, err := branchFS{}.List(t.Context(), "branch://"+dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var names []string
+	for _, e := range l.Entries {
+		names = append(names, e.Name)
+	}
+	sort.Strings(names) // feb/a.txt, jan/a.txt, jan/b.txt, top.txt
+	if len(names) != 4 {
+		t.Fatalf("branch names %v", names)
+	}
+	st, err := m.Start(l.Parent, names)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if st.Rows[0].Dir != filepath.Join(dir, "feb") || st.Rows[0].Old != "a.txt" || st.Rows[3].Dir != dir {
+		t.Fatalf("rows %+v", st.Rows)
+	}
+	s := multirename.DefaultSettings()
+	s.NameMask = "[P]"
+	p := m.Preview(s)
+	// feb/a → feb.txt, jan/a and jan/b → jan.txt twice (a conflict in jan), top → <base>.txt
+	if p.Errors != 2 || len(p.Rows[1].Problems) == 0 || len(p.Rows[2].Problems) == 0 || len(p.Rows[0].Problems) != 0 {
+		t.Fatalf("conflicts per folder: %+v", p)
+	}
+	s.NameMask = "[P]_[N]"
+	p = m.Preview(s)
+	if p.Errors != 0 || mrNews(p)[0] != "feb_a.txt" || mrNews(p)[2] != "jan_b.txt" {
+		t.Fatalf("preview %v %+v", mrNews(p), p.Warnings)
+	}
+	s.NameMask = "same"
+	if p := m.Preview(s); p.Errors != 2 {
+		t.Fatalf("same name in jan twice should be the only conflict: %+v", p)
+	}
+	s.NameMask = "x_[N]"
+	m.Preview(s)
+	if _, err := m.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if got := mrList(t, filepath.Join(dir, "jan")); len(got) != 2 || got[0] != "x_a.txt" || got[1] != "x_b.txt" {
+		t.Fatalf("jan after rename: %v", got)
+	}
+	if got := mrList(t, filepath.Join(dir, "feb")); len(got) != 1 || got[0] != "x_a.txt" {
+		t.Fatalf("feb after rename: %v", got)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "x_top.txt")); err != nil {
+		t.Fatal("the file of the folder itself was not renamed")
+	}
+	if n, err := m.Undo(); err != nil || n != 4 {
+		t.Fatalf("undo: %d %v", n, err)
+	}
+	for _, n := range []string{"top.txt", "jan/a.txt", "jan/b.txt", "feb/a.txt"} {
+		if _, err := os.Stat(filepath.Join(dir, filepath.FromSlash(n))); err != nil {
+			t.Errorf("%s not back after undo", n)
+		}
+	}
+}
