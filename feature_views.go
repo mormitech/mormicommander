@@ -92,6 +92,8 @@ type ViewsFormat struct {
 	Size string `json:"size"` // "bytes", "k", "M", "G", "dynamic" (lst.ParseSizeUnit names)
 	Date string `json:"date"` // a date picture such as "dd.MM.yyyy HH:mm"; "" is the default
 	Attr string `json:"attr"` // "", "win", "winfull", "unix", "octal"
+	// NoThousands leaves the thousands separator out of sizes (Configuration > Display, issue #93); false keeps it.
+	NoThousands bool `json:"noThousands,omitempty"`
 }
 
 // ViewsColumn is one column of a column set as the page stores it (settings "views" → columnSets).
@@ -129,7 +131,11 @@ var viewsAttrStyles = map[string]lst.AttrStyle{
 
 func (f ViewsFormat) toListing() lst.Format {
 	unit, _ := lst.ParseSizeUnit(f.Size)
-	return lst.Format{Size: unit, Date: f.Date, AttrStyle: viewsAttrStyles[f.Attr]}
+	out := lst.Format{Size: unit, Date: f.Date, AttrStyle: viewsAttrStyles[f.Attr]}
+	if f.NoThousands {
+		out.Number = lst.NumberFormat{Thousands: "", Decimal: lst.DefaultNumberFormat.Decimal}
+	}
+	return out
 }
 
 func (c ViewsColumn) toListing() lst.Column {

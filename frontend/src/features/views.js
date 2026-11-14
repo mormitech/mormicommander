@@ -22,7 +22,8 @@ import { esc, modal, formDialog, messageDialog } from '../core/dialogs.js';
 import { showList } from '../core/popup.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
-import { bytes, date, attr, size as shortSize } from '../core/format.js';
+import { cellSize, date, attr, size as shortSize, display } from '../core/format.js';
+import { cellFormat, shownName, extColumn } from './views-format.js';
 import { app as theApp } from '../core/app.js';
 import { addTabState } from './tabs.js';
 import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
@@ -66,9 +67,9 @@ function columns(p) {
     const s = findSet(vs.set);
     if (s) return { ext: false, nameW: 'minmax(120px, 1fr)', cols: (s.columns || []).map((x) => ({ title: x.title || '', template: x.template || '', width: +x.width || 0, align: x.align || 'left' })) };
   }
-  const dw = Math.max(100, Math.round(((c.dateFormat || 'yyyy-MM-dd HH:mm').length) * 7.2) + 10);
+  const dw = Math.max(100, Math.round(((cellFormat(c, display).date || 'yyyy-MM-dd HH:mm').length) * 7.2) + 10);
   return {
-    ext: !c.namesWhole, nameW: 'minmax(90px, 1fr)',
+    ext: extColumn(c, display), nameW: 'minmax(90px, 1fr)',
     cols: [
       { title: 'Size', template: '[=tc.size]', width: 96, align: 'right', sort: 'size' },
       { title: 'Date', template: '[=tc.writedate]', width: dw, align: 'left', sort: 'date' },
@@ -145,7 +146,7 @@ function renderBrief(p) {
       if (i >= p.entries.length) break;
       const e = p.entries[i];
       const tip = ` title="${esc(e.name)}"`;
-      html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(e.name)}</b></span></div>`;
+      html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(shownName(e, e.name, display))}</b></span></div>`;
     }
   }
   rows.style.transform = '';
@@ -201,11 +202,11 @@ function renderColumns(p) {
     const e = p.entries[i];
     const name = def.ext ? (e.dir ? e.name : e.base) : e.name;
     const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
-    let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(name)}</b></span>`;
+    let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(shownName(e, name, display))}</b></span>`;
     if (def.ext) row += `<span class="e">${esc(e.ext)}</span>`;
     let c = cells?.get(e.name);
     if (!c && full) c = e.up ? ['&lt;DIR&gt;', '', ''] : null; // (".." is not in the engine's rows)
-    if (!c && full && !e.up) c = [e.dir ? (e.dirSize != null ? bytes(e.dirSize) : '<DIR>') : bytes(e.size), date(e.mtime), attr(e.mode, e.flags, plat)];
+    if (!c && full && !e.up) c = [e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '<DIR>') : cellSize(e.size), date(e.mtime), attr(e.mode, e.flags, plat)];
     def.cols.forEach((col, k) => {
       const txt = c ? c[k] ?? '' : '';
       const raw = e.up && full && k === 0 ? txt : esc(txt);
@@ -279,7 +280,8 @@ function install(p) {
     if (isColumnMode(p)) return renderColumns(p);
     return core.renderRows();
   };
-  p.render = () => { core.render(); renderHeader(p); if (modeOf(p) === 'tree') renderTreeStatus(p); };
+  // (requestCells only asks again when the folder or the formats changed, e.g. a new Display option, issue #93)
+  p.render = () => { core.render(); renderHeader(p); if (isColumnMode(p)) requestCells(p); if (modeOf(p) === 'tree') renderTreeStatus(p); };
   p.pageSize = () => {
     const m = modeOf(p);
     if (m === 'brief') return briefGeo(p).rows;
@@ -394,7 +396,7 @@ function cellsSig(p) {
   const def = columns(p), c = cfg();
   const ds = [...p.dirSizes].sort().join('|');
   const m = /^col(\d+)$/.exec(p.sort.key || '');
-  return JSON.stringify([p.path, allId(p.all), def.cols.map((x) => x.template), c.sizeFormat, c.dateFormat, c.attrFormat, ds, m ? p.sort.key : '', m ? p.sort.desc : false, !!theApp.setting('naturalSort', true)]);
+  return JSON.stringify([p.path, allId(p.all), def.cols.map((x) => x.template), cellFormat(c, display), ds, m ? p.sort.key : '', m ? p.sort.desc : false, !!theApp.setting('naturalSort', true)]);
 }
 
 let cellsSeq = 0;
@@ -408,7 +410,7 @@ async function requestCells(p, force = false) {
   const m = /^col(\d+)$/.exec(p.sort.key || '');
   const req = {
     path: p.path, columns: def.cols.map(({ title, template, width, align }) => ({ title, template, width, align })),
-    format: { size: c.sizeFormat || 'bytes', date: c.dateFormat || '', attr: c.attrFormat || '' },
+    format: cellFormat(c, display),
     dirSizes: Object.fromEntries(p.dirSizes), sortCol: m ? +m[1] - 1 : -1, desc: !!p.sort.desc, natural: !!theApp.setting('naturalSort', true),
   };
   const seq = ++cellsSeq;

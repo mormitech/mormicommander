@@ -102,3 +102,30 @@ func TestViewsDemoIsNotLocal(t *testing.T) {
 		t.Error("no generation")
 	}
 }
+
+// Issue #93: the Display options reach the column views through the request's format: no thousands separator, a
+// size unit and a date picture with seconds.
+func TestViewsCellsDisplayFormat(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "big.txt"), make([]byte, 5000), 0o644)
+	v := newViews(NewApp(startOpts{}))
+	defer v.close()
+	cols := []ViewsColumn{{Title: "Size", Template: "[=tc.size]"}, {Title: "Date", Template: "[=tc.writedate]"}}
+	r, err := v.Cells(ViewsCellsRequest{Path: dir, Columns: cols, Format: ViewsFormat{Size: "bytes", NoThousands: true, Date: "yyyy-MM-dd HH:mm:ss"}, SortCol: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Cells["big.txt"][0]; got != "5000" {
+		t.Errorf("size without separator %q", got)
+	}
+	if got := r.Cells["big.txt"][1]; len(got) != len("2026-01-02 03:04:05") {
+		t.Errorf("date with seconds %q", got)
+	}
+	r, err = v.Cells(ViewsCellsRequest{Path: dir, Columns: cols, Format: ViewsFormat{Size: "k"}, SortCol: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := r.Cells["big.txt"][0]; got != "5 k" {
+		t.Errorf("size in k %q", got)
+	}
+}
