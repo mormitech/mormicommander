@@ -3,32 +3,40 @@
 // files that are newer or missing on the other side (and both copies of files that differ at the same time). With
 // subfolders, folders that exist on one side only are selected too, and so is a folder present on both sides when
 // something inside it differs. "Compare folders, hide equal files" (ours) also hides the files that compared equal;
-// Ctrl+F10 (all files) or a reread shows them again. The comparing is internal/dircompare's (feature_dircmp.go).
+// Ctrl+F10 (all files), a reread, or a plain Compare folders shows them again. The comparing is internal/dircompare's
+// (feature_dircmp.go).
 //
-// Setting "compareDirs": {byContent, ignoreDate, ignoreHour, tolerance} (seconds; default 2 for FAT and network drives).
+// Plain Shift+F2 leaves folders alone, as it always did. "Compare folders, mark one-sided folders" (ours, Mark menu)
+// also selects the folders that exist on one side only, without going into subfolders; the setting
+// compareDirs.oneSidedFolders (default off) makes plain Shift+F2 do that too.
+//
+// Setting "compareDirs": {byContent, ignoreDate, ignoreHour, tolerance, oneSidedFolders} (tolerance in seconds; default
+// 2 for FAT and network drives).
 
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
 import { plural } from '../core/format.js';
+import { isCompareFilter, compareSubdirs, hideEqualFilter } from './comparedirs-lib.js';
 
 const entriesOf = (p) => p.all.filter((e) => !e.up && e.name !== '..').map((e) => ({ name: e.name, size: e.size || 0, mtime: e.mtime || 0, dir: !!e.dir, hidden: !!e.hidden }));
 
 export async function compareDirs(app, { subdirs = '', hideEqual = false } = {}) {
   const L = app.left, R = app.right;
-  const o = { byContent: false, ignoreDate: false, ignoreHour: false, tolerance: 2, ...(app.setting('compareDirs', {}) || {}) };
+  const o = { byContent: false, ignoreDate: false, ignoreHour: false, tolerance: 2, oneSidedFolders: false, ...(app.setting('compareDirs', {}) || {}) };
   const req = {
-    left: L.path, right: R.path, subdirs, byContent: !!o.byContent, ignoreDate: !!o.ignoreDate, ignoreHour: !!o.ignoreHour,
+    left: L.path, right: R.path, subdirs: compareSubdirs(subdirs, o), byContent: !!o.byContent, ignoreDate: !!o.ignoreDate, ignoreHour: !!o.ignoreHour,
     tolerance: Number(o.tolerance) || 0, includeHidden: !!app.showHidden, leftEntries: entriesOf(L), rightEntries: entriesOf(R),
   };
   const res = await go.CompareDirs.Compare(req).catch((e) => { throw new Error(errText(e)); });
   for (const [p, names, equal] of [[L, res.leftSelect, res.leftEqual], [R, res.rightSelect, res.rightEqual]]) {
+    if (isCompareFilter(p.filter)) p.setFilter(null); // an earlier "hide equal files" belongs to the earlier compare
     const want = new Set(names);
     p.selected.clear();
     for (const e of p.entries) if (!e.up && want.has(e.name)) p.select(e, true);
     if (hideEqual) {
-      const eq = new Set(equal);
-      p.setFilter(eq.size ? (e) => !eq.has(e.name) : null, eq.size ? 'Differing files' : '');
+      const fn = hideEqualFilter(equal);
+      p.setFilter(fn, fn ? 'Differing files' : '');
     }
     p.selectionChanged();
   }
@@ -47,4 +55,8 @@ command({ name: 'cm_CompareDirsWithSubdirs', label: 'Compare folders with subfol
 command({
   name: 'cm_CompareDirsHideEqual', label: 'Compare folders, hide equal files', menu: 'Mark', menuAfter: 'cm_CompareDirsWithSubdirs',
   run: (app) => compareDirs(app, { subdirs: '', hideEqual: true }),
+});
+command({
+  name: 'cm_CompareDirsOneSidedFolders', label: 'Compare folders, mark one-sided folders', menu: 'Mark', menuAfter: 'cm_CompareDirsHideEqual',
+  run: (app) => compareDirs(app, { subdirs: 'missing' }),
 });

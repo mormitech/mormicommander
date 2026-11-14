@@ -166,3 +166,45 @@ func TestCompareDirsListingsAndDisk(t *testing.T) {
 		t.Fatalf("listings: %v %+v", err, res)
 	}
 }
+
+// TestCompareDirsOneSidedFolders checks the folder modes Shift+F2 can run with (board issue #9): plain compare leaves a
+// folder that exists on one side only alone, "missing" (the Mark menu's "mark one-sided folders", or plain Shift+F2
+// with compareDirs.oneSidedFolders on) selects it, on disk and for listings of other panels.
+func TestCompareDirsOneSidedFolders(t *testing.T) {
+	l, r := t.TempDir(), t.TempDir()
+	now := time.Now()
+	scWrite(t, filepath.Join(l, "lonely", "x.txt"), "x", now)
+	scWrite(t, filepath.Join(l, "both", "y.txt"), "y", now)
+	scWrite(t, filepath.Join(r, "both", "y.txt"), "y", now)
+	scWrite(t, filepath.Join(r, "rightdir", "z.txt"), "z", now)
+	c := &CompareDirs{app: &App{}}
+	has := func(s []string, n string) bool {
+		for _, x := range s {
+			if x == n {
+				return true
+			}
+		}
+		return false
+	}
+	res, err := c.Compare(DirCmpRequest{Left: l, Right: r, Tolerance: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if has(res.LeftSelect, "lonely") || has(res.RightSelect, "rightdir") {
+		t.Fatalf("plain compare selected folders: %+v", res)
+	}
+	res, err = c.Compare(DirCmpRequest{Left: l, Right: r, Tolerance: 2, Subdirs: "missing"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !has(res.LeftSelect, "lonely") || !has(res.RightSelect, "rightdir") || has(res.LeftSelect, "both") || has(res.RightSelect, "both") {
+		t.Fatalf("missing mode: %+v", res)
+	}
+	ms := now.UnixMilli()
+	res, err = c.Compare(DirCmpRequest{Left: "ftp://x/a", Right: "ftp://x/b", Subdirs: "missing",
+		LeftEntries:  []DirCmpEntry{{Name: "d", Dir: true, MTime: ms}, {Name: "both", Dir: true, MTime: ms}},
+		RightEntries: []DirCmpEntry{{Name: "both", Dir: true, MTime: ms}}})
+	if err != nil || !has(res.LeftSelect, "d") || has(res.LeftSelect, "both") {
+		t.Fatalf("listings: %v %+v", err, res)
+	}
+}

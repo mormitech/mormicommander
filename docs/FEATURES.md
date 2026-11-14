@@ -716,13 +716,13 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 
 ## 25. Synchronize directories
 
-- [ ] F-546 Synchronize dirs tool (cm_SyncDirs) — — — window with left and right path, filter, options
-- [ ] F-547 Compare modes: asymmetric, by content, ignore date, ignore seconds/2s difference (FAT), ignore timezone 1h — — — options affect results
-- [ ] F-548 Subdirectories / ignore empty folders — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-549 Show: left newer, equal, different, right newer, singles, duplicates (filter buttons) — — — filter buttons hide/show categories
-- [ ] F-550 Compare result with arrows per file; user can change direction or exclude — — — right-click/arrows change action
-- [ ] F-551 Synchronize button: copy selected actions with dialog (left->right, right->left, delete) — — — after sync, re-compare shows all equal
-- [ ] F-552 Compare by content in sync (Ctrl+... ) — — — content compare for "=" vs "≠"
+- [~] F-546 Synchronize dirs tool (cm_SyncDirs) — — — window with left and right path, filter, options
+- [~] F-547 Compare modes: asymmetric, by content, ignore date, ignore seconds/2s difference (FAT), ignore timezone 1h — — — options affect results
+- [~] F-548 Subdirectories / ignore empty folders — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-549 Show: left newer, equal, different, right newer, singles, duplicates (filter buttons) — — — filter buttons hide/show categories
+- [~] F-550 Compare result with arrows per file; user can change direction or exclude — — — right-click/arrows change action
+- [~] F-551 Synchronize button: copy selected actions with dialog (left->right, right->left, delete) — — — after sync, re-compare shows all equal
+- [~] F-552 Compare by content in sync (Ctrl+... ) — — — content compare for "=" vs "≠"
 - [~] F-553 Open compare tool for a pair from sync list — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-554 Save/load sync settings — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it

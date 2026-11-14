@@ -13,8 +13,9 @@
 
 .mc-sync-head, .mc-sync-row { display: grid; grid-template-columns: 1fr 4.2em 1fr; align-items: center; }
 .mc-sync-l, .mc-sync-r { display: grid; min-width: 0; height: 100%; align-items: center; }
-.mc-sync-l { grid-template-columns: 1fr 7.5em 9.5em; }
-.mc-sync-r { grid-template-columns: 9.5em 7.5em 1fr; }
+/* --sync-date-w is set by syncdirs.js from the Display options' date format, so the dates are never cut off. */
+.mc-sync-l { grid-template-columns: 1fr 7.5em var(--sync-date-w, 9.5em); }
+.mc-sync-r { grid-template-columns: var(--sync-date-w, 9.5em) 7.5em 1fr; }
 .mc-sync-head { color: var(--muted); font-size: 12px; padding: 0 1px; }
 .mc-sync-head span span { padding: 0 6px; }
 .mc-sync-head .mc-sync-act { text-align: center; }

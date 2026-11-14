@@ -119,6 +119,12 @@ command({
   run: async (app) => { await Promise.all([app.cur.reload(), app.loadVolumes()]); },
 });
 command({
+  // Ctrl+F10 (Show > All files): shows every file again, whatever filter the panel has (a quick filter, a hotlist
+  // mask, or the files Compare folders hid).
+  name: 'cm_SrcAllFiles', label: 'All files', checked: (app) => !app.cur.filter,
+  run: (app) => { if (app.cur.filter) app.cur.setFilter(null); },
+});
+command({
   name: 'cm_SwitchHidSys', label: 'Hidden files', checked: (app) => app.showHidden, menuKey: true,
   run: (app) => {
     app.showHidden = !app.showHidden;

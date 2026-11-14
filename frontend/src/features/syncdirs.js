@@ -21,7 +21,7 @@ import { command } from '../core/registry.js';
 import { go, on, errText, setClipboardText } from '../core/go.js';
 import { esc, modal, messageDialog, inputDialog, formDialog } from '../core/dialogs.js';
 import { addControlCommand } from '../core/control.js';
-import { size, bytes, date, plural } from '../core/format.js';
+import { size, bytes, date, plural, dateWidth } from '../core/format.js';
 import { openWindow, contextMenu, joinPath } from './synccompare-ui.js';
 import { compareFiles } from './comparefiles.js';
 
@@ -471,6 +471,7 @@ function syncWindow(app, id, args = {}) {
     build: (b, d) => {
       box = b;
       done = d;
+      box.style.setProperty('--sync-date-w', dateWidth(12)); // the date columns fit the widest date (no cut-off)
       const check = (id, label, tip = '') => `<label class="mc-check"${tip ? ` title="${esc(tip)}"` : ''}><input type="checkbox" id="${id}">${esc(label)}</label>`;
       box.innerHTML = `<h2>Synchronize folders</h2>
         <div class="mc-sync-paths">

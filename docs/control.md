@@ -257,7 +257,7 @@ all results share); file commands work on the real files.
   `compare`; fields `cmp-case`, `cmp-ws`, `cmp-rep`, `cmp-bin`, `cmp-edit`, `cmp-left`, `cmp-right`, `cmp-enc-left`,
   `cmp-enc-right`, and `cmp-line` while a line is edited. `{"cmd": "compare"}` returns its state (current difference,
   row, side, modified sides, encodings, the rows around the cursor).
-- Compare folders (`cm_CompareDirs`, `cm_CompareDirsWithSubdirs`, `cm_CompareDirsHideEqual`) selects in both panels;
+- Compare folders (`cm_CompareDirs`, `cm_CompareDirsWithSubdirs`, `cm_CompareDirsHideEqual`, `cm_CompareDirsOneSidedFolders`) selects in both panels;
   "No differences found." is a dialog of kind `comparedirs`.
 
 ## Multi-Rename tool

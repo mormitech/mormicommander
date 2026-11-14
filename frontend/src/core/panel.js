@@ -193,7 +193,12 @@ export class Panel {
   }
 
   // reload reads the folder again; the cursor stays on the same file if it is still there (else at the same place).
-  reload() { return this.path ? this.go(this.path, { history: false, keepSelection: true }) : Promise.resolve(false); }
+  // A "hide equal files" filter of Compare folders (marked mcCompare) belongs to that compare, so a reread drops it.
+  reload() {
+    if (!this.path) return Promise.resolve(false);
+    if (this.filter?.mcCompare) { this.filter = null; this.filterLabel = ''; }
+    return this.go(this.path, { history: false, keepSelection: true });
+  }
 
   goBack() {
     const p = this.back.pop();

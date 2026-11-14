@@ -59,6 +59,13 @@ export function date(ms) {
   return `${day} ${time}`;
 }
 
+// dateWidth is how wide a date column must be (a CSS length) to show the widest date of the current Display options
+// without cutting it off: a two-digit day, month and hour, plus the room the column's padding takes (padPx).
+export function dateWidth(padPx = 12) {
+  const n = date(new Date(2000, 11, 28, 22, 58, 58).getTime()).length;
+  return `calc(${n + 1}ch + ${padPx}px)`;
+}
+
 // Flags as the Go side sends them (internal/vfs).
 export const F = { DIR: 1, LINK: 2, HIDDEN: 4, EXEC: 8, BROKEN: 16, SYSTEM: 32, READONLY: 64 };
 

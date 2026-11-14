@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { size, attr, splitExt, date, F, plural, cellSize, setDisplay } from '../src/core/format.js';
+import { size, attr, splitExt, date, F, plural, cellSize, setDisplay, dateWidth } from '../src/core/format.js';
 
 test('size', () => {
   expect(size(0)).toBe('0 B');
@@ -54,4 +54,14 @@ test('display options: sizes and dates (F-414)', () => {
     setDisplay({ sizeStyle: 0, thousands: true, dateFormat: '', time24: true, seconds: false });
   }
   expect(date(ms)).toBe('2026-11-13 18:06');
+});
+
+test('dateWidth fits the widest date of the Display options (Sync window date columns)', () => {
+  try {
+    expect(dateWidth()).toBe('calc(17ch + 12px)'); // "2000-12-28 22:58" is 16 characters
+    setDisplay({ seconds: true, time24: false });
+    expect(dateWidth(10)).toBe('calc(23ch + 10px)'); // "2000-12-28 10:58:58 PM" is 22
+  } finally {
+    setDisplay({ sizeStyle: 0, thousands: true, dateFormat: '', time24: true, seconds: false });
+  }
 });
