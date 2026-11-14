@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.37 – 2026-11-14
+
+### Fixed
+
+- A dialog window that was shown but stayed an empty box (issue #134) is now woken up. On macOS the dialog windows no
+  longer let WebKit guess that they are hidden behind other windows, so the page draws whenever the window is on
+  screen. If a page has not reported that it is drawn 500 ms after its window is shown, the window is woken again
+  (at 0.5, 1.5, 3.5 and 7.5 seconds): on macOS the window is put back on screen and its web view and size are nudged,
+  on Windows and Linux only the page is told to repaint. Control mode shows the wake counts in `windows` and
+  `dialog` -> `window`.
+
 ## 0.9.36 – 2026-11-14
 
 ### Fixed
