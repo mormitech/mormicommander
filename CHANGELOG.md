@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.100 – 2026-11-14
+
+### Added
+
+- Issue #26 (partly): Table view in the Lister and quick view for CSV, TSV, JSONL and SQLite files. Press T or pick Options > Table to see the file as a scrollable grid with column names and types in the header. Only the first 10,000 rows are read, and rows are fetched in blocks of 200 as you scroll. SQLite files show a list of their tables to switch between. Cursor keys, Page Up/Down, Home/End, Left/Right move around; Ctrl+G goes to a row, Ctrl+C copies the row as tab-separated text, F2 reloads. New setting "Open CSV, TSV, JSONL and SQLite files as a table" (lister.openTables), off by default, so files still open as text or hex unless it is on. Not done: Parquet, SQLite tables declared WITHOUT ROWID, searching inside the grid, counting rows beyond 10,000, and a check in the real app.
+
 ## 0.9.99 – 2026-11-14
 
 ### Changed
