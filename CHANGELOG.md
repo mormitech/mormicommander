@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.96 – 2026-11-14
+
+### Added
+
+- Issue #29 (partly): Extended attributes. The Properties dialog now shows an "Extended attributes" row when a file has any, with plain words for common names. On macOS, a file with the quarantine flag also gets a "Remove quarantine flag" button, and there is a new command "Remove quarantine flag" (cm_RemoveQuarantine) in the Files menu after "Change attributes" that clears it on the selection, including folders, with progress and cancel. Before a copy to a FAT, exFAT, UDF or CD target, a note says that extended attributes worth keeping will be lost; it only warns and never stops the copy. A new internal package (internal/xattr) does the work on macOS and Linux and does nothing on Windows. Not built yet: an opt-in "Extended attributes" panel column and a warning for cloud targets (iCloud/CloudStorage), because there is no reliable file-system signal for it. Nothing existing changes behaviour.
+
 ## 0.9.95 – 2026-11-14
 
 ### Added
