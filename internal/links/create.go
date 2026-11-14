@@ -23,6 +23,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // CreateOptions controls how a link is made.
@@ -281,7 +282,7 @@ func replaceWith(linkPath, target string, overwrite bool, make func(string) erro
 	if target != "" && leadsTo(target, linkPath, fi) {
 		return &os.LinkError{Op: "create link", Old: target, New: linkPath, Err: ErrSelfLink}
 	}
-	tmp := filepath.Join(filepath.Dir(linkPath), "."+filepath.Base(linkPath)+".mclink-"+strconv.FormatInt(time.Now().UnixNano(), 36))
+	tmp := tempName(linkPath)
 	if err := make(tmp); err != nil {
 		return err
 	}
@@ -298,6 +299,21 @@ func replaceWith(linkPath, target string, overwrite bool, make func(string) erro
 		}
 	}
 	return nil
+}
+
+// tempName is the temporary name next to linkPath that a replacement is made under before it is renamed over the old
+// entry. Only the start of a long name goes into it: the whole name plus the prefix and suffix would pass the 255-byte
+// limit of file names for names near that limit, and such a link could then never be replaced.
+func tempName(linkPath string) string {
+	name := filepath.Base(linkPath)
+	if len(name) > 64 {
+		cut := 64
+		for cut > 0 && !utf8.RuneStart(name[cut]) {
+			cut--
+		}
+		name = name[:cut]
+	}
+	return filepath.Join(filepath.Dir(linkPath), "."+name+".mclink-"+strconv.FormatInt(time.Now().UnixNano(), 36))
 }
 
 // leadsTo says whether target is the entry li (the existing linkPath), or

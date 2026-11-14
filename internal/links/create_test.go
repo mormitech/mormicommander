@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -371,5 +372,32 @@ func TestOverwriteNeverReplacesTarget(t *testing.T) {
 	// Replacing an existing link that merely points at the target is fine.
 	if err := CreateSymlink(f, via, CreateOptions{Overwrite: true}); err != nil {
 		t.Fatalf("replacing a link to the target: %v", err)
+	}
+}
+
+// Overwriting goes through a temporary name next to the link. That name used to be the whole link name plus a prefix
+// and a suffix, so a link or shortcut whose name was near the 255-byte limit could not be replaced at all.
+func TestOverwriteLongLinkName(t *testing.T) {
+	dir := realTemp(t)
+	a := filepath.Join(dir, "a")
+	b := filepath.Join(dir, "b")
+	writeFile(t, a, "A")
+	writeFile(t, b, "B")
+	long := strings.Repeat("l", 240)
+	link := filepath.Join(dir, long)
+	symlinkOrSkip(t, a, link)
+	if err := CreateSymlink(b, link, CreateOptions{Overwrite: true}); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(link); string(got) != "B" {
+		t.Errorf("after overwrite link reads %q", got)
+	}
+	web := filepath.Join(dir, long+".url")
+	writeFile(t, web, "old")
+	if err := CreateShortcut(KindURL, "https://example.com/", web, true); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := os.ReadFile(web); !strings.Contains(string(got), "example.com") {
+		t.Errorf("after overwrite the shortcut holds %q", got)
 	}
 }

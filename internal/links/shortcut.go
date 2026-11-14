@@ -19,9 +19,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 )
 
 // ShortcutExt returns the file extension for a writable or readable shortcut
@@ -110,7 +108,7 @@ func CreateShortcut(kind Kind, target, linkPath string, overwrite bool) error {
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return fail(err)
 	}
-	tmp := filepath.Join(filepath.Dir(linkPath), "."+filepath.Base(linkPath)+".mclink-"+strconv.FormatInt(time.Now().UnixNano(), 36))
+	tmp := tempName(linkPath)
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return fail(err)
 	}
