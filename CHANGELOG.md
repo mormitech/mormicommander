@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.93 – 2026-11-14
+
+### Added
+
+- Issue #22 (F-855): Marta onboarding. When Marta's settings folder is found on the Mac, the first-run setup page shows a "Coming from Marta" box with an "Import from Marta" button. Pressing it copies Marta's favourite folders into a "Marta" submenu of the folder hotlist; folders already in the hotlist are skipped, so pressing it twice adds nothing, and Marta's files are only read, never changed. Nothing is imported unless you press the button. There is also a new opt-in "Marta-like" keyboard preset (the default preset is unchanged) and a docs/marta.md page that maps everyday Marta actions to mormiCommander keys.
+
 ## 0.9.92 – 2026-11-14
 
 ### Added
