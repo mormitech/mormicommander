@@ -248,3 +248,70 @@ func TestVfsPackSeparateAndMove(t *testing.T) {
 		t.Error("gz packed a folder")
 	}
 }
+
+// vfsRunAnswering runs a job that asks "Replace file?" questions: each question's source is recorded and answered
+// with Skip, and the sources are returned once the job is over.
+func vfsRunAnswering(t *testing.T, js *VfsJobs, req VfsRequest) []string {
+	t.Helper()
+	var job *vfsJob
+	js.mu.Lock()
+	js.started = func(j *vfsJob) { job = j }
+	js.mu.Unlock()
+	id, err := js.Start(req)
+	if err != nil || id == 0 {
+		t.Fatalf("%s: id %d, %v", req.Kind, id, err)
+	}
+	var asked []string
+	deadline := time.Now().Add(20 * time.Second)
+	for js.Running() {
+		if time.Now().After(deadline) {
+			t.Fatal("job did not finish")
+		}
+		job.mu.Lock()
+		var src string
+		if job.p.Ask != nil {
+			src = job.p.Ask.Source
+		}
+		job.mu.Unlock()
+		if src != "" && (len(asked) == 0 || asked[len(asked)-1] != src) {
+			asked = append(asked, src)
+			js.Answer(id, fileops.Answer{Choice: fileops.ChoiceSkip})
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	return asked
+}
+
+// Issue #139: the "Replace file?" question of an unpack (and of a copy out of an archive) names the entry in the
+// archive, not the hidden staging folder the file waits in.
+func TestVfsReplaceQuestionNamesArchiveEntry(t *testing.T) {
+	_, js := vfsTestApp(t)
+	dir := t.TempDir()
+	vfsWrite(t, filepath.Join(dir, "L", "f1.txt"), "old")
+	vfsWrite(t, filepath.Join(dir, "L", "sub", "f2.txt"), "old2")
+	vfsWrite(t, filepath.Join(dir, "src", "f1.txt"), "new")
+	vfsWrite(t, filepath.Join(dir, "src", "sub", "f2.txt"), "new2")
+	arc := filepath.Join(dir, "R", "f1.zip")
+	vfsRun(t, js, VfsRequest{Kind: "pack", Format: "zip", Target: arc,
+		Sources: []string{filepath.Join(dir, "src", "f1.txt"), filepath.Join(dir, "src", "sub")}})
+
+	asked := vfsRunAnswering(t, js, VfsRequest{Kind: "unpack", Target: filepath.Join(dir, "L"), Mask: "*.*", Sources: []string{arc}})
+	sort.Strings(asked)
+	want := []string{filepath.Join(arc, "f1.txt"), filepath.Join(arc, "sub", "f2.txt")}
+	if strings.Join(asked, "|") != strings.Join(want, "|") {
+		t.Errorf("unpack asked about %q, want %q", asked, want)
+	}
+	if b, _ := os.ReadFile(filepath.Join(dir, "L", "f1.txt")); string(b) != "old" {
+		t.Errorf("skipped file changed: %q", b)
+	}
+
+	asked = vfsRunAnswering(t, js, VfsRequest{Kind: "copy", Target: filepath.Join(dir, "L"), Sources: []string{filepath.Join(arc, "f1.txt")}})
+	if len(asked) != 1 || asked[0] != filepath.Join(arc, "f1.txt") {
+		t.Errorf("copy out asked about %q", asked)
+	}
+	for _, q := range asked {
+		if strings.Contains(q, ".mc-") {
+			t.Errorf("staging folder shown: %s", q)
+		}
+	}
+}

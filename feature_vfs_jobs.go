@@ -610,8 +610,10 @@ func vfsCopyLocalTree(ctx context.Context, src, dst string) error {
 }
 
 // merge moves the staged file or folder src into the local folder dstDir as name, asking when a file is in the way.
-// It reports whether everything of it arrived (nothing skipped or failed).
-func (job *vfsJob) merge(src, dstDir, name string) bool {
+// shown is where the file really comes from (the entry in the archive, or the file on the server): the "Replace
+// file?" question names it rather than the hidden staging folder the file waits in. It reports whether everything
+// of it arrived (nothing skipped or failed).
+func (job *vfsJob) merge(src, shown, dstDir, name string) bool {
 	if job.ctx.Err() != nil {
 		return false
 	}
@@ -643,7 +645,7 @@ func (job *vfsJob) merge(src, dstDir, name string) bool {
 		}
 		ok := true
 		for _, de := range des {
-			ok = job.merge(filepath.Join(src, de.Name()), d, de.Name()) && ok
+			ok = job.merge(filepath.Join(src, de.Name()), vfsShownJoin(job, shown, de.Name()), d, de.Name()) && ok
 		}
 		return ok
 	}
@@ -653,7 +655,7 @@ func (job *vfsJob) merge(src, dstDir, name string) bool {
 			job.fail(fmt.Sprintf("%s: a folder with this name is in the way.", d))
 			return false
 		}
-		dec := job.resolve(src, d, sfi.Size(), dfi.Size(), sfi.ModTime().UnixMilli(), dfi.ModTime().UnixMilli(),
+		dec := job.resolve(shown, d, sfi.Size(), dfi.Size(), sfi.ModTime().UnixMilli(), dfi.ModTime().UnixMilli(),
 			func(n string) string { return fileops.UniqueName(dstDir, n) })
 		switch dec.act {
 		case "skip":
@@ -661,7 +663,7 @@ func (job *vfsJob) merge(src, dstDir, name string) bool {
 			return false
 		case "rename":
 			job.update(func(p *vfsProgress) { p.Files-- })
-			return job.merge(src, dstDir, dec.name)
+			return job.merge(src, shown, dstDir, dec.name)
 		case "rename_target":
 			if err := os.Rename(d, filepath.Join(dstDir, dec.name)); err != nil {
 				job.fail(fmt.Sprintf("%s: %s", name, vfsErrText(err)))
@@ -675,6 +677,14 @@ func (job *vfsJob) merge(src, dstDir, name string) bool {
 	}
 	job.update(func(p *vfsProgress) { p.FilesDone++ })
 	return true
+}
+
+// vfsShownJoin adds name to a shown source path (an archive, server or local path), for the question merge asks.
+func vfsShownJoin(job *vfsJob, dir, name string) string {
+	if r := vfsRouter(job.js.app); r != nil {
+		return r.Join(dir, name)
+	}
+	return filepath.Join(dir, name)
 }
 
 // vfsCountFiles counts the files in a local tree.
@@ -746,7 +756,7 @@ func (job *vfsJob) runCopy() error {
 			if s == "" || job.ctx.Err() != nil {
 				continue
 			}
-			arrived[i] = job.merge(s, target, job.newName(sources[i]))
+			arrived[i] = job.merge(s, sources[i], target, job.newName(sources[i]))
 		}
 	} else {
 		var err error
@@ -1172,7 +1182,7 @@ func (job *vfsJob) runUnpack() error {
 		names, _ := vfsTopNames(stage)
 		if localTarget {
 			for _, n := range names {
-				job.merge(filepath.Join(stage, n), dest, n)
+				job.merge(filepath.Join(stage, n), vfsShownJoin(job, src, n), dest, n)
 			}
 		} else {
 			paths := make([]string, len(names))
