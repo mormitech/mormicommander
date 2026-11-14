@@ -3,8 +3,9 @@ package main
 // The connection manager's list (Ctrl+F, F-377, F-634, F-635): saved servers in folders, kept by internal/ftp's Store
 // in ftpsites.json in the settings folder. FTP, SFTP and WebDAV sites share the list (Protocol tells them apart).
 // Passwords are never written in plain text: saving one needs TC's master password, which seals it with AES-GCM; the
-// master password is asked once per run, when a saved password is first needed. A site without a saved password asks
-// for it when connecting.
+// master password is asked once per run, when a saved password is first needed. With the option "Keep saved
+// passwords in the system keychain" (off by default, feature_net_keychain.go) a password goes to the system keychain
+// instead and the list keeps only a reference to it. A site without a saved password asks for it when connecting.
 
 import (
 	"encoding/json"
@@ -27,8 +28,9 @@ type NetSite struct {
 	Port         int    `json:"port"` // 0 = the protocol's default
 	User         string `json:"user"`
 	HasPassword  bool   `json:"hasPassword"`  // a password is saved
+	InKeychain   bool   `json:"inKeychain"`   // and it is in the system keychain (the list has only a reference)
 	Password     string `json:"password"`     // a new password to save (only sent by the page)
-	SavePassword bool   `json:"savePassword"` // keep a password (sealed with the master password); false asks each time
+	SavePassword bool   `json:"savePassword"` // keep a password (master password or keychain); false asks each time
 	KeyFile      string `json:"keyFile"`      // SFTP private key
 	UseAgent     bool   `json:"useAgent"`     // SFTP: try the keys of the SSH agent
 	RemoteDir    string `json:"remoteDir"`
@@ -52,6 +54,10 @@ type NetSiteList struct {
 	Sites     []NetSite `json:"sites"`
 	HasMaster bool      `json:"hasMaster"` // a master password is set
 	Unlocked  bool      `json:"unlocked"`  // and typed in this run
+
+	Keychain          bool   `json:"keychain"`          // new passwords go to the system keychain
+	KeychainAvailable bool   `json:"keychainAvailable"` // this system has a keychain the app can use
+	KeychainNote      string `json:"keychainNote"`      // why not, when it has none
 }
 
 // netSiteExtra holds what ftp.Site has no field for (settings key "netSites", by site ID).
@@ -254,7 +260,7 @@ func listHasHidden(lc string) bool {
 
 func (n *Net) toNetSite(s ftp.Site) NetSite {
 	ns := NetSite{ID: s.ID, Name: s.Name, Folder: s.Folder, Protocol: string(s.Protocol), Host: s.Host, Port: s.Port, User: s.User,
-		HasPassword: s.Password != "", SavePassword: s.Password != "", KeyFile: s.KeyFile, RemoteDir: s.RemoteDir, LocalDir: s.LocalDir,
+		HasPassword: s.Password != "", InKeychain: keychainRefName(s.Password) != "", SavePassword: s.Password != "", KeyFile: s.KeyFile, RemoteDir: s.RemoteDir, LocalDir: s.LocalDir,
 		Passive: !s.Active, TryTLS: s.TryTLS, Transfer: s.Transfer, Encoding: s.Encoding, ShowHidden: listHasHidden(s.ListCommand),
 		ListCommand: s.ListCommand, TimeOffset: s.TimeOffset, Keepalive: s.Keepalive, NoMLSD: s.NoMLSD, Comment: s.Comment,
 		UseAgent: !n.siteExtra(s.ID).NoAgent}
@@ -276,9 +282,14 @@ func (n *Net) Sites() (NetSiteList, error) {
 	if err != nil {
 		return NetSiteList{}, err
 	}
+	_, kcErr := n.keychain()
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	out := NetSiteList{Folders: append([]string{}, st.Folders...), Sites: []NetSite{}, HasMaster: st.HasMasterPassword(), Unlocked: n.key != nil}
+	out := NetSiteList{Folders: append([]string{}, st.Folders...), Sites: []NetSite{}, HasMaster: st.HasMasterPassword(), Unlocked: n.key != nil,
+		Keychain: st.Keychain, KeychainAvailable: kcErr == nil}
+	if kcErr != nil {
+		out.KeychainNote = kcErr.Error()
+	}
 	for _, s := range st.Sites {
 		out.Sites = append(out.Sites, n.toNetSite(s))
 	}
@@ -357,18 +368,17 @@ func (n *Net) SaveSite(ns NetSite) (string, error) {
 	if site.Encoding == "auto" {
 		site.Encoding = ""
 	}
-	var box ftp.SecretBox
-	if ns.SavePassword && ns.Password != "" {
-		var err error
-		if box, err = n.boxForSaving(); err != nil {
-			return "", err
-		}
-	}
 	st, err := n.loadStore()
 	if err != nil {
 		return "", err
 	}
-	id, err := n.saveSiteLocked(st, site, ns, box)
+	var boxFor func(id string) ftp.SecretBox
+	if ns.SavePassword && ns.Password != "" {
+		if boxFor, err = n.boxForSite(st); err != nil {
+			return "", err
+		}
+	}
+	id, err := n.saveSiteLocked(st, site, ns, boxFor)
 	if err != nil {
 		return "", err
 	}
@@ -380,10 +390,28 @@ func (n *Net) SaveSite(ns NetSite) (string, error) {
 	return id, nil
 }
 
-// saveSiteLocked stores the site and its password and writes the list.
-func (n *Net) saveSiteLocked(st *ftp.Store, site ftp.Site, ns NetSite, box ftp.SecretBox) (string, error) {
+// saveSiteLocked stores the site and its password (sealed by the box boxFor gives for the site's ID) and writes the
+// list. A password that was in the keychain and is now cleared or kept elsewhere has its keychain item deleted.
+func (n *Net) saveSiteLocked(st *ftp.Store, site ftp.Site, ns NetSite, boxFor func(id string) ftp.SecretBox) (string, error) {
 	n.mu.Lock()
-	defer n.mu.Unlock()
+	id := site.ID
+	var oldPw string
+	if i := netSiteIndex(st, id); id != "" && i >= 0 {
+		oldPw = st.Sites[i].Password
+	}
+	id, err := n.storeSiteLocked(st, site, ns, boxFor)
+	var newPw string
+	if i := netSiteIndex(st, id); err == nil && i >= 0 {
+		newPw = st.Sites[i].Password
+	}
+	n.mu.Unlock()
+	if err == nil && oldPw != newPw {
+		n.forgetKeychain(oldPw)
+	}
+	return id, err
+}
+
+func (n *Net) storeSiteLocked(st *ftp.Store, site ftp.Site, ns NetSite, boxFor func(id string) ftp.SecretBox) (string, error) {
 	id := site.ID
 	var err error
 	if id == "" {
@@ -404,6 +432,10 @@ func (n *Net) saveSiteLocked(st *ftp.Store, site ftp.Site, ns NetSite, box ftp.S
 	case !ns.SavePassword:
 		st.SetPassword(id, "", nil)
 	case ns.Password != "":
+		var box ftp.SecretBox
+		if boxFor != nil {
+			box = boxFor(id)
+		}
 		if err := st.SetPassword(id, ns.Password, box); err != nil {
 			return "", netStoreErr(err)
 		}
@@ -418,6 +450,10 @@ func (n *Net) DeleteSite(id string) error {
 		return err
 	}
 	n.mu.Lock()
+	var pw string
+	if i := netSiteIndex(st, id); i >= 0 {
+		pw = st.Sites[i].Password
+	}
 	if err := st.Remove(id); err != nil {
 		n.mu.Unlock()
 		return netStoreErr(err)
@@ -425,6 +461,9 @@ func (n *Net) DeleteSite(id string) error {
 	err = n.saveStoreLocked()
 	n.mu.Unlock()
 	n.setSiteExtra(id, nil)
+	if err == nil {
+		n.forgetKeychain(pw)
+	}
 	return err
 }
 
@@ -434,11 +473,28 @@ func (n *Net) CopySite(id string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	// A copy of a password in the keychain gets a keychain item of its own: two connections sharing one item would
+	// lose the password together when one of them is deleted. When it can't be read, the copy asks when connecting.
+	var copied string
+	if src, ok := st.Get(id); ok {
+		if name := keychainRefName(src.Password); name != "" {
+			if kc, err := n.keychain(); err == nil {
+				copied, _ = kc.Get(name)
+			}
+		}
+	}
+	kc, _ := n.keychain()
 	n.mu.Lock()
 	nid, err := st.Duplicate(id)
 	if err != nil {
 		n.mu.Unlock()
 		return "", netStoreErr(err)
+	}
+	if c, _ := st.Get(nid); keychainRefName(c.Password) != "" {
+		st.SetPassword(nid, "", nil)
+		if copied != "" {
+			st.SetPassword(nid, copied, keychainBox{kc, keychainNameOf(nid)})
+		}
 	}
 	err = n.saveStoreLocked()
 	n.mu.Unlock()
@@ -463,9 +519,26 @@ func (n *Net) RenameFolder(from, to string) error {
 	return n.storeOp(func(st *ftp.Store) error { return st.RenameFolder(from, to) })
 }
 
-// DeleteFolder removes a folder of the connection list with the connections in it.
+// DeleteFolder removes a folder of the connection list with the connections in it (and their keychain items).
 func (n *Net) DeleteFolder(folder string) error {
-	return n.storeOp(func(st *ftp.Store) error { return st.RemoveFolder(folder, true) })
+	var refs []string
+	err := n.storeOp(func(st *ftp.Store) error {
+		var pws []string
+		for _, s := range st.Sites {
+			if s.Folder == folder || strings.HasPrefix(s.Folder, folder+"/") {
+				pws = append(pws, s.Password)
+			}
+		}
+		if err := st.RemoveFolder(folder, true); err != nil {
+			return err
+		}
+		refs = pws
+		return nil
+	})
+	if err == nil {
+		n.forgetKeychain(refs...)
+	}
+	return err
 }
 
 func (n *Net) storeOp(f func(st *ftp.Store) error) error {

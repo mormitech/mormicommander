@@ -14,6 +14,7 @@
 .mc-net-side { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; }
 .mc-net-side button { text-align: left; padding: 5px 12px; }
 .mc-net-side .primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
+.mc-net-kc { margin: 8px 0 0; }
 .mc-net-info { min-height: 1.4em; margin: 8px 0 0; overflow-wrap: anywhere; }
 
 /* connection details */

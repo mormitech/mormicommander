@@ -14,6 +14,7 @@ import (
 	"golang.org/x/net/webdav"
 
 	"mormicommander/internal/ftp"
+	"mormicommander/internal/keychain"
 	"mormicommander/internal/vfs"
 )
 
@@ -74,6 +75,7 @@ func testNet(t *testing.T, answers map[string]string) (*Net, *[]string) {
 	t.Helper()
 	t.Setenv("MORMICOMMANDER_CONFIG_DIR", t.TempDir())
 	n := newNet(&App{})
+	n.openKeychain = func() (keychain.Keychain, error) { return keychain.NewFake(), nil } // never the real keychain
 	var asked []string
 	n.asker = func(kind string, data map[string]any) (map[string]any, bool) {
 		asked = append(asked, kind)

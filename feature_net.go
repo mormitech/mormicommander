@@ -30,6 +30,7 @@ import (
 	"encoding/json"
 
 	"mormicommander/internal/ftp"
+	"mormicommander/internal/keychain"
 	"mormicommander/internal/sftp"
 	"mormicommander/internal/vfs"
 )
@@ -46,6 +47,12 @@ type Net struct {
 	store     *ftp.Store
 	storePath string
 	key       *ftp.MasterKey // the unlocked master password, for this run only
+
+	kc           keychain.Keychain                 // the system keychain (feature_net_keychain.go), once opened
+	kcErr        error                             // why there is none
+	kcOpened     bool                              // kc and kcErr are known
+	openKeychain func() (keychain.Keychain, error) // tests put a fake keychain here; nil = keychain.Open
+	askNotes     map[string]string                 // session key → why the password is asked (said once)
 
 	sites     map[string]ftp.Site         // session key → the saved site it was connected from
 	passwords map[string]string           // session key → password typed or saved (memory only)
@@ -109,7 +116,7 @@ func init() {
 
 func newNet(a *App) *Net {
 	n := &Net{app: a, sites: map[string]ftp.Site{}, passwords: map[string]string{}, modes: map[string]ftp.TransferMode{},
-		logs: map[string]*netLog{}, asks: map[int]chan map[string]any{}, xfers: map[int]*netXfer{}}
+		logs: map[string]*netLog{}, askNotes: map[string]string{}, asks: map[int]chan map[string]any{}, xfers: map[int]*netXfer{}}
 	n.dav = newNetDAV(n.configureDAV)
 	for _, s := range []string{"webdav", "webdavs", "dav", "davs"} {
 		vfs.Register(s, n.dav)
@@ -309,7 +316,7 @@ func (n *Net) configureFTP(c *ftp.Config) error {
 		c.Password = o.AnonymousPassword
 	}
 	if c.Password == "" && !c.IsAnonymous() {
-		p, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", c.User, c.Host), "")
+		p, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", c.User, c.Host), n.askNote(key))
 		if !ok {
 			return errNetCancelled
 		}
@@ -352,7 +359,11 @@ func (n *Net) configureSFTP(c *sftp.Config) error {
 	// "cd"), asks for it once the agent and the keys did not log in, like OpenSSH does; a refused one is asked again.
 	// The password is remembered for the session, so a reconnect does not ask again (F-632, F-636).
 	c.PasswordFunc = func(attempt int) (string, error) {
-		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", c.User, c.Host), netRetryMessage(attempt > 0))
+		msg := netRetryMessage(attempt > 0)
+		if attempt == 0 {
+			msg = n.askNote(key)
+		}
+		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", c.User, c.Host), msg)
 		if !ok {
 			return "", errNetCancelled
 		}
@@ -462,22 +473,25 @@ func (n *Net) ConnectSite(id string) (NetConnected, error) {
 	if err != nil {
 		return NetConnected{}, err
 	}
+	missing := false
 	if site.Password != "" {
-		box, err := n.unlockIfNeeded()
+		pw, miss, err := n.sitePassword(st, site)
 		if err != nil {
 			return NetConnected{}, err
 		}
-		pw, err := st.Password(id, box)
-		if err != nil {
-			return NetConnected{}, netStoreErr(err)
-		}
-		u.Password = pw
+		u.Password, missing = pw, miss
 	}
 	n.disconnectSession(u.String(), false)
 	n.mu.Lock()
 	n.sites[u.key()] = site
+	if missing {
+		n.askNotes[u.key()] = "The saved password is not in the system keychain any more."
+	}
 	n.mu.Unlock()
 	p, err := n.connect(u, &site)
+	n.mu.Lock()
+	delete(n.askNotes, u.key()) // logged in without asking (a key, the agent): the note is not needed
+	n.mu.Unlock()
 	if err != nil {
 		return NetConnected{}, err
 	}
@@ -566,7 +580,11 @@ func (n *Net) connect(u netURL, site *ftp.Site) (string, error) {
 		if user == "" {
 			user = "anonymous"
 		}
-		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", user, u.Host), netRetryMessage(sent))
+		msg := netRetryMessage(sent)
+		if !sent {
+			msg = n.askNote(key)
+		}
+		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", user, u.Host), msg)
 		if !ok {
 			return "", errNetCancelled
 		}
@@ -574,6 +592,15 @@ func (n *Net) connect(u netURL, site *ftp.Site) (string, error) {
 		n.passwords[key] = pw
 		n.mu.Unlock()
 	}
+}
+
+// askNote is the text under the first password question of a session (why it is asked), said once; usually "".
+func (n *Net) askNote(key string) string {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	note := n.askNotes[key]
+	delete(n.askNotes, key)
+	return note
 }
 
 // netRetryMessage is the text under the password question of connect: it says the login was refused only when a
