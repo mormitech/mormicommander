@@ -26,6 +26,7 @@ import { addControlCommand } from '../core/control.js';
 import { size, date, plural } from '../core/format.js';
 import { track } from '../core/busy.js';
 import { app as theApp } from '../core/app.js';
+import { holdProgress, showWhenFree } from '../core/progresshold.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
 export const isRemote = (p) => SCHEMES.test(p || '');
@@ -453,6 +454,11 @@ function listenJobs() {
 async function askOverwrite(p) {
   const c = p.ask;
   const name = base(c.target);
+  const release = holdProgress(); // no progress box opens over the question (board issue #123)
+  try { await askOverwriteNow(p, c, name); } finally { release(); }
+}
+
+async function askOverwriteNow(p, c, name) {
   const buttons = Object.keys(JOB_BUTTONS).filter((b) => c.canResume || !b.startsWith('Resume'));
   const msg = `${name} is already in the target folder.\n\nNew: ${size(c.srcSize)}, ${date(c.srcTime)}\nThere: ${size(c.dstSize)}, ${date(c.dstTime)}${c.canResume ? '\n\nThe file there is shorter: "Resume" copies only the rest.' : ''}`;
   const b = await messageDialog({ Title: 'Overwrite?', Message: msg, Buttons: buttons, DefaultButton: c.canResume ? 'Resume' : 'Overwrite', CancelButton: 'Cancel', Kind: 'net-overwrite' });
@@ -475,7 +481,7 @@ export function runNetJob(req, { title } = {}) {
     let close = () => {};
     let paint = () => {};
     const result = new Promise((resolve) => jobs.set(id, { resolve, update: (np) => { p = np; paint(); }, close: () => close() }));
-    const showTimer = setTimeout(() => {
+    const cancelShow = showWhenFree(() => { // waits while a question is open, so it stays on top (board issue #123)
       modal((box, done) => {
         close = () => done();
         box.innerHTML = `<h2>${esc(title || (req.kind === 'move' ? 'Moving' : 'Copying'))}</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p>
@@ -493,7 +499,7 @@ export function runNetJob(req, { title } = {}) {
       }, undefined, { kind: 'net-job' }).then(() => go.Net.CancelJob(id).catch(() => {}));
     }, 400);
     const final = await result;
-    clearTimeout(showTimer);
+    cancelShow();
     close();
     await Promise.all(theApp.panels.map((pn) => pn.reload()));
     if (final.state === 'failed') theApp.flash(final.errors.slice(0, 3).join('\n') + (final.errors.length > 3 ? `\n…and ${final.errors.length - 3} more.` : ''), 'err');

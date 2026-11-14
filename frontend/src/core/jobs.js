@@ -21,6 +21,7 @@ import { modal, messageDialog, inputDialog, esc } from './dialogs.js';
 import { size, date, bytes, plural } from './format.js';
 import { track } from './busy.js';
 import { app } from './app.js';
+import { holdProgress, progressHeld, showWhenFree } from './progresshold.js';
 
 // Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
 // job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
@@ -162,28 +163,22 @@ function finishedInBackground(r) {
 
 // ---- the progress box of a foreground job ----
 
-// holdProgress keeps new progress boxes from opening while a question a job waits for is on screen (the password of
-// an encrypted archive): the box would cover the question, and keys and control mode would go to the box. It returns
-// the function that ends the hold.
-let holds = 0;
-export function holdProgress() {
-  holds++;
-  let ended = false;
-  return () => { if (!ended) { ended = true; holds--; } };
-}
+// holdProgress (core/progresshold.js) keeps new progress boxes from opening while a question a job waits for is on
+// screen (the password of an encrypted archive, or any question ask() shows): the box would cover the question, and
+// keys and control mode would go to the box. It returns the function that ends the hold.
+export { holdProgress };
 
 function foreground(r) {
   let box = null, closeBox = null, shown = false;
   const ui = {
     paint: () => {},
-    close: () => { clearTimeout(timer); closeBox?.('closed'); },
-    showNow: () => { if (!shown) { clearTimeout(timer); show(); } },
+    close: () => { cancelTimer(); closeBox?.('closed'); },
+    showNow: () => { if (!shown && !progressHeld()) { cancelTimer(); show(); } }, // (an open question stays on top)
   };
   r.ui = ui;
-  let timer = setTimeout(() => show(), 400);
+  const cancelTimer = showWhenFree(show, 400); // waits while a question is open, so it stays on top
   function show() {
     if (shown || r.done) return;
-    if (holds > 0) { timer = setTimeout(show, 300); return; } // a question is open: it stays on top
     shown = true;
     modal((b, done) => {
       box = b;
@@ -247,10 +242,17 @@ async function pick(r, o, buttons) {
   return list.find(([l]) => l === b)?.[1] || 'cancel';
 }
 
+// ask shows the question a job waits for. The progress box opens first when it is due anyway; while the question is
+// open no progress box opens (it would cover the question: board issue #123).
 async function ask(r) {
   const c = r.p?.ask;
   if (!c) return;
   r.ui?.showNow?.();
+  const release = holdProgress();
+  try { return await askNow(r, c); } finally { release(); }
+}
+
+async function askNow(r, c) {
   const name = base(c.target || c.source);
   switch (c.type) {
     case '': return overwrite(r, c);
