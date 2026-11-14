@@ -117,6 +117,32 @@ func TestSystemRunLineCd(t *testing.T) {
 	}
 }
 
+// TestSystemExpandEnv: "cd $HOME" on the command line (board issue #130) asks Go for the variables' values.
+func TestSystemExpandEnv(t *testing.T) {
+	s := newSystemLaunch(NewApp(startOpts{}))
+	s.newLauncher = func() *launch.Launcher {
+		l := launch.New()
+		l.LookupEnv = func(n string) (string, bool) {
+			if n == "HOME" {
+				return "/home/me", true
+			}
+			return "", false
+		}
+		return l
+	}
+	cases := map[string]string{"%HOME%/x": "/home/me/x", "plain": "plain", "%NOPE%": "%NOPE%"}
+	if runtime.GOOS != "windows" {
+		cases["$HOME"] = "/home/me"
+		cases["${HOME}/Documents"] = "/home/me/Documents"
+		cases["$NOPE/a"] = "$NOPE/a"
+	}
+	for in, want := range cases {
+		if got := s.ExpandEnv(in); got != want {
+			t.Errorf("ExpandEnv(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestSystemTerminalNeedsLocalFolder(t *testing.T) {
 	s, _ := recordingLaunch(NewApp(startOpts{}))
 	if err := s.Terminal("ftp://host/dir"); err == nil || !strings.Contains(err.Error(), "on this computer") {

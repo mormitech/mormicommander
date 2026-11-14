@@ -6,15 +6,29 @@
 import { command, hasCommand, commandList, run } from '../core/registry.js';
 import { cmdline, addCmdlineHandler } from '../core/cmdline.js';
 import { app as theApp } from '../core/app.js';
+import { go } from '../core/go.js';
 
 const quote = (s) => (/[\s"'&|;<>()$`\\]/.test(s) && theApp.platform !== 'windows') || /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
 
-// cd: "cd" alone goes home, "cd .." up, "cd /" or "cd \" to the root, "cd ~/x" and relative paths work.
+// cd: "cd" alone goes home, "cd .." up, "cd /" or "cd \" to the root, "cd ~/x" and relative paths work. As in Total
+// Commander, "cd\" and "cd.." also work without the space, and environment variables are expanded ("cd $HOME",
+// "cd ${HOME}/x", "cd %HOME%"; board issue #130).
+export const cdArg = (text) => {
+  const m = /^cd(?:\s+(.*)|((?:\\|\/|\.\.).*))?$/i.exec(text);
+  return m ? (m[1] ?? m[2] ?? '') : null;
+};
+
+// expandEnv asks Go for the values of the environment variables in s; s stays as it is when Go can't answer.
+async function expandEnv(s) {
+  if (!/[$%]/.test(s)) return s;
+  try { return (await go.SystemLaunch.ExpandEnv(s)) || s; } catch { return s; }
+}
+
 addCmdlineHandler(async (text) => {
-  const m = /^cd(?:\s+(.*))?$/i.exec(text);
-  if (!m) return false;
+  const raw = cdArg(text);
+  if (raw === null) return false;
   const app = theApp, p = app.cur;
-  let arg = (m[1] || '').trim().replace(/^"(.*)"$/, '$1');
+  let arg = await expandEnv(raw.trim().replace(/^"(.*)"$/, '$1'));
   if (!arg) arg = app.home;
   if (arg === '\\' || arg === '/') return run('cm_GoToRoot').then(() => true);
   if (arg === '..') return run('cm_GoToParent').then(() => true);

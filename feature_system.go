@@ -289,6 +289,13 @@ func (s *SystemLaunch) RunLine(line, dir string, keepOpen bool) (SystemLineResul
 	return SystemLineResult{Kind: "run"}, nil
 }
 
+// ExpandEnv replaces the environment variables in s ("$HOME", "${HOME}", and "%HOME%" as in Total Commander; on
+// Windows only the %NAME% form) with their values, for "cd $HOME" on the command line (F-062, F-302). Variables that
+// are not set stay as they are typed.
+func (s *SystemLaunch) ExpandEnv(text string) string {
+	return s.newLauncher().ExpandEnv(text)
+}
+
 // RunWith starts a program with files as its parameters (files dropped on a program in a panel).
 func (s *SystemLaunch) RunWith(program string, files []string, dir string) error {
 	if s.app.mock != nil {
