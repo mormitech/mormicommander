@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.84 – 2026-11-14
+
+### Added
+
+- Issue #111: the hotlist popup now understands Left and Right. Right opens a submenu, Left goes back up one level; Enter and Esc work as before, and other popups are unchanged.
+- Issue #111: new switch Options > Hotlist > "Typing in the hotlist filters it", off by default (the old letter jumps stay). When on, typed text shows under the title and only entries whose name or folder contain every typed word stay, including entries inside submenus. Backspace removes a letter; Esc clears the filter first, then closes.
+
+### Fixed
+
+- Issue #111: hotlist entries with a file mask (such as cd folder/*.txt) now test each file name again whenever the list is shown.
+
 ## 0.9.83 – 2026-11-14
 
 ### Fixed
