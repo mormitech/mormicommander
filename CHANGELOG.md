@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.97 – 2026-11-14
+
+### Added
+
+- Issue #32 (F-862): Duplicate actions in Find files. After a duplicate search, a new "Duplicates..." button in the results bar (greyed out unless a group has at least two usable files) opens a dialog. Pick which file to keep in each group (newest, oldest, or first path A to Z), then either mark the other copies in the list, move them to the Trash (asks first, never deletes permanently, does nothing if there is no Trash), or replace them with hard links (asks first; a copy is only replaced when both are plain local files of the same size with identical bytes). A live summary shows copies, groups and space saved, and warns when the search did not compare contents. Nothing existing changes behaviour.
+
 ## 0.9.96 – 2026-11-14
 
 ### Added
