@@ -199,7 +199,7 @@ func TestSplitExt(t *testing.T) {
 		{"a.tar.gz", "a.tar", "gz"},
 		{".bashrc", ".bashrc", ""},
 		{"noext", "noext", ""},
-		{"trailing.", "trailing", ""},
+		{"trailing.", "trailing.", ""}, // the dot stays in the name part (#149)
 		{"", "", ""},
 	}
 	for _, c := range cases {

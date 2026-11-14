@@ -16,6 +16,8 @@ import (
 	"regexp"
 	"strings"
 
+	"golang.org/x/text/unicode/norm"
+
 	"mormicommander/internal/rxflags"
 )
 
@@ -41,6 +43,9 @@ func newReplacer(s Settings) (*replacer, error) {
 		flags = "(?i)"
 	}
 	r := &replacer{onlyFirst: s.OnlyFirst}
+	// search text and names are compared in NFC, like masks and Find do: "é" typed on a keyboard (NFC) finds the "é"
+	// of a name stored decomposed (NFD, as macOS often has it)
+	s.Search, s.Replace = norm.NFC.String(s.Search), norm.NFC.String(s.Replace)
 	if s.RegEx {
 		re, err := rxflags.Compile(flags, s.Search)
 		if err != nil {
@@ -95,15 +100,18 @@ func wildcardToRegex(p string) string {
 	return b.String()
 }
 
-// apply performs the replacement on s.
+// apply performs the replacement on s. A name in another Unicode form is matched in NFC; it comes back unchanged
+// when nothing matches, and in NFC when something was replaced.
 func (r *replacer) apply(s string) string {
+	s0 := s
+	s = norm.NFC.String(s)
 	n := -1
 	if r.onlyFirst {
 		n = 1
 	}
 	matches := r.re.FindAllStringSubmatchIndex(s, n)
 	if len(matches) == 0 {
-		return s
+		return s0
 	}
 	var b strings.Builder
 	last := 0

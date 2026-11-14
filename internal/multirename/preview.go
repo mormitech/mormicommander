@@ -15,6 +15,7 @@ package multirename
 import (
 	"errors"
 	"fmt"
+	"golang.org/x/text/unicode/norm"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -168,7 +169,8 @@ func CheckEntries(entries []Entry, o PreviewOptions) {
 	}
 	key := func(dir, name string) string {
 		if fold {
-			name = strings.ToLower(name)
+			// a folding file system (macOS, Windows) treats case, and on APFS the Unicode form, as one name
+			name = strings.ToLower(norm.NFC.String(name))
 		}
 		return filepath.Clean(dir) + "\x00" + name
 	}
