@@ -525,14 +525,14 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-378 New FTP connection (quick) — Ctrl+N — enter host or URL (ftp://user@host:port/path); connects
 - [ ] F-379 FTP disconnect — Ctrl+Shift+F — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-380 Show hidden FTP files / custom LIST command — — — option sends LIST -a; hidden files shown
-- [ ] F-381 FTP download list (cm_FtpDownloadList) — — — queue of files to download later; transfer manager
+- [~] F-381 FTP download list (cm_FtpDownloadList) — — — queue of files to download later; transfer manager — #106: the list's queued items run one by one as Net.StartJob transfers that ask when a file is in the way; the live tests run that against vsftpd, OpenSSH and Apache WebDAV (download, skip, overwrite; live_net_test.go); the page's list dialog is not part of them
 - [ ] F-382 Background transfer manager (cm_BackgroundTransferManager) — — — transfers run in background with progress; can be queued, paused, removed
 - [N/A] F-383 Connect/disconnect network drive dialog (cm_NetConnect / cm_NetDisconnect) — Windows-specific dialog — macOS: open smb://server via OS Connect to Server; Linux: gio mount; Windows: native WNetConnectionDialog
 - [N/A] F-384 Share / unshare folder (cm_NetShareDir / cm_NetUnshareDir) — sharing is an OS setting — button opens OS sharing settings
 - [N/A] F-385 Port connection / direct cable (cm_DirectCableConnect) — obsolete serial/parallel/USB cable link — SFTP/FTP between machines
 - [N/A] F-386 Network neighborhood browsing — Windows-only namespace — mounted network volumes appear in drive list; UNC paths on Windows
 - [~] F-387 FTP transfer mode binary/ASCII/auto — — — transfer mode selectable; ASCII converts line endings
-- [~] F-388 Resume aborted download — — — partially downloaded file resumes from offset (REST)
+- [~] F-388 Resume aborted download — — — partially downloaded file resumes from offset (REST) — #106: resumed downloads checked against real servers (vsftpd, OpenSSH, Apache WebDAV) in the live tests
 - [ ] F-389 FTP hidden filter / server-specific settings (passive, proxy, firewall, SSL/TLS, codepage UTF-8) — — — per-connection options saved and used
 - [~] F-390 Send FTP command (cm_FtpSendCommand) — — — raw FTP command can be sent; reply shown in log
 - [~] F-391 FTP log window — — — log of FTP commands and responses can be shown
@@ -657,7 +657,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-481 Drag & drop right button menu (copy/move/link/cancel) — — — right-drag drop shows menu
 - [ ] F-482 Copy to archive (target is archive path) — — — copying into a panel showing an archive adds files to the archive
 - [ ] F-483 Copy from archive to folder — — — copying out of an archive panel extracts files
-- [~] F-484 Copy to/from FTP/SFTP panel — — — transfers via network plugin
+- [~] F-484 Copy to/from FTP/SFTP panel — — — transfers via network plugin — #106: live tests against vsftpd (FTP, explicit FTPS, passive and active), OpenSSH and Apache WebDAV: folders up and down with sizes, contents and dates, F6 both ways, F8 on the server, FTP to SFTP to WebDAV (live_net_test.go); an FTPS upload that lost its end (closed with unread server data, found against pyftpdlib) was fixed
 - [~] F-485 Copy only newer / missing (via Sync) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-486 Copy file names with long paths (>260 chars on Windows) — — — long paths work on Windows (\\?\ prefix)
 - [ ] F-487 Case-only rename (a.txt -> A.txt) on case-insensitive FS — — — rename succeeds on macOS/Windows
@@ -724,7 +724,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-525 General: search for (wildcards, multiple patterns separated by ; and `|` for exclusions) — — — `*.txt|old*` finds txt not starting with old
 - [ ] F-526 General: search in (multiple folders separated by ;, drive list, "selected folders") — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-527 General: search subdirectories depth (all, current only, 1..n levels) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-528 General: search archives (look inside zip etc.) — — — files inside archives listed with archive path
+- [~] F-528 General: search archives (look inside zip etc.) — — — files inside archives listed with archive path — #106: live test: search inside a 7z packed by the real 7-Zip, a RAR and a ZIP (live_archive_test.go)
 - [ ] F-529 General: find text (containing text), case-sensitive, whole words, regex, hex, not containing, Unicode/UTF-8/UTF-16, ANSI/OEM codepages — — — each option works against test files
 - [ ] F-530 General: Regular expressions in file name — — — name pattern as regex
 - [ ] F-531 Advanced: date between / not older than n minutes/hours/days/weeks/months/years — — — filters work
@@ -737,7 +737,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-538 Results list live while searching, stop button — — — results appear progressively; Stop works
 - [~] F-539 Results: go to file (jump to file in panel) — — — "Go to file" opens folder and focuses file
 - [~] F-540 Results: view (F3), edit (F4) from list — F3/F4 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-541 Results: feed to listbox (cm_ "Feed to listbox") — — — results shown in a panel as virtual folder; normal file operations (copy, delete, pack) work on it
+- [~] F-541 Results: feed to listbox (cm_ "Feed to listbox") — — — results shown in a panel as virtual folder; normal file operations (copy, delete, pack) work on it — #106: live test: results that all come from one 7z, RAR or ZIP are fed as the archive's members; F5 copies them out, F8 deletes them from a ZIP and is refused for 7z and RAR (read-only) (live_archive_test.go)
 - [~] F-542 New search / last search remembered — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: not built: "Find files in a new window" (cm_SearchStandalone) is in the Commands menu but greyed out, the command is not registered; the search itself already runs as a background job (internal/find job.go)
 - [~] F-544 Search in found files (refine) — — — search again only within results
@@ -757,7 +757,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-552 Compare by content in sync (Ctrl+... ) — — — content compare for "=" vs "≠"
 - [~] F-553 Open compare tool for a pair from sync list — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-554 Save/load sync settings — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it — audit #103: built (issue #9): either side of Synchronize folders can be an archive (a.zip, a.zip/sub; zip and tar family written, 7z/RAR/nested/server archives read-only: nothing is copied to them, the window says why) or a server folder (FTP, SFTP, WebDAV URL, typed or from a panel); deletes there are permanent (the dialog says so), lost file dates (WebDAV, FTP without MFMT) are reported (feature_syncdirs_vfs.go); waiting for QA
+- [~] F-555 Sync with archives / FTP as one side — — — works where virtual FS supports it — audit #103: built (issue #9): either side of Synchronize folders can be an archive (a.zip, a.zip/sub; zip and tar family written, 7z/RAR/nested/server archives read-only: nothing is copied to them, the window says why) or a server folder (FTP, SFTP, WebDAV URL, typed or from a panel); deletes there are permanent (the dialog says so), lost file dates (WebDAV, FTP without MFMT) are reported (feature_syncdirs_vfs.go); waiting for QA — #106: live tests with real servers: local with vsftpd FTP, OpenSSH SFTP and Apache WebDAV, compare, sync both ways, compare again all equal (dates within the server's precision; by content where dates can't be set)
 
 ## 26. Compare by content (file compare tool)
 
@@ -832,8 +832,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-604 TAR: create/read, with gzip, bzip2 (read; write via library), xz, zstd — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-605 GZ / BZ2 / XZ single-file packers — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-606 7z: read (list, extract) — — — 7z archive contents viewed and extracted (Go library)
-- [~] F-607 7z: create — — — via external 7z if present; otherwise disabled with note
-- [ ] F-608 RAR: read/extract — — — rar archives list and extract via Go library (read-only); creating rar uses external rar only if installed
+- [~] F-607 7z: create — — — via external 7z if present; otherwise disabled with note — #106: live test with the real 7-Zip: pack, add, "move to archive", read back by the app and by 7-Zip (live_archive_test.go)
+- [~] F-608 RAR: read/extract — — — rar archives list and extract via Go library (read-only); creating rar uses external rar only if installed — #106: read in the live test (a RAR 5 sample checked with the real unrar, listed, searched, copied out); creating RAR is not built
 - [N/A] F-609 ARJ / LZH / ACE / UC2 archives — obsolete formats, ACE dropped for security — open via external 7z if installed; CAB read via library where possible
 - [ ] F-610 ISO read (browse) — — — ISO images open as folder
 - [ ] F-611 DMG / APK / JAR / docx etc. as zip — — — jar/apk/docx/xlsx/epub open as zip (by content sniffing, Ctrl+PgDn)
@@ -860,18 +860,18 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 ## 30. FTP and network file systems
 
 - [ ] F-629 FTP client: connect, list, navigate, download, upload, delete, rename, mkdir, chmod (site chmod) — — — all verified against a local FTP server on 127.0.0.1
-- [ ] F-630 Passive / active mode — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-631 FTPS (explicit / implicit TLS) — — — connects to local TLS FTP test server
-- [~] F-632 SFTP (SSH) client: password and key auth, agent, known_hosts check — — — verified against local SSH server on 127.0.0.1; host key prompt on first connect — #10: checked through the connection layer against the in-process SSH server: password (asked, retried, remembered for the session), keys in ~/.ssh and a saved key file with passphrase, the SSH agent (and a saved connection with the agent off), host key prompt on first connect saved in the app's own known_hosts, ~/.ssh/known_hosts trusted read-only, a changed key warned about and refused (feature_net_sftp_test.go, feature_net_sftp_more_test.go); waiting for QA
+- [~] F-630 Passive / active mode — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #106: passive and active (a saved connection with passive off) checked against vsftpd in the live tests
+- [~] F-631 FTPS (explicit / implicit TLS) — — — connects to local TLS FTP test server — #106: explicit TLS (ftpes://, AUTH TLS, PROT P) checked against vsftpd in the live tests; implicit TLS only against the in-process test server; the certificate must be trusted by the system (no "accept this certificate" question yet)
+- [~] F-632 SFTP (SSH) client: password and key auth, agent, known_hosts check — — — verified against local SSH server on 127.0.0.1; host key prompt on first connect — #10: checked through the connection layer against the in-process SSH server: password (asked, retried, remembered for the session), keys in ~/.ssh and a saved key file with passphrase, the SSH agent (and a saved connection with the agent off), host key prompt on first connect saved in the app's own known_hosts, ~/.ssh/known_hosts trusted read-only, a changed key warned about and refused (feature_net_sftp_test.go, feature_net_sftp_more_test.go); waiting for QA — #106: live tests against OpenSSH: host key shown with the real fingerprint and saved, password, a key in ~/.ssh and a saved key file, a changed key refused
 - [ ] F-633 SFTP: chmod, symlinks, resume — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-634 Connection manager with folders, saved passwords (encrypted with master password / OS keychain) — — — saved passwords never stored in plain text; uses OS keychain or master password — #10: built: saved passwords are sealed with the master password by default; "Keep saved passwords in the system keychain" in the connection manager (off by default) keeps them in the macOS login keychain, the Windows Credential Manager or the Secret Service (secret-tool on Linux; the box is disabled with the reason when there is none), the list keeps only a "keychain:" reference; switching moves the saved passwords both ways (asking for the master password when needed); a password the keychain lost is asked when connecting (internal/keychain, feature_net_keychain.go); waiting for QA
 - [~] F-635 Master password (TC) — — — master password protects stored passwords
 - [~] F-636 Quick connect via URL in path bar/command line (ftp://, sftp://) — — — typing a URL in path bar connects — #10: a URL in the path bar connects (asking the host key and password as needed); a password typed in the URL is now used instead of asked again, and never shows in the panel path; on the command line "cd <url>" and now a URL alone connect, and the command line history drops passwords typed in URLs (internal/vfs/router.go, frontend/src/features/cmdline.js); waiting for QA
 - [ ] F-637 Proxy / firewall settings (SOCKS, HTTP CONNECT) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-638 FTP server-side copy/move within server — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-638 FTP server-side copy/move within server — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #106: copy and move within vsftpd, OpenSSH and Apache WebDAV in the live tests
 - [ ] F-639 FTP time zone offset / time correction — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-640 FTP codepage (UTF-8 / local) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-641 Upload with same folder structure — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-641 Upload with same folder structure — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #106: folder trees uploaded with their structure to vsftpd, OpenSSH and Apache WebDAV in the live tests
 - [ ] F-642 Keepalive (NOOP) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-643 Transfer queue with parallel connections — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-644 HTTP/HTTPS download (TC: URL in FTP connect) — — — URL file downloads to current folder with progress
