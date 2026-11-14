@@ -34,6 +34,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -205,8 +206,10 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	// The page shows the window once the dialog is drawn (ShowMe); should it not manage, the window comes anyway.
 	time.AfterFunc(2*time.Second, func() { dw.show(v) })
 	// The next spare is made once this window is on the screen: making a window keeps the main thread busy for tens of
-	// milliseconds, which would hold up showing this one.
-	time.AfterFunc(dialogRefill, dw.fill)
+	// milliseconds, which would hold up showing this one. (Not on Windows, where it took the focus: refillOnOpen.)
+	if refillOnOpen(runtime.GOOS) {
+		time.AfterFunc(dialogRefill, dw.fill)
+	}
 	return map[string]any{"name": v.name, "w": w, "h": h, "sized": sized}, nil
 }
 

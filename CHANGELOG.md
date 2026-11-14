@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.2 – 2026-11-14
+
+### Fixed
+
+- Windows: dialog windows (Copy, Properties and the rest) no longer get a taskbar button of their own. They are real
+  dialogs, owned by the main window, as in Total Commander: Wails gives every window the "taskbar button" style
+  (WS_EX_APPWINDOW), which beat the owner; dialog windows now lose it before they are shown.
+- Windows: a dialog window no longer loses the focus about half a second after it opened. Making the next spare dialog
+  window in the background (Wails hides and shows its WebView2 once its page has loaded) took the focus; on Windows the
+  spare is now made when the dialog closes instead.
+
 ## 0.11.1 – 2026-11-14
 
 ### Fixed

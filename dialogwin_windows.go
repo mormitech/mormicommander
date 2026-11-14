@@ -1,7 +1,8 @@
 //go:build windows
 
 // Dialog windows on Windows (feature_dialog_window.go): a dialog window is owned by the window it belongs to, so it
-// stays above it, is minimised with it and has no taskbar button of its own.
+// stays above it, is minimised with it and has no taskbar button of its own (Wails' WS_EX_APPWINDOW is taken off, see
+// dialogExStyle).
 package main
 
 import (
@@ -10,9 +11,20 @@ import (
 	"github.com/wailsapp/wails/v3/pkg/application"
 )
 
-var procSetWindowLongPtr = syscall.NewLazyDLL("user32.dll").NewProc("SetWindowLongPtrW")
+var (
+	user32               = syscall.NewLazyDLL("user32.dll")
+	procSetWindowLongPtr = user32.NewProc("SetWindowLongPtrW")
+	procGetWindowLongPtr = user32.NewProc("GetWindowLongPtrW")
+	procSetWindowPos     = user32.NewProc("SetWindowPos")
+)
 
-const gwlpHwndParent = ^uintptr(7) // GWLP_HWNDPARENT (-8)
+const (
+	gwlpHwndParent = ^uintptr(7)  // GWLP_HWNDPARENT (-8)
+	gwlExStyle     = ^uintptr(19) // GWL_EXSTYLE (-20)
+	// SetWindowPos flags: change nothing but let the new style take effect (SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER |
+	// SWP_NOACTIVATE | SWP_FRAMECHANGED)
+	swpStyleOnly = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020
+)
 
 // placeWindow sizes a dialog window so its inside is w x h and puts its top left corner at x, y.
 func placeWindow(win *application.WebviewWindow, x, y, w, h, frameW, frameH int) {
@@ -32,7 +44,15 @@ func attachOwned(win, parent *application.WebviewWindow) {
 	if child == 0 || owner == 0 {
 		return
 	}
-	application.InvokeSync(func() { procSetWindowLongPtr.Call(child, gwlpHwndParent, owner) })
+	application.InvokeSync(func() {
+		procSetWindowLongPtr.Call(child, gwlpHwndParent, owner)
+		// no taskbar button of its own (dialogExStyle); the window is still hidden here, so the taskbar never shows one
+		ex, _, _ := procGetWindowLongPtr.Call(child, gwlExStyle)
+		if nex := dialogExStyle(ex); nex != ex {
+			procSetWindowLongPtr.Call(child, gwlExStyle, nex)
+			procSetWindowPos.Call(child, 0, 0, 0, 0, 0, swpStyleOnly)
+		}
+	})
 }
 
 // showOwned has nothing to do here (the owner was set before); false: the window still needs the focus.

@@ -323,3 +323,20 @@ func TestTopOfSkipsModeless(t *testing.T) {
 		t.Fatalf("top over main: %v", v)
 	}
 }
+
+func TestDialogExStyleDropsTaskbarButton(t *testing.T) {
+	const wsExWindowEdge, wsExControlParent = 0x100, 0x10000
+	ex := uintptr(wsExAppWindow | wsExWindowEdge | wsExControlParent)
+	if got := dialogExStyle(ex); got != wsExWindowEdge|wsExControlParent {
+		t.Errorf("dialogExStyle(%#x) = %#x, want only WS_EX_APPWINDOW taken off", ex, got)
+	}
+	if got := dialogExStyle(wsExWindowEdge); got != wsExWindowEdge {
+		t.Errorf("a style without WS_EX_APPWINDOW changed: %#x", got)
+	}
+}
+
+func TestRefillOnOpenNotOnWindows(t *testing.T) {
+	if refillOnOpen("windows") || !refillOnOpen("darwin") || !refillOnOpen("linux") {
+		t.Error("the spare is made at open everywhere but on Windows")
+	}
+}
