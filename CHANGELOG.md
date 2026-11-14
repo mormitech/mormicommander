@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.46 – 2026-11-14
+
+### Fixed
+
+- Read-only archives now say why, before anything starts (issue #143). A panel showing an archive inside another
+  archive was described as the outer archive, so copying into it said "is a file, not a folder" and writes failed
+  with a vague read-only error. It is now treated as the inner archive's root, and F5/F6/F7/F8 into or inside a
+  read-only archive (7Z, or one nested in another archive or on a server) stop up front with a plain sentence that
+  names the reason and suggests unpacking it or packing a new archive with Alt+F5.
+
 ## 0.9.45 – 2026-11-14
 
 ### Fixed
