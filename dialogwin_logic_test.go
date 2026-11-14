@@ -237,3 +237,25 @@ func TestDialogWake(t *testing.T) {
 		}
 	}
 }
+
+// A dialog window with a nested dialog window above it points at that one (issue #137), however deep the chain.
+func TestTopAbove(t *testing.T) {
+	links := []dlgLink{
+		{"dialog-1", "main", 1},     // the Multi-rename tool over the main window
+		{"dialog-2", "dialog-1", 2}, // "Save settings as" over it
+		{"dialog-3", "dialog-2", 3}, // a confirmation over that one
+		{"dialog-4", "lister-1", 4}, // a dialog over another window
+	}
+	cases := map[string]string{"dialog-1": "dialog-3", "dialog-2": "dialog-3", "dialog-3": "", "dialog-4": "", "main": "dialog-3", "lister-1": "dialog-4", "x": ""}
+	for name, want := range cases {
+		if got := topAbove(name, links); got != want {
+			t.Errorf("topAbove(%q) = %q, want %q", name, got, want)
+		}
+	}
+	if got := topAbove("dialog-1", links[:2]); got != "dialog-2" {
+		t.Errorf("one nested dialog: got %q", got)
+	}
+	if got := topAbove("dialog-1", nil); got != "" {
+		t.Errorf("no dialogs: got %q", got)
+	}
+}

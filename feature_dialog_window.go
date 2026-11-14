@@ -12,8 +12,9 @@
 //     transient window on Linux) and hands it the dialog; the window asks to be shown once it has drawn it (ShowMe);
 //   - Push carries patches from the dialog's page to its window, Input the user's actions the other way ("dlg-patch"
 //     and "dlg-input" events sent to that one window only); every message is numbered, so their order is kept;
-//   - closing the window with its close button cancels the dialog ("dlg-closed" to the dialog's page); Close is the
-//     page closing it after an answer; the window's place (and its size, when it was resized) is kept per dialog kind in
+//   - closing the window with its close button cancels the dialog ("dlg-closed" to the dialog's page), unless a nested
+//     dialog window is open above it: then the close is refused and that window gets the focus; Close is the page
+//     closing it after an answer; the window's place (and its size, when it was resized) is kept per dialog kind in
 //     the setting "dialogWindows";
 //   - a watchdog wakes a shown window whose page has not said the dialog is drawn (Shown) within half a second, a few
 //     times (dialogWake in dialogwin_logic.go, wakeWindow per system), so a window never stays an empty box.
@@ -387,11 +388,39 @@ func (dw *DialogWindows) newWindow() *dialogWin {
 		MinimiseButtonState: application.ButtonDisabled,
 	})
 	v := &dialogWin{w: win, name: name}
-	win.RegisterHook(events.Common.WindowClosing, func(*application.WindowEvent) { dw.closing(v) })
+	win.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
+		if top := dw.blockingClose(v); top != nil { // a nested dialog is open above it: that one gets the focus
+			e.Cancel()
+			go top.w.Focus()
+			return
+		}
+		dw.closing(v)
+	})
 	dw.mu.Lock()
 	dw.wins[name] = v
 	dw.mu.Unlock()
 	return v
+}
+
+// blockingClose is the dialog window that keeps the user from closing v: the newest one open above it (a nested dialog,
+// issue #137), or nil when v may close. A window the page closes (an answer, or its owner closing) and every window while
+// the app quits always may.
+func (dw *DialogWindows) blockingClose(v *dialogWin) *dialogWin {
+	dw.mu.Lock()
+	defer dw.mu.Unlock()
+	if v.byPage || v.req == nil || dw.app.isQuitting() {
+		return nil
+	}
+	var links []dlgLink
+	for _, o := range dw.wins {
+		if o.req != nil && o.parent != nil {
+			links = append(links, dlgLink{Name: o.name, Parent: o.parent.Name(), Order: o.order})
+		}
+	}
+	if top := topAbove(v.name, links); top != "" {
+		return dw.wins[top]
+	}
+	return nil
 }
 
 // closing forgets a dialog window that is closing: the dialog's page is told when the user closed it (= cancel), its

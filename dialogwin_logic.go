@@ -147,6 +147,34 @@ func pickFrame(nativeW, nativeH int, nativeOK bool, learnt [2]int) (int, int) {
 	return learnt[0], learnt[1]
 }
 
+// dlgLink is one open dialog window for topAbove: its name, the window it stays above, and when it was opened.
+type dlgLink struct {
+	Name, Parent string
+	Order        int
+}
+
+// topAbove is the newest dialog window that stays above the window named, directly or over other dialog windows on top
+// of it ("" for none). A dialog window with one above it must not be closed by the user: its close button hands the
+// focus to that one instead, so a nested dialog is never left behind attached to nothing.
+func topAbove(name string, links []dlgLink) string {
+	above := map[string]bool{name: true}
+	for grew := true; grew; { // (the chains are short; walk until no new window joins)
+		grew = false
+		for _, l := range links {
+			if !above[l.Name] && above[l.Parent] {
+				above[l.Name], grew = true, true
+			}
+		}
+	}
+	top, order := "", 0
+	for _, l := range links {
+		if l.Name != name && above[l.Name] && (top == "" || l.Order > order) {
+			top, order = l.Name, l.Order
+		}
+	}
+	return top
+}
+
 func abs(n int) int {
 	if n < 0 {
 		return -n
