@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.62 – 2026-11-14
+
+### Changed
+
+- Internal clean-up, no change in behaviour: features are now handed to Wails through its official application.NewService helper instead of copying the service structure through an unsafe pointer, so a Wails upgrade can no longer silently break the bindings. The same objects are bound in the same order, and a test now checks them (issue #114).
+
 ## 0.9.61 – 2026-11-14
 
 ### Fixed
