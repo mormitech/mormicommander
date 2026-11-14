@@ -6,6 +6,18 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.57 – 2026-11-14
+
+### Fixed
+
+- Ctrl+F10 (Show > All files) now works: it removes any filter on the active panel, so "Hide equal files" after a folder compare can be undone. That filter is also dropped by a reread or the next plain Compare folders.
+- The Synchronize window's date columns now fit the chosen date format instead of cutting dates off.
+
+### Added
+
+- New Mark menu command "Compare folders, mark one-sided folders", which also marks folders that exist on one side only. Plain Shift+F2 behaves as before unless the new setting compareDirs.oneSidedFolders is switched on (off by default).
+- Docs: F-546 to F-552 are marked as built and waiting for QA (issue #9). Syncing with an archive or FTP as one side (F-555) is still open.
+
 ## 0.9.56 – 2026-11-14
 
 ### Added
