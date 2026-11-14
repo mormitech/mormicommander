@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.71 – 2026-11-14
+
+### Added
+
+- Command palette: Ctrl+Shift+P (Cmd+Shift+P on macOS) opens one search box over every command (with its keys and cm_* name), the folder hotlist, the folder history of both panels, the open tabs and the Options pages. Matching is fuzzy and items you chose before rank higher (saved under the settings key commandPalette). Type, Up/Down/PgUp/PgDn, Enter runs, Esc closes. "All commands..." in the Commands menu now opens the same box with only commands and a "Keyboard shortcuts..." button that opens Options at the Hotkeys page (issue #21).
+
 ## 0.9.70 – 2026-11-14
 
 ### Added
