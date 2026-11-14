@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.90 – 2026-11-14
+
+### Changed
+
+- Issue #121: stale documentation fixed after the Wails v3 move. docs/ENGINES.md now describes internal/trash and links its README, and its integration-status paragraph no longer mentions "ui/* feature branches" or "about 1000 commands". docs/FEATURES.md F-761 says the Linux CI build uses GTK 4 and WebKitGTK 6.0 with no build tags. README.md and docs/DOWNLOADS.md state the minimum systems (macOS 13 on Apple silicon, Windows x64 with WebView2, Linux x64 with GTK 4 and WebKitGTK 6.0). scripts/make-cask.mjs (the Homebrew cask generator) now asks for macOS 13 (Ventura) and names the GTK 4 / WebKitGTK 6.0 packages in its Linux note. No change to the app itself.
+
 ## 0.9.89 – 2026-11-14
 
 ### Added
