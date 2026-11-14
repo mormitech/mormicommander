@@ -5,8 +5,10 @@
 // and sends back what the user does there (typing, clicks, keys, focus, scrolling), which the dialog's page replays on
 // the real dialog (frontend/src/core/mirror.js). This file only manages the windows and carries the messages:
 //
-//   - a pool of two hidden windows is made in advance (Prepare), so a dialog only has to be filled and shown; when one
-//     is taken, the next is made in the background;
+//   - a pool of two hidden windows is made in advance (Prepare), so a dialog only has to be filled and shown. The
+//     windows are reused for as long as the app runs: when a dialog closes, its window is hidden and reset (recycle,
+//     "dlg-reset") and waits for the next dialog. A new window is made only when every window is in use (a nested
+//     dialog), and it stays in the pool too. No window is made while a dialog is open, which on Windows took its focus;
 //   - Open sizes the window to the dialog, puts it in the middle of the window that asked for it (or where a dialog of
 //     that kind was last left), keeps it above that window (a child window on macOS, an owned window on Windows, a
 //     transient window on Linux) and hands it the dialog; the window asks to be shown once it has drawn it (ShowMe);
@@ -34,7 +36,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -45,8 +46,7 @@ import (
 
 const (
 	dialogWindowPrefix = "dialog-"
-	dialogPoolSize     = 2
-	dialogRefill       = 400 * time.Millisecond // how long after a window was taken the next spare is made
+	dialogPoolSize     = 2 // the windows made at start; they are reused for every dialog (more are made only while needed)
 	// The smallest a resizable dialog window gets, and what a window starts with before it is sized.
 	dialogMinW, dialogMinH = 260, 120
 )
@@ -91,6 +91,7 @@ type dialogWin struct {
 	openMs    float64 // ms from the page's modal() to the window on the screen and painted (its page measures it)
 	painted   bool    // its page said the dialog is on the screen and painted (Shown)
 	woken     int     // how many times the watchdog woke it
+	gen       int     // which use of the window this is (each dialog it shows, see recycle): old timers see it changed
 }
 
 // DialogWindows is what the pages call about dialog windows (see the top of this file).
@@ -116,7 +117,8 @@ func init() {
 	})
 }
 
-// Prepare makes the hidden spare windows (the pages call it once they are up and dialogs in windows are on).
+// Prepare makes the hidden windows the dialogs are shown in, once (the pages call it once they are up and dialogs in
+// windows are on). They are reused for every dialog afterwards (recycle).
 func (dw *DialogWindows) Prepare() {
 	dw.mu.Lock()
 	dw.ready = true
@@ -175,7 +177,8 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	dw.order++
 	v.req, v.owner, v.ownerName, v.parent, v.title, v.opened, v.order = &r, owner, owner.Name(), parent, title, time.Now(), dw.order
 	v.size, v.placedCh = [2]int{w, h}, make(chan struct{})
-	ready := v.ready
+	v.gen++
+	gen, ready := v.gen, v.ready
 	dw.mu.Unlock()
 	dlgDebug("open %s ready=%v", v.name, ready)
 	if ready { // (a window still loading gets the dialog when its page asks for it, see Ready)
@@ -204,12 +207,7 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	dlgDebug("placed %s", v.name)
 
 	// The page shows the window once the dialog is drawn (ShowMe); should it not manage, the window comes anyway.
-	time.AfterFunc(2*time.Second, func() { dw.show(v) })
-	// The next spare is made once this window is on the screen: making a window keeps the main thread busy for tens of
-	// milliseconds, which would hold up showing this one. (Not on Windows, where it took the focus: refillOnOpen.)
-	if refillOnOpen(runtime.GOOS) {
-		time.AfterFunc(dialogRefill, dw.fill)
-	}
+	time.AfterFunc(2*time.Second, func() { dw.show(v, gen) })
 	return map[string]any{"name": v.name, "w": w, "h": h, "sized": sized}, nil
 }
 
@@ -255,7 +253,7 @@ func (dw *DialogWindows) Ready(ctx context.Context, innerW, innerH int) map[stri
 // ShowMe shows the window the call came from (its page calls it once the dialog is drawn).
 func (dw *DialogWindows) ShowMe(ctx context.Context) {
 	if v := dw.of(ctx); v != nil {
-		dw.show(v)
+		dw.show(v, -1)
 	}
 }
 
@@ -455,7 +453,16 @@ func (dw *DialogWindows) newWindow() *dialogWin {
 			e.Cancel()
 			return
 		}
+		dw.mu.Lock()
+		hadDialog := v.req != nil
+		dw.mu.Unlock()
 		dw.closing(v)
+		// The window stays, hidden, for the next dialog (recycle). While the app quits, and for a spare that is closed
+		// by the system without a dialog, it really closes.
+		if hadDialog && !dw.app.isQuitting() {
+			e.Cancel()
+			dw.recycle(v)
+		}
 	})
 	dw.mu.Lock()
 	dw.wins[name] = v
@@ -553,19 +560,38 @@ func (dw *DialogWindows) closing(v *dialogWin) {
 			owner.Focus()
 		}
 	}()
-	time.AfterFunc(dialogRefill, dw.fill)
 }
 
-// show shows a window that was given a dialog (once) and gives it the focus.
-func (dw *DialogWindows) show(v *dialogWin) {
+// recycle makes a dialog window that has just closed its dialog a spare again, instead of letting it be destroyed: it
+// is hidden, forgets the dialog (Go's side here, the page's side with "dlg-reset", after which the page asks for work
+// again with Ready), and the next dialog takes it. So no window is made while the app runs, beyond the ones made at
+// start (or a nested dialog's extra one, which stays too): making a window was what took the focus from an open dialog
+// on Windows (Wails hides and shows a new window's WebView2 once its page has loaded).
+func (dw *DialogWindows) recycle(v *dialogWin) {
+	v.w.Hide()
 	dw.mu.Lock()
-	if v.shown || v.req == nil || dw.wins[v.name] != v {
+	v.req, v.owner, v.ownerName, v.parent = nil, nil, "", nil
+	v.shown, v.byPage, v.painted, v.ready = false, false, false, false
+	v.asked, v.pending, v.woken, v.openMs, v.placedCh = time.Time{}, nil, 0, 0, nil
+	v.gen++
+	dw.wins[v.name] = v
+	dw.spares = append(dw.spares, v)
+	dw.mu.Unlock()
+	dlgDebug("recycled %s", v.name)
+	dispatchTo(v.w, "dlg-reset", nil)
+}
+
+// show shows a window that was given a dialog (once) and gives it the focus. gen is the use of the window the call is
+// about (-1: the current one), so a late timer of an earlier dialog never shows the window for the next one.
+func (dw *DialogWindows) show(v *dialogWin, gen int) {
+	dw.mu.Lock()
+	if v.shown || v.req == nil || dw.wins[v.name] != v || (gen >= 0 && gen != v.gen) {
 		dw.mu.Unlock()
 		return
 	}
 	v.shown = true
 	v.shownAt = time.Now()
-	parent, placed := v.parent, v.placedCh
+	parent, placed, cur := v.parent, v.placedCh, v.gen
 	dw.mu.Unlock()
 	if placed != nil {
 		select {
@@ -580,17 +606,17 @@ func (dw *DialogWindows) show(v *dialogWin) {
 	if !showOwned(v.w, parent) { // (macOS: showing made it the key window already)
 		v.w.Focus()
 	}
-	go dw.watch(v, time.Now())
+	go dw.watch(v, time.Now(), cur)
 }
 
 // watch is the watchdog of a shown dialog window: while its page has not said the dialog is drawn (Shown), the window
 // is woken now and then (dialogWake), and its page is told ("dlg-wake") so it lays the dialog out and paints it again.
-func (dw *DialogWindows) watch(v *dialogWin, shownAt time.Time) {
+func (dw *DialogWindows) watch(v *dialogWin, shownAt time.Time, gen int) {
 	for wait := dialogWakeAt[0]; wait > 0; {
 		time.Sleep(wait)
 		dw.mu.Lock()
 		var wake bool
-		wake, wait = dialogWake(time.Since(shownAt), v.painted, dw.wins[v.name] == v && v.req != nil, v.woken)
+		wake, wait = dialogWake(time.Since(shownAt), v.painted, dw.wins[v.name] == v && v.req != nil && v.gen == gen, v.woken)
 		if wake {
 			v.woken++
 		}

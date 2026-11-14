@@ -334,9 +334,3 @@ func TestDialogExStyleDropsTaskbarButton(t *testing.T) {
 		t.Errorf("a style without WS_EX_APPWINDOW changed: %#x", got)
 	}
 }
-
-func TestRefillOnOpenNotOnWindows(t *testing.T) {
-	if refillOnOpen("windows") || !refillOnOpen("darwin") || !refillOnOpen("linux") {
-		t.Error("the spare is made at open everywhere but on Windows")
-	}
-}

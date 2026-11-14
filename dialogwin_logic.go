@@ -262,9 +262,3 @@ const wsExAppWindow = 0x00040000
 // taskbar button of its own. Without it the owned window is a real dialog: no taskbar button, above its owner,
 // minimised with it, as Total Commander's dialogs are.
 func dialogExStyle(ex uintptr) uintptr { return ex &^ wsExAppWindow }
-
-// refillOnOpen says whether the next spare dialog window is made while a dialog window has just been shown. Not on
-// Windows: when a hidden spare's page has loaded, Wails hides and shows its WebView2 (a workaround for a WebView2
-// display bug), and on Windows that took the focus from the dialog just opened, about half a second after it opened.
-// There the spare is made when the dialog closes (that refill exists anyway), so an open dialog keeps the focus.
-func refillOnOpen(goos string) bool { return goos != "windows" }

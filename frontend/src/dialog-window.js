@@ -13,6 +13,10 @@
 // Should the window stay empty after it was shown (its page never hears that the dialog is on the screen), Go's
 // watchdog wakes it ("dlg-wake"): the page then lays the dialog out and paints it again (wake).
 //
+// The window is not closed after its dialog: Go hides it and sends "dlg-reset", the page forgets the dialog and empties
+// itself (reset), tells Go it is ready again, and the same window shows the next dialog. So the windows made at start
+// serve every dialog for as long as the app runs.
+//
 // The window's page never runs a feature's code: Enter and Esc, buttons and links do their work in the owning page,
 // which answers with patches (and closes this window when the dialog is done).
 
@@ -32,7 +36,8 @@ let me = '';
 let cur = null; // the Copy being shown (mirror-copy.js), with t0, got, built, drawn
 let seqOut = 0;
 const early = []; // patches that came before the dialog was drawn
-const inSeq = new Sequencer((m) => { if (!cur?.drawn) early.push(m); else cur.apply(m); });
+const newSeq = () => new Sequencer((m) => { if (!cur?.drawn) early.push(m); else cur.apply(m); });
+let inSeq = newSeq(); // (patches of each dialog are numbered from 1: a new one per dialog)
 const pongs = new Map();
 
 const frame = () => new Promise((r) => requestAnimationFrame(() => r()));
@@ -61,7 +66,7 @@ async function pings(n) {
 // ---- drawing a dialog ----
 
 async function render(req) {
-  if (cur) return; // (one dialog per window: a window is closed after its dialog)
+  if (cur) return; // (one dialog at a time: the window is reset before it gets the next one)
   const p = req.payload || {};
   cur = new Copy(document, { pong: (ts) => pongs.get(ts)?.(), pingreq: (n) => pings(n) });
   Object.assign(cur, { t0: p.t0 || now(), drawn: false, got: now() });
@@ -199,9 +204,25 @@ function wire() {
   });
 }
 
+// reset forgets the dialog that was shown (Go hid the window after it closed): the copy, its layers, the numbering of
+// the messages both ways and what the user had focused, so the next dialog starts as in a fresh window. The look
+// (theme, fonts, colour styles) is set again by the next dialog's env.
+async function reset() {
+  cur = null;
+  seqOut = 0;
+  early.length = 0;
+  inSeq = newSeq();
+  pongs.clear();
+  document.activeElement?.blur?.();
+  document.body.replaceChildren();
+  const r = await go.DialogWindows.Ready(innerWidth, innerHeight).catch(() => null);
+  if (r?.request) render(r.request).catch(failed);
+}
+
 async function start() {
   wire();
   on('dlg-open', (req) => { me = req?.name || me; render(req).catch(failed); });
+  on('dlg-reset', () => { reset().catch((e) => console.error('dialog window reset', e)); });
   on('dlg-patch', (m) => { if (m) inSeq.push(m.q, m); });
   on('dlg-wake', (n) => wake(n));
   const r = await go.DialogWindows.Ready(innerWidth, innerHeight).catch(() => null);

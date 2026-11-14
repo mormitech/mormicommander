@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.3 – 2026-11-14
+
+### Changed
+
+- Dialog windows are reused for as long as the app runs: the two hidden windows made at start show every dialog. When
+  a dialog closes, its window is hidden, emptied and gets the next dialog; it is no longer destroyed and replaced by a
+  newly made spare. A new window is made only when all are in use (a dialog opened from a dialog), and it is kept for
+  later too. So no window is ever made while a dialog is open, which is what took the focus from a just-opened dialog
+  on Windows (replaces 0.11.2's Windows-only change).
+
 ## 0.11.2 – 2026-11-14
 
 ### Fixed
