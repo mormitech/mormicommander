@@ -2,9 +2,12 @@ package main
 
 // The AI layer, Go side (issue #146): the user writes a prompt, an LLM answers by calling mormiCommander's own tools,
 // never shell commands. The tools are defined and run by the page (frontend/src/core/aitools.js), where the panels,
-// the selection and the Find dialog live; this side only relays. Step 1 has one provider, the Claude Code CLI, which
+// the selection and the Find dialog live; this side only relays. There are two providers. The Claude Code CLI (step 1)
 // reaches the tools through an MCP endpoint served by the app on 127.0.0.1 (feature_ai_mcp.go); the CLI is started per
-// run by feature_ai_claude.go. The pure parts (the MCP protocol, the CLI's output, its command line) are in internal/ai.
+// run by feature_ai_claude.go. OpenRouter, or any OpenAI-compatible chat completions API (step 2), is talked to by the
+// app itself, which runs the tool calls through the same page relay (feature_ai_openrouter.go); its API key is kept in
+// the system keychain. The pure parts (the MCP protocol, the CLI's output, its command line, the chat completions
+// JSON and loop) are in internal/ai.
 //
 // The page talks to it like this: SetTools at start; Start(request) gives a run id; "ai-progress" events tell what the
 // run does and end with exactly one "done" or "error"; each tool call of the model arrives as an "ai-tool" event and is
@@ -24,14 +27,15 @@ import (
 	"time"
 
 	"mormicommander/internal/ai"
+	"mormicommander/internal/keychain"
 )
 
 // AITool is one tool the page offers the model: a name, a description for the model, and a JSON Schema of its input.
 type AITool = ai.Tool
 
 // AIRequest is one prompt to run. Context is a short text from the page about where the user is (it goes into the
-// system prompt, before the rules); Provider is "claude" (the only one in step 1; empty means the one chosen in
-// Options > AI); Model is empty for the CLI's default.
+// system prompt, before the rules); Provider is "claude" or "openrouter" (empty means the one chosen in Options > AI);
+// Model is empty for the model chosen in Options > AI (for Claude, empty there too means the CLI's default).
 type AIRequest struct {
 	Prompt   string `json:"prompt"`
 	Context  string `json:"context"`
@@ -39,17 +43,23 @@ type AIRequest struct {
 	Model    string `json:"model"`
 }
 
-// AIProvider says whether one provider can be used, and where it was found.
+// AIProvider says whether one provider can be used, and where it was found: Path and Version for the Claude CLI,
+// Model and URL for OpenRouter. Error says what is missing when it can't be used.
 type AIProvider struct {
 	Available bool   `json:"available"`
 	Path      string `json:"path"`
 	Version   string `json:"version"`
+	Model     string `json:"model,omitempty"`
+	URL       string `json:"url,omitempty"`
 	Error     string `json:"error"`
 }
 
-// AIProviders is the state of every provider, for the AI tab of the Find dialog.
+// AIProviders is the state of every provider, for the AI tab of the Find dialog and the AI settings. Selected is the
+// provider chosen in Options > AI ("claude" or "openrouter"), the one a run with no provider of its own uses.
 type AIProviders struct {
-	Claude AIProvider `json:"claude"`
+	Selected   string     `json:"selected"`
+	Claude     AIProvider `json:"claude"`
+	OpenRouter AIProvider `json:"openrouter"`
 }
 
 // AI is what the page calls for the AI layer (window.go.main.AI).
@@ -63,6 +73,9 @@ type AI struct {
 	finder func() ai.Finder
 	// options reads the AI page of the Options dialog; tests replace it.
 	options func() aiOptions
+	// openKeychain opens the system keychain, where the OpenRouter API key is kept; tests put a fake one here, so
+	// they never touch the user's real keychain.
+	openKeychain func() (keychain.Keychain, error)
 
 	mu      sync.Mutex
 	tools   []AITool
@@ -75,6 +88,12 @@ type AI struct {
 	shellOnce sync.Once
 	shellPath string            // where the login shell found claude ("" when it did not)
 	versions  map[string]string // `claude --version` by program path
+
+	kcOnce sync.Once
+	kc     keychain.Keychain
+	kcErr  error
+	keys   map[string]string    // API keys read from the keychain this session, by provider ("" = none saved)
+	models map[string][]AIModel // model lists by API address, for the session
 }
 
 // aiFeature is the one AI object, for the shut-down hook.
@@ -97,6 +116,9 @@ func newAI(a *App) *AI {
 		versions: map[string]string{}}
 	x.finder = x.systemFinder
 	x.options = readAIOptions
+	x.openKeychain = keychain.Open
+	x.keys = map[string]string{}
+	x.models = map[string][]AIModel{}
 	return x
 }
 
@@ -105,6 +127,8 @@ type aiOptions struct {
 	Provider int
 	Path     string
 	Model    string
+	ORModel  string // OpenRouter's model
+	ORURL    string // OpenRouter's API address ("" = OpenRouter's own)
 }
 
 // readAIOptions reads the AI page of the Options dialog (the defaults when the settings can't be read).
@@ -117,7 +141,8 @@ func readAIOptions() aiOptions {
 		return aiOptions{}
 	}
 	defer configFeature.mu.Unlock()
-	return aiOptions{Provider: cfg.Settings.AI.Provider, Path: cfg.Settings.AI.ClaudePath, Model: cfg.Settings.AI.ClaudeModel}
+	opt := cfg.Settings.AI
+	return aiOptions{Provider: opt.Provider, Path: opt.ClaudePath, Model: opt.ClaudeModel, ORModel: opt.OpenRouterModel, ORURL: opt.OpenRouterURL}
 }
 
 // SetTools registers the page's tools (it may be called again; the latest list counts from the next tools/list on).
@@ -196,10 +221,11 @@ func aiReplyText(s string) (string, bool) {
 }
 
 // Providers tells which providers can be used: for Claude Code, whether the claude command was found, where, and
-// its version.
+// its version; for OpenRouter, whether a key is saved and a model chosen.
 func (x *AI) Providers() AIProviders {
 	opt := x.options()
-	return AIProviders{Claude: x.claudeProvider(opt.Path)}
+	sel := aiProviderName(opt.Provider)
+	return AIProviders{Selected: sel, Claude: x.claudeProvider(opt.Path), OpenRouter: x.openRouterProvider(opt, sel == "openrouter")}
 }
 
 // claudeProvider finds the claude program (configured is the AI.ClaudePath option).
@@ -224,6 +250,9 @@ func (x *AI) Start(req AIRequest) (int, error) {
 	if provider == "" {
 		provider = aiProviderName(opt.Provider)
 	}
+	if provider == "openrouter" {
+		return x.startOpenRouter(opt, req)
+	}
 	if provider != "claude" {
 		return 0, fmt.Errorf("The AI provider %q is not available.", req.Provider)
 	}
@@ -247,11 +276,13 @@ func aiProviderName(v int) string {
 	switch v {
 	case 0:
 		return "claude"
+	case 1:
+		return "openrouter"
 	}
 	return ""
 }
 
-// Stop ends a run: the CLI is ended, and the run's last event is an "error" with "Stopped." (unless it had just
+// Stop ends a run: the CLI is ended (or the request to the API cancelled), and the run's last event is an "error" with "Stopped." (unless it had just
 // ended by itself).
 func (x *AI) Stop(run int) {
 	x.mu.Lock()
@@ -264,18 +295,22 @@ func (x *AI) Stop(run int) {
 	r.kill()
 }
 
-// aiRun is one run of the CLI.
+// aiRun is one run: of the CLI (cmd), or of the chat completions loop (cancel).
 type aiRun struct {
 	id      int
 	cmd     *exec.Cmd
+	cancel  context.CancelFunc
 	once    sync.Once
 	ended   chan struct{} // closed when the run's last event was sent
 	exited  chan struct{} // closed when the CLI has exited
 	cfgFile string
 }
 
-// kill ends the CLI and the programs it started, if it is still running.
+// kill ends the CLI and the programs it started, if it is still running, or cancels the loop's request.
 func (r *aiRun) kill() {
+	if r.cancel != nil {
+		r.cancel()
+	}
 	if r.cmd == nil || r.cmd.Process == nil {
 		return
 	}
