@@ -142,7 +142,7 @@ func (dw *DialogWindows) Open(ctx context.Context, req DialogOpenRequest) (map[s
 	if req.Resizable && usableKeptSize(keptPlace, kept) {
 		w, h, sized = keptPlace.W, keptPlace.H, true
 	}
-	frameW, frameH := dw.frameSize()
+	frameW, frameH := dw.frameSize(v.w)
 	area := screenArea(owner)
 	w, h = clampDialogSize(w, h, area, frameW, frameH)
 	title := req.Title
@@ -303,7 +303,7 @@ func (dw *DialogWindows) Resize(name string, w, h int) {
 	owner := v.owner
 	v.size = [2]int{w, h}
 	dw.mu.Unlock()
-	frameW, frameH := dw.frameSize()
+	frameW, frameH := dw.frameSize(v.w)
 	w, h = clampDialogSize(w, h, screenArea(owner), frameW, frameH)
 	x, y := v.w.Position()
 	placeWindow(v.w, x, y, w, h, frameW, frameH)
@@ -510,14 +510,13 @@ func (dw *DialogWindows) of(ctx context.Context) *dialogWin {
 	return dw.wins[w.Name()]
 }
 
-// frameSize is how much bigger a window is than its inside (0, 0 until a page told).
-func (dw *DialogWindows) frameSize() (int, int) {
+// frameSize is how much bigger a dialog window is than its inside: asked of the window where the system tells it
+// (macOS), else learnt from the first page (0, 0 until a page told).
+func (dw *DialogWindows) frameSize(win *application.WebviewWindow) (int, int) {
+	nw, nh, ok := frameExtra(win)
 	dw.mu.Lock()
 	defer dw.mu.Unlock()
-	if dw.frame[0] < 0 {
-		return 0, 0
-	}
-	return dw.frame[0], dw.frame[1]
+	return pickFrame(nw, nh, ok, dw.frame)
 }
 
 // ---- the kept places (dialogwin_logic.go) ----
@@ -539,7 +538,7 @@ func (dw *DialogWindows) keep(v *dialogWin, req *DialogOpenRequest, placed, size
 	}
 	x, y := v.w.Position()
 	fw, fh := v.w.Size()
-	frameW, frameH := dw.frameSize()
+	frameW, frameH := dw.frameSize(v.w)
 	w, h := fw-frameW, fh-frameH
 	moved, resized := placeChanges(placed, size, x, y, w, h, req.Resizable)
 	if !moved && !resized {

@@ -165,3 +165,23 @@ func TestCSSColour(t *testing.T) {
 		t.Error("isDialogWindow")
 	}
 }
+
+// Issue #135: on macOS the frame learnt from a hidden spare's page came out as none, so an unresized window's outer
+// height (title bar included) was taken for its inside, saved as a resize and grew by the title bar on every open.
+func TestPickFrameKeepsUnresizedWindowUnchanged(t *testing.T) {
+	if w, h := pickFrame(0, 32, true, [2]int{0, 0}); w != 0 || h != 32 {
+		t.Fatalf("the window's own frame wins over the learnt one: %d x %d", w, h)
+	}
+	if w, h := pickFrame(0, 0, false, [2]int{2, 30}); w != 2 || h != 30 {
+		t.Fatalf("the learnt frame when the window does not tell: %d x %d", w, h)
+	}
+	if w, h := pickFrame(0, 0, false, [2]int{-1, -1}); w != 0 || h != 0 {
+		t.Fatalf("nothing known yet: %d x %d", w, h)
+	}
+	// Options opened at an inside of 920 x 560 and closed untouched: the frame is 920 x 592.
+	placed, size := [2]int{100, 100}, [2]int{920, 560}
+	frameW, frameH := pickFrame(0, 32, true, [2]int{0, 0})
+	if _, r := placeChanges(placed, size, 100, 100, 920-frameW, 592-frameH, true); r {
+		t.Fatal("an untouched window was taken as resized")
+	}
+}

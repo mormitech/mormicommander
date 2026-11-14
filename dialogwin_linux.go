@@ -29,6 +29,9 @@ func placeWindow(win *application.WebviewWindow, x, y, w, h, frameW, frameH int)
 	win.SetPosition(x, y)
 }
 
+// frameExtra is not asked of the window here: the frame size learnt from the first page is used.
+func frameExtra(win *application.WebviewWindow) (int, int, bool) { return 0, 0, false }
+
 // attachOwned makes the dialog window transient for the window below it.
 func attachOwned(win, parent *application.WebviewWindow) {
 	if parent == nil {

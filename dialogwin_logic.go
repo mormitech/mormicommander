@@ -132,6 +132,18 @@ func withPlace(all map[string]any, kind string, moved bool, dx, dy int, resized 
 	return out
 }
 
+// pickFrame is how much bigger a dialog window is than its inside: what the window itself tells when it can (macOS),
+// else what was learnt from the first page (negative: not learnt yet, taken as none).
+func pickFrame(nativeW, nativeH int, nativeOK bool, learnt [2]int) (int, int) {
+	if nativeOK && nativeW >= 0 && nativeH >= 0 {
+		return nativeW, nativeH
+	}
+	if learnt[0] < 0 {
+		return 0, 0
+	}
+	return learnt[0], learnt[1]
+}
+
 func abs(n int) int {
 	if n < 0 {
 		return -n

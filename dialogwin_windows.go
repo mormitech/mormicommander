@@ -21,6 +21,9 @@ func placeWindow(win *application.WebviewWindow, x, y, w, h, frameW, frameH int)
 }
 
 // attachOwned makes the window below the dialog window its owner.
+// frameExtra is not asked of the window here: the frame size learnt from the first page is used.
+func frameExtra(win *application.WebviewWindow) (int, int, bool) { return 0, 0, false }
+
 func attachOwned(win, parent *application.WebviewWindow) {
 	if parent == nil {
 		return
