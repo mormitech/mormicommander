@@ -13,16 +13,23 @@
 //
 // Every box here is a page dialog, so control mode reads and answers it ("dialog" / "dialog_answer"): kinds "job"
 // (progress), "overwrite", "overwrite-readonly", "job-error", "no-space", "delete-folder", "delete-readonly",
-// "rename-target" and "transfers".
+// "rename-target", "transfers" and "job-errors".
+//
+// The error list (board issue #15): the progress box and the transfer window show how many errors a job has had, the
+// transfer window's "Errors…" opens the list of a finished job's failed paths with their reasons, and showErrorList
+// offers Retry failed, Copy list and Save log. With the "Skip errors in background" setting on (fileops setting
+// skipErrorsBackground, off by default), a job sent to the background stops asking Retry / Skip, and a job that
+// skipped errors opens the list by itself when it ends, instead of the short message. core/joberrors.js has the logic.
 
 import './jobs.css';
-import { go, on, errText } from './go.js';
+import { go, on, errText, setClipboardText } from './go.js';
 import { modal, messageDialog, inputDialog, esc } from './dialogs.js';
 import { size, date, bytes, plural } from './format.js';
 import { track } from './busy.js';
 import { app } from './app.js';
 import { holdProgress, progressHeld, showWhenFree } from './progresshold.js';
 import { ERROR_BUTTONS, offeredButtons } from './jobchoices.js';
+import { failuresOf, errorCount, listText, logText, logName, retryRequests, listAtEnd } from './joberrors.js';
 
 // Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
 // job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
@@ -148,6 +155,10 @@ export function runJob(req, { title, background = false } = {}) {
 
 // report tells how a job ended: errors stay on screen longer; a background job also says when it is done.
 function report(r, final) {
+  if (listAtEnd({ skipErrorsBackground: skipErrorsSetting(), background: r.background, onError: r.req?.onError, final })) {
+    showErrorList(r, final);
+    return;
+  }
   if (final.state === 'failed' && final.errors?.length) {
     app.flash(final.errors.slice(0, 3).join('\n') + (final.errors.length > 3 ? `\n…and ${final.errors.length - 3} more.` : ''), 'err');
   } else if (r.background && final.state === 'done' && final.summary) {
@@ -205,6 +216,7 @@ function foreground(r) {
         if (p.bytes) parts.push(`${size(p.bytesDone)} of ${size(p.bytes)}`);
         if (p.speed > 0 && p.state === 'running') parts.push(`${size(p.speed)}/s`);
         if (p.eta > 0 && p.state === 'running') parts.push(`${eta(p.eta)} left`);
+        if (errorCount(p) > 0) parts.push(plural(errorCount(p), 'error'));
         $('.mc-note').textContent = parts.join(' · ');
         $('.pause').textContent = p.state === 'paused' ? 'Continue' : 'Pause';
       };
@@ -223,7 +235,13 @@ function foreground(r) {
     }).then((v) => {
       ui.paint = () => {};
       if (v === 'cancel' && !r.done) cancelJob(r.id).catch(() => {});
-      if (v === 'background' && !r.done) { r.background = true; r.ui = null; notify(); }
+      if (v === 'background' && !r.done) {
+        r.background = true;
+        r.ui = null;
+        // "Skip errors in background": from now on a failed file is noted for the list instead of asked about
+        if (skipErrorsSetting() && !backendOf.get(r.id)) go.Jobs.SkipErrors(r.id).catch(() => {});
+        notify();
+      }
     });
   }
 }
@@ -351,6 +369,9 @@ function paintIndicator() {
   indicator.classList.toggle('asking', asking > 0);
 }
 
+// skipErrorsSetting is the "Skip errors in background" option (Configuration > Copy/Delete), off by default.
+function skipErrorsSetting() { return !!(app.setting('fileops', {}) || {}).skipErrorsBackground; }
+
 function speedSetting() { const s = app.setting('fileops', {}) || {}; return { on: !!s.speedLimitOn, kb: Number(s.speedLimitKB) || 0 }; }
 
 // backgroundSpeedLimit is the limit (bytes per second) new background and queued jobs start with.
@@ -369,7 +390,7 @@ export async function showTransfers() {
       <div class="mc-jobs-limit"><label class="mc-check"><input type="checkbox" id="limitOn"${sp.on ? ' checked' : ''}> Speed limit</label>
         <input type="text" id="limit" inputmode="numeric" value="${sp.kb || ''}" placeholder="0" aria-label="Speed limit in KB per second"> <span>KB/s</span></div>
       <div class="mc-btns"><button type="button" class="pause">Pause</button><button type="button" class="now">Start now</button><button type="button" class="stop">Stop job</button>
-        <button type="button" class="clear">Clear finished</button><button type="button" class="close primary">Close</button></div>`;
+        <button type="button" class="errs" title="The files that failed, with the reasons">Errors…</button><button type="button" class="clear">Clear finished</button><button type="button" class="close primary">Close</button></div>`;
     const $ = (s) => box.querySelector(s);
     const list = $('.mc-jobs-list');
     const cur = () => jobs.get(selected);
@@ -390,18 +411,21 @@ export async function showTransfers() {
       const p = r?.p;
       $('.mc-jobs-bar i').style.width = `${p ? Math.round(fraction(p) * 100) : 0}%`;
       $('.mc-jobs-detail').textContent = !p ? '' : p.summary && r.done ? p.summary + (p.errors?.length ? ` ${p.errors[0]}` : '')
-        : [base(p.current), `${p.filesDone} of ${plural(p.files, 'file')}`, p.bytes ? `${size(p.bytesDone)} of ${size(p.bytes)}` : '', p.eta > 0 ? `${eta(p.eta)} left` : ''].filter(Boolean).join(' · ');
+        : [base(p.current), `${p.filesDone} of ${plural(p.files, 'file')}`, p.bytes ? `${size(p.bytesDone)} of ${size(p.bytes)}` : '', p.eta > 0 ? `${eta(p.eta)} left` : '',
+          errorCount(p) > 0 ? plural(errorCount(p), 'error') : ''].filter(Boolean).join(' · ');
       const live = p && !r.done;
       $('.pause').textContent = p?.state === 'paused' ? 'Continue' : 'Pause';
       $('.pause').disabled = !live || p.state === 'queued';
       $('.now').disabled = !(live && p.state === 'queued');
       $('.stop').disabled = !live;
       $('.clear').disabled = !all.some((x) => x.done);
+      $('.errs').disabled = !(p && r.done && errorCount(p) > 0);
     };
     list.addEventListener('mousedown', (ev) => { const row = ev.target.closest('[data-id]'); if (row) { selected = +row.dataset.id; paint(); } });
     $('.pause').onclick = () => { const r = cur(); if (r) (r.p.state === 'paused' ? go.Jobs.Resume(r.id) : go.Jobs.Pause(r.id)).catch(() => {}); };
     $('.now').onclick = () => { const r = cur(); if (r) go.Jobs.RunNow(r.id).catch(() => {}); };
     $('.stop').onclick = () => { const r = cur(); if (r) cancelJob(r.id).catch(() => {}); };
+    $('.errs').onclick = () => { const r = cur(); if (r?.done && errorCount(r.p) > 0) showErrorList(r, r.p); };
     $('.clear').onclick = async () => {
       await go.Jobs.Forget().catch(() => {});
       for (const [id, r] of jobs) if (r.done) jobs.delete(id);
@@ -435,4 +459,47 @@ export async function showTransfers() {
     },
   });
   unsub();
+}
+
+// ---- the error list of a finished job ----
+
+// showErrorList shows the files a job could not handle, each with its path and the plain-English reason, and offers
+// Retry failed (a new job with the same options, for just those files), Copy list (to the clipboard) and Save log (to
+// a text file). It resolves when the list is closed.
+export async function showErrorList(r, p = r.p) {
+  const failures = failuresOf(p);
+  const { requests, skipped } = retryRequests(r.req, failures);
+  const count = errorCount(p);
+  const choice = await modal((box, done) => {
+    box.classList.add('mc-jobs-errors');
+    const rows = failures.map((f) => {
+      const path = f.source || f.target;
+      return path ? `<li><span class="p">${esc(path)}</span><span class="r">${esc(f.reason || f.message)}</span></li>` : `<li><span class="r">${esc(f.message)}</span></li>`;
+    }).join('');
+    const more = count - failures.length;
+    box.innerHTML = `<h2>${esc(`${KIND[p.kind] || 'Job'}: ${plural(count, 'error')}`)}</h2>
+      <p class="mc-msg">${esc(p.summary || '')}</p>
+      <ul class="mc-jobs-errlist" aria-label="Failed files">${rows}</ul>
+      ${more > 0 ? `<p class="mc-note">${esc(`…and ${more} more errors that were not listed.`)}</p>` : ''}
+      ${requests.length && skipped ? `<p class="mc-note">${esc(`${plural(skipped, 'error')} can't be retried by itself.`)}</p>` : ''}
+      <p class="mc-note mc-jobs-errstate" aria-live="polite"></p>
+      <div class="mc-btns"><button type="button" class="retry"${requests.length ? '' : ' disabled'}>Retry failed</button><button type="button" class="copy">Copy list</button>
+        <button type="button" class="save">Save log</button><button type="button" class="close primary">Close</button></div>`;
+    const $ = (sel) => box.querySelector(sel);
+    const say = (t) => { $('.mc-jobs-errstate').textContent = t; };
+    $('.retry').onclick = () => done('retry');
+    $('.close').onclick = () => done('close');
+    $('.copy').onclick = async () => say(await setClipboardText(listText(failures)) ? `Copied ${plural(failures.length, 'line')}.` : 'The clipboard can\'t be written.');
+    $('.save').onclick = async () => {
+      try {
+        const path = await go.Jobs.SaveErrorLog(logName(p), logText(p, failures));
+        if (path) say(`Saved to ${path}.`);
+      } catch (e) { say(errText(e)); }
+    };
+    box.onsubmit = (ev) => { ev.preventDefault(); done('close'); };
+  }, 'close', { kind: 'job-errors' });
+  if (choice !== 'retry') return;
+  for (const req of requests) {
+    runJob(req, { title: r.title, background: r.background }).catch((e) => app.flash(errText(e), 'err'));
+  }
 }

@@ -41,6 +41,10 @@ type job struct {
 	delDirSkip  bool // AskDeleteDir answered Skip all
 	trashDirect bool // a trash error was answered "… all without Finder": later items skip Finder (macOS)
 
+	// skipErrs is set by Queue.SkipErrors (a job sent to the background with "Skip errors in background" on): from
+	// the next error on, a job that would ask Retry / Skip notes the error and goes on instead.
+	skipErrs atomic.Bool
+
 	problems int          // errors and skips so far, uncapped (Errors stops at maxErrors); guarded by mu
 	left     map[int]bool // copy and move: indices of the sources that did not get across whole (see Progress.Left)
 
@@ -147,7 +151,7 @@ func summary(p Progress, done int64) string {
 	if p.Verified > 0 {
 		s += fmt.Sprintf(", %d verified", p.Verified)
 	}
-	if n := len(p.Errors); n > 0 {
+	if n := max(p.ErrorCount, len(p.Errors)); n > 0 {
 		s += fmt.Sprintf(", %d errors", n)
 	}
 	if p.State == StateCancelled {
@@ -174,6 +178,7 @@ func (j *job) snapshot() Progress {
 	defer j.mu.Unlock()
 	p := j.p
 	p.Errors = append([]string(nil), j.p.Errors...)
+	p.Failed = append([]Failure(nil), j.p.Failed...)
 	if j.p.Left != nil {
 		p.Left = append([]string{}, j.p.Left...)
 	}
@@ -261,9 +266,22 @@ func (j *job) fail(format string, args ...any) {
 	if len(j.p.Errors) < maxErrors {
 		j.p.Errors = append(j.p.Errors, msg)
 	}
+	j.p.ErrorCount++
 	j.problems++
 	j.mu.Unlock()
 	j.logMsg("error", msg)
+}
+
+// failAt is fail for an error that belongs to one path: besides the sentence it notes src, dst and the plain reason
+// in Progress.Failed, for the end-of-job error list and "Retry failed".
+func (j *job) failAt(src, dst string, err error, format string, args ...any) {
+	msg := fmt.Sprintf(format, args...)
+	j.mu.Lock()
+	if len(j.p.Failed) < maxFailed {
+		j.p.Failed = append(j.p.Failed, Failure{Source: src, Target: dst, Reason: plainErr(err), Message: msg})
+	}
+	j.mu.Unlock()
+	j.fail("%s", msg)
 }
 
 func (j *job) skipped() { j.update(func(p *Progress) { p.Skipped++; j.problems++ }) }
@@ -423,6 +441,9 @@ func (j *job) try(what, src, dst string, extra []Choice, op func() error) (error
 			time.Sleep(200 * time.Millisecond)
 			continue
 		}
+		if j.errPolicy == ErrorsAsk && j.skipErrs.Load() {
+			j.errPolicy = ErrorsSkip // sent to the background with "Skip errors in background" on
+		}
 		switch j.errPolicy {
 		case ErrorsAsk:
 			choices := append([]Choice{ChoiceRetry, ChoiceSkip, ChoiceSkipAll}, extra...)
@@ -451,11 +472,11 @@ func (j *job) try(what, src, dst string, extra []Choice, op func() error) (error
 			j.log("skip", src, dst, err)
 			return err, ChoiceSkip
 		case ErrorsStop:
-			j.fail("%s: %s.", what, plainErr(err))
+			j.failAt(src, dst, err, "%s: %s.", what, plainErr(err))
 			j.cancel()
 			return err, ChoiceCancel
 		default:
-			j.fail("%s: %s.", what, plainErr(err))
+			j.failAt(src, dst, err, "%s: %s.", what, plainErr(err))
 			return err, ""
 		}
 	}

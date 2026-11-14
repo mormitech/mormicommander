@@ -56,7 +56,7 @@ func (j *job) deleteAll(wipe bool) {
 		src = filepath.Clean(src)
 		si, err := lstat(src)
 		if err != nil {
-			j.fail("Can't %s %s: %s.", verb, src, plainErr(err))
+			j.failAt(src, "", err, "Can't %s %s: %s.", verb, src, plainErr(err))
 			continue
 		}
 		if si.IsDir() && j.req.ConfirmDirs && !emptyDir(src) && !j.confirmDir(src) {
@@ -350,7 +350,7 @@ func (j *job) trashOne(src string) (error, Choice) {
 func (j *job) deleteTree(top int, src string) bool {
 	si, err := lstat(src)
 	if err != nil {
-		j.fail("Can't delete %s: %s.", src, plainErr(err))
+		j.failAt(src, "", err, "Can't delete %s: %s.", src, plainErr(err))
 		return false
 	}
 	items := j.walk(top, src, "", si, walkOpts{})
@@ -360,7 +360,7 @@ func (j *job) deleteTree(top int, src string) bool {
 			return false
 		}
 		if err := removePath(items[i].src, items[i].info); err != nil {
-			j.fail("Can't delete %s: %s.", items[i].src, plainErr(err))
+			j.failAt(items[i].src, "", err, "Can't delete %s: %s.", items[i].src, plainErr(err))
 			ok = false
 		}
 	}

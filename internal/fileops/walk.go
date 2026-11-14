@@ -44,7 +44,7 @@ func (j *job) walk(top int, src, dst string, info fs.FileInfo, o walkOpts) []ite
 			if o.follow {
 				fi, err := stat(src)
 				if err != nil {
-					j.fail("Can't follow the link %s: %s.", src, plainErr(err))
+					j.failAt(src, dst, err, "Can't follow the link %s: %s.", src, plainErr(err))
 					return
 				}
 				info = fi
@@ -70,22 +70,22 @@ func (j *job) walk(top int, src, dst string, info fs.FileInfo, o walkOpts) []ite
 		out = append(out, item{src: src, dst: dst, info: info, top: top})
 		entries, err := readDir(src)
 		if err != nil {
-			j.fail("Can't read %s: %s.", src, plainErr(err))
+			j.failAt(src, dst, err, "Can't read %s: %s.", src, plainErr(err))
 			return
 		}
 		parents = append(parents, info)
 		for _, e := range entries {
 			child := filepath.Join(src, e.Name())
 			ci, err := e.Info()
-			if err != nil {
-				if ci, err = lstat(child); err != nil {
-					j.fail("Can't read %s: %s.", child, plainErr(err))
-					continue
-				}
-			}
 			cdst := ""
 			if dst != "" {
 				cdst = filepath.Join(dst, e.Name())
+			}
+			if err != nil {
+				if ci, err = lstat(child); err != nil {
+					j.failAt(child, cdst, err, "Can't read %s: %s.", child, plainErr(err))
+					continue
+				}
 			}
 			visit(child, cdst, ci, parents, false)
 		}

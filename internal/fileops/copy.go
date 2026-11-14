@@ -83,7 +83,7 @@ func (j *job) copyAll(move bool) {
 		src = filepath.Clean(src)
 		si, err := lstat(src)
 		if err != nil {
-			j.fail("Can't %s %s: %s.", verb, src, plainErr(err))
+			j.failAt(src, filepath.Join(target, ApplyMask(j.req.Rename, filepath.Base(src))), err, "Can't %s %s: %s.", verb, src, plainErr(err))
 			continue
 		}
 		name := ApplyMask(j.req.Rename, filepath.Base(src))

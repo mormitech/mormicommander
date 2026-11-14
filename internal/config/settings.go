@@ -203,6 +203,9 @@ type CopyDeletePage struct {
 	FollowLinks         bool `ini:"Configuration:CopyFollowLinks" def:"0" label:"Copy link targets instead of links"`
 	CheckFreeSpace      bool `ini:"Configuration:CheckFreeSpace" def:"1" label:"Check free space before copying"`
 	MoveDeleteAfterCopy bool `ini:"Configuration:MoveSafe" def:"1" label:"Move across drives: delete only after a full copy"`
+
+	// SkipErrorsBackground (board issue #15): background jobs note failed files and go on, and list them at the end.
+	SkipErrorsBackground bool `ini:"Configuration:SkipErrorsInBackground" def:"0" label:"Skip errors in background jobs (list them at the end)"`
 }
 
 // RefreshPage (F-422).

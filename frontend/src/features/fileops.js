@@ -16,6 +16,8 @@
 //   bigFileMode, bufferKB, overwriteDefault ('' ask, 'overwrite', 'skip', 'older', 'rename', 'rename_target',
 //   'larger', 'smaller'), showOptions, renameSelectExt (false: Shift+F6 selects the name without the extension),
 //   speedLimitOn / speedLimitKB (the transfer window's limit for background jobs).
+//   skipErrorsBackground (false) background jobs don't stop to ask when a file fails: the failures are listed at the
+//                              end, with Retry failed, Copy list and Save log (board issue #15, core/joberrors.js)
 // Histories: "copyHistory" (copy/move targets) and "mkdirHistory" (F7 names), newest first.
 
 import './fileops.css';
@@ -23,6 +25,7 @@ import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { modal, messageDialog, esc } from '../core/dialogs.js';
 import { runJob, showTransfers, jobList, backgroundSpeedLimit } from '../core/jobs.js';
+import { onErrorFor } from '../core/joberrors.js';
 import { plural, F } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
@@ -34,6 +37,7 @@ const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
   background: false, verify: false, copyTimes: true, copyPermissions: true, copyOwner: false, copyAttributes: true, followLinks: false,
   checkFreeSpace: true, ignoreErrors: false, bigFileMode: false, bufferKB: 1024, overwriteDefault: '', showOptions: false, renameSelectExt: false,
+  skipErrorsBackground: false,
 };
 const opt = (app, key) => { const s = app.setting('fileops', {}) || {}; return s[key] ?? DEFAULTS[key]; };
 const setOpt = (app, key, v) => app.setSetting('fileops', { ...(app.setting('fileops', {}) || {}), [key]: v });
@@ -323,7 +327,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     links: a.links ? '' : 'follow',
     noDates: !a.dates, noPerms: !a.perms, noAttrs: !a.attrs, owner: !!a.owner, verify: !!a.verify,
     bufferSize: a.bigfile ? 16 << 20 : Math.max(16, Number(opt(app, 'bufferKB')) || 1024) * 1024, noCache: !!a.bigfile,
-    onError: a.ignoreErrors ? '' : 'ask',
+    onError: onErrorFor({ ignoreErrors: !!a.ignoreErrors, background, skipErrorsBackground: !!opt(app, 'skipErrorsBackground') }),
     ignoreSpace: !opt(app, 'checkFreeSpace'),
     queued: !!a.queued,
     speedLimit: background ? backgroundSpeedLimit() : 0,

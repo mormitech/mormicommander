@@ -91,6 +91,7 @@ export const BRIDGE = {
   'CopyDelete.CopyAttributes': fileopsBool('copyAttributes'),
   'CopyDelete.FollowLinks': fileopsBool('followLinks'),
   'CopyDelete.CheckFreeSpace': fileopsBool('checkFreeSpace'),
+  'CopyDelete.SkipErrorsBackground': fileopsBool('skipErrorsBackground'),
   'CopyDelete.BufferKB': {
     get: (app) => { const x = fo(app, 'bufferKB'); return x === undefined ? undefined : String(x); },
     set: (app, v) => merge(app, 'fileops', { bufferKB: parseInt(v, 10) || 1024 }),

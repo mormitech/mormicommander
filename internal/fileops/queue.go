@@ -316,3 +316,16 @@ func (q *Queue) CancelAll() {
 		q.Cancel(p.ID)
 	}
 }
+
+// SkipErrors tells a running job to stop asking Retry / Skip when a file fails: from the next error on, the error is
+// noted (Progress.Failed) and the job goes on with the rest. The app calls it when a job is sent to the background
+// with "Skip errors in background" on. A question already on screen stays until it is answered. It returns false
+// when there is no such job, or it has ended.
+func (q *Queue) SkipErrors(id int) bool {
+	j := q.get(id)
+	if j == nil || j.finished() {
+		return false
+	}
+	j.skipErrs.Store(true)
+	return true
+}

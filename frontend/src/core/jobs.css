@@ -39,3 +39,10 @@
 .mc-jobs-indicator.asking { border-color: var(--sel); color: var(--sel); }
 @media (prefers-reduced-motion: reduce) { .mc-jobs-bar i { transition: none; } }
 @media (max-width: 520px) { .mc-jobs-row { grid-template-columns: 70px minmax(0, 1fr) 80px 40px; } .mc-jobs-row .sp { display: none; } }
+
+.mc-jobs-errors { width: min(640px, 94vw); }
+.mc-jobs-errlist { list-style: none; margin: 0 0 8px; padding: 0; border: 1px solid var(--line); border-radius: 6px; max-height: 280px; overflow: auto; user-select: text; }
+.mc-jobs-errlist li { display: grid; gap: 1px; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.mc-jobs-errlist li:last-child { border-bottom: none; }
+.mc-jobs-errlist .p { overflow-wrap: anywhere; }
+.mc-jobs-errlist .r { color: var(--danger); font-size: 12px; }

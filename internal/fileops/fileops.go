@@ -205,9 +205,28 @@ type Progress struct {
 	// whole: one of their files was skipped or failed, or the job stopped before reaching them. The panel keeps just
 	// these selected, as Total Commander does. It is nil until the job ends and for the other kinds of job.
 	Left []string `json:"left"`
+	// ErrorCount is the number of errors so far, not capped like Errors, so the progress window can show it.
+	ErrorCount int `json:"errorCount"`
+	// Failed lists the files and folders that failed, each with its path and the plain-English reason, at most
+	// maxFailed of them. The end-of-job error list shows them and "Retry failed" starts a new job from them.
+	Failed []Failure `json:"failed"`
 }
 
 const maxErrors = 100
+
+// maxFailed caps Progress.Failed, so a job that fails on every one of a million files doesn't fill the memory.
+const maxFailed = 10000
+
+// Failure is one file or folder a job could not handle. Source is the path the job worked on ("" when the job as a
+// whole failed, e.g. the target folder could not be made); Target is where a copy or move was going ("" for delete,
+// trash and wipe, and for a move whose copy worked but whose original could not be removed). Reason is the
+// plain-English cause ("permission denied", "the disk is full"); Message is the full sentence shown in Errors.
+type Failure struct {
+	Source  string `json:"source"`
+	Target  string `json:"target"`
+	Reason  string `json:"reason"`
+	Message string `json:"message"`
+}
 
 // Event names given to Emit.
 const (

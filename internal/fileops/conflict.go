@@ -169,7 +169,7 @@ func (j *job) readOnlyCheck(it item, dst string, di fs.FileInfo) outcome {
 		return outSkip
 	}
 	if err := makeWritable(dst, di); err != nil {
-		j.fail("Can't make %s writable: %s.", dst, plainErr(err))
+		j.failAt(it.src, dst, err, "Can't make %s writable: %s.", dst, plainErr(err))
 		return outFailed
 	}
 	return outWrite

@@ -5,9 +5,14 @@ package main
 // can be paused, resumed, slowed down and cancelled from the background transfer window. frontend/src/core/jobs.js is
 // the page's side: progress box, the questions, the background list, runJob() promise. The instant operations of the
 // same area (make folder, rename in place, reading the copy dialog's target) are in feature_fileops.go.
+//
+// The end-of-job error list (board issue #15) uses SkipErrors, for a job sent to the background with "Skip errors in
+// background" on, and SaveErrorLog, which writes the list the page made to a file the user picks.
 
 import (
 	"errors"
+	"os"
+	"strings"
 
 	"mormicommander/internal/fileops"
 )
@@ -91,3 +96,39 @@ func (j *Jobs) Running() bool {
 
 // Forget drops finished jobs from the list.
 func (j *Jobs) Forget() { j.q.Forget() }
+
+// SkipErrors makes a running job note failed files and go on, instead of asking Retry / Skip (see Queue.SkipErrors).
+func (j *Jobs) SkipErrors(id int) bool { return j.q.SkipErrors(id) }
+
+// SaveErrorLog asks where to save a job's error list and writes text there. It returns the path written, or "" when
+// the user cancelled. In control mode the answer comes from the queue ("save-file"), never a system dialog.
+func (j *Jobs) SaveErrorLog(name, text string) (string, error) {
+	path, ok := j.app.mockAnswer("save-file", "Save error log")
+	if !ok {
+		var err error
+		path, err = j.app.saveFileDialog("Save error log", "", name, []fileFilter{{DisplayName: "Text files (*.txt, *.log)", Pattern: "*.txt;*.log"}})
+		if err != nil {
+			return "", errors.New(fileopsSentence(err.Error()))
+		}
+	}
+	if path == "" {
+		return "", nil
+	}
+	if err := writeErrorLog(path, text); err != nil {
+		return "", errors.New(fileopsSentence(err.Error()))
+	}
+	return path, nil
+}
+
+// writeErrorLog writes the error list to path, with a final line break and the system's own line breaks on Windows
+// (so Notepad shows the lines).
+func writeErrorLog(path, text string) error {
+	text = strings.ReplaceAll(text, "\r\n", "\n")
+	if !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	if os.PathSeparator == '\\' {
+		text = strings.ReplaceAll(text, "\n", "\r\n")
+	}
+	return os.WriteFile(path, []byte(text), 0o644)
+}
