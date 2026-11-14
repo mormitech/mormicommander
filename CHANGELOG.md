@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.26 – 2026-11-14
+
+### Fixed
+
+- Moving through the folder history (Alt+Left / Alt+Right, Cmd+[ / Cmd+], mouse buttons 4 and 5, or choosing a folder
+  from the Alt+Down list) now puts the cursor back on the entry it was on when you last left that folder, instead of on
+  "..". If that entry is not known and the folder you came from is inside the target, the cursor goes on the subfolder
+  that leads to it, the same rule Backspace uses.
+
 ## 0.9.25 – 2026-11-14
 
 ### Fixed
