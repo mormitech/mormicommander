@@ -1041,7 +1041,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-758 Help text and labels in plain short English — — — review checklist passes (no jargon)
 - [ ] F-759 Version single-sourced in wails.json and shown in About and --version — — — --version prints same version as About
 - [ ] F-760 CHANGELOG.md maintained — — — each release has an entry
-- [ ] F-761 Packaging: macOS .app/.dmg, Windows installer/zip, Linux AppImage/deb/tar (packaging/, scripts/make-*.mjs) — — — CI workflow builds all three (Linux with -tags webkit2_41)
+- [ ] F-761 Packaging: macOS .app/.dmg, Windows installer/zip, Linux AppImage/deb/tar (packaging/, scripts/make-*.mjs) — — — CI workflow builds all three (Linux with GTK 4 and WebKitGTK 6.0, no build tags)
 - [N/A] F-762 Automatic update download — no unsolicited network traffic — manual 'Check for updates' opens the release page
 - [ ] F-763 TC "Encode/Decode" and "Split" also in context menu — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-764 Panel focus indicator for keyboard users and screen readers (accessibility labels) — — — list items have aria labels; focus visible

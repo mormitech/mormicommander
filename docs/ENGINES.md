@@ -2,7 +2,7 @@
 
 This document lists every UI-free engine package under `internal/` so that the UI agents know what exists and where to wire it. Each section names the package's purpose, links its README (the API summary), and lists the `docs/FEATURES.md` IDs it backs (taken from the README). Detailed Total Commander behaviour specs live in `docs/spec/area-1.md` to `area-8.md`.
 
-All packages pass `go vet` and `go test`, and cross-compile with `GOOS=windows` and `GOOS=linux`. Integration status: the engines are wired into the UI through the ui/* feature branches (merged); each is reachable through registered cm_* commands (about 1000 are registered) and a few still lack a command (tree views, printing, the command browser, internal associations, the source-filter commands). Wiring is marked `[~]` in FEATURES.md until QA has checked it.
+All packages pass `go vet` and `go test`, and cross-compile with `GOOS=windows` and `GOOS=linux`. Integration status: the engines are wired into the app (Go side through `features.go`, page side through `frontend/src/features/*.js`; see [ARCHITECTURE.md](ARCHITECTURE.md)) and reached through registered cm_* commands. What is still missing, such as the tree views (F-081, F-171), is tracked per item in `docs/FEATURES.md` (`[ ]` todo, `[~]` partly done, `[x]` checked by QA) and on the project board.
 
 ## Core (from the work-in-progress snapshot)
 
@@ -10,7 +10,7 @@ All packages pass `go vet` and `go test`, and cross-compile with `GOOS=windows` 
 Volume and drive enumeration. No README yet; see the package comment. Backs the drive bar and drive popup (works with `internal/dirsize`).
 
 ### internal/trash
-Move files to the OS trash/recycle bin. No README yet; used by `internal/fileops`.
+Moves files, folders and links to the macOS Trash, the freedesktop.org trash on Linux, or the Windows Recycle Bin. README: [internal/trash/README.md](../internal/trash/README.md). Used by `internal/fileops` for Trash jobs.
 
 ### internal/vfs
 The file systems behind the panels: `Local`, `Mock`, and adapters that plug the archive, FTP and SFTP engines in, with a `Router` that picks the right file system for any path. README: [internal/vfs/README.md](../internal/vfs/README.md). IDs: F-051, F-071, F-078, F-482, F-483, F-596 to F-620 (archives as folders), F-626, F-629, F-633, F-636, F-641, F-648 to F-650.

@@ -143,6 +143,9 @@ managers fed from them (the Mormitech Homebrew tap, Scoop bucket and winget). Ev
 of each file in `SHA256SUMS.txt`. How to check a download, and which file to pick, is on the download page:
 [docs/DOWNLOADS.md](docs/DOWNLOADS.md). Copies of the app elsewhere are not ours.
 
+What it runs on: **macOS 13 (Ventura) or newer** on Apple silicon; Windows x64 with the Microsoft Edge WebView2
+runtime (part of Windows 11 and current Windows 10); Linux x64 with GTK 4 and WebKitGTK 6.0 (the .deb installs them).
+
 To build it yourself you need [Go](https://go.dev) 1.26 or newer and
 [Node.js](https://nodejs.org); the window is [Wails v3](https://v3.wails.io), which comes in as a Go module (no CLI to
 install):

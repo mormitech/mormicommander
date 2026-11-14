@@ -60,7 +60,7 @@ process.stdout.write(`cask "mormicommander" do
     url "${urlLine(files.macos)}"
 
     depends_on arch: :arm64
-    depends_on macos: :monterey
+    depends_on macos: :ventura
 
     app "mormicommander.app"
     # also a command, so mormicommander (and mormicommander --demo) works in a terminal; it is a launcher script in the
@@ -97,8 +97,8 @@ process.stdout.write(`cask "mormicommander" do
     zap trash: "~/.config/mormicommander"
 
     caveats <<~EOS
-      mormicommander needs GTK 3 and WebKitGTK 4.1 from your system, for example on Debian and Ubuntu:
-        sudo apt install libgtk-3-0 libwebkit2gtk-4.1-0
+      mormicommander needs GTK 4 and WebKitGTK 6.0 from your system, for example on Debian and Ubuntu:
+        sudo apt install libgtk-4-1 libwebkitgtk-6.0-4
       On Debian and Ubuntu the .deb from the GitHub release installs them for you:
         https://github.com/${repo}/releases/latest
     EOS
