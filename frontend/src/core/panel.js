@@ -13,6 +13,7 @@ import { sortEntries } from './sort.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
 import { hiddenMarkHTML } from './hidden.js';
+import { historyFocus } from './histfocus.js';
 
 // The columns of the Full view: id, title, extra class. Sort commands per column live in the sorting feature.
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
@@ -131,11 +132,12 @@ export class Panel {
   // ---- reading folders ----
 
   // go shows a folder. focus: the name to put the cursor on (default: where it was the last time in that folder).
-  // history: false for moves through the history itself. Resolves true when the folder is shown, false when it could
+  // history: false for moves through the history itself. restore: true for history moves (Alt+Left/Right, the Alt+Down
+  // list), which put the cursor back where it was in that folder, or on the subfolder just left (#126). Resolves true when the folder is shown, false when it could
   // not be read (the panel stays where it was and the reason is shown).
   go(path, opts = {}) { return track(this._go(path, opts)); }
 
-  async _go(path, { focus = null, history = true, keepSelection = false } = {}) {
+  async _go(path, { focus = null, history = true, keepSelection = false, restore = false } = {}) {
     const seq = ++this.seq;
     this.loading = true;
     this.el.classList.add('loading');
@@ -178,7 +180,8 @@ export class Panel {
     // that passes focus. Restoring the last cursor of a folder you come back to (TC's F-074) is a setting, off by
     // default: "rememberCursor".
     const remembered = this.app.setting('rememberCursor', false) ? this.lastCursor.get(l.path) : null;
-    const want = focus ?? (same ? keepName : remembered);
+    const back = restore && !same ? historyFocus(l.path, prev, this.lastCursor, this.app.sepFor(l.path)) : null;
+    const want = focus ?? (same ? keepName : (back ?? remembered));
     this.rebuild(want, same ? oldCursor : 0);
     this.loading = false;
     this.el.classList.remove('loading');
@@ -193,14 +196,14 @@ export class Panel {
     const p = this.back.pop();
     if (!p) return Promise.resolve(false);
     this.fwd.push(this.path);
-    return this.go(p, { history: false });
+    return this.go(p, { history: false, restore: true });
   }
 
   goForward() {
     const p = this.fwd.pop();
     if (!p) return Promise.resolve(false);
     this.back.push(this.path);
-    return this.go(p, { history: false });
+    return this.go(p, { history: false, restore: true });
   }
 
   // rebuild applies hidden files, the filter and the sort to what was read, and puts the cursor on focusName (or at

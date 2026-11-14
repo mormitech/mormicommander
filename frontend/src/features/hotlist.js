@@ -329,12 +329,12 @@ async function showHistory(p, { anchor } = {}) {
   if (v === 'clear') { p.back = []; p.fwd = []; saveSoon(); theApp.flash('The folder history of this tab is cleared.'); return true; }
   if (v.pos === curPos) return false;
   if (r.shift) return openInNewTab(p, v.path);
-  if (theApp.setting('historyAppend', true)) return p.go(v.path);
+  if (theApp.setting('historyAppend', true)) return p.go(v.path, { restore: true });
   // move through the history without adding to it, so Alt+Right still goes forward (HistoryAppend=0)
   const [back, fwd] = [p.back, p.fwd];
   p.back = line.slice(0, v.pos);
   p.fwd = line.slice(v.pos + 1).reverse();
-  const ok = await p.go(v.path, { history: false });
+  const ok = await p.go(v.path, { history: false, restore: true });
   if (!ok) { p.back = back; p.fwd = fwd; }
   return ok;
 }
