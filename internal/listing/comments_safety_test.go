@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -42,7 +43,8 @@ func TestCommentsQuoteNamesRoundTrip(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("names with quotes are not allowed on Windows")
 	}
-	names := []string{`"quoted`, `"quoted"`, `a"b`, `"a b`, `x y"`, `plain`, `with space`}
+	names := []string{`"quoted`, `"quoted"`, `a"b`, `"a b`, `x y"`, `plain`, `with space`,
+		`a" b`, `a"	b`, `x" y" z`, `a"" b`, `""`, `" "`, `end"`, `q"" `}
 	dir := t.TempDir()
 	c := NewComments()
 	for i, n := range names {
@@ -66,6 +68,41 @@ func TestParseCommentsQuoteRules(t *testing.T) {
 	c := ParseComments([]byte("\"a b\" one\r\n\"open two\r\n\"x\"y three\r\n\"only\"\r\n"))
 	cases := map[string]string{"a b": "one", `"open`: "two", `"x"y`: "three", "only": ""}
 	for n, want := range cases {
+		if got := c.Get(n); got != want {
+			t.Errorf("Get(%q) = %q, want %q", n, got, want)
+		}
+	}
+}
+
+// TestCommentsQuoteEscaping pins the written form: only a quote that would
+// end the name early (followed by a space, a tab, another quote or the end of
+// the name) is doubled, so names that always read back keep their old form.
+func TestCommentsQuoteEscaping(t *testing.T) {
+	cases := map[string]string{
+		`with space`: `"with space" c`,
+		`"quoted`:    `""quoted" c`,
+		`a" b`:       `"a"" b" c`,
+		`x y"`:       `"x y""" c`,
+		`plain`:      `plain c`,
+		`a"b`:        `a"b c`,
+	}
+	for name, want := range cases {
+		c := NewComments()
+		c.Set(name, "c")
+		if got := strings.TrimSuffix(string(c.Bytes()), "\r\n"); got != want {
+			t.Errorf("Bytes for %q = %q, want %q", name, got, want)
+		}
+		if got := ParseComments(c.Bytes()).Get(name); got != "c" {
+			t.Errorf("round trip of %q = %q", name, got)
+		}
+	}
+}
+
+// TestParseCommentsOldQuoteForm checks that lines written before quotes were
+// doubled still read back the same way.
+func TestParseCommentsOldQuoteForm(t *testing.T) {
+	c := ParseComments([]byte("\"x y\"\" one\r\n\"\"quoted\"\" two\r\n"))
+	for n, want := range map[string]string{`x y"`: "one", `"quoted"`: "two"} {
 		if got := c.Get(n); got != want {
 			t.Errorf("Get(%q) = %q, want %q", n, got, want)
 		}

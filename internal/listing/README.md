@@ -2,8 +2,8 @@
 
 UI-free engine that turns a raw folder listing into the rows a file panel draws: filtering, sorting, formatting,
 column sets (Brief, Full, Comments, custom) and status line totals. It has no Wails dependency and cross-compiles for
-macOS, Windows and Linux. Its only dependency beyond the standard library is `golang.org/x/text/collate`, used for
-locale-aware name order.
+macOS, Windows and Linux. Its dependencies beyond the standard library are `golang.org/x/text/collate`, used for
+locale-aware name order, and (on Linux) `golang.org/x/sys/unix` for the `statx` birth time.
 
 ## Typical use
 
@@ -70,6 +70,8 @@ sorts by the field's typed value (numbers, instants); empty values stay at the b
 
 ## Notes
 
-- Linux has no birth time in the classic stat call, so `creationdate` is empty there; Windows and macOS fill it.
+- Linux has no birth time in the classic stat call, so `creationdate` comes from `statx` (when the kernel and file
+  system record one) and stays empty otherwise; Windows and macOS always fill it.
 - Dotfiles count as hidden on macOS and Linux; on Windows only the hidden attribute counts. macOS `UF_HIDDEN` is honoured.
-- Writing `descript.ion` does not set the Windows hidden attribute on the file; the file operations layer can do that.
+- Saving `descript.ion` marks it hidden on Windows, as Total Commander does. Names with quotes (Unix only) are
+  written quoted with a quote doubled when it would otherwise end the name early, so every name round-trips.

@@ -58,8 +58,8 @@ func ParseComments(data []byte) *Comments {
 			continue
 		}
 		var name, text string
-		if end := closingQuote(line); end > 0 {
-			name = line[1:end]
+		if n, end := quotedName(line); end > 0 {
+			name = n
 			text = strings.TrimLeft(line[end+1:], " \t")
 		} else {
 			i := strings.IndexAny(line, " \t")
@@ -157,7 +157,7 @@ func (c *Comments) Bytes() []byte {
 	for _, e := range c.entries {
 		name := e.name
 		if strings.ContainsAny(name, " \t") || strings.HasPrefix(name, `"`) {
-			name = `"` + name + `"`
+			name = `"` + escapeQuotes(name) + `"`
 		}
 		text := e.text
 		multi := strings.Contains(text, "\n")
@@ -197,15 +197,76 @@ func (c *Comments) Save(dir string) error {
 	// config.WriteFileAtomic keeps the existing file's permission bits (and
 	// follows a symlink), so other users of a shared folder can still read
 	// the comments after a save.
-	return config.WriteFileAtomic(p, c.Bytes(), 0o644)
+	if err := config.WriteFileAtomic(p, c.Bytes(), 0o644); err != nil {
+		return err
+	}
+	// Total Commander keeps descript.ion hidden on Windows so it does not
+	// clutter every folder; the atomic write replaces the file with a fresh
+	// one, so the hidden attribute is set again after each save. Elsewhere
+	// this does nothing (the name has no leading dot to hide it).
+	hideCommentFile(p)
+	return nil
+}
+
+// quotedName reads the quoted name at the start of line and returns it with the index of its closing quote, or end
+// -1 when the line does not start with a quoted name. Inside the quotes a doubled quote ("") stands for one literal
+// quote: Bytes writes it that way for a quote that would otherwise look like the end of the name (one followed by a
+// space, a tab, another quote or the end of the name), so a Unix name such as `a" b` survives a save and a load.
+// The closing quote is the first single '"' followed by a space, a tab or the end of the line. When no such quote
+// is found this way, the older rule of closingQuote is tried, so files written before quotes were doubled still read
+// back as they always did.
+func quotedName(line string) (string, int) {
+	if !strings.HasPrefix(line, `"`) {
+		return "", -1
+	}
+	var b strings.Builder
+	for i := 1; i < len(line); i++ {
+		c := line[i]
+		if c != '"' {
+			b.WriteByte(c)
+			continue
+		}
+		if i+1 < len(line) && line[i+1] == '"' {
+			b.WriteByte('"')
+			i++
+			continue
+		}
+		if i+1 == len(line) || line[i+1] == ' ' || line[i+1] == '\t' {
+			return b.String(), i
+		}
+		b.WriteByte('"')
+	}
+	if end := closingQuote(line); end > 0 {
+		return line[1:end], end
+	}
+	return "", -1
+}
+
+// escapeQuotes doubles each quote in a name that quotedName would otherwise read as the closing quote or as half of
+// an escaped pair: one followed by a space, a tab, another quote or the end of the name. Other quotes stay single,
+// which keeps the file unchanged for every name that already read back correctly.
+func escapeQuotes(name string) string {
+	if !strings.Contains(name, `"`) {
+		return name
+	}
+	var b strings.Builder
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		b.WriteByte(c)
+		if c == '"' && (i+1 == len(name) || name[i+1] == ' ' || name[i+1] == '\t' || name[i+1] == '"') {
+			b.WriteByte('"')
+		}
+	}
+	return b.String()
 }
 
 // closingQuote returns the index of the quote that ends a quoted name at the
 // start of line, or -1 when the line does not start with one. The closing
 // quote is the first '"' followed by a space, a tab or the end of the line, so
-// a Unix name that itself starts with or contains '"' (written quoted by
-// Bytes) reads back whole; a line starting with '"' that has no such closing
-// quote is read as an unquoted name instead of being dropped.
+// a Unix name that itself starts with or contains '"' reads back whole; a line
+// starting with '"' that has no such closing quote is read as an unquoted name
+// instead of being dropped. This was the only rule before quotes were doubled
+// and is kept as the fallback for such older files.
 func closingQuote(line string) int {
 	if !strings.HasPrefix(line, `"`) {
 		return -1

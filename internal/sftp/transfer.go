@@ -18,7 +18,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	pkgsftp "github.com/pkg/sftp"
@@ -498,17 +497,12 @@ func localRel(base, target string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	lrel := filepath.FromSlash(rel)
-	// On Windows a backslash inside a server name would turn into a path
-	// separator: `d/..\x` is a file `..\x` in folder d on the server but
-	// "x" next to d locally, so even a name that stays inside the
-	// destination would land in the wrong place. Such names cannot be
-	// stored faithfully and are refused.
-	if filepath.Separator == '\\' && strings.ContainsRune(rel, '\\') {
-		return "", fmt.Errorf("sftp: refusing to download %q: not a safe local name", target)
-	}
-	if !fs.ValidPath(rel) || !filepath.IsLocal(lrel) {
-		return "", fmt.Errorf("sftp: refusing to download %q: not a safe local name", target)
+	// The shared rule (remotefs.LocalRel) also refuses a backslash inside a
+	// server name on Windows: `d/..\x` is a file `..\x` in folder d on the
+	// server but "x" next to d locally. FTP downloads use the same rule.
+	lrel, err := remotefs.LocalRel(rel)
+	if err != nil {
+		return "", fmt.Errorf("sftp: refusing to download %q: %w", target, err)
 	}
 	return lrel, nil
 }

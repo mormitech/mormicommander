@@ -11,11 +11,14 @@ package ftp
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
+
+	"mormicommander/internal/remotefs"
 )
 
 // WalkFunc is called for every entry below the walk root. Returning
@@ -204,7 +207,9 @@ func (c *Client) UploadTree(ctx context.Context, localDir, remoteDir string, opt
 // Commander does it (RETR follows the link on the server). Links the server
 // refuses to deliver as a file (links to folders, broken links) and other
 // special entries are not followed; they are listed in TreeResult.Skipped
-// instead of being dropped silently.
+// instead of being dropped silently. A server name that cannot be stored
+// safely in localDir stops the copy with an error wrapping
+// remotefs.ErrUnsafeName, exactly like an SFTP tree download.
 func (c *Client) DownloadTree(ctx context.Context, remoteDir, localDir string, opt TreeOptions) (TreeResult, error) {
 	var res TreeResult
 	if err := os.MkdirAll(localDir, 0o777); err != nil {
@@ -215,15 +220,14 @@ func (c *Client) DownloadTree(ctx context.Context, remoteDir, localDir string, o
 			return err
 		}
 		rel := strings.TrimPrefix(strings.TrimPrefix(rp, remoteDir), "/")
-		if rel == "" || !fs.ValidPath(rel) || !filepath.IsLocal(filepath.FromSlash(rel)) {
-			// A hostile listing ("../x", "..\x") must never make us
-			// write outside localDir.
-			if e.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
+		// A hostile listing ("..\x", "CON") must never make us write
+		// outside localDir. Such a name stops the copy with an error, the
+		// same as an SFTP download, instead of being left out silently.
+		lrel, err := remotefs.LocalRel(rel)
+		if err != nil {
+			return fmt.Errorf("ftp: refusing to download %q: %w", rp, err)
 		}
-		lp := filepath.Join(localDir, filepath.FromSlash(rel))
+		lp := filepath.Join(localDir, lrel)
 		switch e.Type {
 		case TypeDir:
 			if err := os.MkdirAll(lp, 0o777); err != nil {
