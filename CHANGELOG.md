@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.61 – 2026-11-14
+
+### Fixed
+
+- Updating a zip or tar archive no longer loses the archive's hard links, owner and group, or extended attributes. If the archive has other hard names, the new content is written into the original file so every name sees it (a backup is taken first and restored if the copy fails); otherwise the old owner, group and extended attributes are put on the new file before it replaces the old one. Archives that cannot be opened for writing, new archives and split volumes behave as before (issue #97).
+
 ## 0.9.60 – 2026-11-14
 
 ### Fixed
