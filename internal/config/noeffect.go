@@ -18,7 +18,6 @@ var noEffect = map[string]bool{
 	"Layout.SeparateTree":  true,
 
 	"Display.ShowSystem":       true,
-	"Display.SortUpper":        true,
 	"Display.SizeFooter":       true,
 	"Display.ShowParentInRoot": true,
 	"Display.FullRowSelect":    true,

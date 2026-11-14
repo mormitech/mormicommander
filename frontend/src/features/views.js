@@ -26,6 +26,7 @@ import { cellSize, date, attr, size as shortSize, display } from '../core/format
 import { cellFormat, shownName, extColumn } from './views-format.js';
 import { app as theApp } from '../core/app.js';
 import { addTabState } from './tabs.js';
+import { nameComparer, SORT_METHODS, validLocale } from '../core/sort.js';
 import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
 
 // ---- settings ----
@@ -396,7 +397,7 @@ function cellsSig(p) {
   const def = columns(p), c = cfg();
   const ds = [...p.dirSizes].sort().join('|');
   const m = /^col(\d+)$/.exec(p.sort.key || '');
-  return JSON.stringify([p.path, allId(p.all), def.cols.map((x) => x.template), cellFormat(c, display), ds, m ? p.sort.key : '', m ? p.sort.desc : false, !!theApp.setting('naturalSort', true)]);
+  return JSON.stringify([p.path, allId(p.all), def.cols.map((x) => x.template), cellFormat(c, display), ds, m ? p.sort.key : '', m ? p.sort.desc : false, !!theApp.setting('naturalSort', true), theApp.setting('sortMethod', ''), theApp.setting('sortLocale', '')]);
 }
 
 let cellsSeq = 0;
@@ -412,6 +413,7 @@ async function requestCells(p, force = false) {
     path: p.path, columns: def.cols.map(({ title, template, width, align }) => ({ title, template, width, align })),
     format: cellFormat(c, display),
     dirSizes: Object.fromEntries(p.dirSizes), sortCol: m ? +m[1] - 1 : -1, desc: !!p.sort.desc, natural: !!theApp.setting('naturalSort', true),
+    sortMethod: theApp.setting('sortMethod', '') || '', sortLocale: theApp.setting('sortLocale', '') || '',
   };
   const seq = ++cellsSeq;
   vs.cellsSeq = seq;
@@ -602,12 +604,12 @@ async function readFolders(p, path) {
   const l = await go.FS.List(`views-tree-${p.side}-${++treeSeq}`, path);
   const sep = theApp.sepFor(l.path);
   const join = (n) => (l.path.endsWith(sep) || l.path.endsWith('/') ? l.path + n : l.path + sep + n);
-  const coll = new Intl.Collator(undefined, { sensitivity: 'base', numeric: !!theApp.setting('naturalSort', true) });
+  const cmp = nameComparer({ natural: !!theApp.setting('naturalSort', true), method: theApp.setting('sortMethod', ''), locale: theApp.setting('sortLocale', '') });
   // hidden folders stay out unless shown, except the ones on the way to the folder the panel was in (macOS hides
   // /private, which holds every temp folder), so the tree can always reach and select that folder
   const keep = vsOf(p).tree?.keep;
   return (l.entries || []).filter((r) => (r[3] & 1) && (theApp.showHidden || !(r[3] & 4) || keep?.has(join(r[0]).toLowerCase())))
-    .map((r) => r[0]).sort((a, b) => coll.compare(a, b)).map((n) => ({ name: n, path: join(n) }));
+    .map((r) => r[0]).sort(cmp).map((n) => ({ name: n, path: join(n) }));
 }
 
 function flatten(tree) {
@@ -858,6 +860,8 @@ async function viewOptions(app) {
     <label class="mc-check"><input type="checkbox" id="separateExt"${c.namesWhole ? '' : ' checked'}> Show the extension in its own column</label>
     <label class="mc-check"><input type="checkbox" id="naturalSort"${app.setting('naturalSort', true) ? ' checked' : ''}> Natural sorting (file2 before file10)</label>
     <label class="mc-check"><input type="checkbox" id="dirsByName"${app.setting('dirsLikeFiles', false) ? '' : ' checked'}> Sort folders always by name</label>
+    <div class="mc-row"><label for="sortMethod">Sort names</label><select id="sortMethod">${opt(SORT_METHODS, app.setting('sortMethod', '') || '')}</select></div>
+    <div class="mc-row"><label for="sortLocale">Language for sorting (for example hu, de, sv; empty: the system's)</label><input id="sortLocale" type="text" spellcheck="false" value="${esc(app.setting('sortLocale', '') || '')}"></div>
     <div class="mc-row"><label for="thumbSize">Thumbnail size in pixels (32 to 512)</label><input id="thumbSize" type="text" inputmode="numeric" value="${thumbSize()}"></div>`;
   const r = await formDialog('View options', html, (box) => {
     const v = (id) => box.querySelector(`#${id}`);
@@ -868,16 +872,21 @@ async function viewOptions(app) {
     }
     const ts = parseInt(v('thumbSize').value, 10);
     if (!(ts >= 32 && ts <= 512)) return 'The thumbnail size must be between 32 and 512 pixels.';
-    return { sizeFormat: v('sizeFormat').value, dateFormat: date, attrFormat: v('attrFormat').value, namesWhole: !v('separateExt').checked, thumbSize: ts, natural: v('naturalSort').checked, dirsByName: v('dirsByName').checked };
+    const loc = v('sortLocale').value.trim();
+    if (loc && !validLocale(loc)) return `"${loc}" is not a language code. Type one like hu, de or en-GB, or leave it empty.`;
+    return { sizeFormat: v('sizeFormat').value, dateFormat: date, attrFormat: v('attrFormat').value, namesWhole: !v('separateExt').checked, thumbSize: ts, natural: v('naturalSort').checked, dirsByName: v('dirsByName').checked, sortMethod: v('sortMethod').value, sortLocale: loc };
   }, (box) => {
     const sel = box.querySelector('#dateFormat');
     sel.addEventListener('change', () => { box.querySelector('#mc-views-custom-date').hidden = sel.value !== 'custom'; });
   }, { kind: 'view-options' });
   if (!r) return false;
-  const { natural, dirsByName, ...views } = r;
+  const { natural, dirsByName, sortMethod, sortLocale, ...views } = r;
   await saveCfg(views);
   await app.setSetting('naturalSort', natural);
   await app.setSetting('dirsLikeFiles', !dirsByName);
+  // only written when changed from what the app has, so a settings file that never had them keeps the defaults
+  if (sortMethod !== (app.setting('sortMethod', '') || '')) await app.setSetting('sortMethod', sortMethod);
+  if (sortLocale !== (app.setting('sortLocale', '') || '')) await app.setSetting('sortLocale', sortLocale);
   refreshAll(app);
   return true;
 }

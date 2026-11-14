@@ -69,7 +69,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-018 Remember window position, size, maximized state, splitter — — — after restart, the window reopens where and how it was closed (per-monitor safe, like mormiview winstate.go)
 - [ ] F-019 Full-screen / maximize toggle — — — window can be maximized; on macOS native full screen works
 - [ ] F-020 Font and color settings applied to panels — — — user-changed font size/colors apply immediately to both panels
-- [ ] F-021 Dark and light theme following system (prefers-color-scheme) with manual override — — — switching the OS theme switches the app; Configuration lets the user force light or dark
+- [x] F-021 Dark and light theme following system (prefers-color-scheme) with manual override — — — switching the OS theme switches the app; Configuration lets the user force light or dark
 - [ ] F-022 Show/hide hidden elements: menu, button bar, drive bar, command line, status bar, tab bar, function key buttons, current dir, sort header, drive combobox, vertical button bar — — — each element can be turned on and off in Configuration > Layout and the layout updates without restart
 - [ ] F-023 Function key button row at bottom (F3 View ... Alt+F4 Exit) — — — clicking a button runs the same command as the key; labels change while Shift/Alt/Ctrl is held (TC shows shifted functions)
 - [ ] F-024 Vertical button bar between panels (TC 9+) — — — optional middle bar with configurable buttons (e.g. copy/move arrows)
@@ -200,7 +200,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-113 Sort by clicking column headers incl. custom columns — — — header shows arrow for direction
 - [ ] F-114 Multi-column sort with Ctrl+click header — — — Ctrl+click adds secondary sort key — audit #103: not built in the UI: a header click sorts by one column only; internal/listing can sort by several keys
 - [ ] F-115 Natural sorting (numbers as numbers: file2 before file10) option — — — "file2" sorts before "file10" when option set
-- [ ] F-116 Case-sensitive / Unicode / locale-aware sorting option — — — options change order per spec
+- [x] F-116 Case-sensitive / Unicode / locale-aware sorting option — — — options change order per spec
 - [~] F-117 Sort settings per tab remembered — — — each tab keeps its sort
 - [~] F-790 Sort by column n of the current column set (cm_SrcSortByCol1..99, cm_LeftSortByCol.., cm_RightSortByCol..) — — (assignable) — command sorts by that column; running it again reverses the order
 
@@ -1034,7 +1034,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-751 Compare folders side by side highlighting (after Shift+F2) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-752 "Calculate space" in status for selected folders — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-753 Wildcard select dialog history and saved selections — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-754 Unicode filename support everywhere (NFC/NFD on macOS) — — — Hungarian accented names created in Finder (NFD) match NFC searches and sort correctly
+- [x] F-754 Unicode filename support everywhere (NFC/NFD on macOS) — — — Hungarian accented names created in Finder (NFD) match NFC searches and sort correctly
 - [ ] F-755 Case-sensitive file systems — — — two files differing only in case are both shown and handled on Linux
 - [ ] F-756 Permissions errors folders shown with message, not crash — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-757 Startup speed — — — app shows panels within 1 s on a normal machine

@@ -14,6 +14,7 @@ import (
 
 	"golang.org/x/text/collate"
 	"golang.org/x/text/language"
+	"golang.org/x/text/unicode/norm"
 )
 
 // Collation describes how names are compared.
@@ -61,7 +62,10 @@ func (k *Collator) locale() *collate.Collator {
 }
 
 // Compare returns -1, 0 or +1 as a sorts before, equal to or after b.
+// Names are compared in Unicode NFC form, so a name stored decomposed (NFD, as older macOS volumes and some Finder
+// copies keep accented letters) sorts exactly like the same name composed.
 func (k *Collator) Compare(a, b string) int {
+	a, b = nfc(a), nfc(b)
 	if k.c.WordSort {
 		a, b = stripWordChars(a), stripWordChars(b)
 	}
@@ -79,6 +83,14 @@ func (k *Collator) Compare(a, b string) int {
 		return naturalCompare(a, b, k.c.CaseSensitive)
 	}
 	return runeCompare(a, b, k.c.CaseSensitive)
+}
+
+// nfc returns s in NFC form; names that already are (nearly all) are returned without copying.
+func nfc(s string) string {
+	if norm.NFC.IsNormalString(s) {
+		return s
+	}
+	return norm.NFC.String(s)
 }
 
 // stripWordChars drops the characters Windows word sort ignores. Only allocates when one is present.

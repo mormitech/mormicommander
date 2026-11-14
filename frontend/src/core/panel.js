@@ -221,7 +221,10 @@ export class Panel {
     const list = this.all.filter((e) => (show || !e.hidden) && (!this.filter || this.filter(e)));
     for (const e of list) e.dirSize = e.dir ? this.dirSizes.get(e.name) : undefined;
     if (this.parent) list.push(UP);
-    this.entries = sortEntries(list, this.sort, { natural: this.app.setting('naturalSort', true), dirsLikeFiles: this.app.setting('dirsLikeFiles', false) });
+    this.entries = sortEntries(list, this.sort, {
+      natural: this.app.setting('naturalSort', true), dirsLikeFiles: this.app.setting('dirsLikeFiles', false),
+      method: this.app.setting('sortMethod', ''), locale: this.app.setting('sortLocale', ''),
+    });
     this.index = new Map(this.entries.map((e, i) => [e.name, i]));
     for (const n of this.selected) if (!this.index.has(n)) this.selected.delete(n);
     let i = focusName != null ? this.index.get(focusName) : undefined;

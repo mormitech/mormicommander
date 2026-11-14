@@ -55,6 +55,12 @@ export const BRIDGE = {
   'Operation.MarkDirectories': { get: (app) => b(app.setting('markDirectories', undefined)), set: (app, v) => app.setSetting('markDirectories', v === '1') },
   // "Space calculates folder size" (TC's SpaceCalcSize, F-797): the folder-size feature reads "countSpace" (tools/space.js).
   'Operation.SpaceCalcSize': { get: (app) => b(app.setting('countSpace', undefined)), set: (app, v) => app.setSetting('countSpace', v === '1') },
+  // "Case-sensitive sorting" (TC's SortUpper, F-116): the panel's "sortMethod" 'case' (core/sort.js). Turning it off
+  // goes back to the default method; it leaves "by character code" alone, which is not case-sensitive either.
+  'Display.SortUpper': {
+    get: (app) => { const m = app.setting('sortMethod', undefined); return m === undefined ? undefined : bit(m === 'case'); },
+    set: (app, v) => { const m = app.setting('sortMethod', '') || ''; if (v === '1') return m === 'case' ? null : app.setSetting('sortMethod', 'case'); return m === 'case' ? app.setSetting('sortMethod', '') : null; },
+  },
   'Display.SortNatural': { get: (app) => b(app.setting('naturalSort', undefined)), set: (app, v) => app.setSetting('naturalSort', v === '1') },
   'Display.SortDirsByName': {
     get: (app) => { const x = app.setting('dirsLikeFiles', undefined); return x === undefined ? undefined : bit(!x); },

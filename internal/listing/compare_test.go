@@ -27,6 +27,11 @@ func TestCollatorCompare(t *testing.T) {
 		{"locale german umlaut", Collation{Locale: "de"}, "Äpfel", "Banane", -1},
 		{"code point umlaut after z", Collation{}, "Äpfel", "Zebra", 1},
 		{"locale natural", Collation{Locale: "en", Natural: true}, "file2", "file10", -1},
+		{"NFD equals NFC", Collation{}, "A\u0301gnes", "\u00c1gnes", 0},
+		{"NFD equals NFC case-sensitive", Collation{CaseSensitive: true}, "e\u0301va", "\u00e9va", 0},
+		{"NFD before later letter", Collation{}, "a\u0301rok", "\u00e1sz", -1},
+		{"NFD natural", Collation{Natural: true}, "o\u0308t2", "\u00f6t10", -1},
+		{"hungarian cs after c", Collation{Locale: "hu"}, "csiga", "cukor", 1},
 		{"locale case-sensitive lower first (CLDR)", Collation{Locale: "en", CaseSensitive: true}, "a", "A", -1},
 	}
 	for _, tt := range tests {

@@ -113,6 +113,26 @@ type ViewsCellsRequest struct {
 	SortCol  int              `json:"sortCol"`  // >= 0: also return the order of the entries sorted by this column
 	Desc     bool             `json:"desc"`     // with SortCol: largest / last first
 	Natural  bool             `json:"natural"`  // with SortCol: natural name order for ties
+	// SortMethod and SortLocale are the panel's name order (core/sort.js): "" the default, "case" upper and lower case
+	// apart, "code" by character code; SortLocale a language such as "hu" for its alphabet (empty: none).
+	SortMethod string `json:"sortMethod"`
+	SortLocale string `json:"sortLocale"`
+}
+
+// viewsCollation turns the request's sort settings into the listing's name collation. With no method and no language
+// it is the collation the custom-column sort always had.
+func viewsCollation(r ViewsCellsRequest) lst.Collation {
+	c := lst.Collation{Natural: r.Natural}
+	switch r.SortMethod {
+	case "case":
+		c.CaseSensitive = true
+		c.Locale = r.SortLocale
+	case "code":
+		// code point order with case ignored: the zero Collation, no language rules
+	default:
+		c.Locale = r.SortLocale
+	}
+	return c
 }
 
 // ViewsCells is the answer: a row of cells per entry name, and the sorted order when asked.
@@ -242,7 +262,7 @@ func (v *Views) Cells(r ViewsCellsRequest) (ViewsCells, error) {
 		Mode:      lst.ViewCustom,
 		Custom:    cs,
 		Format:    r.Format.toListing(),
-		Collation: lst.Collation{Natural: r.Natural},
+		Collation: viewsCollation(r),
 		Sort:      lst.DefaultSort,
 		Filter:    lst.FilterOptions{ShowHidden: true, ShowSystem: true, Dir: r.Path},
 		Comments:  comments,

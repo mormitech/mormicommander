@@ -129,3 +129,24 @@ func TestViewsCellsDisplayFormat(t *testing.T) {
 		t.Errorf("size in k %q", got)
 	}
 }
+
+// The sort settings sent with a cells request choose the collation of the custom-column sort; with none it stays the
+// collation the sort always had.
+func TestViewsCollation(t *testing.T) {
+	cases := []struct {
+		r                 ViewsCellsRequest
+		natural, caseSens bool
+		locale            string
+	}{
+		{ViewsCellsRequest{Natural: true}, true, false, ""},
+		{ViewsCellsRequest{SortMethod: "case", SortLocale: "hu"}, false, true, "hu"},
+		{ViewsCellsRequest{SortMethod: "code", SortLocale: "hu", Natural: true}, true, false, ""},
+		{ViewsCellsRequest{SortLocale: "de"}, false, false, "de"},
+	}
+	for i, c := range cases {
+		got := viewsCollation(c.r)
+		if got.Natural != c.natural || got.CaseSensitive != c.caseSens || got.Locale != c.locale {
+			t.Errorf("case %d: got %+v", i, got)
+		}
+	}
+}

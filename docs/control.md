@@ -283,7 +283,7 @@ can change the file itself. `cm_MultiRenameFiles` with `{"param": "<UNDO>"}` und
 | `{"cmd": "views"}` | per panel (`left`, `right`): `mode` (`brief`, `full`, `comments`, `custom`, `thumbs`, `tree`), `set` (the column set of a custom view), `auto` (chosen by a folder rule), `columns` (header titles), `rows` (the drawn rows: `cells` in column views, `left`/`top` in Brief, `thumb`/`icon`/`text` in Thumbnails), `brief` / `thumbs` geometry, `tree` (`at`, `path`, `nodes`); and `settings` (the "views" settings) |
 
 Dialog kinds: `edit-comment` (field `comment`, OK / Cancel), `view-options` (fields `sizeFormat`, `dateFormat`,
-`datePicture`, `attrFormat`, `separateExt`, `naturalSort`, `dirsByName`, `thumbSize`), `custom-columns` (list `sets`;
+`datePicture`, `attrFormat`, `separateExt`, `naturalSort`, `dirsByName`, `sortMethod`, `sortLocale`, `thumbSize`), `custom-columns` (list `sets`;
 buttons New…, Copy…, Edit…, Delete, Up, Down, OK, Cancel), `edit-column-set` (fields `name`, `auto`, `title-N`,
 `template-N`, `width-N`, `align-N`; buttons + Add column, −, …), `thumbnails-config` (field `thumbSize`; button Delete
 thumbnail cache…), `clear-thumbs`. Popups: `column-sets` (Shift+F1, header right-click), `column-fields`.
