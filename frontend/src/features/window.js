@@ -9,12 +9,13 @@ const SITE = 'https://github.com/mormitech/mormicommander';
 
 command({
   name: 'cm_Exit', label: 'Quit',
-  run: async () => {
+  run: async (app) => {
     const busy = await go.Jobs.Running().catch(() => false);
     if (busy) {
       const b = await messageDialog({ Title: 'Quit mormiCommander?', Message: 'Files are still being copied, moved or deleted. Quit anyway? The job stops where it is.', Buttons: ['Quit', 'Cancel'], DefaultButton: 'Cancel', Kind: 'quit' });
       if (b !== 'Quit') return false;
     }
+    await app.flushSession?.().catch(() => {}); // (the last change of the session is still waiting a moment: #131)
     await go.App.Quit();
     return true;
   },

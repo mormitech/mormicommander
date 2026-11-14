@@ -30,3 +30,26 @@ func TestSettings(t *testing.T) {
 		t.Error("broken file not ignored")
 	}
 }
+
+// A staged value (the page's session, written a moment after each change) reaches the file when the app ends before
+// the page wrote it, and a value the page did write wins over an older staged one (board issue #131).
+func TestSettingsStageFlush(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "settings.json")
+	s := loadSettings(p)
+	s.put("session", map[string]any{"active": 0.0})
+	s.Stage("session", map[string]any{"active": 1.0})
+	if m, _ := loadSettings(p).Get("session").(map[string]any); m["active"] != 0.0 {
+		t.Fatalf("staging wrote the file: %v", m)
+	}
+	s.flushPending()
+	if m, _ := loadSettings(p).Get("session").(map[string]any); m["active"] != 1.0 {
+		t.Errorf("staged session not written on flush: %v", m)
+	}
+
+	s.Stage("session", map[string]any{"active": 0.0})
+	s.put("session", map[string]any{"active": 1.0, "left": "x"})
+	s.flushPending()
+	if m, _ := loadSettings(p).Get("session").(map[string]any); m["left"] != "x" {
+		t.Errorf("an older staged value replaced the written one: %v", m)
+	}
+}

@@ -12,11 +12,15 @@ import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js'
 import { getSetting, setSetting } from './settings.js';
 import { label as keyLabel } from './keys.js';
 import { fitText } from './fitpath.js';
+import { sessionSaver } from './session.js';
 
 const listeners = new Map();
 let flashTimer = 0;
-let sessionTimer = 0;
 let promptObserved = false; // the prompt is fitted again when the command line's width changes (updateTitle)
+const session = sessionSaver({
+  write: (v) => setSetting('session', v),
+  stage: (v) => go.Settings.Stage('session', v),
+});
 
 export const app = {
   platform: 'darwin',
@@ -198,15 +202,16 @@ export const app = {
     go.App.SetTitle(`mormiCommander – ${p.path}`).catch(() => {});
   },
 
-  // saveSession remembers the folders, sorts and the active panel, so the next start comes back to them.
+  // saveSession remembers the folders, sorts and the active panel, so the next start comes back to them (written a
+  // moment later, staged on the Go side at once: core/session.js).
   saveSession() {
     if (this.demo || !this.panels.length) return;
-    clearTimeout(sessionTimer);
-    sessionTimer = setTimeout(() => {
-      const s = (p) => ({ path: p.path, sort: p.sort });
-      setSetting('session', { left: s(this.left), right: s(this.right), active: this.active, showHidden: this.showHidden, split: this.split ?? 0.5 });
-    }, 400);
+    const s = (p) => ({ path: p.path, sort: p.sort });
+    session.schedule(() => ({ left: s(this.left), right: s(this.right), active: this.active, showHidden: this.showHidden, split: this.split ?? 0.5 }));
   },
+
+  // flushSession writes a session change that is still waiting (before quitting, board issue #131).
+  flushSession() { return Promise.resolve(session.flush()); },
 
   keyLabel(name) {
     const k = keysFor(name)[0];

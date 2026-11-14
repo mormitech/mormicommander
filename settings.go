@@ -20,6 +20,7 @@ type Settings struct {
 	mu      sync.Mutex
 	path    string
 	data    map[string]json.RawMessage
+	pending map[string]any // values the page staged but has not written yet (Stage), written when the app ends
 	changed func(key string, value any, from string) // told after every change (the "setting" event to the pages)
 }
 
@@ -31,6 +32,9 @@ func init() {
 		// (the window that made the change is not told: its copy is changed already, and an echo arriving after a newer
 		// change would put the older value back for a moment)
 		a.settings.changed = func(key string, value any, from string) { a.emitExcept(from, "setting", key, value) }
+		// A value the page staged (Stage: the session, written by the page a moment after each change) reaches the
+		// file even when the app ends before the page wrote it: Alt+F4, the window's close button, a quit from Go.
+		onShutdown(func(a *App) { a.settings.flushPending() })
 		return []any{a.settings}
 	})
 }
@@ -86,11 +90,35 @@ func (s *Settings) Set(ctx context.Context, key string, value any) error {
 	return s.set(key, value, from)
 }
 
+// Stage keeps a value the page is about to write (the session waits a moment so a run of changes is written once). It
+// is not written or sent anywhere now; Set of the same key replaces it, and flushPending writes what is left when the
+// app ends, so the last changes before quitting are not lost (board issue #131).
+func (s *Settings) Stage(key string, value any) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.pending == nil {
+		s.pending = map[string]any{}
+	}
+	s.pending[key] = value
+}
+
+// flushPending writes the staged values the page did not write itself.
+func (s *Settings) flushPending() {
+	s.mu.Lock()
+	p := s.pending
+	s.pending = nil
+	s.mu.Unlock()
+	for k, v := range p {
+		s.set(k, v, "")
+	}
+}
+
 // put is Set for the Go side (every window is told).
 func (s *Settings) put(key string, value any) error { return s.set(key, value, "") }
 
 func (s *Settings) set(key string, value any, from string) error {
 	s.mu.Lock()
+	delete(s.pending, key) // (this value is newer than a staged one)
 	if value == nil {
 		delete(s.data, key)
 	} else {
