@@ -1,6 +1,8 @@
 // The command line under the panels. As in Total Commander, the keyboard stays with the panel: letters typed there go
 // into the command line (F-300), Enter runs it when it has text (F-812), Backspace and Left/Right edit it, Esc clears it.
-// Clicking into it gives it real focus, for mouse editing.
+// Clicking into it gives it real focus, for mouse editing. Typing in a panel also gives it real focus, so its caret shows
+// and it is marked as focused; the keys that are not text editing (Up, Down, F-keys...) still go to the panel. Once the
+// line is empty again (Backspace, Enter ran it, Esc) the focus goes back to the panel, so Space selects files again.
 //
 // What Enter does with the text is up to handlers (features/cmdline.js has "cd" and cm_* names; a feature for running
 // programs adds its own):  addCmdlineHandler(async (text, {shift}) => handled);
@@ -12,6 +14,22 @@ export function addCmdlineHandler(fn, { first = false } = {}) { if (first) handl
 
 const el = () => document.getElementById('cmd');
 let histPos = -1;
+let typed = false; // the field has the focus because the user typed in a panel (not because it was clicked)
+
+// backToPanel gives the focus back to the active panel's list when typing had taken it to the command line.
+function backToPanel() {
+  if (!typed) return;
+  typed = false;
+  if (document.activeElement === el()) document.querySelector('.panel.active .list')?.focus();
+}
+let wired = false;
+function wire() {
+  const i = el();
+  if (wired || !i) return;
+  wired = true;
+  i.addEventListener('input', () => { if (!i.value) backToPanel(); });
+  i.addEventListener('blur', () => { typed = false; });
+}
 
 export const cmdline = {
   get text() { return el()?.value || ''; },
@@ -61,8 +79,19 @@ export const cmdline = {
     i.setSelectionRange(p, p);
   },
 
-  clear() { this.set(''); histPos = -1; },
+  clear() { this.set(''); histPos = -1; backToPanel(); },
   focus() { el().focus(); },
+
+  // focusFromTyping gives the field the focus after a letter typed in a panel went into it.
+  focusFromTyping() {
+    const i = el();
+    if (!i || i.offsetParent === null || document.activeElement === i) return; // hidden (Layout.CmdLine off) or already there
+    wire();
+    const a = i.selectionStart, b = i.selectionEnd;
+    i.focus({ preventScroll: true });
+    i.setSelectionRange(a, b);
+    typed = true;
+  },
 
   get history() { return getSetting('cmdHistory', []); },
 

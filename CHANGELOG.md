@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.7 – 2026-11-14
+
+### Changed
+
+- Typing in a panel moves the focus to the command line: its caret shows and the field is marked with an accent
+  border. Keys that do not edit text (Up, Down, F-keys...) still act on the panel; once the line is empty again
+  (Backspace, Enter, Esc) the focus goes back to the panel.
+
 ## 0.10.6 – 2026-11-14
 
 ### Changed

@@ -72,7 +72,7 @@ export function onKeyDown(ev) {
       if (combo === 'Left') { ev.preventDefault(); cmdline.caret(-1); return; }
       if (combo === 'Right') { ev.preventDefault(); cmdline.caret(1); return; }
       if (combo === 'Ctrl+X') { ev.preventDefault(); cmdline.historyStep(1); return; }
-      if (printable(ev)) { ev.preventDefault(); cmdline.insert(ev.key); return; }
+      if (printable(ev)) { ev.preventDefault(); cmdline.insert(ev.key); cmdline.focusFromTyping(); return; }
     }
   }
   const name = commandForKey(combo, !hasText);
@@ -84,6 +84,7 @@ export function onKeyDown(ev) {
   if (!inCmd && printable(ev) && ev.key !== ' ') {
     ev.preventDefault();
     cmdline.insert(ev.key);
+    cmdline.focusFromTyping(); // the field takes the focus: its caret shows and it is marked as focused
   }
 }
 

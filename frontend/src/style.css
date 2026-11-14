@@ -109,6 +109,7 @@ html.mc-panning, html.mc-panning * { cursor: grab !important; } /* middle-button
 #cmdline { display: flex; align-items: center; gap: 6px; padding: 3px 6px; background: var(--panel); border-top: 1px solid var(--line); }
 #prompt { color: var(--muted); white-space: nowrap; max-width: 45%; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; }
 #cmd { flex: 1; min-width: 0; font: var(--mono); }
+#cmd:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent); caret-color: var(--accent); }
 #cmdline[hidden], #fkeys[hidden] { display: none; }
 #fkeys { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; padding: 3px 4px 4px; background: var(--panel); }
 #fkeys button { padding: 2px 4px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 4px; }
