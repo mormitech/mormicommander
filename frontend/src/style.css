@@ -41,6 +41,8 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 #vbar { flex-direction: column; border-bottom: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 
 .drivebar { display: flex; gap: 2px; padding: 3px 4px 2px; background: var(--panel); overflow: hidden; flex-wrap: nowrap; }
+/* no button bar above the panels: the drive buttons are the top of the window and get some room above them */
+#toolbar[hidden] ~ #panels .drivebar { padding-top: 7px; }
 .drivebar button { padding: 1px 7px; font-size: 12px; border-radius: 4px; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
 .drivebar button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
 .drivebar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }

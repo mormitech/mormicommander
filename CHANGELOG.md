@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.5 – 2026-11-14
+
+### Changed
+
+- With no button bar above the panels, the drive buttons get more room above them instead of touching the top of the
+  window.
+
 ## 0.10.4 – 2026-11-14
 
 ### Changed
