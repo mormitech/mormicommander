@@ -23,12 +23,37 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      # Go is pinned to the version go.mod names, so every run (and every system) builds with the same compiler.
+      # setup-go keeps the module and build caches between runs, keyed on go.sum.
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      # npm's download cache is kept between runs, keyed on the lock file.
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # Windows only: Wails' wails3 tool (for the .exe's icon and file properties) is built once and cached, instead of
+      # `go run …wails3@v3.1.0` compiling it on every run; build.sh uses it through WAILS3. The version is the same
+      # one as in build.sh and go.mod.
+      - name: Cache the wails3 tool (Windows)
+        if: runner.os == 'Windows'
+        id: wails3-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/wails3-bin
+          key: wails3-v3.1.0-${{ runner.os }}-${{ runner.arch }}
+      - name: Build the wails3 tool (Windows)
+        if: runner.os == 'Windows' && steps.wails3-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: GOBIN="$(cygpath -m "$RUNNER_TEMP")/wails3-bin" go install github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0
+      - name: Use the cached wails3 tool (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: echo "WAILS3=$(cygpath -m "$RUNNER_TEMP")/wails3-bin/wails3.exe" >> "$GITHUB_ENV"
       # Wails v3 on Linux is GTK 4 with WebKitGTK 6.0.
       - name: Linux dependencies
         if: runner.os == 'Linux'

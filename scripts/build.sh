@@ -10,7 +10,8 @@
 #
 # wails.json is the one place of the version; it is read here for the bundle and the .exe, and by version.go for the
 # About box, --version and control mode. Options: --skip-frontend uses frontend/dist as it is; EXTRA_TAGS adds Go build
-# tags; DEV=1 leaves out the production tag (the page's developer tools stay on).
+# tags; DEV=1 leaves out the production tag (the page's developer tools stay on); WAILS3 names a
+# prebuilt wails3 v3.1.0 for the Windows .syso step instead of go run.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 root=$PWD
@@ -93,7 +94,14 @@ windows)
   fill build/windows/wails.exe.manifest > "$manifest"
   syso="$root/rsrc_windows_$goarch.syso"
   trap 'rm -f "$winfo" "$manifest" "$syso"' EXIT
-  go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0 generate syso -arch "$goarch" -icon build/windows/icon.ico \
+  # WAILS3 may name an already-built wails3 v3.1.0 (CI keeps one in its cache) so it isn't compiled again each time;
+  # without it, go run fetches and builds the tool as before.
+  if [ -n "${WAILS3:-}" ]; then
+    wails3=("$WAILS3")
+  else
+    wails3=(go run github.com/wailsapp/wails/v3/cmd/wails3@v3.1.0)
+  fi
+  "${wails3[@]}" generate syso -arch "$goarch" -icon build/windows/icon.ico \
     -manifest "$manifest" -info "$winfo" -out "$syso"
   CGO_ENABLED=0 GOOS=$goos GOARCH=$goarch go build "${flags[@]}" -ldflags "-s -w -H windowsgui" -o build/bin/mormicommander.exe .
   echo "built build/bin/mormicommander.exe"
