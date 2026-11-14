@@ -12,7 +12,8 @@
 //     keys: ['Ctrl+Alt+N'],             // optional: extra default keys (TC's keys are already in keymap.js)
 //   });
 //
-// The keymap is DEFAULT_KEYS (+ MAC_KEYS on macOS) + keys declared by commands, with the user's changes on top.
+// The keymap is DEFAULT_KEYS (+ MAC_KEYS on macOS) + keys declared by commands, then the keys of the chosen keyboard
+// preset (keypresets.js; none by default), with the user's changes on top.
 
 import { DEFAULT_KEYS, MAC_KEYS, NUMPAD_FALLBACK } from './keymap.js';
 import { normalizeCombo } from './keys.js';
@@ -44,6 +45,7 @@ function changed() {
 // ---- keys ----
 let platform = 'darwin';
 let userKeys = {};
+let presetMap = {}; // the keys of the keyboard preset (setPresetKeys), between the defaults and the user's changes
 let keymap = new Map();
 
 // setupKeys builds the keymap for the platform with the user's changes ({combo: commandName or ""}).
@@ -60,6 +62,7 @@ function rebuildKeys() {
   for (const [k, v] of Object.entries(DEFAULT_KEYS)) put(k, v);
   if (platform === 'darwin') for (const [k, v] of Object.entries(MAC_KEYS)) put(k, v);
   for (const c of commands.values()) for (const k of c.keys || []) if (!m.has(normalizeCombo(k))) put(k, c.name);
+  for (const [k, v] of Object.entries(presetMap)) { if (v) put(k, v); else m.delete(normalizeCombo(k)); }
   for (const [k, v] of Object.entries(userKeys)) { if (v) m.set(k, v); else m.delete(k); }
   keymap = m;
 }
@@ -72,6 +75,14 @@ export function bindKey(combo, name) {
 }
 
 export const userKeymap = () => ({ ...userKeys });
+
+// setPresetKeys lays a keyboard preset's keys ({combo: commandName or ""}, see keypresets.js) over the defaults; the
+// user's own changes stay on top. {} (the Total Commander preset) leaves the defaults as they are.
+export function setPresetKeys(keys = {}) {
+  presetMap = { ...(keys || {}) };
+  rebuildKeys();
+  changed();
+}
 
 // commandForKey is the command a combo runs ("" when none). numpadFallback: also try Shift+= as Num+ etc.
 export function commandForKey(combo, numpadFallback = false) {

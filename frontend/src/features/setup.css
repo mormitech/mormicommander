@@ -1,0 +1,8 @@
+/* The first-run setup page (features/setup.js): the keyboard presets as a list of choices, the F5 test line and the
+   System Settings buttons, each part in a light frame. */
+.mc-setup-part { border: 1px solid var(--line, rgba(128, 128, 128, 0.35)); border-radius: 6px; margin: 8px 0; padding: 6px 10px 10px; max-width: 560px; }
+.mc-setup-part legend { padding: 0 4px; font-weight: 600; }
+.mc-setup-preset { display: flex; gap: 8px; align-items: flex-start; margin: 6px 0; }
+.mc-setup-preset input { margin-top: 3px; }
+.mc-setup-fn { margin: 4px 0 8px; }
+.mc-setup-fn.mc-setup-ok { font-weight: 600; }

@@ -20,8 +20,9 @@ type Settings struct {
 	mu      sync.Mutex
 	path    string
 	data    map[string]json.RawMessage
-	pending map[string]any // values the page staged but has not written yet (Stage), written when the app ends
+	pending map[string]any                           // values the page staged but has not written yet (Stage), written when the app ends
 	changed func(key string, value any, from string) // told after every change (the "setting" event to the pages)
+	existed bool                                     // the file was there when the app started (not a first run)
 }
 
 func init() {
@@ -50,6 +51,7 @@ func loadSettings(path string) *Settings {
 	s := &Settings{path: path, data: map[string]json.RawMessage{}}
 	if path != "" {
 		if b, err := os.ReadFile(path); err == nil {
+			s.existed = true
 			json.Unmarshal(b, &s.data) // a broken file starts empty rather than stopping the app
 		}
 	}
