@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.38 – 2026-11-14
+
+### Fixed
+
+- A dialog window that has another dialog window open above it (for example Multi-Rename with its "Save settings as…"
+  window) can no longer be closed with its close button (issue #137). The close is refused and the focus goes to the
+  top window instead, the way Total Commander and macOS sheets behave. Closing after an answer, closing together with
+  the owner window and quitting the app work as before.
+
 ## 0.9.37 – 2026-11-14
 
 ### Fixed
