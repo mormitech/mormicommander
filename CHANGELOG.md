@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.72 – 2026-11-14
+
+### Added
+
+- Seven reserved Total Commander commands now work instead of saying "not ready yet" (issue #38, first slice): the command line history popup (Alt+F8, Ctrl+Down) puts the chosen line into the command line; Show > Programs (Ctrl+F11) shows only folders and runnable files; Show > Define custom filter... asks for a mask such as "*.txt *.md | *.bak" and keeps it in the new setting srcUserMask; Show > Custom filter (Ctrl+F12) applies the saved mask (asking the first time); Alt+F11 and Alt+F12 show the left or right panel's path as a popup list from the root down. Folders always stay visible under a custom filter. cm_CommandBrowser keeps the command palette version. Still open in issue #38: the folder tree panel commands, directory branch listing, F9/F10 menu activation, volume label, printing, standalone find and the internal associations editor.
+
 ## 0.9.71 – 2026-11-14
 
 ### Added

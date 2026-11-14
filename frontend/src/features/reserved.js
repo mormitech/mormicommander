@@ -1,16 +1,15 @@
 // Reserved Total Commander commands that had a key or a menu item but nothing behind them (board issue #38), first
-// slice: the command line history popup (Alt+F8, Ctrl+Down), the command browser (Commands > All commands…), Show >
+// slice: the command line history popup (Alt+F8, Ctrl+Down), Show >
 // Programs (Ctrl+F11), Show > Custom filter (Ctrl+F12) with Define custom filter…, and the current folder bars of the
 // left and right panel (Alt+F11, Alt+F12). Each one only adds what used to say "… is not ready yet"; nothing that
 // worked before changes. The pure parts (mask, command search, history items) are in reserved-lib.js.
 
-import { command, commandList, keysFor } from '../core/registry.js';
+import { command } from '../core/registry.js';
 import { showList } from '../core/popup.js';
 import { inputDialog } from '../core/dialogs.js';
 import { cmdline } from '../core/cmdline.js';
-import { label as keyLabel } from '../core/keys.js';
 import { splitPath } from '../core/panel.js';
-import { maskFilter, execFilter, filterCommands, historyItems } from './reserved-lib.js';
+import { maskFilter, execFilter, historyItems } from './reserved-lib.js';
 
 const USER_MASK = 'srcUserMask'; // the setting that keeps the custom filter's mask between runs
 
@@ -27,29 +26,6 @@ async function showCmdLineHistory(app) {
   return true;
 }
 command({ name: 'cm_ShowCmdLineHistory', label: 'Command line history', short: 'History', run: (app) => showCmdLineHistory(app) });
-
-// ---- command browser (Commands > All commands…) ----
-
-// commandBrowser asks for words to look for (empty: every command), then lists the matching commands with their keys;
-// the chosen one runs. args.filter skips the question (control mode, the command line).
-async function commandBrowser(app, args = {}) {
-  let text = args.filter;
-  if (typeof text !== 'string') {
-    text = await inputDialog({ title: 'All commands', label: 'Look for:', value: '', note: 'Words of the name or the menu text; leave it empty to list every command.', okLabel: 'List', kind: 'commandbrowser' });
-    if (text === null) return false;
-  }
-  const found = filterCommands(commandList().filter((c) => c.name !== 'cm_CommandBrowser'), text);
-  if (!found.length) { app.flash(`No command matches "${text}".`); return false; }
-  const items = found.map((c) => {
-    const keys = keysFor(c.name).slice(0, 2).map((k) => keyLabel(k, app.platform)).join(', ');
-    return { label: c.label || c.name, detail: keys ? `${c.name}  ${keys}` : c.name, value: c.name };
-  });
-  const r = await showList({ title: `Commands (${items.length})`, items, kind: 'commandbrowser' });
-  if (!r) return false;
-  await app.run(r.item.value);
-  return true;
-}
-command({ name: 'cm_CommandBrowser', label: 'All commands…', run: (app, args) => commandBrowser(app, args) });
 
 // ---- Show > Programs, Custom filter ----
 
