@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.88 – 2026-11-14
+
+### Changed
+
+- Issue #118: the CI build now uses the Go version named in go.mod instead of "stable", caches the Go modules by go.sum, caches npm downloads by package-lock.json, and on Windows builds the wails3 tool once and caches it instead of rebuilding it every run. scripts/build.sh accepts an optional WAILS3 variable naming a prebuilt wails3; without it nothing changes for local builds. A new Go test fails if CI drifts back to these problems. No change to the app itself.
+
 ## 0.9.87 – 2026-11-14
 
 ### Changed
