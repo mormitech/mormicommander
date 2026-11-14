@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.54 – 2026-11-14
+
+### Fixed
+
+- No more hangs on network and unreachable volumes (issue #16): a folder read that is stuck inside the system (for example an unplugged network share) no longer freezes the panel. Esc now stops the read at once, the panel stays on the folder it showed before, and after 4 stuck reads of the same folder the next one answers "not responding" right away; the other panel keeps working meanwhile. On macOS and Linux the drive list and the drive info line check each mount in parallel with a 1.5 second limit; a mount that does not answer is still listed, marked as not responding. Nothing else changes.
+
 ## 0.9.53 – 2026-11-14
 
 ### Added
