@@ -94,8 +94,8 @@ echo '{"type":"result","subtype":"success","is_error":false,"result":"Found 2 PD
 	if got := readOut(t, out, "prompt"); got != "find my PDFs" {
 		t.Errorf("prompt on stdin: %q", got)
 	}
-	if got, _ := filepath.EvalSymlinks(strings.TrimSpace(readOut(t, out, "pwd"))); got != mustEval(t, home) {
-		t.Errorf("folder %q, want the home folder %q", got, home)
+	if got, _ := filepath.EvalSymlinks(strings.TrimSpace(readOut(t, out, "pwd"))); got != mustEval(t, aiHome()) {
+		t.Errorf("folder %q, want mormiCommander's own empty folder %q", got, aiHome())
 	}
 	env := readOut(t, out, "env")
 	if strings.Contains(env, "CLAUDECODE=") {

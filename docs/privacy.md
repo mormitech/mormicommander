@@ -22,6 +22,12 @@ Only when you ask it to, and only to the place you name:
 - **Remote locations you open.** Net > FTP connect (FTP, FTPS), SFTP and WebDAV connect to the server you typed in or
   saved, and only while you use that connection. A network share (SMB, NFS, AFP) that your system has mounted is just a
   folder to the app; the system does the networking for it.
+- **AI search, when you start it.** The AI tab of Find files runs the AI program you chose (step 1: the Claude Code
+  command, `claude`, already installed and signed in by you). That program sends your prompt, and the results of the
+  tools it calls (file names, sizes, dates), to its provider; mormiCommander itself still connects nowhere. The program
+  reaches mormiCommander only through a local endpoint on 127.0.0.1 with a random token, for that one run, and gets
+  **only mormiCommander's own tools**: no shell, no file reading or writing, and nothing that deletes, moves or
+  overwrites (issue #146). Nothing runs unless you start a search there.
 - **Links you click.** A web address in the About window, the Help menu or a viewed document opens in your web
   browser on a click. The app does not fetch it.
 

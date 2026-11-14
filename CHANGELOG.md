@@ -6,6 +6,22 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.16 – 2026-11-14
+
+### Added
+
+- AI search, step 1 (#146): Find files has an **AI** tab. Describe what you are looking for ("PDFs over 5 MB changed
+  this month that mention invoice") and the Claude Code command (`claude`, installed and signed in by you) searches by
+  calling mormiCommander's own tools; the results land in the normal results list, so Go to file, Feed to listbox and
+  the rest work on them. A progress log shows the tool calls and the answer; Stop ends the run.
+- The tools the AI can use: `find_files`, `get_state`, `select_files` (by pattern or names, in either panel) and
+  `set_panel_path`. None of them deletes, moves or overwrites anything, and the AI gets no shell or file access: Claude
+  runs with all its own tools turned off and reaches mormiCommander through a local endpoint (127.0.0.1, random token,
+  one run at a time) with only these tools. It runs in an empty folder of its own, so no project's CLAUDE.md or
+  settings steer it.
+- Options > AI: which AI to use (Claude Code for now), the path of the `claude` command (empty: found automatically,
+  also in the login shell's PATH and the usual install places) and the model (empty: Claude's default).
+
 ## 0.10.15 – 2026-11-14
 
 ### Changed

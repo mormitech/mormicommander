@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -329,14 +330,16 @@ func (x *AI) shutdown() {
 	}
 }
 
-// aiHome is the folder the CLI runs in: the user's home, so it never starts inside a project folder whose own
-// settings it would pick up.
+// aiHome is the folder the CLI runs in: an empty folder of mormiCommander's own (mormicommander-ai in the temporary
+// folder, readable by the user only), not the home folder or a project. Claude Code reads CLAUDE.md, skills and
+// settings from the folder it starts in, and the user's own ones there (rules for unrelated work) must not steer a file
+// search. The folder is made again when it is missing; the temporary folder itself is the fallback.
 func aiHome() string {
-	h, err := os.UserHomeDir()
-	if err != nil {
+	d := filepath.Join(os.TempDir(), "mormicommander-ai")
+	if err := os.MkdirAll(d, 0o700); err != nil {
 		return os.TempDir()
 	}
-	return h
+	return d
 }
 
 // aiServerHandler is the endpoint's HTTP handler for this AI object.
