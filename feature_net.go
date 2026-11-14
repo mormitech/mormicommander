@@ -543,14 +543,17 @@ func (n *Net) connect(u netURL, site *ftp.Site) (string, error) {
 		if !netAuthFailed(err) || attempt >= 3 {
 			return "", netConnectErr(u, err)
 		}
+		// The engines remember the password they logged in with, so a known password means one was sent and
+		// refused. Without one (a WebDAV share tried without a password first), the question is a plain prompt.
 		n.mu.Lock()
+		sent := n.passwords[key] != ""
 		delete(n.passwords, key)
 		n.mu.Unlock()
 		user := u.User
 		if user == "" {
 			user = "anonymous"
 		}
-		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", user, u.Host), "The server did not accept the login. Type the password again.")
+		pw, ok := n.askPassword(fmt.Sprintf("Password for %s on %s", user, u.Host), netRetryMessage(sent))
 		if !ok {
 			return "", errNetCancelled
 		}
@@ -558,6 +561,15 @@ func (n *Net) connect(u netURL, site *ftp.Site) (string, error) {
 		n.passwords[key] = pw
 		n.mu.Unlock()
 	}
+}
+
+// netRetryMessage is the text under the password question of connect: it says the login was refused only when a
+// password was actually sent.
+func netRetryMessage(sent bool) string {
+	if sent {
+		return "The server did not accept the login. Type the password again."
+	}
+	return ""
 }
 
 // dial opens (or reuses) the session of u and returns the panel path to show.

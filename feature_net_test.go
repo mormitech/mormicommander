@@ -335,3 +335,28 @@ func TestNetWrongPasswordAsksAgain(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+// The first password question for a WebDAV URL without a password is a plain prompt; only a refused password
+// brings the "did not accept the login" text (issue #144).
+func TestNetFirstPasswordPromptHasNoRefusedMessage(t *testing.T) {
+	host, _ := davServer(t, "bob", "right")
+	var messages []string
+	answers := []string{"wrong", "right"}
+	n, _ := testNet(t, nil)
+	n.asker = func(kind string, data map[string]any) (map[string]any, bool) {
+		msg, _ := data["message"].(string)
+		messages = append(messages, msg)
+		if len(answers) == 0 {
+			return nil, false
+		}
+		v := answers[0]
+		answers = answers[1:]
+		return map[string]any{"ok": true, "value": v}, true
+	}
+	if _, err := n.Connect("webdav://bob@" + host + "/"); err != nil {
+		t.Fatal(err)
+	}
+	if len(messages) != 2 || messages[0] != "" || !strings.Contains(messages[1], "did not accept") {
+		t.Fatalf("messages %q", messages)
+	}
+}
