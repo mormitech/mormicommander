@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.47 – 2026-11-14
+
+### Fixed
+
+- Tests: the function key bar test no longer fails CI now and then with "window is not defined" after it ends (the Wails runtime's timer outlived the test page).
+
 ## 0.9.46 – 2026-11-14
 
 ### Fixed

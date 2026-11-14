@@ -9,6 +9,12 @@ vi.mock('../src/core/app.js', () => ({
   app: { platform: 'darwin', run: () => Promise.resolve(), get cur() { return { $: { list: document.getElementById('list') } }; } },
   LABELS: {},
 }));
+// The real go.js pulls in @wailsio/runtime, whose drag-setup poll timer outlives happy-dom's teardown and then throws
+// "window is not defined" after the tests (a flaky CI failure). The bar never talks to Go here, so a stand-in is enough.
+vi.mock('../src/core/go.js', () => {
+  const go = new Proxy({}, { get: () => new Proxy({}, { get: () => () => Promise.resolve(null) }) });
+  return { go, on: () => () => {}, errText: String };
+});
 vi.mock('../src/core/settings.js', () => ({ getSetting: (k, d) => d, setSetting: () => {} }));
 
 const kb = await import('../src/core/keyboard.js');
