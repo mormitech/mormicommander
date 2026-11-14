@@ -162,3 +162,25 @@ func TestTHTabsView(t *testing.T) {
 		t.Fatalf("tab views after a restart: %+v", got)
 	}
 }
+
+// Board issue #12: after a restart every tab of both sides comes back with its folder, caption, lock, the folder a
+// "folder changes allowed" tab was locked to, and which tab was active.
+func TestTHTabsRestoreAll(t *testing.T) {
+	th, path := thTest(t)
+	s := THTabs{
+		Left:  THTabSet{Tabs: []THTab{{Path: "/a"}, {Path: "/a/sub", Lock: 2, LockPath: "/a", Caption: "Work"}, {Path: "/b", Lock: 1}}, Active: 2},
+		Right: THTabSet{Tabs: []THTab{{Path: "/r1"}, {Path: "/r2", LockPath: "/ignored"}}, Active: 1},
+	}
+	if err := th.SaveTabs(s); err != nil {
+		t.Fatal(err)
+	}
+	th.flush()
+	got := thOpen(&App{}, path).Tabs()
+	l, r := got.Left, got.Right
+	if len(l.Tabs) != 3 || l.Active != 2 || l.Tabs[1].Lock != 2 || l.Tabs[1].LockPath != "/a" || l.Tabs[1].Caption != "Work" || l.Tabs[2].Lock != 1 || l.Tabs[2].LockPath != "" {
+		t.Fatalf("left tabs after a restart: %+v", l)
+	}
+	if len(r.Tabs) != 2 || r.Active != 1 || r.Tabs[1].Path != "/r2" || r.Tabs[1].LockPath != "" {
+		t.Fatalf("right tabs after a restart: %+v", r)
+	}
+}

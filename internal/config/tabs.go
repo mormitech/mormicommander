@@ -2,7 +2,8 @@
 // Commander remembers the tabs of each panel in [lefttabs] and [righttabs]
 // with keys "<n>_path", "<n>_caption" (a custom title), "<n>_options" (sort
 // and view flags, kept as is) and activetab=<n>; we add "<n>_view" and
-// "<n>_columnset" (the tab's own view, issue #128), which TC ignores; the state of the visible
+// "<n>_columnset" (the tab's own view, issue #128) and "<n>_lockpath" (the folder a "locked, but folder
+// changes allowed" tab was locked to, when it now shows another one; board issue #12), which TC ignores; the state of the visible
 // folder of each panel (path, sort column, view) lives in [left] and
 // [right]. A tab set can also be saved to a .tab file whose [activetabs] and
 // [inactivetabs] sections hold the tabs of the active and the other panel;
@@ -49,6 +50,7 @@ type Tab struct {
 	Lock      LockMode
 	View      string // the tab's view ("brief", "full", "comments", "custom", "thumbs"; "" = the panel's)
 	ColumnSet string // custom column set name when View is "custom"
+	LockPath  string // the folder the tab was locked to, when it differs from Path ("" = Path)
 }
 
 // TabSet is the tabs of one panel.
@@ -80,6 +82,9 @@ func loadTabSet(m map[string]string, prefix string) TabSet {
 		}
 		ts.Tabs = append(ts.Tabs, Tab{Path: p, Caption: m[n+"caption"], Options: m[n+"options"], Lock: LockMode(lock),
 			View: m[n+"view"], ColumnSet: m[n+"columnset"]})
+		if lock != 0 {
+			ts.Tabs[len(ts.Tabs)-1].LockPath = m[n+"lockpath"]
+		}
 	}
 	ts.Active, _ = strconv.Atoi(m[prefix+"activetab"])
 	if ts.Active < 0 || ts.Active >= len(ts.Tabs) {
@@ -107,6 +112,9 @@ func (t TabSet) kvs(prefix string) []KV {
 		}
 		if tab.ColumnSet != "" {
 			kvs = append(kvs, KV{n + "columnset", tab.ColumnSet})
+		}
+		if tab.Lock != TabUnlocked && tab.LockPath != "" && tab.LockPath != tab.Path {
+			kvs = append(kvs, KV{n + "lockpath", tab.LockPath})
 		}
 	}
 	return append(kvs, KV{prefix + "activetab", strconv.Itoa(t.Active)})

@@ -2,7 +2,7 @@
 // above each panel's path bar; new, close, close all, next/previous, activate by number, lock (two kinds), rename,
 // duplicate and copy/move to the other side, reorder by dragging, reopen a closed tab, save and load .tab files,
 // favourite tab sets, and the tabs of both panels coming back after a restart (saved by feature_tabshotlist.go through
-// internal/config, in TC's [lefttabs]/[righttabs] form).
+// internal/config, in TC's [lefttabs]/[righttabs] form; tabs-saved.js maps a tab to what is saved and back).
 //
 // How a tab keeps its state: the active tab of a side *is* the panel (its folder, sort, history, cursor, selection all
 // live in the Panel object). When another tab becomes active, the panel's fields (Panel.STATE_KEYS, so features that add
@@ -27,6 +27,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
 import { TAB_DEFAULTS } from './tabs-defaults.js';
+import { tabFields, lockField } from './tabs-saved.js';
 
 export const LOCK_NONE = 0, LOCK_FULL = 1, LOCK_DIRS = 2;
 
@@ -275,7 +276,7 @@ async function copyToOther(side, i, { move = false } = {}) {
 async function replaceTabs(side, set) {
   const s = sides[side];
   if (!s || !set?.tabs?.length) return false;
-  s.tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x }));
+  s.tabs = set.tabs.map((x) => makeTab(tabFields(x)));
   s.active = Math.max(0, Math.min(set.active || 0, s.tabs.length - 1));
   render(side);
   await restore(panelOf(side), s.tabs[s.active]);
@@ -288,7 +289,7 @@ async function replaceTabs(side, set) {
 function tabSet(side) {
   const s = sides[side], p = panelOf(side);
   if (!s) return { tabs: [], active: 0 };
-  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); return { path: tabPath(p, t), caption: t.caption, lock: t.lock, sort: so.key, desc: !!so.desc, ...tabExtra(p, t) }; }), active: s.active };
+  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); const path = tabPath(p, t); return { path, caption: t.caption, lock: t.lock, ...lockField(t.lock, t.lockPath, path), sort: so.key, desc: !!so.desc, ...tabExtra(p, t) }; }), active: s.active };
 }
 
 // ---- the lock rule ----
@@ -562,7 +563,7 @@ export async function loadTabFile(path, p = theApp.cur, { append = false } = {})
   const f = await go.TabsHotlist.LoadTabFile(path);
   const side = p.side, other = side === 'left' ? 'right' : 'left';
   if (append) {
-    for (const x of f.active.tabs) await newTab(side, { path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x, background: true });
+    for (const x of f.active.tabs) await newTab(side, { ...tabFields(x), background: true });
     return true;
   }
   await replaceTabs(side, f.active);
@@ -801,7 +802,7 @@ export function init(app) {
       const set = saved?.[side];
       const hist = saved?.[`${side}History`] || [];
       if (set?.tabs?.length) {
-        const tabs = set.tabs.map((x) => makeTab({ path: x.path, caption: x.caption, lock: x.lock, sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x }));
+        const tabs = set.tabs.map((x) => makeTab(tabFields(x)));
         const active = Math.max(0, Math.min(set.active || 0, tabs.length - 1));
         // the active tab is what the panel shows now (the start folder from the command line wins over the saved one)
         if (samePath(tabs[active].path, p.path) && !p.back.length) p.back = [...hist].reverse().filter((x) => !samePath(x, p.path));

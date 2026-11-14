@@ -66,15 +66,17 @@ type THMatch struct {
 
 // THTab is one folder tab: its folder, custom caption, lock mode (0 not locked, 1 locked, 2 locked but folder
 // changes allowed), sort and view (issue #128: "" = none saved, the tab shows the panel's view; Set is the custom
-// column set of the "custom" view).
+// column set of the "custom" view). LockPath is the folder a locked tab was locked to when it shows another one now
+// (a "locked, but folder changes allowed" tab; board issue #12), "" when it is Path.
 type THTab struct {
-	Path    string `json:"path"`
-	Caption string `json:"caption"`
-	Lock    int    `json:"lock"`
-	Sort    string `json:"sort"`
-	Desc    bool   `json:"desc"`
-	View    string `json:"view,omitempty"`
-	Set     string `json:"set,omitempty"`
+	Path     string `json:"path"`
+	Caption  string `json:"caption"`
+	Lock     int    `json:"lock"`
+	Sort     string `json:"sort"`
+	Desc     bool   `json:"desc"`
+	View     string `json:"view,omitempty"`
+	Set      string `json:"set,omitempty"`
+	LockPath string `json:"lockPath,omitempty"`
 }
 
 // THTabSet is the tabs of one panel and which one is active.
@@ -408,6 +410,9 @@ func thTabsTo(s THTabSet) config.TabSet {
 		}
 		ts.Tabs = append(ts.Tabs, config.Tab{Path: thOneLine(tb.Path), Caption: thOneLine(tb.Caption), Options: fmt.Sprintf("%d|%d", o, neg), Lock: lock,
 			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set)})
+		if lock != config.TabUnlocked {
+			ts.Tabs[len(ts.Tabs)-1].LockPath = thOneLine(tb.LockPath)
+		}
 	}
 	if ts.Active < 0 || ts.Active >= len(ts.Tabs) {
 		ts.Active = 0
@@ -418,7 +423,7 @@ func thTabsTo(s THTabSet) config.TabSet {
 func thTabsFrom(ts config.TabSet) THTabSet {
 	out := THTabSet{Tabs: []THTab{}, Active: ts.Active}
 	for _, tb := range ts.Tabs {
-		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name", View: tb.View, Set: tb.ColumnSet}
+		x := THTab{Path: tb.Path, Caption: tb.Caption, Lock: int(tb.Lock), Sort: "name", View: tb.View, Set: tb.ColumnSet, LockPath: tb.LockPath}
 		parts := strings.Split(tb.Options, "|")
 		if n, err := strconv.Atoi(strings.TrimSpace(parts[0])); err == nil {
 			for k, v := range thSortOrder {

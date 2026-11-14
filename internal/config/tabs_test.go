@@ -157,3 +157,27 @@ func TestTabSetView(t *testing.T) {
 		t.Errorf("a tab saved by an older version got a view: %+v", old.Tabs[0])
 	}
 }
+
+// Board issue #12: a locked tab that shows another folder than the one it was locked to keeps that folder in a key of
+// our own; an unlocked tab, or one still in its locked folder, writes none, and a stray key on an unlocked tab is ignored.
+func TestTabSetLockPath(t *testing.T) {
+	ts := TabSet{Tabs: []Tab{
+		{Path: "/a/sub", Lock: TabLockedChangeOK, LockPath: "/a"},
+		{Path: "/b", Lock: TabLocked, LockPath: "/b"},
+		{Path: "/c", LockPath: "/x"},
+	}, Active: 1}
+	f := NewFile()
+	SaveTabSet(f, SectionRightTabs, ts)
+	s := f.String()
+	if !strings.Contains(s, "0_lockpath=/a") || strings.Contains(s, "1_lockpath") || strings.Contains(s, "2_lockpath") {
+		t.Fatalf("lockpath keys:\n%s", s)
+	}
+	got := LoadTabSet(ParseString(s), SectionRightTabs)
+	if got.Active != 1 || got.Tabs[0].LockPath != "/a" || got.Tabs[0].Lock != TabLockedChangeOK || got.Tabs[1].LockPath != "" || got.Tabs[2].LockPath != "" {
+		t.Fatalf("read back: %+v", got)
+	}
+	stray := LoadTabSet(ParseString("[righttabs]\n0_path=/a\n0_lockpath=/x\nactivetab=0\n"), SectionRightTabs)
+	if stray.Tabs[0].LockPath != "" {
+		t.Errorf("an unlocked tab got a lock folder: %+v", stray.Tabs[0])
+	}
+}
