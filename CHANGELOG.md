@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.34 – 2026-11-14
+
+### Fixed
+
+- Shift+F5 on a single folder, with the name in the dialog left as it is, no longer says "Can't copy the folder into
+  itself". It now makes a copy with a free name such as dx(2), the same as it already did for files. Typing the name
+  with a trailing slash (dx/) still gives the error, and moving a folder in the same place still says there is nothing
+  to move.
+
 ## 0.9.33 – 2026-11-14
 
 ### Fixed
