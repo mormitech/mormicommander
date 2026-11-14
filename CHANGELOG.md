@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.44 – 2026-11-14
+
+### Fixed
+
+- In the Lister, N and P now step through the files inside archives, Find Files results and fed lists, not only
+  through local folders (issue #142). Each file is unpacked once when reached. Local folders step as before.
+
 ## 0.9.43 – 2026-11-14
 
 ### Fixed
