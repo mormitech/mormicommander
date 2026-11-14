@@ -16,6 +16,7 @@ import { addControlCommand } from '../../core/control.js';
 import { track } from '../../core/busy.js';
 import { bytes, size, plural } from '../../core/format.js';
 import { newId, onProgress, runTool, isLocal, needLocal, targets, showError } from './common.js';
+import { countSpaceOn } from './space-lib.js';
 
 const scans = new Map(); // id → {panel, path, names, cancel, owner}
 
@@ -118,10 +119,11 @@ command({
 
 export function init(app) {
   // Space on a folder counts it when it becomes selected (TC's CountSpace option, default on). Ins and the mouse
-  // never count; Space on ".." does nothing.
+  // never count; Space on ".." does nothing. Without a choice in settings.json, the settings file's SpaceCalcSize
+  // decides (a copied wincmd.ini), see space-lib.js.
   app.on('space-select', (p, e) => {
     if (!e || e.up || !e.dir || !p.isSelected(e)) return;
-    if (!app.setting('countSpace', true)) return;
+    if (!countSpaceOn(app.setting('countSpace', undefined), app.config?.values?.['Operation.SpaceCalcSize'])) return;
     countSizes(app, p, [e]);
   });
   // Esc stops counting (only while a count runs and no dialog is open).

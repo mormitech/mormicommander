@@ -296,3 +296,21 @@ func containsSub(list []string, sub string) bool {
 	}
 	return false
 }
+
+// A wincmd.ini copied over as our own settings file (CP1252 bytes, CRLF line ends) is read at start: its
+// [Configuration] SpaceCalcSize=0 gives the option "Operation.SpaceCalcSize" the value "0", which the page's Space key
+// then honours (features/tools/space-lib.js, board #2). Without the line the default stays on.
+func TestCopiedWincmdSpaceCalcSize(t *testing.T) {
+	for _, tc := range []struct{ line, want string }{{"SpaceCalcSize=0\n", "0"}, {"SpaceCalcSize=1\n", "1"}, {"", "1"}} {
+		dir := t.TempDir()
+		ini := filepath.Join(dir, IniName)
+		writeCP1252(t, ini, "[Configuration]\nInstallDir=C:\\totalcmd\n"+tc.line+"ShowHiddenSystem=1\n")
+		c, err := Open(Locations{Dir: dir, Ini: ini, FtpIni: filepath.Join(dir, FtpIniName)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if v, err := c.Settings.Get("Operation.SpaceCalcSize"); err != nil || v != tc.want {
+			t.Errorf("%q: SpaceCalcSize = %q (%v), want %q", tc.line, v, err, tc.want)
+		}
+	}
+}
