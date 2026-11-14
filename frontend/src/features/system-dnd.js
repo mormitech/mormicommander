@@ -206,15 +206,21 @@ export function init(app) {
   on('native-drag-end', () => { if (drag?.native) finish(); });
 
   // files from Finder / Explorer / other apps, with their real paths (Wails, window.go EnableFileDrop)
-  onFileDrop((x, y, paths) => {
-    light(null);
-    stopSpring();
-    const own = ownNativeDrop(drag?.native ? drag : nativeLast, paths, Date.now());
-    if (own) { own.dropped = true; nativeLast = null; dropNative(app, own, document.elementFromPoint(x, y)); return; }
-    if (drag || Date.now() - dragEnded < 1500 || !paths?.length) return; // our own drag, seen by the system too
-    const t = targetAt(app, document.elementFromPoint(x, y)) || { kind: 'folder', panel: app.cur, path: app.cur.path, el: null };
-    performDrop(app, paths, t, 'copy', null);
-  });
+  onFileDrop((x, y, paths) => fileDropAt(app, x, y, paths));
+}
+
+// fileDropAt handles files dropped from Finder / Explorer at a point of the page (also control mode's "filedrop" with
+// x and y, which so goes through the same code). A drop of our own native drag-out coming back is finished as a move
+// or copy inside the app. Answers whether a drop was started.
+function fileDropAt(app, x, y, paths) {
+  light(null);
+  stopSpring();
+  const own = ownNativeDrop(drag?.native ? drag : nativeLast, paths, Date.now());
+  if (own) { own.dropped = true; nativeLast = null; dropNative(app, own, document.elementFromPoint(x, y)); return true; }
+  if (drag || Date.now() - dragEnded < 1500 || !paths?.length) return false; // our own drag, seen by the system too
+  const t = targetAt(app, document.elementFromPoint(x, y)) || { kind: 'folder', panel: app.cur, path: app.cur.path, el: null };
+  performDrop(app, paths, t, 'copy', null);
+  return true;
 }
 
 // startNative hands a drag from panel p to the system (#108). The HTML drag is already cancelled; when no native drag
@@ -262,9 +268,15 @@ addControlCommand('drop', async (m) => {
   return null;
 });
 
-// {paths: ["/abs/file"], to: "left", name: "sub"}: as if the files were dropped from Finder / Explorer.
+// {paths: ["/abs/file"], to: "left", name: "sub"}: as if the files were dropped from Finder / Explorer. With x and y
+// (page coordinates) instead, the drop goes through the same handler as a real one from the system, which finds the
+// target under that point; the answer then says whether it was taken (`dropped`).
 addControlCommand('filedrop', async (m) => {
   const app = theApp;
+  if (m.x != null && m.y != null) {
+    if (!fileDropAt(app, +m.x, +m.y, m.paths || [])) return { ok: true, dropped: false, reason: 'ignored (no paths, or just after a drag of our own)' };
+    return null;
+  }
   const to = app.panel(m.to || 'active');
   const e = m.name ? to.entries[to.index.get(m.name)] : null;
   const t = e?.dir ? { kind: 'folder', panel: to, path: e.up ? to.parent : to.fullPath(e.name) } : { kind: 'folder', panel: to, path: to.path };

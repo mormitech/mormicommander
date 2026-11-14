@@ -85,7 +85,9 @@ A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cu
 | `focus` | `side` | makes a panel the active one |
 | `cursor` | `side`, `name` or `index` | puts the cursor on an entry |
 | `click` | `selector` or `side` + `name`/`index`; `button` (0 left, 2 right, 3/4 back/forward), `double`, `ctrl`, `shift`, `meta`, `alt` | mouse events on an element or a row (scrolled into view first). Each event goes to what is under the pointer by then, so when the press redraws the row the rest of the click reaches the new one: `button: 2` on a row opens its context menu (a popup of kind `context-file`, or `context-folder` on `..`; answer it with `popup_choose`) |
-| `drag` | `selector`, `dx`, `dy` | press, move, let go (the splitter) |
+| `drag` | `selector`, `dx`, `dy` | press, move, let go with mouse events only (the splitter) |
+| `pointer_drag` | `selector` or `side` + `name`/`index`; `x`, `y`; `dx`, `dy` or `to` / `toSide` + `toName`/`toIndex`, `toX`, `toY`; `steps`, `delay`, `dnd`, `button`, `ctrl`, `shift`, `alt`, `meta` | a whole pointer gesture as a mouse makes it, with pointer capture and drag and drop: see [Pointer gestures](#pointer-gestures) |
+| `hover` | `selector` or `side` + `name`/`index`; `x`, `y`; or `leave: true` | the pointer rests over that point (over/enter events, a move); answers `over`; `leave: true` takes it off (`left`) |
 | `scroll` | `side`, `row` or `top` | scrolls a panel's list |
 | `dialog` | | the open page dialog: `kind`, `title`, `message`, `buttons`, `fields` (by id), `error`, `window` (the dialog window that shows it: `name`, `shown`, `openMs`, `wakes` (times the watchdog woke the window before it drew the dialog), `title`, `resized`, `layers`; `{layerOf}` for a floating box drawn in the dialog window below it; `null` when it is drawn in the page) |
 | `dialog_answer` | `button`, `fields` | fills fields and presses a button by its text; `"Esc"` cancels, no button submits |
@@ -96,6 +98,40 @@ A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cu
 
 Feature modules add their own commands: page side with `addControlCommand(name, fn)` (src/core/control.js), Go side with
 `registerControl(name, fn)` (features.go). Each feature documents its commands in its own section below.
+
+### Pointer gestures
+
+`pointer_drag` and `hover` (src/core/pointer.js) play what a mouse does inside the page, for the features only a
+mouse reaches. Nothing moves the system's pointer. Points: the middle of the element, or `x`, `y` pixels from its
+top-left corner (negative is fine: a column border lies 4 px left of the next title). The pressed element is what is
+drawn at the point when that lies inside the named element, else the innermost part of the named element whose box
+holds it, so a dialog whose page copy is hidden behind its dialog window can still be driven.
+
+A drag sends `pointerdown` + `mousedown`, `steps` moves (`pointermove` + `mousemove`, `delay` ms apart, 16 by default)
+to the element under each point or to the element that captured the pointer (`setPointerCapture` works for the played
+pointer), then `pointerup` + `mouseup` and a `click` on the element holding both ends. When the pressed element is
+inside a `draggable="true"` one (panel rows, multi-rename rows, tabs) the moves become the browser's drag and drop
+instead: `dragstart` (with a DataTransfer), `drag`, `dragenter`/`dragleave`/`dragover` on what is under each point,
+`drop` where the last `dragover` was accepted, `dragend`. `dnd: false` never starts one. Inside a dialog, points are
+looked up within the dialog's box. The answer adds `gesture`: `pressed`, `captured`, `released`, `dnd`,
+`dragstartCancelled`, `dropped`, `dropTarget`.
+
+```
+{"cmd": "pointer_drag", "selector": ".mc-box h2", "dx": 120, "dy": 60}                      dialog moved by its title (a dialog in the page: dialogsInWindows off)
+{"cmd": "pointer_drag", "selector": ".panel[data-side=left] .header span:nth-child(2)", "x": -4, "dx": -40}   column border dragged (F-090)
+{"cmd": "pointer_drag", "selector": ".mc-multirename-list tr[data-i='0']", "to": ".mc-multirename-list tr[data-i='2']", "toY": 15}   row 0 dropped after row 2
+{"cmd": "pointer_drag", "side": "left", "name": "a.txt", "toSide": "right", "toName": "sub"}   panel to panel drop (drop dialog)
+{"cmd": "hover", "selector": ".panel[data-side=left] .header span:nth-child(2)", "x": -4}   the resize cursor shows (class mc-col-edge)
+{"cmd": "filedrop", "paths": ["/tmp/x/a.txt"], "x": 300, "y": 200}                         a Finder drop at a point
+```
+
+What a played gesture can't reach, to check by hand with a real mouse after a change in that area:
+
+- a right-click into a window that is not the active one (the first click goes to the system: does the menu show?);
+- a real drop from Finder / Explorer: the system's drag and the Wails drop handler (`filedrop` with `x`, `y` starts
+  where that handler hands over);
+- a drag out of the app to Finder / Explorer or another app, and the drag picture;
+- moving and resizing dialog windows and Lister windows (native windows).
 
 ### Dialog kinds
 
@@ -337,7 +373,7 @@ choices under `tools`.
 | `{"cmd": "clipboard_content"}` | What the system clipboard holds: `{content: {files, text, image}}` (reads only). |
 | `{"cmd": "cut_state"}` | The files of a pending cut, drawn dimmed until pasted or cancelled with Esc: `{paths: [...]}` (empty when there is none). |
 | `{"cmd": "drop", "from": "left", "names": ["a.txt"], "to": "right", "name": "sub", "op": "copy"}` | Does what dropping those files on the folder `sub` of the right panel does (no `name`: its folder; `"target": "cmdline"`: the command line). The drop dialog comes up (kind `drop`, field `drop-target`, buttons Cancel, Copy, Move, Link) unless the setting `confirmDrop` is off. Answers `{dropped: false}` where a drop is not allowed (own folder, folder into itself). |
-| `{"cmd": "filedrop", "paths": ["/abs/x"], "to": "left", "name": "sub"}` | As if the files were dropped from Finder / Explorer. |
+| `{"cmd": "filedrop", "paths": ["/abs/x"], "to": "left", "name": "sub"}` | As if the files were dropped from Finder / Explorer. With `x`, `y` (page coordinates, for example from `layout`) instead of `to`/`name`, the drop goes through the very handler a real drop from the system calls, which finds the target under that point; it answers `{dropped: false}` when that handler ignores it (no paths, or within 1.5 s of a drag of the app's own). |
 | `{"cmd": "drive_menu", "side": "left", "name": "USB stick"}` | Opens a drive button's context menu (popup kind `context-drive`). |
 
 Popup kinds: `context-file`, `context-folder`, `context-sort`, `context-drive`, `context-path`, `open-with`. Dialog kinds:

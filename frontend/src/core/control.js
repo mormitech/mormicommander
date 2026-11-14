@@ -19,6 +19,7 @@ import { allSettings } from './settings.js';
 import { menuSpec } from './menus.js';
 import { liveTarget } from './control-target.js';
 import { domInfo } from './control-dom.js';
+import { pointOf, dragGesture, hover, unhover, innermostAt } from './pointer.js';
 
 const extra = new Map();
 export function addControlCommand(name, fn) { extra.set(name, fn); }
@@ -92,6 +93,30 @@ function mouse(el, { button = 0, double = false, ctrl = false, shift = false, me
   }
 }
 
+// targetEl finds the element a pointer command is about: {selector} or {side, name|index} for a row of a panel, which
+// is scrolled into view and drawn first.
+function targetEl(m) {
+  if (m.selector) {
+    const el = document.querySelector(m.selector);
+    if (!el) throw new Error(`nothing matches ${m.selector}`);
+    return el;
+  }
+  const p = app.panel(m.side);
+  const i = m.name != null ? p.index.get(m.name) : m.index;
+  if (i == null || i < 0 || i >= p.entries.length) throw new Error(`no row ${m.name ?? m.index} in the ${p.side} panel`);
+  p.$.list.scrollTop = Math.max(0, i * p.rowH - p.$.list.clientHeight / 2);
+  p.renderRows();
+  return p.$.rows.querySelector(`.row[data-i="${i}"]`);
+}
+
+// hitIn gives what is drawn at a point when that is the element or inside it, else the innermost part of the element
+// whose box holds the point, else the element itself: a pointer command acts on the element it names even where
+// something covers it (or its page copy is hidden because a dialog window shows it).
+function hitIn(el, pt) {
+  const hit = document.elementFromPoint(pt.x, pt.y);
+  return hit && (hit === el || el.contains(hit)) ? hit : innermostAt(el, pt) || el;
+}
+
 async function settle(ms = 0) {
   await sleep(ms || 30);
   await idle();
@@ -126,6 +151,27 @@ async function ctlRun(m) {
       window.dispatchEvent(new MouseEvent('mouseup', opts(x + (m.dx || 0), y + (m.dy || 0))));
       await settle();
       return state();
+    }
+    case 'pointer_drag': { // a whole pointer gesture with pointer capture and drag and drop (pointer.js, docs/control.md)
+      const from = targetEl(m);
+      const a = pointOf(from, m.x, m.y);
+      let b;
+      if (m.to || m.toSide) b = pointOf(targetEl({ selector: m.to, side: m.toSide, name: m.toName, index: m.toIndex }), m.toX, m.toY);
+      else b = { x: a.x + (m.dx || 0), y: a.y + (m.dy || 0) };
+      const gesture = await dragGesture(document, {
+        from: a, to: b, source: hitIn(from, a), scope: from.closest('.mc-box'), steps: m.steps ?? 8, dnd: m.dnd ?? 'auto', button: m.button ?? 0,
+        ctrl: m.ctrl, shift: m.shift, alt: m.alt, meta: m.meta, wait: () => sleep(m.delay ?? 16),
+      });
+      await settle(m.wait);
+      return { ...state(), gesture };
+    }
+    case 'hover': { // {selector | side+name/index, x, y}: the pointer rests over that point; {leave: true} takes it off
+      if (m.leave) { const r = unhover(document); await settle(m.wait); return { ...state(), ...r }; }
+      const el = targetEl(m);
+      const pt = pointOf(el, m.x, m.y);
+      const r = hover(document, pt, hitIn(el, pt), { ...m, scope: el.closest('.mc-box') });
+      await settle(m.wait);
+      return { ...state(), ...r };
     }
     case 'menus': return { ok: true, menus: menuSpec() };
     case 'layout': { // sizes of the main parts, for checks of the layout (splitter, horizontal panels, row height)

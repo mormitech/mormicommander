@@ -194,6 +194,20 @@ class MC:
         args = {"index": which} if isinstance(which, int) else {"label": which}
         return self.cmd("popup_choose", shift=shift, **args)
 
+    def pointer_drag(self, **args):
+        """A whole pointer gesture inside the page (press, moves, release; drag and drop for draggable elements):
+        selector= or side=/name=, x=/y= offsets in the element, dx=/dy= or to=/toSide=/toName=, toX=/toY=, steps=,
+        dnd=False, ctrl=/shift=/alt=/meta=. Answers the state with `gesture` (what happened)."""
+        return self.cmd("pointer_drag", **args)
+
+    def hover(self, selector=None, leave=False, **args):
+        """Rests the played pointer over an element (selector= or side=/name=, x=/y=); leave=True takes it off."""
+        if leave:
+            return self.cmd("hover", leave=True)
+        if selector is not None:
+            args["selector"] = selector
+        return self.cmd("hover", **args)
+
     def window(self, w, h, x=None, y=None, max=None):
         args = {"w": w, "h": h}
         if max is not None:
