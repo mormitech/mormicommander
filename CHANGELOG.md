@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.70 – 2026-11-14
+
+### Added
+
+- View options has two new settings, "Sort names" and "Language for sorting". Sort names can be the usual language rules (the default, same order as before), case-sensitive (upper case first) or by character code (case ignored, natural number order still works). The language (for example hu, de or sv) is empty by default, which means the system's language. They apply to the panels, the tree view and custom-column sorting, and TC's SortUpper option now maps to the case-sensitive choice. Names Finder stores in decomposed form now sort like composed ones. Still open in issue #20: streaming big folder listings, the 1 second startup timing check, and Wayland drag and drop (issue #20).
+
 ## 0.9.69 – 2026-11-14
 
 ### Fixed
