@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.33 – 2026-11-14
+
+### Fixed
+
+- A job's progress box no longer opens on top of a question the job just asked and hides its buttons. The box appears
+  after a short delay, and that delay only waited for archive passwords, not for the job's own questions (overwrite,
+  folder not empty, read-only, job error). Now the box waits until the question is answered. Server transfers (FTP,
+  SFTP, WebDAV) had the same problem and are fixed too. When nothing is asked, the box still opens after 400 ms.
+
 ## 0.9.32 – 2026-11-14
 
 ### Fixed
