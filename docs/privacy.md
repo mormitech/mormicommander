@@ -23,6 +23,16 @@ Only when you ask it to, and only to the place you name:
 - **Remote locations you open.** Net > FTP connect (FTP, FTPS), SFTP and WebDAV connect to the server you typed in or
   saved, and only while you use that connection. A network share (SMB, NFS, AFP) that your system has mounted is just a
   folder to the app; the system does the networking for it.
+- **The Network button, when you press it** (the end of the drive bar, or Net > Network neighbourhood; issue #148). Only
+  then does the app look for file servers on your **local network**, for about three seconds, with your system's own
+  tool: Bonjour (`dns-sd`) on macOS, Avahi (`avahi-browse`) on Linux, NetBIOS (`net view`) on Windows. Those send
+  discovery queries to the local network only, never to the internet. When you pick or type a server, the app
+  connects to that server alone: to list its shares (SMB on port 445, signing in as guest unless you give a user name;
+  NFS through `showmount`), and, when you open or map a share, the system mounts it (macOS like Finder's Connect to
+  Server, Linux through GVfs, Windows as a network drive). A share that Open had to mount is disconnected again when
+  the app ends. The servers you connected to are remembered in `network.json` in the settings folder (address and
+  user name, never a password); a password is kept only when you tick "Save the password", in your system's secret
+  store as described below. Starting the app never searches the network.
 - **AI search, when you start it.** The AI tab of Find files uses the provider you chose in **Configuration > AI
   settings** (issue #146). Either way the model gets **only mormiCommander's own tools**: no shell, no file reading or
   writing, and nothing that deletes, moves or overwrites. Nothing runs unless you start a search there.

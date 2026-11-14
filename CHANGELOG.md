@@ -6,6 +6,32 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.12.0 – 2026-11-14
+
+Release of everything since 0.11.0 (0.11.1 to 0.11.7, listed below), and the **network neighbourhood**: browse the
+file servers on your local network, open or map their shares, and disconnect them, on macOS, Windows and Linux. Also
+in this release: the **GTK 3 Linux build** for Ubuntu 22.04 and Debian 12, dialogs that reuse two windows (no lost
+focus or taskbar buttons on Windows), the Full Disk Access helper on macOS, and two rounds of engine review fixes
+(23 bugs, then 19 follow-ups).
+
+### Added
+
+- **Network neighbourhood** (#148; TC's cm_OpenNetwork, cm_NetConnect, cm_NetDisconnect):
+  - A **Network** button at the end of the drive bar, and Net > Network neighbourhood…, lists the file servers on
+    the local network after the ones you used before. It finds them with Bonjour on macOS, Avahi on Linux and NetBIOS
+    on Windows. "Type a server…" takes smb://server, \\server, nfs://server or afp://server.
+  - Picking a server lists its shares. SMB shares are listed by the app itself, signing in as guest or with the user
+    name and password it asks for; "Save the password" keeps it in the system keychain. NFS exports come from
+    showmount.
+  - **Open** shows a share in the panel. A share Open had to mount is disconnected again when the app ends.
+  - **Map** keeps a share connected: a drive letter on Windows (with "Reconnect at sign-in"), /Volumes on macOS like
+    Finder's Connect to Server, GVfs on Linux. Mapped shares show in the drive bar; on Linux, GVfs shares now appear
+    there too.
+  - Net > Connect network drive… types a share and maps it; Net > Disconnect network drive… unmounts one.
+  - The network is searched only when you press the button; starting the app never does (docs/privacy.md).
+  - Tests: parsers of every tool's output, the service with a fake network, and live tests against a real Samba
+    server and NFS export in CI.
+
 ## 0.11.7 – 2026-11-14
 
 ### Fixed

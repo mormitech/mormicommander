@@ -491,11 +491,14 @@ export class Panel {
   renderDrives(volumes, currentPath) {
     const on = this.app.driveFor(currentPath ?? this.path);
     const firstMap = volumes.findIndex((v) => v.kind === 'map');
-    this.$.drives.innerHTML = volumes.map((v, i) => `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('');
+    // the Network button (features/network.js, #148) closes the bar: servers and shares on the local network
+    const net = this.app.openNetwork ? '<span class="mc-drive-sep" aria-hidden="true"></span><button type="button" class="mc-drive-net" data-net="1" title="Network: servers and shared folders on the local network">' + driveIcon('lan') + 'Network</button>' : '';
+    this.$.drives.innerHTML = volumes.map((v, i) => `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('') + net;
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;
       this.app.setActive(this);
+      if (b.dataset.net) { this.app.openNetwork(this); return; }
       this.go(this.app.drivePath(this, volumes[+b.dataset.i]));
     };
   }
@@ -533,6 +536,7 @@ function driveIcon(kind) {
     network: '<rect x="3" y="4" width="18" height="11" rx="2"/><path d="M12 15v4M7 20h10"/>',
     cdrom: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2"/>',
     removable: '<rect x="7" y="3" width="10" height="18" rx="2"/><path d="M10 7h4"/>',
+    lan: '<rect x="9" y="3" width="6" height="5" rx="1"/><rect x="3" y="16" width="6" height="5" rx="1"/><rect x="15" y="16" width="6" height="5" rx="1"/><path d="M12 8v4M6 16v-4h12v4"/>',
   }[kind] || '<rect x="3" y="13" width="18" height="7" rx="2"/><path d="M3.4 13l2.2-6.6A2 2 0 0 1 7.5 5h9a2 2 0 0 1 1.9 1.4L20.6 13"/>';
   return `<svg viewBox="0 0 24 24" aria-hidden="true">${p}</svg>`;
 }

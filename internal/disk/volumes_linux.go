@@ -16,6 +16,7 @@ import (
 	"strings"
 
 	"mormicommander/internal/hang"
+	"mormicommander/internal/netbrowse"
 )
 
 var localFS = map[string]bool{
@@ -23,7 +24,7 @@ var localFS = map[string]bool{
 	"ntfs": true, "ntfs3": true, "vfat": true, "exfat": true, "fuseblk": true, "hfsplus": true, "iso9660": true, "udf": true,
 }
 
-var netFS = map[string]bool{"nfs": true, "nfs4": true, "cifs": true, "smb3": true, "sshfs": true, "fuse.sshfs": true, "davfs": true, "fuse.rclone": true}
+var netFS = map[string]bool{"gvfs": true, "nfs": true, "nfs4": true, "cifs": true, "smb3": true, "sshfs": true, "fuse.sshfs": true, "davfs": true, "fuse.rclone": true}
 
 // Volumes lists "/" first, the home folder, then every mounted disk and network share, once per device.
 func Volumes() []Volume {
@@ -47,6 +48,13 @@ func Volumes() []Volume {
 			continue
 		}
 		dev, mnt, typ := fields[0], unescapeMount(fields[1]), fields[2]
+		if typ == "fuse.gvfsd-fuse" {
+			// GVfs (gio mount, the desktop's "Other locations") shows every share as a folder of its one FUSE mount
+			for _, g := range gvfsShares(mnt) {
+				mounts = append(mounts, mount{g, g, "gvfs"})
+			}
+			continue
+		}
 		if !localFS[typ] && !netFS[typ] || mnt == "/" {
 			continue
 		}
@@ -77,6 +85,9 @@ func Volumes() []Volume {
 			kind = "removable"
 		}
 		v := Volume{Name: filepath.Base(m.mnt), Path: m.mnt, Kind: kind}
+		if m.typ == "gvfs" {
+			v.Name = netbrowse.GVfsName(filepath.Base(m.mnt))
+		}
 		switch {
 		case errors.Is(errs[i], hang.ErrNotResponding):
 			v.Stale = true
@@ -87,6 +98,22 @@ func Volumes() []Volume {
 		}
 		seen[m.dev], seen[m.mnt] = true, true
 		out = append(out, v)
+	}
+	return out
+}
+
+// gvfsShares lists the network shares inside the GVfs FUSE folder (smb-share:..., nfs:..., afp-volume:...); other
+// GVfs locations such as phones (mtp:) are not drives.
+func gvfsShares(root string) []string {
+	des, err := os.ReadDir(root)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, d := range des {
+		if netbrowse.GVfsURI(d.Name()) != "" {
+			out = append(out, filepath.Join(root, d.Name()))
+		}
 	}
 	return out
 }
