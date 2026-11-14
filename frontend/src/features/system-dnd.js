@@ -11,17 +11,24 @@
 // While dragging, the list scrolls near its top and bottom edge (F-701) and, with the setting "springLoaded", a folder
 // opens after hovering over it ("springDelay" ms, default 1000; F-702).
 //
+// With the setting "nativeDragOut" (off by default, macOS only so far; board issue #108) a drag from a local panel is
+// handed to the system instead, so Finder and other apps get real files (system-dragout.js, SystemDrag in Go); its drop
+// back inside the window arrives as a file drop and is treated like an HTML drop of our own.
+//
 // HTML drag events can't be made by control mode, so it has "drop" and "filedrop" commands that do what a drop does.
 
 import { addControlCommand } from '../core/control.js';
 import { cmdline } from '../core/cmdline.js';
-import { go, errText, onFileDrop } from '../core/go.js';
+import { go, errText, on, onFileDrop } from '../core/go.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal, quoteArg, transferFiles } from './system-lib.js';
+import { ownNativeDrop, useNativeDrag } from './system-dragout.js';
 
 const MIME = 'application/x-mormicommander';
-let drag = null;        // {from: panel, paths}: the drag that started in a panel
+let drag = null;        // {from: panel, paths, native?}: the drag that started in a panel
+let nativeOK = false;   // the system can make native file drags (SystemDrag.Supported)
+let nativeLast = null;  // the native drag that ended last, {from, paths, native, endedAt}: its drop may come after
 let dragEnded = 0;      // when it ended (a drop of our own files must not come back as a Finder drop)
 let lit = null;         // the highlighted drop target
 let spring = null;      // {path, timer}
@@ -103,6 +110,7 @@ function hover(app, ev, t) {
 }
 
 function finish() {
+  if (drag?.native && !drag.dropped) nativeLast = { ...drag, endedAt: Date.now() };
   drag = null;
   dragEnded = Date.now();
   light(null);
@@ -150,6 +158,7 @@ export function init(app) {
       if (!e || e.up || !onRow || !isLocal(p.path) || app.demo) { ev.preventDefault(); return; }
       const list = p.isSelected(e) ? p.selectedEntries() : [e];
       const paths = list.map((x) => p.fullPath(x.name));
+      if (useNativeDrag(app.setting('nativeDragOut', false), nativeOK)) { ev.preventDefault(); startNative(app, p, paths); return; }
       drag = { from: p, paths };
       const dt = ev.dataTransfer;
       dt.effectAllowed = 'all';
@@ -192,14 +201,40 @@ export function init(app) {
     performDrop(app, d.paths, t, op, d.from);
   });
 
+  // native drags (#108): whether the system can make them, and their end
+  try { Promise.resolve(go.SystemDrag.Supported()).then((ok) => { nativeOK = ok === true; }, () => {}); } catch { /* no Go */ }
+  on('native-drag-end', () => { if (drag?.native) finish(); });
+
   // files from Finder / Explorer / other apps, with their real paths (Wails, window.go EnableFileDrop)
   onFileDrop((x, y, paths) => {
     light(null);
     stopSpring();
+    const own = ownNativeDrop(drag?.native ? drag : nativeLast, paths, Date.now());
+    if (own) { own.dropped = true; nativeLast = null; dropNative(app, own, document.elementFromPoint(x, y)); return; }
     if (drag || Date.now() - dragEnded < 1500 || !paths?.length) return; // our own drag, seen by the system too
     const t = targetAt(app, document.elementFromPoint(x, y)) || { kind: 'folder', panel: app.cur, path: app.cur.path, el: null };
     performDrop(app, paths, t, 'copy', null);
   });
+}
+
+// startNative hands a drag from panel p to the system (#108). The HTML drag is already cancelled; when no native drag
+// could start (the button was let go first) nothing happens, as with a drag that never left the row.
+function startNative(app, p, paths) {
+  drag = { from: p, paths, native: true };
+  Promise.resolve()
+    .then(() => go.SystemDrag.Start(paths))
+    .then((ok) => { if (!ok && drag?.native) { drag = null; } })
+    .catch((e) => { if (drag?.native) drag = null; app.flash(errText(e), 'err'); });
+}
+
+// dropNative does what dropping our own native drag on the element el does: as an HTML drop, with the operation from
+// the modifier keys held at the drop (asked of the system: the page sees no key events during a native drag).
+async function dropNative(app, d, el) {
+  const t = targetAt(app, el);
+  if (!allowed(d, t)) return;
+  let mods = {};
+  try { mods = (await go.SystemDrag.Modifiers()) || {}; } catch { /* plain copy */ }
+  performDrop(app, d.paths, t, opFor(mods, app.platform), d.from);
 }
 
 // ---- control mode: drops without a mouse ----

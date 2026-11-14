@@ -59,6 +59,8 @@ export const MORE_BRIDGE = {
   'DragDrop.ConfirmDrop': boolKey('confirmDrop', true),
   'DragDrop.SpringLoaded': boolKey('springLoaded', false),
   'DragDrop.SpringDelayMs': intKey('springDelay', 1000),
+  // native file drag-out (features/system-dnd.js reads it when a drag starts; board issue #108)
+  'DragDrop.NativeDragOut': boolKey('nativeDragOut', false),
   // the folder history (features/hotlist.js and tabs.js; the history dialog changes the same key)
   'Hotlist.HistorySize': intKey('historyLength', 30),
   // the log file (feature_system_watch.go, SystemLog.Write; "" = mormicommander.log in the settings folder)

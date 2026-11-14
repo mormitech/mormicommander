@@ -423,6 +423,7 @@ type DragDropPage struct {
 	SpringDelayMs  int  `ini:"Configuration:SpringDelay" def:"1000" min:"100" max:"10000" label:"Spring-loaded delay (ms)"`
 	MiddleClick    int  `ini:"Configuration:MiddleClick" def:"1" min:"0" max:"2" opts:"0=Nothing|1=Open folder in new tab|2=Open in the other panel" label:"Middle click on a folder"`
 	DragToOtherApp bool `ini:"Configuration:DragOut" def:"1" label:"Allow dragging to other programs"`
+	NativeDragOut  bool `ini:"Configuration:NativeDragOut" def:"0" label:"Drag files to other programs as real files (macOS)"`
 	ThresholdPx    int  `ini:"Configuration:DragThreshold" def:"4" min:"1" max:"100" label:"Drag start distance (pixels)"`
 }
 
