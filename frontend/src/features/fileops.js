@@ -26,6 +26,7 @@ import { runJob, showTransfers, jobList, backgroundSpeedLimit } from '../core/jo
 import { plural, F } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
+import { sameNameTarget } from './fileops-target.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -244,6 +245,8 @@ function copyDialog(app, { move, same, items }) {
       try {
         let t;
         try { t = await go.Jobs.ParseTarget(text, items.length, fromOf(src, items)); } catch (e) { err(errText(e)); return; }
+        // Shift+F5 on one folder with its name unchanged: the same name in the same folder, not into itself (#133)
+        t = sameNameTarget({ same, items, text, srcPath: src.path, t });
         // Like TC, refuse a folder into itself here, before asking to make (and so making) a target inside it.
         const self = items.filter((e) => e.dir && insidePath(app, t.dir, src.fullPath(e.name)));
         if (self.length && self.length === items.length) {
