@@ -15,6 +15,8 @@
 // - filter: true turns letters into a filter instead of jumps: what is typed shows under the title, only items whose
 //   label or detail have every typed word stay, Backspace takes a letter back and Esc first clears the filter. Items
 //   marked only: true (entries of submenus, say) show only while a filter is typed.
+// - With filter: true, match: (item, query) => bool replaces the word test above for the items while something is
+//   typed (the frecency jump matches folder names its own way), and query: '…' starts the list already filtered.
 //
 // An item with path: true is a folder path (the folder history, the frequently used folders): when the list is too
 // narrow for it, its start is shortened with "…" and its last name stays whole, and the full path shows as a tooltip,
@@ -39,7 +41,7 @@ export function popupMatch(it, query) {
   return words.every((w) => text.includes(w));
 }
 
-export function showList({ title = '', items, anchor = null, index = 0, kind = 'list', filter = false, left = false }) {
+export function showList({ title = '', items, anchor = null, index = 0, kind = 'list', filter = false, left = false, match = null, query: startQuery = '' }) {
   current?.close(null);
   return waitForUser(new Promise((resolve) => {
     const el = document.createElement('div');
@@ -48,8 +50,9 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
     el.innerHTML = (title ? `<div class="t">${esc(title)}</div>` : '') + (filter ? '<div class="q" hidden></div>' : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
       : `<div class="it${it.disabled ? ' off' : ''}${it.path ? ' p' : ''}" data-i="${i}" role="option"${it.path ? ` title="${esc(it.label)}"` : ''}>${labelHTML(it)}${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
     document.body.append(el);
-    let query = '';
-    const shown = (i) => (filter ? popupMatch(items[i], query) : true);
+    let query = filter ? String(startQuery || '') : '';
+    const test = match ? (it, q) => (!it || it.sep ? false : String(q).trim() ? !!match(it, q) : !it.only) : popupMatch;
+    const shown = (i) => (filter ? test(items[i], query) : true);
     const usable = (i) => items[i] && !items[i].sep && !items[i].disabled && shown(i);
     let at = usable(index) ? index : items.findIndex((_, i) => usable(i));
     // refilter hides the items the typed filter leaves out (and the separators while a filter is typed)

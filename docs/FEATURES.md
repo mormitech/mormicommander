@@ -900,7 +900,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-663 Hotlist import from TC [DirMenu] — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-664 Hotlist folder for tabs (tab sets) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-849 Hotlist paths with variables ($HOME, %COMMANDER_PATH%-style) — — — entries using variables open the expanded folder on every platform
-- [ ] F-867 Frecency jump: fuzzy jump to frequently and recently used folders, importing zoxide's database when installed — — — typing part of a folder name lists matches ranked by frequency and recency; Enter navigates the active panel; data stored locally only
+- [~] F-867 Frecency jump: fuzzy jump to frequently and recently used folders, importing zoxide's database when installed — — — typing part of a folder name lists matches ranked by frequency and recency; Enter navigates the active panel; data stored locally only
 
 ## 32. Custom columns and column sets
 

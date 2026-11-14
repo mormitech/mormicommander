@@ -296,6 +296,7 @@ thumbnail cache…), `clear-thumbs`. Popups: `column-sets` (Shift+F1, header rig
 | `tab_menu` | `side`, `index` | opens the right-click menu of a tab (a popup of kind `tab-menu`; answer it with `popup_choose`) |
 | `hotlist` | — | the hotlist tree: `[{kind: "cmd"/"menu"/"sep", title, label, key, cmd, target, items}]` |
 | `frequent` | — | the frequently used folders, most used first |
+| `frecency` | — | the frecency jump's list (features/frecency.js, F-867): `items: [{path, score, source: "app"/"zoxide"/"both"}]` best first, `zoxide` (the zoxide database read, "" for none), `problem`, `imported`. `cm_FrecencyJump` takes `query` (start filtered) and `panel`; its popup has the kind `frecency`. Set `MORMICOMMANDER_ZOXIDE_DB` to a test file (or `none`) so a QA run never reads the real zoxide database |
 
 Popups have the kinds `hotlist`, `hotlist-search-results`, `history`, `frequent`, `tab-menu`, `favorite-tabs`; dialogs
 `hotlist-config` (fields `hl-list`, `hl-cmd`, `hl-target`), `hotlist-add`, `hotlist-add-tabs`, `hotlist-search`,

@@ -99,3 +99,19 @@ describe('typed filter', () => {
     expect(currentPopup()).not.toBeNull();
   });
 });
+
+describe('match and query (the frecency jump, board issue #27)', () => {
+  test('a custom match decides while typing, and the list can start filtered', async () => {
+    const list = [{ label: '/a/docs', value: 1, path: true }, { label: '/b/src', value: 2, path: true }, { label: 'Setting', value: 3 }];
+    const match = (it, q) => !!it.path && it.label.endsWith(q.trim());
+    const p = showList({ items: list, filter: true, match, query: 'src' });
+    expect(currentPopup().filter).toBe('src');
+    expect(document.querySelectorAll('.mc-popup .it:not([hidden])').length).toBe(1);
+    press('Backspace'); press('Backspace'); press('Backspace');
+    expect(document.querySelectorAll('.mc-popup .it:not([hidden])').length).toBe(3);
+    press('s');
+    expect(document.querySelectorAll('.mc-popup .it:not([hidden])').length).toBe(1);
+    press('Enter');
+    expect((await p).item.value).toBe(1);
+  });
+});

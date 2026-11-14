@@ -273,3 +273,13 @@ func (q *Frequent) Save(f *File, section string) {
 	}
 	f.ReplaceSection(section, kvs)
 }
+
+// Scores returns each folder (as last visited) with its current score, for rankings that mix in other sources (the
+// frecency jump, F-867). The map is a copy; changing it does not change the list.
+func (q *Frequent) Scores() map[string]float64 {
+	out := make(map[string]float64, len(q.score))
+	for k, s := range q.score {
+		out[q.names[k]] = s
+	}
+	return out
+}
