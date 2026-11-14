@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.32 – 2026-11-14
+
+### Fixed
+
+- The copy summary now counts only the bytes that were really written. Files that were skipped or failed used to be
+  added to the total, so the summary showed more than was copied, and after stopping a copy the done size could jump to
+  the full file size. The progress bar still reaches the end as before.
+
 ## 0.9.31 – 2026-11-14
 
 ### Fixed
