@@ -545,6 +545,15 @@ function install() {
   for (const t of ['mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) document.addEventListener(t, backClick, true);
   on('dlg-input', (name, msg) => { const s = sessions.get(name); if (s && msg) s.inSeq.push(msg.q, msg); });
   on('dlg-closed', (name) => { const s = sessions.get(name); if (s && !s.closed) s.entry.cancel(); });
+  // the window's close button: the dialog closes the way Esc closes it (it may ask first, or stay); Go is told the request
+  // was handled, so the next click asks again (feature_dialog_window.go)
+  on('dlg-close-request', (name) => {
+    go.DialogWindows.CloseAsked(name).catch(() => {});
+    const s = sessions.get(name);
+    if (!s || s.closed) return;
+    if (s.entry.requestClose) s.entry.requestClose();
+    else s.entry.cancel();
+  });
   bodyMo = new MutationObserver((recs) => {
     for (const r of recs) {
       for (const n of r.addedNodes) {

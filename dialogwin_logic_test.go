@@ -259,3 +259,27 @@ func TestTopAbove(t *testing.T) {
 		t.Errorf("no dialogs: got %q", got)
 	}
 }
+
+// The close button asks the page first, like Esc (board #136: Compare by content lost unsaved edits); a page that does
+// not answer cannot keep the window, and a window under another dialog window waits for that one.
+func TestCloseChoice(t *testing.T) {
+	now := time.Now()
+	cases := []struct {
+		name          string
+		byUser, isTop bool
+		asked         time.Time
+		want          closeAction
+	}{
+		{"closed by the page or the app", false, true, time.Time{}, closeNow},
+		{"closed by the page, not top", false, false, now, closeNow},
+		{"first click asks the page", true, true, time.Time{}, closeAskPage},
+		{"second click while the page is answering", true, true, now.Add(-time.Second), closeWait},
+		{"the page never answered", true, true, now.Add(-closeAskWait), closeNow},
+		{"a dialog window above it", true, false, time.Time{}, closeFocusTop},
+	}
+	for _, c := range cases {
+		if got := closeChoice(c.byUser, c.isTop, c.asked, now); got != c.want {
+			t.Errorf("%s: got %d, want %d", c.name, got, c.want)
+		}
+	}
+}

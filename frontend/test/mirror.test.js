@@ -369,6 +369,46 @@ describe('mirror: popups, look, nested dialogs', () => {
     expect(await p).toBe('cancelled');
   });
 
+  // board #136: the close button of the window went straight to cancel, past a dialog's own Esc handling, so Compare by
+  // content dropped unsaved edits without asking. It now goes the way Esc goes; Go is told the request was handled.
+  test('modal(): the window\'s close button does what Esc does (plain dialogs cancel)', async () => {
+    const p = modal((b) => { b.innerHTML = '<h2>Find</h2><input id="q">'; }, 'cancelled', { kind: 'find' });
+    await tick();
+    const w = win();
+    handlers['dlg-close-request'](w.name);
+    expect(calls.some((c) => c.m === 'CloseAsked' && c.args[0] === w.name)).toBe(true);
+    expect(await p).toBe('cancelled');
+    expect(calls.some((c) => c.m === 'Close' && c.args[0] === w.name)).toBe(true);
+  });
+
+  test('modal(): a dialog that keeps Esc to ask first is not closed by the close button', async () => {
+    let asked = 0, finish;
+    // like openWindow (features/synccompare-ui.js): a capture listener made before the modal keeps Esc
+    const keep = (ev) => { if (ev.key === 'Escape' && document.querySelector('.mc-box h2')?.textContent === 'Compare') { asked++; ev.preventDefault(); ev.stopImmediatePropagation(); } };
+    window.addEventListener('keydown', keep, true);
+    const p = modal((b, done) => { b.innerHTML = '<h2>Compare</h2><div tabindex="0" class="body"></div>'; finish = done; }, 'lost', { kind: 'compare' });
+    await tick();
+    const w = win();
+    handlers['dlg-close-request'](w.name);
+    await tick();
+    expect(asked).toBe(1);
+    expect(currentDialog()?.kind).toBe('compare'); // still open: nothing thrown away
+    expect(calls.some((c) => c.m === 'Close' && c.args[0] === w.name)).toBe(false);
+    finish('saved');
+    expect(await p).toBe('saved');
+    window.removeEventListener('keydown', keep, true);
+  });
+
+  test('modal(): meta.onClose replaces the Esc path for the close button', async () => {
+    let finish, seen = 0;
+    const p = modal((b, done) => { b.innerHTML = '<h2>Compare</h2>'; finish = done; }, 'lost', { kind: 'compare', onClose: () => { seen++; finish('asked'); } });
+    await tick();
+    const w = win();
+    handlers['dlg-close-request'](w.name);
+    expect(seen).toBe(1);
+    expect(await p).toBe('asked');
+  });
+
   test('modal(): the kinds in PAGE_ONLY_KINDS and in the setting dialogsInPage stay in the page; dialogsInWindows off too', async () => {
     const before = calls.filter((c) => c.m === 'Open').length;
     let close;

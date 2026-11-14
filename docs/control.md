@@ -352,3 +352,5 @@ dialog in the page; `dialog` tells which window shows it (`window`), and `window
 or a menu drawn as a floating box over a dialog window is drawn inside that window (`popup` and `popup_choose` work as
 always). Kinds that always stay in the page: `lister` (the Lister over the panels, `viewerInWindow: false`); more kinds
 can be kept in the page with the setting `dialogsInPage` (a list of kinds, e.g. `["options", "find"]`).
+A dialog window's own close button does what Esc does in the dialog (Compare by content asks to save unsaved changes
+first); a window with another dialog window above it does not close.

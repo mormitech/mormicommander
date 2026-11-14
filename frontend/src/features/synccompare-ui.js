@@ -13,8 +13,9 @@ import { comboFromEvent } from '../core/keys.js';
 const topModal = () => { const all = document.querySelectorAll('.mc-modal'); return all[all.length - 1] || null; };
 
 // openWindow shows a window. build(box, done) fills it; onKey(ev, combo) returns true for keys it handled. The promise
-// resolves with what done() got (cancelValue for Esc, unless onKey keeps Esc).
-export function openWindow({ kind, cls = '', build, onKey, cancelValue = null }) {
+// resolves with what done() got (cancelValue for Esc, unless onKey keeps Esc). onClose(), when given, is what the close
+// button of the dialog window does (else it does what Esc does).
+export function openWindow({ kind, cls = '', build, onKey, onClose, cancelValue = null }) {
   let box = null;
   const key = (ev) => {
     if (!box || topModal() !== box.parentElement) return;
@@ -28,7 +29,7 @@ export function openWindow({ kind, cls = '', build, onKey, cancelValue = null })
     box.classList.add('mc-sc-win');
     if (cls) box.classList.add(cls);
     build(box, done);
-  }, cancelValue, { kind }).finally(() => window.removeEventListener('keydown', key, true));
+  }, cancelValue, { kind, onClose }).finally(() => window.removeEventListener('keydown', key, true));
 }
 
 // contextMenu shows a small menu at a point ({x, y}) and resolves with the chosen item's value, or null. Items:

@@ -12,10 +12,12 @@
 //     transient window on Linux) and hands it the dialog; the window asks to be shown once it has drawn it (ShowMe);
 //   - Push carries patches from the dialog's page to its window, Input the user's actions the other way ("dlg-patch"
 //     and "dlg-input" events sent to that one window only); every message is numbered, so their order is kept;
-//   - closing the window with its close button cancels the dialog ("dlg-closed" to the dialog's page), unless a nested
-//     dialog window is open above it: then the close is refused and that window gets the focus; Close is the page
-//     closing it after an answer; the window's place (and its size, when it was resized) is kept per dialog kind in
-//     the setting "dialogWindows";
+//   - the window's close button does what Esc does in the dialog: the window stays, and the dialog's page is asked to
+//     close it ("dlg-close-request"), so a dialog can ask first ("Save changes?") or refuse; the page says it got the
+//     request (CloseAsked), and should it not answer within closeAskWait the next click closes the window anyway and
+//     cancels the dialog ("dlg-closed"). A window with another dialog window above it is not closed (the top one gets
+//     the focus). Close is the page closing it after an answer; the window's place (and its size, when it was
+//     resized) is kept per dialog kind in the setting "dialogWindows";
 //   - a watchdog wakes a shown window whose page has not said the dialog is drawn (Shown) within half a second, a few
 //     times (dialogWake in dialogwin_logic.go, wakeWindow per system), so a window never stays an empty box.
 //
@@ -67,7 +69,8 @@ type dialogWin struct {
 	ownerName string                     // the owner's name (for topOf)
 	parent    *application.WebviewWindow // the window it stays above (the owner, or the dialog below it)
 	shown     bool
-	byPage    bool // closed by the page (an answer), not by the user
+	byPage    bool      // closed by the page (an answer), not by the user
+	asked     time.Time // when the page was asked to close it (the close button) and has not answered yet
 	pending   []json.RawMessage
 	title     string
 	placed    [2]int        // where it was put (x, y), to tell whether the user moved it
@@ -346,6 +349,43 @@ func (dw *DialogWindows) Close(name string) {
 	}
 }
 
+// CloseAsked is the dialog's page saying it got a close request ("dlg-close-request") and handled it the way Esc is
+// handled: the dialog closed, asks something first, or stays. The next click on the close button asks it again.
+func (dw *DialogWindows) CloseAsked(name string) {
+	dw.mu.Lock()
+	if v := dw.wins[name]; v != nil {
+		v.asked = time.Time{}
+	}
+	dw.mu.Unlock()
+}
+
+// keepOpen tells whether a window that is about to close stays (see closeChoice): instead, the page is asked to close
+// it, or the dialog window above it gets the focus.
+func (dw *DialogWindows) keepOpen(v *dialogWin) bool {
+	dw.mu.Lock()
+	byUser := v.req != nil && !v.byPage && v.owner != nil && !dw.app.isQuitting()
+	top := dw.topOf(v.ownerName)
+	now := time.Now()
+	choice := closeChoice(byUser, top == v, v.asked, now)
+	if choice == closeAskPage {
+		v.asked = now
+	}
+	owner, name := v.owner, v.name
+	dw.mu.Unlock()
+	dlgDebug("close button %s: %d", name, choice)
+	switch choice {
+	case closeAskPage:
+		dispatchTo(owner, "dlg-close-request", name)
+	case closeFocusTop:
+		if top != nil {
+			go top.w.Focus()
+		}
+	case closeNow:
+		return false
+	}
+	return true
+}
+
 // ---- the windows ----
 
 // fill makes spare windows until the pool is full (one at a time, in the background).
@@ -392,6 +432,10 @@ func (dw *DialogWindows) newWindow() *dialogWin {
 		if top := dw.blockingClose(v); top != nil { // a nested dialog is open above it: that one gets the focus
 			e.Cancel()
 			go top.w.Focus()
+			return
+		}
+		if dw.keepOpen(v) { // the page is asked to close it the way Esc does
+			e.Cancel()
 			return
 		}
 		dw.closing(v)

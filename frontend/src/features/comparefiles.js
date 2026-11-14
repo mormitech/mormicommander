@@ -419,6 +419,13 @@ function runWindow(app, first, encodings) {
       // keep the window's done() for Esc handling below
       st.done = done;
     },
+    // the window's close button: a line being edited is kept (not dropped as Esc drops it), then unsaved changes are
+    // asked about, as Close does (board #136)
+    onClose: async () => {
+      if (!st.done) return;
+      if (st.editing) await commitEdit();
+      close(st.done);
+    },
     onKey: (ev, combo) => {
       const inField = ev.target.matches?.('input[type=text], select');
       if (st.editing && ev.target === st.editing.input) {

@@ -74,7 +74,8 @@ function draggable(box, kind) {
 }
 
 // modal shows a box; build fills it and gets done(value) to close it with an answer. meta: {kind} for control mode,
-// and optionally onKey(ev) → true when the dialog handles a key itself (keys don't reach elements inside otherwise).
+// and optionally onKey(ev) → true when the dialog handles a key itself (keys don't reach elements inside otherwise), and
+// onClose() for the close button of its dialog window (else that button does what Esc does: see requestClose below).
 // windowsWanted tells whether a dialog of this kind goes to a window of its own.
 function windowsWanted(kind) {
   if (!mirrorAvailable() || getSetting('dialogsInWindows', true) === false) return false;
@@ -110,6 +111,18 @@ export function modal(build, cancelValue, meta = {}) {
     };
     entry.done = done;
     entry.cancel = () => done(cancelValue);
+    // requestClose: the close button of the dialog's window. It goes the way Esc goes, so a dialog that handles Esc
+    // itself (Compare by content asks to save changes) does the same here; meta.onClose replaces that when given.
+    entry.requestClose = () => {
+      if (closed) return;
+      if (meta.onClose) { meta.onClose(); return; }
+      const ae = document.activeElement;
+      const target = ae && box.contains(ae) ? ae : box;
+      const ev = new KeyboardEvent('keydown', { key: 'Escape', code: 'Escape', bubbles: true, cancelable: true, composed: true, view: window });
+      target.dispatchEvent(ev);
+      // (nothing took the key although this dialog is on top: cancel it, as before)
+      if (!closed && !ev.defaultPrevented && open[open.length - 1] === entry) done(cancelValue);
+    };
     const key = (ev) => {
       if (open[open.length - 1] !== entry) return;
       // meta.onKey(ev) → true: the dialog used the key itself (F2 Queue in the copy dialog, a dropdown's Esc)

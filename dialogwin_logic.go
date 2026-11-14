@@ -1,7 +1,7 @@
 // The pure parts of the dialog windows (feature_dialog_window.go): which spare window a dialog takes, how big a window
-// may get on a screen, where it goes, how the place a kind of dialog was left in is kept in the settings, and when the
-// watchdog wakes a shown window whose page has not drawn the dialog. Nothing
-// here touches a window, so dialogwin_logic_test.go checks it without starting the app.
+// may get on a screen, where it goes, what a click on its close button does, how the place a kind of dialog was
+// left in is kept in the settings, and when the watchdog wakes a shown window whose page has not drawn the dialog.
+// Nothing here touches a window, so dialogwin_logic_test.go checks it without starting the app.
 package main
 
 import "time"
@@ -201,4 +201,37 @@ func dialogWake(since time.Duration, painted, open bool, woken int) (wake bool, 
 		}
 	}
 	return wake, max(dialogWakeAt[woken]-since, time.Millisecond)
+}
+
+// What happens when the user clicks a dialog window's close button (closeChoice).
+type closeAction int
+
+const (
+	closeNow      closeAction = iota // let the window close; the dialog's page is told it was cancelled ("dlg-closed")
+	closeAskPage                     // keep the window and ask the dialog's page to close it the way Esc does
+	closeWait                        // keep the window: the page was asked a moment ago and has not answered yet
+	closeFocusTop                    // keep the window: a dialog window above it has to be answered first
+)
+
+// closeAskWait is how long a page may take to answer a close request; a click on the close button after that closes the
+// window anyway, so a page that does not answer can never keep a window on the screen.
+const closeAskWait = 3 * time.Second
+
+// closeChoice decides what a click on a dialog window's close button does. byUser is false when the page or the app
+// closes it (an answer, the owner closing, quitting): that always closes. Else the window must be the top dialog window
+// of its owner, and the page is asked first (so a dialog can ask "Save changes?" or refuse); asked is when the page was
+// last asked and has not answered yet (zero when it was not).
+func closeChoice(byUser, isTop bool, asked, now time.Time) closeAction {
+	switch {
+	case !byUser:
+		return closeNow
+	case !isTop:
+		return closeFocusTop
+	case asked.IsZero():
+		return closeAskPage
+	case now.Sub(asked) < closeAskWait:
+		return closeWait
+	default:
+		return closeNow
+	}
 }
