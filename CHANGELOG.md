@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.36 – 2026-11-14
+
+### Fixed
+
+- On macOS, a dialog window (for example Options) no longer grows by about 32 px every time it is opened and closed.
+  The app now asks the window itself for its title bar and border size instead of relying on a value that came out
+  as zero, so an unresized window is no longer saved as if you had resized it.
+
 ## 0.9.35 – 2026-11-14
 
 ### Fixed
