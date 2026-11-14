@@ -39,6 +39,26 @@
 .mc-viewer-doc { position: absolute; inset: 0; overflow: auto; user-select: text; }
 .mc-viewer-dochost { min-height: 100%; }
 
+/* table mode (viewer/table.js): a sticky header row and the rows on screen, each a grid of the same columns */
+.mc-viewer-table { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.mc-viewer-table[hidden], .mc-tbl-bar[hidden], .mc-tbl-note[hidden] { display: none; }
+.mc-tbl-bar { display: flex; align-items: center; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.mc-tbl-bar select { margin-left: 6px; max-width: 50vw; }
+.mc-tbl-note { padding: 4px 8px; font-size: 12px; color: var(--muted); border-bottom: 1px solid var(--line); }
+.mc-tbl-scroll { flex: 1; min-height: 0; overflow: auto; outline: none; font: var(--mono); font-size: var(--mc-viewer-fs); line-height: var(--mc-viewer-lh, 17px); }
+.mc-viewer-variable .mc-tbl-scroll { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
+.mc-tbl-head { position: sticky; top: 0; z-index: 1; width: max-content; min-width: 100%; background: var(--panel); border-bottom: 1px solid var(--line); }
+.mc-tbl-body { position: relative; width: max-content; min-width: 100%; }
+.mc-tbl-rows { position: absolute; left: 0; top: 0; width: max-content; min-width: 100%; }
+.mc-tbl-row { display: grid; grid-template-columns: var(--mc-tbl-cols); height: var(--mc-viewer-lh, 17px); white-space: pre; cursor: default; }
+.mc-tbl-row > span { overflow: hidden; text-overflow: ellipsis; padding: 0 6px; border-right: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.mc-tbl-row:nth-child(even):not(.mc-tbl-hrow) { background: color-mix(in srgb, var(--line) 18%, transparent); }
+.mc-tbl-cur, .mc-tbl-row.mc-tbl-cur:nth-child(even) { background: color-mix(in srgb, var(--sel) 45%, transparent); }
+.mc-tbl-num { color: var(--muted); text-align: right; }
+.mc-tbl-null { color: var(--muted); font-style: italic; }
+.mc-tbl-h b { font-weight: 600; }
+.mc-tbl-h i { margin-left: 6px; font-style: normal; font-size: 0.85em; color: var(--muted); }
+
 .mc-viewer-note { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); padding: 16px; text-align: center; }
 .mc-viewer-folder { display: flex; flex-direction: column; gap: 6px; align-items: center; }
 .mc-viewer-folder b { color: var(--text); font-size: 15px; overflow-wrap: anywhere; }

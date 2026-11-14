@@ -381,6 +381,7 @@ command({
       ${chk('lo-hex', 'Open binary files in hex mode', s.autoHex)}
       ${chk('lo-media', 'Show images, audio and video', s.showMedia)}
       ${chk('lo-html', 'Show HTML and Markdown rendered', s.renderHTML)}
+      ${chk('lo-table', 'Open CSV, TSV, JSONL and SQLite files as a table', s.openTables)}
       ${chk('lo-wrap', 'Wrap text', s.wrap)}
       ${chk('lo-fit', 'Fit images to the window', s.fitImage)}
       ${!inListerWindow() ? chk('lo-window', 'Open the Lister in a window of its own', inWindowSetting(app)) : ''}
@@ -401,7 +402,7 @@ command({
       if (bin == null) return 'The binary width must be a number from 8 to 1024.';
       if (fs == null) return 'The font size must be a number from 8 to 32.';
       return { defaultMode: v('lo-mode').value, defaultCharset: v('lo-charset').value, autoHex: v('lo-hex').checked, showMedia: v('lo-media').checked,
-        renderHTML: v('lo-html').checked, wrap: v('lo-wrap').checked, fitImage: v('lo-fit').checked, tabWidth: tab, binaryWidth: bin, fontSize: fs,
+        renderHTML: v('lo-html').checked, openTables: v('lo-table').checked, wrap: v('lo-wrap').checked, fitImage: v('lo-fit').checked, tabWidth: tab, binaryWidth: bin, fontSize: fs,
         font: v('lo-font').value, viewer: v('lo-viewer').value.trim(), editor: v('lo-editor').value.trim(), inWindow: v('lo-window') ? v('lo-window').checked : null };
     }, null, { okLabel: 'Save', kind: 'lister-options' });
     if (!r) return;

@@ -21,6 +21,7 @@ import (
 
 	"mormicommander/internal/dirsize"
 	"mormicommander/internal/lister"
+	"mormicommander/internal/table"
 	"mormicommander/internal/vfs"
 )
 
@@ -45,6 +46,7 @@ type listerSession struct {
 	work    context.CancelFunc
 	workSeq int
 	follow  context.CancelFunc
+	table   *listerTableState // the file read as a table (feature_lister_table.go), once the page asked for it
 }
 
 // listerDocLimit caps what is read whole: HTML/RTF converted to text, documents rendered by the page.
@@ -94,6 +96,7 @@ type ListerInfo struct {
 	OffsetDigits int                `json:"offsetDigits"` // hex digits of offsets in hex mode
 	DataStart    int64              `json:"dataStart"`    // first byte after a byte order mark
 	ViewSize     int64              `json:"viewSize"`     // size of what is shown (differs from Size for HTML/RTF as text)
+	Table        string             `json:"table"`        // the file can be shown as a table: csv, tsv, jsonl or sqlite ("" = no)
 	Options      ListerOptionsShown `json:"options"`
 }
 
@@ -277,6 +280,7 @@ func (s *listerSession) info(id int, probe bool) ListerInfo {
 		sample := make([]byte, lister.SampleSize)
 		n, _ := s.file.ReadAt(sample, 0)
 		info.Suggest = viewKindName(lister.SuggestView(s.path, sample[:n]))
+		info.Table = table.Kind(s.path, sample[:n])
 		if m, err := lister.ProbeMedia(s.file, s.file.Size()); err == nil {
 			info.Media = m
 			if info.Suggest != "media" && m.Kind != "" && (m.Kind == "image" || m.Kind == "audio" || m.Kind == "video") && det.Binary {
@@ -693,6 +697,9 @@ func (l *Lister) Reload(id int) (ListerChange, error) {
 	}
 	if c.Changed() {
 		s.rebuildText()
+		s.mu.Lock()
+		s.table = nil // read again when the page asks
+		s.mu.Unlock()
 	}
 	return ListerChange{Changed: c.Changed(), Grown: c.Grown, Truncated: c.Truncated, Replaced: c.Replaced, Size: c.NewSize}, nil
 }

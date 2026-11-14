@@ -4,7 +4,8 @@
 // search matches are byte ranges too; every row says which byte each of its characters came from.
 //
 // Modes (TC's keys): 1 text, 2 binary, 3 hex, 4 image/multimedia, 5 HTML/Markdown rendered (other files: HTML as text),
-// 6/U Unicode, 7/8 UTF-8, A ANSI, S ASCII (DOS), V variable-width font, W wrap. See key() for the rest.
+// 6/U Unicode, 7/8 UTF-8, A ANSI, S ASCII (DOS), V variable-width font, W wrap, T table (CSV, TSV, JSONL and SQLite as a
+// grid, viewer/table.js). See key() for the rest.
 
 import { go, on, errText } from '../../core/go.js';
 import { track } from '../../core/busy.js';
@@ -16,8 +17,9 @@ import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
 import { mediaTag } from './mediael.js';
+import { TableGrid, FORMAT_NAMES, rowsLabel } from './table.js';
 
-export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown' };
+export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown', table: 'Table' };
 const MEDIA_LIMIT = 256 * 1024 * 1024; // larger media files are not read into the page
 const CHUNK = 4 * 1024 * 1024;
 const WORD = /[\p{L}\p{N}_]/u;
@@ -31,6 +33,7 @@ export const LISTER_DEFAULTS = {
   autoHex: true, // binary files open in hex mode (TC opens them as text)
   showMedia: true, // images, audio and video open in mode 4 (TC's BmpStartup / Multimedia)
   renderHTML: true, // HTML and Markdown open rendered
+  openTables: false, // CSV, TSV, JSONL and SQLite files open as a table (off: they open as before; T shows the table)
   wrap: true,
   tabWidth: 8,
   binaryWidth: 75,
@@ -111,6 +114,7 @@ export class ListerView {
     this.blobURL = '';
     this.mediaFor = 0;
     this.docFor = 0;
+    this.tableFor = 0;
     this.folder = null;
     this.build();
   }
@@ -127,13 +131,19 @@ export class ListerView {
         <div class="mc-viewer-sb" title="Position in the file"><div class="mc-viewer-thumb"></div></div>
         <div class="mc-viewer-media" hidden></div>
         <div class="mc-viewer-doc" hidden></div>
+        <div class="mc-viewer-table" hidden></div>
         <div class="mc-viewer-note" hidden></div>
       </div>
       <div class="mc-viewer-status"><span class="mc-viewer-st-l"></span><span class="mc-viewer-st-r"></span></div>`;
     const $ = (s) => el.querySelector(s);
     this.el = el;
     this.$ = { main: $('.mc-viewer-main'), text: $('.mc-viewer-text'), rows: $('.mc-viewer-rows'), sb: $('.mc-viewer-sb'), thumb: $('.mc-viewer-thumb'),
-      media: $('.mc-viewer-media'), doc: $('.mc-viewer-doc'), note: $('.mc-viewer-note'), stl: $('.mc-viewer-st-l'), str: $('.mc-viewer-st-r') };
+      media: $('.mc-viewer-media'), doc: $('.mc-viewer-doc'), table: $('.mc-viewer-table'), note: $('.mc-viewer-note'), stl: $('.mc-viewer-st-l'), str: $('.mc-viewer-st-r') };
+    this.grid = new TableGrid(this.$.table, {
+      api: { table: (name) => go.Lister.Table(this.id, name), rows: (start, count) => go.Lister.TableRows(this.id, start, count) },
+      onChange: (e) => { if (e) this.note(errText(e), true); else this.status(); },
+      focus: () => this.focus(),
+    });
     this.applyFont();
     this.ro = new ResizeObserver(() => this.layout());
     this.ro.observe(this.$.main);
@@ -172,6 +182,7 @@ export class ListerView {
     // whole pixels per row, so the number of rows that fit is exact
     this.lh = Math.ceil(this.fontSize * 1.4);
     this.el.style.setProperty('--mc-viewer-lh', `${this.lh}px`);
+    this.grid?.setRowHeight(this.lh);
     this.measured = false;
   }
 
@@ -192,6 +203,7 @@ export class ListerView {
   // layout fits rows and columns to the space; when they change the page is fetched again.
   layout() {
     if (!this.el.isConnected) return;
+    if (this.mode === 'table') this.grid.draw(); // more or fewer rows fit now
     if (!this.measured) this.measure();
     if (!this.measured) return;
     const t = this.$.text;
@@ -261,6 +273,7 @@ export class ListerView {
 
   autoMode(info, s) {
     const forced = s.defaultMode !== 'auto' ? s.defaultMode : '';
+    if (info.table && s.openTables && !this.internalOnly && !forced) return 'table';
     switch (info.suggest) {
       case 'media': if (!this.internalOnly && s.showMedia) return 'media'; break;
       case 'html': case 'markdown': if (!this.internalOnly && s.renderHTML && !forced) return 'html'; break;
@@ -274,7 +287,12 @@ export class ListerView {
   // setMode switches between the five modes.
   async setMode(m, initial = false) {
     if (!this.id) return;
-    if ((m === 'media' || m === 'html') && this.internalOnly) { this.note('This view shows text, binary and hex only.'); return; }
+    if ((m === 'media' || m === 'html' || m === 'table') && this.internalOnly) { this.note('This view shows text, binary and hex only.'); return; }
+    if (m === 'table' && !this.info.table) {
+      this.note('This file is not a table: CSV, TSV, JSON Lines (JSONL) and SQLite files can be shown as one.');
+      if (!initial) return;
+      m = 'text';
+    }
     if (m === 'media') {
       if (this.info.suggest === 'rtf') { this.asText = 'rtf'; m = 'text'; } else if (!this.info.media) {
         if (!initial) this.note('This is not an image or media file, so it is shown as text.');
@@ -286,6 +304,7 @@ export class ListerView {
     this.showPane();
     if (m === 'media') { await track(this.showMedia()); this.status(); return; }
     if (m === 'html') { await track(this.showDoc()); this.status(); return; }
+    if (m === 'table') { await this.showTable(); return; }
     await this.queue(() => this.applyOptions());
   }
 
@@ -295,6 +314,7 @@ export class ListerView {
     this.$.sb.hidden = !textual;
     this.$.media.hidden = this.mode !== 'media';
     this.$.doc.hidden = this.mode !== 'html';
+    this.$.table.hidden = this.mode !== 'table';
     this.$.note.hidden = true;
     this.el.dataset.mode = this.mode;
     if (textual) requestAnimationFrame(() => this.layout());
@@ -404,6 +424,12 @@ export class ListerView {
       parts.push(m.format + (m.width ? ` ${m.width}×${m.height}` : ''));
       if (this.mode === 'media' && m.kind === 'image') parts.push(this.fit ? 'Fit to window' : `${Math.round(this.zoom * 100)}%`);
     }
+    const g = this.mode === 'table' ? this.grid.shape : null;
+    if (g) {
+      parts.push(FORMAT_NAMES[g.format] || g.format);
+      if (g.current) parts.push(g.current);
+      parts.push(`${fmtBytes((g.columns || []).length)} ${(g.columns || []).length === 1 ? 'column' : 'columns'}`);
+    }
     const sr = this.selRange();
     if (sr && this.isTextMode()) parts.push(`${fmtBytes(sr[1] - sr[0])} bytes selected`);
     this.$.stl.textContent = this.msg || parts.join(' · ');
@@ -415,6 +441,7 @@ export class ListerView {
       if (this.mode !== 'text') right.push(`Offset ${hexOffset(p.top, this.info.offsetDigits || 8)}`);
       right.push(`${Math.round(p.percent)}%`);
     }
+    if (g) right.push(g.rows ? `Row ${fmtBytes(this.grid.cursor + 1)} of ${rowsLabel(g)}` : rowsLabel(g));
     right.push(fmtSize(this.info.size));
     this.$.str.textContent = right.join(' · ');
   }
@@ -434,8 +461,30 @@ export class ListerView {
     this.blobURL = '';
     this.mediaFor = 0;
     this.docFor = 0;
+    this.tableFor = 0;
     this.$.media.textContent = '';
     this.$.doc.textContent = '';
+    this.grid?.clear();
+  }
+
+  // showTable reads the file as a table the first time and shows the grid (key T).
+  async showTable() {
+    const id = this.id;
+    if (this.tableFor !== id) {
+      try {
+        await track(this.grid.load(''));
+      } catch (e) {
+        if (this.id !== id) return;
+        this.note(errText(e), true);
+        this.mode = 'text';
+        this.showPane();
+        await this.queue(() => this.applyOptions());
+        return;
+      }
+      if (this.id !== id) return;
+      this.tableFor = id;
+    } else this.grid.layout();
+    this.status();
   }
 
   async showMedia() {
@@ -542,7 +591,7 @@ export class ListerView {
     this.close();
     this.folder = { name, path };
     this.mode = 'text';
-    this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = true;
+    this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = this.$.table.hidden = true;
     const n = this.$.note;
     n.hidden = false;
     n.innerHTML = `<div class="mc-viewer-folder"><b>${esc(name)}</b><span>Folder</span><span class="mc-viewer-count">Counting…</span></div>`;
@@ -559,7 +608,7 @@ export class ListerView {
   // showNote replaces the view with a sentence (quick view on "..", or a file that can't be read).
   showNote(text) {
     this.close();
-    this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = true;
+    this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = this.$.table.hidden = true;
     this.$.note.hidden = false;
     this.$.note.innerHTML = `<p>${esc(text)}</p>`;
     this.status();
@@ -766,12 +815,23 @@ export class ListerView {
   }
 
   async copy(asHex = false) {
+    if (this.mode === 'table' && !asHex) { await this.copyRow(); return; }
     const sr = this.selRange();
     if (!sr) { this.note('Nothing is selected. Drag over the text, or press Ctrl+A to select all.'); return; }
     await this.queue(async () => {
       const n = await go.Lister.Copy(this.id, sr[0], sr[1], asHex);
       this.note(`Copied ${fmtBytes(n)} bytes${asHex ? ' as hex' : ''}.`);
     });
+  }
+
+  // copyRow copies the row under the cursor in table mode, its cells separated by tabs.
+  async copyRow() {
+    if (!this.grid.shape?.rows) return;
+    try {
+      const t = await this.grid.rowText();
+      await navigator.clipboard.writeText(t);
+      this.note(`Copied row ${fmtBytes(this.grid.cursor + 1)}.`);
+    } catch (e) { this.note(`Can't copy the row: ${errText(e)}`, true); }
   }
 
   async reload() {
@@ -782,7 +842,10 @@ export class ListerView {
       if (!c.changed) { this.note('The file has not changed.'); return; }
       const info = await go.Lister.SetOptions(this.id, this.engineOptions());
       Object.assign(this.info, { viewSize: info.viewSize, offsetDigits: info.offsetDigits, dataStart: info.dataStart });
-      if (this.mode === 'media' || this.mode === 'html') {
+      if (this.mode === 'table') {
+        this.tableFor = 0;
+        await this.showTable();
+      } else if (this.mode === 'media' || this.mode === 'html') {
         this.dropMedia();
         this.info.media = normMedia(await go.Lister.Media(this.id));
         await (this.mode === 'media' ? this.showMedia() : this.showDoc());
@@ -904,6 +967,7 @@ export class ListerView {
 
   async goTo() {
     if (!this.id) return;
+    if (this.mode === 'table') { await this.goToRow(); return; }
     if (!this.isTextMode()) await this.setMode('text');
     const text = this.mode === 'text';
     const hint = text ? 'Line number, or an offset (0x1F40), or a percentage (50%):' : this.mode === 'hex' ? 'Offset in hex (1F40), or a percentage (50%):' : 'Offset (8000 or 0x1F40), or a percentage (50%):';
@@ -926,6 +990,16 @@ export class ListerView {
         } finally { this.searching = false; }
       });
     } else await this.refresh('offset', parseInt(s, 10));
+  }
+
+  // goToRow is Go to in table mode: a row number.
+  async goToRow() {
+    const n = this.grid.shape?.rows || 0;
+    const v = await inputDialog({ title: 'Go to', label: `Row number (1 to ${fmtBytes(n)}):`, value: '', kind: 'lister-goto', okLabel: 'Go',
+      validate: (s) => (/^\s*\d+\s*$/.test(s) ? '' : 'Type a row number.') });
+    this.focus();
+    if (v == null) return;
+    this.grid.goToRow(parseInt(v, 10) - 1);
   }
 
   async saveAs() {
@@ -998,6 +1072,7 @@ export class ListerView {
       case '3': this.setMode('hex'); return true;
       case '4': this.setMode('media'); return true;
       case '5': this.setMode('html'); return true;
+      case 'T': this.setMode('table'); return true;
       case '6': case 'U': this.setEncoding('unicode'); return true;
       case '7': case '8': this.setEncoding('utf-8'); return true;
       case 'A': this.setEncoding('ansi'); return true;
@@ -1033,6 +1108,7 @@ export class ListerView {
       if (m === 'End' || m === 'Ctrl+End' || m === 'Ctrl+Down') { d.scrollTop = d.scrollHeight; return true; }
       return false;
     }
+    if (this.mode === 'table') return this.grid.key(m);
     if (this.mode === 'media') {
       const v = this.$.media.querySelector('video, audio');
       if (m === 'Space' && v) { if (v.paused) v.play().catch(() => {}); else v.pause(); return true; }
@@ -1073,7 +1149,7 @@ export class ListerView {
         { label: 'Close', detail: 'Esc', run: () => this.onClose?.(), disabled: !this.onClose },
       ];
       case 'Edit': return [
-        { label: 'Copy', detail: k('Ctrl+C'), run: () => this.copy(false), disabled: !textual },
+        { label: this.mode === 'table' ? 'Copy row' : 'Copy', detail: k('Ctrl+C'), run: () => this.copy(false), disabled: !textual && this.mode !== 'table' },
         { label: 'Copy as hex', run: () => this.copy(true), disabled: !textual },
         { label: 'Select all', detail: k('Ctrl+A'), run: () => this.selectAll(), disabled: !textual },
         { sep: true },
@@ -1089,6 +1165,7 @@ export class ListerView {
         { label: ck(this.mode === 'hex', 'Hex'), detail: '3', run: () => this.setMode('hex') },
         { label: ck(media, 'Image/Multimedia'), detail: '4', run: () => this.setMode('media'), disabled: this.internalOnly },
         { label: ck(this.mode === 'html' || this.asText === 'html', 'HTML/Markdown'), detail: '5', run: () => this.setMode('html') },
+        { label: ck(this.mode === 'table', 'Table'), detail: 'T', run: () => this.setMode('table'), disabled: this.internalOnly || !this.info?.table },
         { sep: true },
         { label: ck(this.info?.encoding === 'utf-16le' && !!this.enc, 'Unicode'), detail: '6 / U', run: () => this.setEncoding('unicode') },
         { label: ck(this.info?.encoding === 'utf-8' && !!this.enc, 'UTF-8'), detail: '7 / 8', run: () => this.setEncoding('utf-8') },
@@ -1157,7 +1234,7 @@ export class ListerView {
       size: this.info?.size ?? 0, suggest: this.info?.suggest ?? '', media: this.info?.media ? { kind: this.info.media.kind, format: this.info.media.format, width: this.info.media.width, height: this.info.media.height } : null,
       mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
       follow: this.follow, searching: this.searching, status: this.$.stl.textContent, statusRight: this.$.str.textContent, folder: this.folder?.path ?? null,
-      note: this.$.note.hidden ? '' : this.$.note.textContent.trim(),
+      note: this.$.note.hidden ? '' : this.$.note.textContent.trim(), table: this.info?.table ?? '', grid: this.mode === 'table' ? this.grid.state() : null,
     };
   }
 
