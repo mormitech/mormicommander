@@ -269,3 +269,46 @@ func TestUndoCaseOnlyRenameLongName(t *testing.T) {
 		t.Errorf("the old name did not come back: %v", list)
 	}
 }
+
+// Undoing a rename whose old name is now another hard link of the same file is refused and changes nothing (#149).
+// With a case-only rename on a case-sensitive disk it used to leave the file under a temporary name.
+func TestUndoRenameOldNameIsHardLink(t *testing.T) {
+	for _, names := range [][2]string{{"a.txt", "b.txt"}, {"a.txt", "A.txt"}} {
+		dir := t.TempDir()
+		from, to := filepath.Join(dir, names[0]), filepath.Join(dir, names[1])
+		write(t, to, "data")
+		if err := os.Link(to, from); err != nil {
+			continue // case-insensitive disk or no hard links
+		}
+		e := Entry{Kind: Rename, Items: []Item{{From: from, To: to}}}
+		_, done, problems := Apply(PlanUndo(e, same).Steps)
+		if done != 0 || len(problems) == 0 {
+			t.Errorf("%v: done %d, problems %v; want a refusal", names, done, problems)
+		}
+		if list, _ := os.ReadDir(dir); len(list) != 2 {
+			t.Errorf("%v: left behind %v", names, list)
+		}
+	}
+}
+
+// Undoing the copy of a folder leaves the folder alone when something was added to it after the copy (#149); an
+// untouched copied folder is still undone.
+func TestUndoCopyFolderAddedTo(t *testing.T) {
+	dir := t.TempDir()
+	cp := filepath.Join(dir, "copy")
+	write(t, filepath.Join(cp, "a.txt"), "a")
+	write(t, filepath.Join(cp, "sub", "b.txt"), "b")
+	n, m, ok := TreeStamp(cp)
+	if !ok || n != 4 {
+		t.Fatalf("stamp: %d %d %v", n, m, ok)
+	}
+	e := Entry{Kind: Copy, Items: []Item{{From: filepath.Join(dir, "src"), To: cp, Dir: true, Size: n, MTime: m}}}
+	if p := PlanUndo(e, same); len(p.Steps) != 1 || len(p.Problems) != 0 {
+		t.Fatalf("untouched copy: steps %v, problems %v", p.Steps, p.Problems)
+	}
+	write(t, filepath.Join(cp, "sub", "mine.txt"), "added by the user")
+	os.Chtimes(filepath.Join(cp, "sub", "mine.txt"), time.Unix(1, 0), time.Unix(1, 0)) // an old file moved in
+	if p := PlanUndo(e, same); len(p.Steps) != 0 || len(p.Problems) != 1 {
+		t.Fatalf("copy with an added file: steps %v, problems %v; want it left alone", p.Steps, p.Problems)
+	}
+}

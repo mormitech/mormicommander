@@ -6,6 +6,7 @@ package ai
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"io"
 	"net"
@@ -65,7 +66,7 @@ func Guard(token string, next http.Handler) http.Handler {
 			http.Error(w, "refused", http.StatusForbidden)
 			return
 		}
-		if token == "" || r.Header.Get("Authorization") != "Bearer "+token {
+		if token == "" || subtle.ConstantTimeCompare([]byte(r.Header.Get("Authorization")), []byte("Bearer "+token)) != 1 {
 			http.Error(w, "token missing or wrong", http.StatusUnauthorized)
 			return
 		}

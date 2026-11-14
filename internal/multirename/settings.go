@@ -155,7 +155,8 @@ func (c *renderCtx) timeFormat() string {
 // is what Unix users expect; a trailing dot gives an empty extension.
 func SplitExt(name string) (base, ext string) {
 	i := strings.LastIndexByte(name, '.')
-	if i <= 0 {
+	if i <= 0 || i == len(name)-1 {
+		// no extension; a name ending in a dot ("file.") keeps the dot in its name part, so [N].[E] gives it back
 		return name, ""
 	}
 	return name[:i], name[i+1:]

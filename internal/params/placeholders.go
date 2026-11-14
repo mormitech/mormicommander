@@ -66,9 +66,29 @@ type Context struct {
 	// Dropped are files dropped onto the button (F-307); they are appended
 	// to the parameters as full paths, quoted as needed.
 	Dropped []string
+	// Batch says the program is a Windows batch file (.bat, .cmd), which cmd.exe reads: there a name such as
+	// "a&b.txt" would end the command and start another, so names with & | < > ^ ( ) are quoted as well (#149).
+	// Total Commander quotes only for blanks, which stays the rule for other programs.
+	Batch bool
 }
 
 func (c Context) style() Style { return c.Style.orDefault() }
+
+// batchMeta are the characters cmd.exe acts on outside quotes.
+const batchMeta = "&|<>^()"
+
+// needsQuote is NeedsQuote plus, for a batch file on Windows, cmd.exe's own operators.
+func (e *expander) needsQuote(s string) bool {
+	return NeedsQuote(s, e.st) || e.ctx.Batch && e.st == StyleWindows && strings.ContainsAny(s, batchMeta)
+}
+
+// quoteName quotes s when needsQuote says so.
+func (e *expander) quoteName(s string) string {
+	if !e.needsQuote(s) {
+		return s
+	}
+	return QuoteAlways(s, e.st)
+}
 
 // Result is an expanded parameter string.
 type Result struct {
@@ -401,7 +421,7 @@ func expand(params string, ctx Context, pathMode bool) (Result, error) {
 	}
 	if !pathMode {
 		for _, d := range ctx.Dropped {
-			out = append(out, Quote(d, e.st))
+			out = append(out, e.quoteName(d))
 		}
 	}
 	sep := " "
@@ -486,7 +506,7 @@ func (e *expander) renderOne(w []part) (string, bool) {
 	needs := false
 	for _, p := range w {
 		b.WriteString(p.text)
-		if p.sub && !p.raw && p.text != "" && NeedsQuote(p.text, e.st) {
+		if p.sub && !p.raw && p.text != "" && e.needsQuote(p.text) {
 			needs = true
 		}
 	}
@@ -512,7 +532,7 @@ func (e *expander) escapeIn(p part) string {
 		if p.quote == '"' {
 			return escapeWindowsInQuotes(p.text, p.beforeClose)
 		}
-		return Quote(p.text, e.st)
+		return e.quoteName(p.text)
 	}
 	switch p.quote {
 	case '"':

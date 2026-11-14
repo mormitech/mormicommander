@@ -8,9 +8,12 @@ package fileops
 import (
 	"errors"
 	"fmt"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"time"
+
+	"mormicommander/internal/robust"
 )
 
 // ErrExists is returned by RenameItem when another file already has the new name.
@@ -31,21 +34,29 @@ func RenameItem(path, newName string) (string, error) {
 		return dst, nil
 	}
 	if di, err := lstat(dst); err == nil {
-		if !sameFile(si, di) || !strings.EqualFold(filepath.Base(path), newName) {
+		// dst reaches the same file: a respelling of the one entry (another case, or another Unicode form such as
+		// NFC and NFD on APFS) when the folder does not list dst itself; another entry (a hard link) when it does
+		if !sameFile(si, di) || robust.ListsName(lp(filepath.Dir(dst)), newName) {
 			return "", ErrExists
 		}
-		// the same file under another case: two steps through a free temporary name
+		// two steps through a free temporary name; the second never replaces anything
 		tmp := filepath.Join(filepath.Dir(path), fmt.Sprintf(".%s.mc-rename-%d", tempStem(newName), time.Now().UnixNano()))
-		if err := rename(path, tmp); err != nil {
+		if err := renameNew(path, tmp); err != nil {
 			return "", err
 		}
-		if err := rename(tmp, dst); err != nil {
+		if err := renameNew(tmp, dst); err != nil {
 			rename(tmp, path)
+			if errors.Is(err, fs.ErrExist) {
+				return "", ErrExists
+			}
 			return "", err
 		}
 		return dst, nil
 	}
-	if err := rename(path, dst); err != nil {
+	if err := renameNew(path, dst); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return "", ErrExists
+		}
 		return "", err
 	}
 	return dst, nil

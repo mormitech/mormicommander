@@ -30,6 +30,7 @@ import (
 	"io/fs"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"syscall"
@@ -345,7 +346,7 @@ func (r *Router) download(ctx context.Context, t Transferer, p string, e Entry) 
 	if err != nil {
 		return err
 	}
-	dir := tmp[:len(tmp)-len(e.Name)]
+	dir := filepath.Dir(tmp) // the private folder newTempPath made for this one file
 	if _, err := t.Download(ctx, p, tmp, TransferOptions{}); err != nil {
 		os.RemoveAll(dir)
 		return err

@@ -28,6 +28,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"mormicommander/internal/robust"
 	"mormicommander/internal/trash"
 )
 
@@ -52,7 +53,9 @@ type Item struct {
 	To  string `json:"to"`
 	Dir bool   `json:"dir,omitempty"`
 	// Size and MTime describe a copied file as it was right after the copy (Unix milliseconds), so a copy the user
-	// has changed since is not thrown away by an undo. Zero for folders and for the other kinds.
+	// has changed since is not thrown away by an undo. For a copied folder they are its TreeStamp (entry count and
+	// newest time), so a folder the user has added to is left alone. Zero for the other kinds, and for folders in
+	// older journals.
 	Size  int64 `json:"size,omitempty"`
 	MTime int64 `json:"mtime,omitempty"`
 }
@@ -302,6 +305,12 @@ func PlanUndo(e Entry, sameVolume SameVolumeFunc) Plan {
 				p.Problems = append(p.Problems, fmt.Sprintf("%s is not the folder that was copied any more.", it.To))
 				continue
 			}
+			if it.Dir && it.Size > 0 {
+				if n, m, ok := TreeStamp(it.To); !ok || n != it.Size || m != it.MTime {
+					p.Problems = append(p.Problems, fmt.Sprintf("The folder %s was changed after the copy, so it was left alone.", it.To))
+					continue
+				}
+			}
 			p.Steps = append(p.Steps, Step{Op: OpRemove, From: it.From, To: it.To})
 		case MkDir:
 			if !within(it.To, it.From) {
@@ -426,17 +435,20 @@ func renameBack(s Step) error {
 		return err
 	}
 	if fi, err := os.Lstat(s.From); err == nil {
-		if !os.SameFile(fi, ti) {
+		// the same file through another spelling of one entry (case or Unicode form on a folding disk) is a
+		// respelling; another entry, even a hard link to the same file, has taken the old name
+		if !os.SameFile(fi, ti) || robust.ListsName(filepath.Dir(s.From), filepath.Base(s.From)) {
 			return errTaken
 		}
-		// the same file under another case (a case-only rename on a case-insensitive disk): two steps through a
-		// free temporary name
 		tmp := filepath.Join(filepath.Dir(s.To), fmt.Sprintf(".%s.mc-undo-%d", tempStem(filepath.Base(s.From)), time.Now().UnixNano()))
-		if err := os.Rename(s.To, tmp); err != nil {
+		if err := robust.RenameNoReplace(s.To, tmp); err != nil {
 			return err
 		}
-		if err := os.Rename(tmp, s.From); err != nil {
+		if err := robust.RenameNoReplace(tmp, s.From); err != nil {
 			os.Rename(tmp, s.To)
+			if errors.Is(err, fs.ErrExist) {
+				return errTaken
+			}
 			return err
 		}
 		return nil
@@ -444,7 +456,13 @@ func renameBack(s Step) error {
 	if err := os.MkdirAll(filepath.Dir(s.From), 0o777); err != nil {
 		return err
 	}
-	return os.Rename(s.To, s.From)
+	if err := robust.RenameNoReplace(s.To, s.From); err != nil {
+		if errors.Is(err, fs.ErrExist) {
+			return errTaken
+		}
+		return err
+	}
+	return nil
 }
 
 // tempStem is the part of a name that goes into a temporary name next to it: the whole name plus the prefix and suffix

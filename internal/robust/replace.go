@@ -64,7 +64,7 @@ func overwriteInPlace(tmp, target string) error {
 	}
 	defer src.Close()
 
-	backup, err := os.CreateTemp(filepath.Dir(target), "."+filepath.Base(target)+".backup-*")
+	backup, err := os.CreateTemp(filepath.Dir(target), "."+TempStem(filepath.Base(target))+".backup-*")
 	if err != nil {
 		return fmt.Errorf("%w: %v", errFallback, err)
 	}

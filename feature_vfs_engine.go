@@ -103,8 +103,16 @@ func vfsMask(m string) string {
 // vfsExtract unpacks a local archive file into dest (made when missing), which should be an empty folder: existing
 // files there are overwritten (callers unpack into a staging folder and merge it with the overwrite question). Problems
 // with single entries don't stop the run; they come back as sentences.
+//
+// Without paths two members with one name (dir1/x.txt, dir2/x.txt) land on one name in dest. They are kept both, the
+// later one under a free name, so the merge question sees both (#149); tar, which can't rename, skips the later one and
+// says so.
 func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files int, problems []string, err error) {
 	mask := vfsMask(o.Mask)
+	zipPolicy, sevenMode, tarPolicy := archive.PolicyOverwrite, sevenrar.OverwriteAll, arcapi.ConflictOverwrite
+	if o.NoPaths {
+		zipPolicy, sevenMode, tarPolicy = archive.PolicyAutoRename, sevenrar.OverwriteRename, arcapi.ConflictAsk
+	}
 	if err := os.MkdirAll(dest, 0o755); err != nil {
 		return 0, nil, err
 	}
@@ -120,7 +128,7 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		defer r.Close()
 		res, err := archive.Extract(ctx, r, archive.ExtractOptions{
-			Dest: dest, Paths: o.Paths, Base: o.Base, NoPaths: o.NoPaths, Mask: mask, Policy: archive.PolicyOverwrite,
+			Dest: dest, Paths: o.Paths, Base: o.Base, NoPaths: o.NoPaths, Mask: mask, Policy: zipPolicy,
 			OnError: onErr,
 			Progress: func(p archive.Progress) {
 				if o.Progress != nil {
@@ -153,7 +161,11 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		n := 0
 		err = r.Extract(ctx, names, dest, arcapi.ExtractOptions{
-			Flatten: o.NoPaths, StripPrefix: o.Base, Conflict: arcapi.ConflictOverwrite,
+			Flatten: o.NoPaths, StripPrefix: o.Base, Conflict: tarPolicy,
+			OnConflict: func(c arcapi.Conflict) arcapi.ConflictPolicy {
+				problems = append(problems, fmt.Sprintf("%s: another file named %s was unpacked already, so this one was skipped. Unpack with path names to get both.", c.Entry.Path, path.Base(c.Entry.Path)))
+				return arcapi.ConflictSkip
+			},
 			Filter: func(e arcapi.Entry) bool { return mask == "" || e.IsDir || m.Match(path.Base(e.Path)) },
 			Progress: func(p arcapi.Progress) {
 				n = p.Files
@@ -177,7 +189,7 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		}
 		defer a.Close()
 		res, err := a.Extract(ctx, dest, sevenrar.ExtractOptions{
-			Paths: o.Paths, BaseDir: o.Base, Mask: mask, FlattenPaths: o.NoPaths, Overwrite: sevenrar.OverwriteAll,
+			Paths: o.Paths, BaseDir: o.Base, Mask: mask, FlattenPaths: o.NoPaths, Overwrite: sevenMode,
 			OnError: func(e *sevenrar.EntryError) bool { return onErr(e.Path, e.Err) },
 			Progress: func(p sevenrar.Progress) {
 				if o.Progress != nil {
@@ -439,66 +451,6 @@ func vfsNewFilePerm(file string) {
 	if err == nil {
 		_ = os.Chmod(file, fi.Mode().Perm())
 	}
-}
-
-// vfsPack7z packs with an installed 7-Zip. Arguments travel as separate arguments, never through a shell. For "move to
-// archive" the archive is tested before the sources are deleted.
-func vfsPack7z(ctx context.Context, target string, sources []string, o vfsPackOpts) error {
-	exe := vfsSevenZip()
-	if exe == "" {
-		return errors.New("Packing to 7z needs 7-Zip (7zz or 7z) installed.")
-	}
-	args := []string{"a", "-t7z", "-y", "-bd"}
-	if o.Level > 0 {
-		args = append(args, "-mx="+strconv.Itoa(o.Level))
-	}
-	if o.Password != "" {
-		args = append(args, "-p"+o.Password, "-mhe=on")
-	}
-	if o.VolumeSize > 0 {
-		args = append(args, "-v"+strconv.FormatInt(o.VolumeSize, 10)+"b")
-	}
-	if o.NoRecurse {
-		args = append(args, "-r-")
-	}
-	args = append(args, "--", target)
-	args = append(args, sources...) // 7-Zip stores each source under its base name, like the other packers
-	run := func(args ...string) error {
-		cmd := exec.CommandContext(ctx, exe, args...)
-		hideWindow(cmd)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			msg := strings.TrimSpace(string(out))
-			if i := strings.LastIndex(msg, "\n"); i >= 0 {
-				msg = msg[i+1:]
-			}
-			return fmt.Errorf("7-Zip failed: %s", msg)
-		}
-		return nil
-	}
-	if err := run(args...); err != nil {
-		return err
-	}
-	if !o.Move {
-		return nil
-	}
-	targ := target
-	if o.VolumeSize > 0 {
-		targ += ".001"
-	}
-	test := []string{"t", "-bd", "-y"}
-	if o.Password != "" {
-		test = append(test, "-p"+o.Password)
-	}
-	if err := run(append(test, "--", targ)...); err != nil {
-		return fmt.Errorf("the new archive failed its test, so nothing was deleted: %v", err)
-	}
-	for _, s := range sources {
-		if err := os.RemoveAll(s); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // vfsTopNames lists the names directly inside a local folder, sorted.

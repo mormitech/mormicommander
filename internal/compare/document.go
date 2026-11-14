@@ -18,6 +18,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"mormicommander/internal/robust"
 )
 
 // Line is one line of a document. EOL is the line terminator as found in the
@@ -177,7 +179,7 @@ func WriteFileAtomic(path string, data []byte) error {
 		}
 	}
 	dir := filepath.Dir(path)
-	f, err := os.CreateTemp(dir, "."+filepath.Base(path)+".mc-tmp-*")
+	f, err := os.CreateTemp(dir, "."+robust.TempStem(filepath.Base(path))+".mc-tmp-*")
 	if err != nil {
 		return err
 	}

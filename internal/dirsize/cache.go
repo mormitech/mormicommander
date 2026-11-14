@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Cache remembers calculated folder sizes by path. The zero value is ready to use and it is safe for concurrent use.
@@ -21,6 +23,9 @@ type Cache struct {
 
 func cacheKey(p string) string {
 	p = filepath.Clean(p)
+	if runtime.GOOS == "darwin" {
+		p = norm.NFC.String(p) // APFS treats the NFC and NFD forms of a name as one name
+	}
 	if runtime.GOOS == "windows" || runtime.GOOS == "darwin" {
 		p = strings.ToLower(p)
 	}

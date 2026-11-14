@@ -8,7 +8,10 @@
 // asked, start the process, and call Cleanup when it exits.
 package params
 
-import "strings"
+import (
+	"path/filepath"
+	"strings"
+)
 
 // ShowMode is the window state a program is started in.
 type ShowMode int
@@ -103,6 +106,10 @@ func PrepareButton(b Button, ctx Context) (Launch, error) {
 	l.Program = cmd
 	l.Internal = IsInternalCommand(cmd)
 
+	if st == StyleWindows {
+		ext := strings.ToLower(filepath.Ext(cmd))
+		ctx.Batch = ext == ".bat" || ext == ".cmd"
+	}
 	r, err := Expand(b.Params, ctx)
 	l.ListFiles = r.ListFiles
 	l.Prompt = r.Prompt

@@ -338,3 +338,78 @@ func TestLiveZipFeedCopyDelete(t *testing.T) {
 		liveRun(t, exe, "t", arc)
 	}
 }
+
+// "Move to archive" with 7z deletes only what the tested archive holds (#149): 7-Zip packs a named folder completely
+// even with -r-, so "without subfolders" is done by listing the files; the subfolder stays where it is. Without paths,
+// two files with one name are refused before anything is packed. With a password the archive is still tested and
+// listed before the sources go.
+func TestLive7zMoveKeepsWhatWasNotPacked(t *testing.T) {
+	exe := liveSevenZip(t)
+	e := newLiveEnv(t, nil)
+	dir := t.TempDir()
+
+	// without subfolders: d/a.txt goes in and is deleted, d/sub/b.txt is not packed and stays
+	d := filepath.Join(dir, "nr", "d")
+	vfsWrite(t, filepath.Join(d, "a.txt"), "top")
+	vfsWrite(t, filepath.Join(d, "sub", "b.txt"), "below")
+	arc := filepath.Join(dir, "nr.7z")
+	job := e.vfsJob(VfsRequest{Kind: "pack", Format: "7z", Move: true, NoRecurse: true, Target: arc, Sources: []string{d}})
+	if len(job.p.Errors) > 0 {
+		t.Fatalf("move without subfolders: %v", job.p.Errors)
+	}
+	if got := liveSltPaths(liveRun(t, exe, "l", "-slt", arc)); !slices.Equal(got, []string{"d/a.txt"}) {
+		t.Fatalf("packed without subfolders: %v, want only d/a.txt", got)
+	}
+	if _, err := os.Stat(filepath.Join(d, "a.txt")); err == nil {
+		t.Fatal("d/a.txt was packed but not deleted")
+	}
+	if b, err := os.ReadFile(filepath.Join(d, "sub", "b.txt")); err != nil || string(b) != "below" {
+		t.Fatalf("d/sub/b.txt was never packed but is gone: %v", err)
+	}
+
+	// without paths: the files go in under their own names, the emptied folders go
+	np := filepath.Join(dir, "np", "f")
+	vfsWrite(t, filepath.Join(np, "x.txt"), "x")
+	vfsWrite(t, filepath.Join(np, "deep", "y.txt"), "y")
+	arc = filepath.Join(dir, "np.7z")
+	job = e.vfsJob(VfsRequest{Kind: "pack", Format: "7z", Move: true, NoPaths: true, Target: arc, Sources: []string{np}})
+	if len(job.p.Errors) > 0 {
+		t.Fatalf("move without paths: %v", job.p.Errors)
+	}
+	if got := liveSltPaths(liveRun(t, exe, "l", "-slt", arc)); !slices.Equal(got, []string{"x.txt", "y.txt"}) {
+		t.Fatalf("packed without paths: %v", got)
+	}
+	if _, err := os.Stat(np); err == nil {
+		t.Fatal("the emptied folder is still there")
+	}
+
+	// without paths, a name twice: refused, nothing packed or deleted
+	dup := filepath.Join(dir, "dup")
+	vfsWrite(t, filepath.Join(dup, "a", "same.txt"), "1")
+	vfsWrite(t, filepath.Join(dup, "b", "same.txt"), "2")
+	job = e.vfsJob(VfsRequest{Kind: "pack", Format: "7z", Move: true, NoPaths: true, Target: filepath.Join(dir, "dup.7z"), Sources: []string{dup}})
+	if len(job.p.Errors) == 0 {
+		t.Fatal("two files named same.txt packed without paths were not refused")
+	}
+	for _, f := range []string{filepath.Join(dup, "a", "same.txt"), filepath.Join(dup, "b", "same.txt")} {
+		if _, err := os.Stat(f); err != nil {
+			t.Fatalf("%s is gone after the refusal", f)
+		}
+	}
+
+	// with a password (and a name 7-Zip would read as a wildcard)
+	pw := filepath.Join(dir, "pw")
+	vfsWrite(t, filepath.Join(pw, "*.txt"), "star")
+	vfsWrite(t, filepath.Join(pw, "plain.txt"), "plain")
+	arc = filepath.Join(dir, "pw.7z")
+	job = e.vfsJob(VfsRequest{Kind: "pack", Format: "7z", Move: true, Password: "s3cret", Target: arc, Sources: []string{filepath.Join(pw, "*.txt")}})
+	if len(job.p.Errors) > 0 {
+		t.Fatalf("move with a password: %v", job.p.Errors)
+	}
+	if got := liveSltPaths(liveRun(t, exe, "l", "-slt", "-ps3cret", arc)); !slices.Equal(got, []string{"*.txt"}) {
+		t.Fatalf("packed with a password: %v, want only *.txt", got)
+	}
+	if _, err := os.Stat(filepath.Join(pw, "plain.txt")); err != nil {
+		t.Fatal("plain.txt was not selected but is gone")
+	}
+}

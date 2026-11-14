@@ -99,25 +99,11 @@ func (c *Client) openData(ctx context.Context, cmd string, offset int64) (net.Co
 		return fail(protoErr(cmd, r))
 	}
 	if ln != nil {
-		type result struct {
-			conn net.Conn
-			err  error
+		var want net.IP
+		if ra, ok := c.conn.RemoteAddr().(*net.TCPAddr); ok {
+			want = ra.IP
 		}
-		ch := make(chan result, 1)
-		go func() {
-			cn, err := ln.Accept()
-			ch <- result{cn, err}
-		}()
-		timer := time.NewTimer(c.cfg.Timeout)
-		defer timer.Stop()
-		select {
-		case res := <-ch:
-			conn, err = res.conn, res.err
-		case <-timer.C:
-			err = errors.New("ftp: server did not connect back (active mode)")
-		case <-ctx.Done():
-			err = ctx.Err()
-		}
+		conn, err = acceptActive(ctx, ln, want, c.cfg.Timeout, activeGrace)
 		if err != nil {
 			ln.Close()
 			c.readReply() // the server's 425 for the failed transfer
@@ -393,4 +379,85 @@ func (c *Client) readDataLines(ctx context.Context, cmd string) ([]string, error
 		}
 	}
 	return lines, nil
+}
+
+// activeGrace is how long an active-mode listener keeps waiting for the server's own address after a connection
+// from another address arrived.
+const activeGrace = 2 * time.Second
+
+// acceptActive takes the server's data connection in active mode. Someone else on the network could connect to the
+// announced port first and take the transfer (port stealing), so a connection from the control connection's address
+// (want) is preferred: one from another address is held back and used only when nothing from want arrives within
+// grace, which keeps servers working that connect back from another address (several addresses, NAT). FTPS checks the
+// peer through TLS as well.
+func acceptActive(ctx context.Context, ln net.Listener, want net.IP, timeout, grace time.Duration) (net.Conn, error) {
+	type result struct {
+		conn net.Conn
+		err  error
+	}
+	ch := make(chan result, 4)
+	stop := make(chan struct{})
+	defer close(stop)
+	go func() {
+		for {
+			cn, err := ln.Accept()
+			select {
+			case ch <- result{cn, err}:
+			case <-stop:
+				if cn != nil {
+					cn.Close()
+				}
+				return
+			}
+			if err != nil {
+				return
+			}
+		}
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	var held net.Conn
+	var graceC <-chan time.Time
+	release := func() {
+		if held != nil {
+			held.Close()
+		}
+	}
+	for {
+		select {
+		case res := <-ch:
+			if res.err != nil {
+				if held != nil {
+					return held, nil
+				}
+				return nil, res.err
+			}
+			ip := net.IP(nil)
+			if ra, ok := res.conn.RemoteAddr().(*net.TCPAddr); ok {
+				ip = ra.IP
+			}
+			if want == nil || ip.Equal(want) {
+				release()
+				return res.conn, nil
+			}
+			if held != nil {
+				res.conn.Close() // only the first stranger is held back
+				continue
+			}
+			held = res.conn
+			g := time.NewTimer(grace)
+			defer g.Stop()
+			graceC = g.C
+		case <-graceC:
+			return held, nil
+		case <-timer.C:
+			if held != nil {
+				return held, nil
+			}
+			return nil, errors.New("ftp: server did not connect back (active mode)")
+		case <-ctx.Done():
+			release()
+			return nil, ctx.Err()
+		}
+	}
 }

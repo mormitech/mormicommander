@@ -16,6 +16,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"mormicommander/internal/robust"
 )
 
 // WriteFileAtomic writes data to path through a temporary file and a rename.
@@ -37,7 +39,7 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 		}
 		perm = st.Mode().Perm()
 	}
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	tmp, err := os.CreateTemp(dir, "."+robust.TempStem(filepath.Base(path))+".*.tmp")
 	if err != nil {
 		return err
 	}

@@ -24,6 +24,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"mormicommander/internal/robust"
 )
 
 // CreateOptions controls how a link is made.
@@ -216,7 +218,11 @@ func UniqueName(dir, name string) string {
 	ext := filepath.Ext(name)
 	stem := strings.TrimSuffix(name, ext)
 	for i := 2; ; i++ {
-		cand := stem + "(" + strconv.Itoa(i) + ")" + ext
+		suffix := "(" + strconv.Itoa(i) + ")" + ext
+		cand := stem + suffix
+		if len(cand) > 255 { // names are limited to 255 bytes: the stem gives way
+			cand = robust.ShortName(stem, max(1, 255-len(suffix))) + suffix
+		}
 		if _, err := os.Lstat(filepath.Join(dir, cand)); errors.Is(err, fs.ErrNotExist) {
 			return cand
 		}

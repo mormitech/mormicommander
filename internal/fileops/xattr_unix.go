@@ -36,8 +36,12 @@ func copyXattrs(src, dst string) error {
 	return first
 }
 
+// xattrTries bounds the size-then-read retries: a list or value that keeps growing between the two calls gives up
+// with ERANGE instead of looping for ever.
+const xattrTries = 8
+
 func listXattrs(p string) ([]string, error) {
-	for {
+	for tries := 0; tries < xattrTries; tries++ {
 		n, err := unix.Llistxattr(lp(p), nil)
 		if err != nil || n == 0 {
 			return nil, err
@@ -58,10 +62,11 @@ func listXattrs(p string) ([]string, error) {
 		}
 		return out, nil
 	}
+	return nil, unix.ERANGE
 }
 
 func getXattr(p, name string) ([]byte, error) {
-	for {
+	for tries := 0; tries < xattrTries; tries++ {
 		n, err := unix.Lgetxattr(lp(p), name, nil)
 		if err != nil {
 			return nil, err
@@ -76,6 +81,7 @@ func getXattr(p, name string) ([]byte, error) {
 		}
 		return buf[:n2], nil
 	}
+	return nil, unix.ERANGE
 }
 
 // ignorable turns the errors that only mean "this file system or user can't do that" into nil.
