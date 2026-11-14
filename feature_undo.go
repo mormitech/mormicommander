@@ -219,6 +219,12 @@ func (p *undoPending) entry() undo.Entry {
 				it.Size, it.MTime = fi.Size(), fi.ModTime().UnixMilli()
 			}
 		}
+		if p.kind == undo.Copy && it.Dir {
+			// a copied folder: its entry count and newest time, so an undo leaves it alone once more is in it
+			if n, m, ok := undo.TreeStamp(dst); ok {
+				it.Size, it.MTime = n, m
+			}
+		}
 		e.Items = append(e.Items, it)
 	}
 	return e

@@ -53,7 +53,9 @@ type Item struct {
 	To  string `json:"to"`
 	Dir bool   `json:"dir,omitempty"`
 	// Size and MTime describe a copied file as it was right after the copy (Unix milliseconds), so a copy the user
-	// has changed since is not thrown away by an undo. Zero for folders and for the other kinds.
+	// has changed since is not thrown away by an undo. For a copied folder they are its TreeStamp (entry count and
+	// newest time), so a folder the user has added to is left alone. Zero for the other kinds, and for folders in
+	// older journals.
 	Size  int64 `json:"size,omitempty"`
 	MTime int64 `json:"mtime,omitempty"`
 }
@@ -302,6 +304,12 @@ func PlanUndo(e Entry, sameVolume SameVolumeFunc) Plan {
 			if it.Dir && !ti.IsDir() {
 				p.Problems = append(p.Problems, fmt.Sprintf("%s is not the folder that was copied any more.", it.To))
 				continue
+			}
+			if it.Dir && it.Size > 0 {
+				if n, m, ok := TreeStamp(it.To); !ok || n != it.Size || m != it.MTime {
+					p.Problems = append(p.Problems, fmt.Sprintf("The folder %s was changed after the copy, so it was left alone.", it.To))
+					continue
+				}
 			}
 			p.Steps = append(p.Steps, Step{Op: OpRemove, From: it.From, To: it.To})
 		case MkDir:

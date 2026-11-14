@@ -290,3 +290,25 @@ func TestUndoRenameOldNameIsHardLink(t *testing.T) {
 		}
 	}
 }
+
+// Undoing the copy of a folder leaves the folder alone when something was added to it after the copy (#149); an
+// untouched copied folder is still undone.
+func TestUndoCopyFolderAddedTo(t *testing.T) {
+	dir := t.TempDir()
+	cp := filepath.Join(dir, "copy")
+	write(t, filepath.Join(cp, "a.txt"), "a")
+	write(t, filepath.Join(cp, "sub", "b.txt"), "b")
+	n, m, ok := TreeStamp(cp)
+	if !ok || n != 4 {
+		t.Fatalf("stamp: %d %d %v", n, m, ok)
+	}
+	e := Entry{Kind: Copy, Items: []Item{{From: filepath.Join(dir, "src"), To: cp, Dir: true, Size: n, MTime: m}}}
+	if p := PlanUndo(e, same); len(p.Steps) != 1 || len(p.Problems) != 0 {
+		t.Fatalf("untouched copy: steps %v, problems %v", p.Steps, p.Problems)
+	}
+	write(t, filepath.Join(cp, "sub", "mine.txt"), "added by the user")
+	os.Chtimes(filepath.Join(cp, "sub", "mine.txt"), time.Unix(1, 0), time.Unix(1, 0)) // an old file moved in
+	if p := PlanUndo(e, same); len(p.Steps) != 0 || len(p.Problems) != 1 {
+		t.Fatalf("copy with an added file: steps %v, problems %v; want it left alone", p.Steps, p.Problems)
+	}
+}
