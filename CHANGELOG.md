@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.68 – 2026-11-14
+
+### Changed
+
+- Docs only: the 22 items issue #103 names in FEATURES.md were checked one by one against the code. Each now has the mark that fits what really works and an "audit #103" note saying what exists and what is missing. A new test keeps those marks and notes from drifting back. The other partly-done marks still need the same check (issue #103 stays open). App behaviour is unchanged.
+
 ## 0.9.67 – 2026-11-14
 
 ### Added
