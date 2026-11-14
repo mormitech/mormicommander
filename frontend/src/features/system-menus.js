@@ -216,7 +216,8 @@ command({
   run: (app, args = {}) => {
     const p = app.cur;
     let onRow = true;
-    if (args.mouse && args.x != null) onRow = !!document.elementFromPoint(args.x, args.y)?.closest?.('.row');
+    if (args.mouse && typeof args.onRow === 'boolean') onRow = args.onRow;
+    else if (args.mouse && args.x != null) onRow = !!document.elementFromPoint(args.x, args.y)?.closest?.('.row');
     const e = p.cur;
     if (!onRow || !e || (e.up && !p.selectedEntries().length)) return backgroundMenu(app, p, args);
     // a right-click on a file outside the selection is about that file alone (as in Finder / Explorer)

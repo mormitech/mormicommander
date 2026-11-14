@@ -84,7 +84,7 @@ A panel state has: `path`, `parent`, `cursor` (index, ".." is 0 when shown), `cu
 | `cd` | `side`, `path` | the panel shows that folder (as if typed in its path bar) |
 | `focus` | `side` | makes a panel the active one |
 | `cursor` | `side`, `name` or `index` | puts the cursor on an entry |
-| `click` | `selector` or `side` + `name`/`index`; `button` (0 left, 2 right, 3/4 back/forward), `double`, `ctrl`, `shift`, `meta`, `alt` | mouse events on an element or a row (scrolled into view first) |
+| `click` | `selector` or `side` + `name`/`index`; `button` (0 left, 2 right, 3/4 back/forward), `double`, `ctrl`, `shift`, `meta`, `alt` | mouse events on an element or a row (scrolled into view first). Each event goes to what is under the pointer by then, so when the press redraws the row the rest of the click reaches the new one: `button: 2` on a row opens its context menu (a popup of kind `context-file`, or `context-folder` on `..`; answer it with `popup_choose`) |
 | `drag` | `selector`, `dx`, `dy` | press, move, let go (the splitter) |
 | `scroll` | `side`, `row` or `top` | scrolls a panel's list |
 | `dialog` | | the open page dialog: `kind`, `title`, `message`, `buttons`, `fields` (by id), `error`, `window` (the dialog window that shows it: `name`, `shown`, `openMs`, `wakes` (times the watchdog woke the window before it drew the dialog), `title`, `resized`, `layers`; `{layerOf}` for a floating box drawn in the dialog window below it; `null` when it is drawn in the page) |

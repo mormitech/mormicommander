@@ -17,6 +17,7 @@ import { currentPopup, choosePopup } from './popup.js';
 import { cmdline } from './cmdline.js';
 import { allSettings } from './settings.js';
 import { menuSpec } from './menus.js';
+import { liveTarget } from './control-target.js';
 
 const extra = new Map();
 export function addControlCommand(name, fn) { extra.set(name, fn); }
@@ -68,18 +69,21 @@ function press(combo, hold = false) {
   if (!hold) target.dispatchEvent(new KeyboardEvent('keyup', { ...init, ctrlKey: false, altKey: false, shiftKey: false, metaKey: false }));
 }
 
-// mouse sends the events of a click (or double click) at the middle of an element.
-function mouse(el, { button = 0, double = false, ctrl = false, shift = false, meta = false, alt = false } = {}) {
+// mouse sends the events of a click (or double click) at the middle of an element. Each event goes to what is under
+// the pointer by then (liveTarget): the press may redraw the element, as it does a panel row (issue #42). refind finds
+// the element again after such a redraw (for a row: the row with the same index).
+function mouse(el, { button = 0, double = false, ctrl = false, shift = false, meta = false, alt = false } = {}, refind = null) {
   const r = el.getBoundingClientRect();
   const base = { bubbles: true, cancelable: true, clientX: r.left + r.width / 2, clientY: r.top + r.height / 2, button, ctrlKey: ctrl, shiftKey: shift, metaKey: meta, altKey: alt, view: window };
-  el.dispatchEvent(new MouseEvent('mousedown', base));
-  el.dispatchEvent(new MouseEvent('mouseup', base));
-  if (button === 0) el.dispatchEvent(new MouseEvent('click', base));
-  if (button === 2) el.dispatchEvent(new MouseEvent('contextmenu', base));
+  const send = (type, init = base) => liveTarget(el, base.clientX, base.clientY, refind).dispatchEvent(new MouseEvent(type, init));
+  send('mousedown');
+  send('mouseup');
+  if (button === 0) send('click');
+  if (button === 2) send('contextmenu');
   if (double) {
     // The first click may redraw what was under the pointer (panel rows are), so the second one goes to whatever is
     // there now, as with a real mouse.
-    const el2 = document.elementFromPoint(base.clientX, base.clientY) || el;
+    const el2 = document.elementFromPoint(base.clientX, base.clientY) || liveTarget(el, base.clientX, base.clientY, refind);
     el2.dispatchEvent(new MouseEvent('mousedown', { ...base, detail: 2 }));
     el2.dispatchEvent(new MouseEvent('mouseup', { ...base, detail: 2 }));
     el2.dispatchEvent(new MouseEvent('click', { ...base, detail: 2 }));
@@ -175,9 +179,10 @@ async function ctlRun(m) {
       return state();
     }
     case 'click': { // {selector, button, double, ctrl, shift, meta, alt} or {side, index|name} for a row of a panel
-      let el;
+      let el, refind = null;
       if (m.selector) {
-        el = document.querySelector(m.selector);
+        refind = () => document.querySelector(m.selector);
+        el = refind();
         if (!el) throw new Error(`nothing matches ${m.selector}`);
       } else {
         const p = app.panel(m.side);
@@ -185,9 +190,11 @@ async function ctlRun(m) {
         if (i == null || i < 0 || i >= p.entries.length) throw new Error(`no row ${m.name ?? m.index} in the ${p.side} panel`);
         p.$.list.scrollTop = Math.max(0, i * p.rowH - p.$.list.clientHeight / 2);
         p.renderRows();
-        el = p.$.rows.querySelector(`.row[data-i="${i}"]`);
+        refind = () => p.$.rows.querySelector(`.row[data-i="${i}"]`);
+        el = refind();
+        if (!el) throw new Error(`row ${i} of the ${p.side} panel is not drawn`);
       }
-      mouse(el, m);
+      mouse(el, m, refind);
       await settle(m.wait);
       return state();
     }
