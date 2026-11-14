@@ -372,6 +372,61 @@ jobs:
           path: ${{ runner.temp }}/zero-network
           if-no-files-found: ignore
 
+  # Live integration tests (board issue #106; docs/ARCHITECTURE.md "Testing"): the Net menu, server transfers (F5/F6/F8,
+  # the download list), Synchronize folders, 7z packing and search inside 7z/RAR with Feed to listbox, through the app's
+  # own Go code against real servers and tools on this runner: vsftpd (FTP, explicit FTPS, passive and active), OpenSSH
+  # (SFTP with a password and with a key) and Apache mod_dav (WebDAV), started on 127.0.0.1 by scripts/live_servers.sh,
+  # plus 7-Zip and unrar from apt. MC_LIVE_REQUIRE=all makes a missing server or tool a failure, never a skip.
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      # GTK 4 / WebKitGTK 6.0 headers to compile the app's package; the servers and the archive tools. 7-Zip is the
+      # 7zip package (7z, 7za) or the older p7zip-full; unrar comes from multiverse.
+      - name: Packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev \
+            vsftpd openssh-server apache2 apache2-utils openssl curl
+          sudo apt-get install -y --no-install-recommends 7zip || sudo apt-get install -y --no-install-recommends p7zip-full
+          sudo apt-get install -y --no-install-recommends unrar || echo "no unrar package: 7-Zip checks the RAR sample"
+          command -v 7zz || command -v 7z || command -v 7za
+      - name: Start the servers
+        run: |
+          bash scripts/live_servers.sh "$RUNNER_TEMP/live"
+          cat "$RUNNER_TEMP/live/live.env" >> "$GITHUB_ENV"
+      # The Go code embeds the built frontend, so it has to exist before the tests compile.
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - name: Live tests
+        timeout-minutes: 8
+        run: |
+          set -o pipefail
+          go test -tags live -run '^TestLive' -count=1 -v -timeout 7m . 2>&1 | tee "$RUNNER_TEMP/live/go-test.log"
+      - name: Collect the server logs
+        if: failure()
+        run: |
+          mkdir -p "$RUNNER_TEMP/live-logs"
+          sudo sh -c 'cp "$1"/*.log "$1"/xferlog "$1"/*.conf "$1"/sshd_config /var/log/apache2/mc-live-* "$2"/ 2>/dev/null; chmod -R a+rX "$2"' _ "$RUNNER_TEMP/live" "$RUNNER_TEMP/live-logs" || true
+      - name: Keep the logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-test-logs
+          path: ${{ runner.temp }}/live-logs
+          if-no-files-found: ignore
+
   # Pushing a tag like v0.5.0 attaches every package to a GitHub release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')

@@ -6,6 +6,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -76,5 +77,29 @@ func TestWails3ToolVersionMatchesGoMod(t *testing.T) {
 	}
 	if !strings.Contains(readText(t, "scripts/build.sh"), `"${WAILS3:-}"`) {
 		t.Error("scripts/build.sh does not use WAILS3 when it is set")
+	}
+}
+
+// The live integration tests (issue #106) stay wired up: CI runs them with the live tag against the servers
+// scripts/live_servers.sh starts, a missing server fails instead of skipping, and every live test file carries the
+// build tag, so a plain `go test ./...` never compiles them.
+func TestCIRunsLiveTests(t *testing.T) {
+	yml := readText(t, ".github/workflows/build.yml")
+	for _, want := range []string{"go test -tags live", "scripts/live_servers.sh", "live.env"} {
+		if !strings.Contains(yml, want) {
+			t.Errorf("build.yml lacks %q", want)
+		}
+	}
+	if !strings.Contains(readText(t, "scripts/live_servers.sh"), "MC_LIVE_REQUIRE=all") {
+		t.Error("scripts/live_servers.sh does not make every live server required")
+	}
+	files, _ := filepath.Glob("live_*_test.go")
+	if len(files) == 0 {
+		t.Fatal("no live_*_test.go files")
+	}
+	for _, f := range files {
+		if !strings.HasPrefix(readText(t, f), "//go:build live\n") {
+			t.Errorf("%s does not start with //go:build live", f)
+		}
 	}
 }
