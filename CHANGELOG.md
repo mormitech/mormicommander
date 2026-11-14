@@ -6,6 +6,20 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.18 – 2026-11-14
+
+### Added
+
+- Synchronize folders with an archive or a server as one side, or both (#9, F-555): either field takes a local folder,
+  an archive (/x/a.zip or /x/a.zip/sub) or a server URL (ftp://, ftps://, sftp://, webdav://), typed or taken from a
+  panel. Compare (also by content, which downloads from a server) and sync both ways go through the same connections
+  and archive engines as the panels. Uploads replace files safely (a temporary file renamed over the target). Writable
+  archives: the zip family and tar variants; 7z, RAR, single-file gz/bz2/xz and archives inside archives or on servers
+  are read-only, and the window says so and only offers copies out of them. Deletes on a server or in an archive are
+  permanent, and the Synchronize dialog says so. Archive and server sides compare dates with a 1-second tolerance, since
+  they keep whole seconds at best; local pairs compare as before. WebDAV, and FTP without MFMT, can't keep file dates,
+  and a note after the sync says so.
+
 ## 0.10.17 – 2026-11-14
 
 ### Added
