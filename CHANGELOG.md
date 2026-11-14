@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.50 – 2026-11-14
+
+### Added
+
+- First-run setup page (issue #6): on the very first start on a computer (no settings.json and no saved window) one page offers a keyboard preset, a "press F5" check that says whether the fn key is needed on this Mac, and buttons that open System Settings for Keyboard and Full Disk Access. Existing installations never see it by themselves; Configuration > "First-run setup..." reopens it.
+- Keyboard presets: "Total Commander" (the default, adds no keys, behaviour unchanged), "Mac-native" (Finder-style keys and Shift+arrows/Home/End/PgUp/PgDn selection) and "Vim" (J/K/H/L, G, /, : and more). Your own key changes still win over a preset. The choice is saved as "keyPreset" in settings.json.
+
 ## 0.9.49 – 2026-11-14
 
 ### Fixed
