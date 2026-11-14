@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.80 – 2026-11-14
+
+### Added
+
+- Synchronize directories (issue #99): a new checkbox, "Also trash emptied folders and replaced links", under "Delete to the trash". It is off by default, so a sync behaves exactly as before. When it is on (and "Delete to the trash" is on too), folders a sync empties and links it replaces go to the trash instead of being removed or overwritten directly. A folder that still holds anything is never removed, and if trashing fails the old link is left in place. Not covered: plain file overwrites still replace the old file in place.
+
 ## 0.9.79 – 2026-11-14
 
 ### Fixed
