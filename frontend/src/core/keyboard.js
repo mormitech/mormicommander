@@ -62,7 +62,14 @@ export function onKeyDown(ev) {
     if (combo === 'Enter' || combo === 'Shift+Enter') { ev.preventDefault(); if (hasText) app.run('cm_ExecuteCmdLine', { shift: combo === 'Shift+Enter' }); return; }
     if (combo === 'Esc') { ev.preventDefault(); cmdline.clear(); app.cur?.$.list.focus(); return; }
     if (inCmd) {
-      if (combo === 'Tab') { ev.preventDefault(); app.cur?.$.list.focus(); return; }
+      // Tab completes the file or folder name at the caret; more Tabs go through the matches (Shift+Tab back). With
+      // nothing to complete, Tab gives the keyboard back to the panel as before.
+      if (combo === 'Tab' || combo === 'Shift+Tab') {
+        ev.preventDefault();
+        const back = combo === 'Shift+Tab';
+        cmdline.complete(back).then((done) => { if (!done && !back) app.cur?.$.list.focus(); });
+        return;
+      }
       if (combo === 'Ctrl+X') { ev.preventDefault(); cmdline.historyStep(1); return; }
       // the field edits itself: characters, Backspace, Delete, Left, Right, Home, End, and the system's text keys
       if (printable(ev) || ['Backspace', 'Delete', 'Left', 'Right', 'Home', 'End', 'Shift+Left', 'Shift+Right', 'Shift+Home', 'Shift+End'].includes(combo)) return;

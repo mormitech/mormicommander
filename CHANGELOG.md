@@ -6,6 +6,20 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.10 – 2026-11-14
+
+### Added
+
+- Tab completion in the command line: Tab completes the file or folder name at the caret (from the active panel's
+  folder, or the folder the word names); with several matches each further Tab goes to the next one, Shift+Tab back.
+  A folder gets a separator after it, names with spaces are quoted. With nothing to complete, Tab gives the keyboard
+  back to the panel as before.
+
+### Changed
+
+- Ctrl+E (and Ctrl+X) bring back earlier command lines with the line focused and the caret at the end, and show the
+  command line for the time being when it is turned off; each further Ctrl+E goes further back.
+
 ## 0.10.9 – 2026-11-14
 
 ### Changed

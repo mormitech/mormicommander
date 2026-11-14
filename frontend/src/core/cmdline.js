@@ -10,6 +10,9 @@
 import { setSetting, getSetting } from './settings.js';
 
 const handlers = [];
+// the Tab completer (features/cmdline-complete.js): async (input, back) => whether it completed something
+let completer = null;
+export function setCmdlineCompleter(fn) { completer = fn; }
 export function addCmdlineHandler(fn, { first = false } = {}) { if (first) handlers.unshift(fn); else handlers.push(fn); }
 
 const el = () => document.getElementById('cmd');
@@ -103,6 +106,13 @@ export const cmdline = {
     typed = true;
   },
 
+  // complete runs Tab completion on the word at the caret (Shift+Tab: the previous match). False: nothing to complete.
+  async complete(back = false) {
+    const i = el();
+    if (!completer || !i) return false;
+    try { return await completer(i, back); } catch (e) { console.error(e); return false; }
+  },
+
   get history() { return getSetting('cmdHistory', []); },
 
   // historyStep goes back (-1, Ctrl+E) or forward (+1, Ctrl+X) through the commands run before.
@@ -113,6 +123,9 @@ export const cmdline = {
     if (histPos < 0) { histPos = -1; this.set(''); return; }
     histPos = Math.min(h.length - 1, histPos);
     this.set(h[histPos]);
+    this.focusFromTyping(); // shown (also when turned off) and focused, caret at the end
+    const i = el();
+    i.setSelectionRange(i.value.length, i.value.length);
   },
 
   // submit runs the text: the first handler that takes it wins. The line is cleared afterwards.
