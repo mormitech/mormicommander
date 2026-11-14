@@ -63,6 +63,8 @@ export const MORE_BRIDGE = {
   'DragDrop.NativeDragOut': boolKey('nativeDragOut', false),
   // the folder history (features/hotlist.js and tabs.js; the history dialog changes the same key)
   'Hotlist.HistorySize': intKey('historyLength', 30),
+  // typing in the hotlist popup filters it instead of jumping by letter (features/hotlist.js; off by default, board #111)
+  'Hotlist.TypeToFilter': boolKey('hotlistTypeFilter', false),
   // the log file (feature_system_watch.go, SystemLog.Write; "" = mormicommander.log in the settings folder)
   'Log.Enabled': boolKey('enableLog', false),
   'Log.File': strKey('logFile'),

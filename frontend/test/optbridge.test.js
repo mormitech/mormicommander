@@ -18,7 +18,7 @@ test('with nothing stored, the dialog shows the features\' own defaults', () => 
   const app = fakeApp();
   const want = {
     'Refresh.AutoRefresh': '1', 'Refresh.OnlyForeground': '0', 'Refresh.RefreshNetwork': '1', 'Refresh.ExcludeFolders': '',
-    'DragDrop.ConfirmDrop': '1', 'DragDrop.SpringLoaded': '0', 'DragDrop.SpringDelayMs': '1000', 'DragDrop.NativeDragOut': '0', 'Hotlist.HistorySize': '30',
+    'DragDrop.ConfirmDrop': '1', 'DragDrop.SpringLoaded': '0', 'DragDrop.SpringDelayMs': '1000', 'DragDrop.NativeDragOut': '0', 'Hotlist.HistorySize': '30', 'Hotlist.TypeToFilter': '0',
     'Log.Enabled': '0', 'Log.File': '', 'FolderTabs.Show': '1', 'FolderTabs.MultiLine': '0', 'FolderTabs.CloseButton': '1',
     'FolderTabs.DoubleClickOpen': '1', 'FolderTabs.NewNextToCur': '1', 'FolderTabs.ConfirmCloseAll': '1', 'FolderTabs.LockedIcon': '1',
     'FolderTabs.MaxTitleChars': '0',

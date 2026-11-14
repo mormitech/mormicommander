@@ -379,7 +379,7 @@ type BackgroundQueuePage struct {
 // HotlistPage (F-438, F-662).
 type HotlistPage struct {
 	ShowPaths     bool `ini:"Configuration:HotlistShowPaths" def:"0" label:"Show folders next to hotlist names"`
-	TypeToFilter  bool `ini:"Configuration:HotlistFilter" def:"1" label:"Typing in the hotlist filters it"`
+	TypeToFilter  bool `ini:"Configuration:HotlistFilter" def:"0" label:"Typing in the hotlist filters it"`
 	AddAtTop      bool `ini:"Configuration:HotlistAddTop" def:"0" label:"Add new entries at the top"`
 	HistorySize   int  `ini:"Configuration:HistorySize" def:"30" min:"1" max:"500" label:"Folder history size"`
 	CmdHistSize   int  `ini:"Configuration:CmdHistorySize" def:"50" min:"1" max:"500" label:"Command line history size"`

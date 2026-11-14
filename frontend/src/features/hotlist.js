@@ -4,7 +4,9 @@
 // (internal/config, through feature_tabshotlist.go); this file draws the popups and the Configure dialog.
 //
 // Popup keys: Up/Down, Enter (Shift+Enter opens the folder in a new tab, F-777), the "&" letter of an entry picks it
-// (F-656), Enter on a submenu opens it and Esc goes back up. Choosing a folder in a locked tab opens a new tab (the
+// (F-656), Enter (or Right) on a submenu opens it and Esc (or Left) goes back up. With Options > Hotlist > "Typing in
+// the hotlist filters it" on (off by default; the setting hotlistTypeFilter), letters filter the list instead of
+// picking by letter, and entries in submenus show up while something is typed (board issue #111). Choosing a folder in a locked tab opens a new tab (the
 // tabs feature's lock rule catches every folder change).
 
 import { command } from '../core/registry.js';
@@ -14,6 +16,7 @@ import { messageDialog, inputDialog, formDialog, modal, esc } from '../core/dial
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { openInNewTab, loadTabFile, saveBothTabs, saveSoon } from './tabs.js';
+import { hotlistMaskFilter, nestedEntries } from './hotlist-lib.js';
 
 const trimSep = (x) => (x.length > 1 ? x.replace(/[\\/]+$/, '') : x) || x;
 const folderName = (p) => { const t = trimSep(p || ''); return t.split(/[\\/]/).pop() || t; };
@@ -29,11 +32,10 @@ function anchorFor(p) {
 
 // ---- running an entry ----
 
-async function applyMask(p, mask) {
-  const names = p.all.map((e) => e.name), dirs = p.all.map((e) => !!e.dir);
-  const ok = await go.TabsHotlist.MatchMask(mask, names, dirs);
-  const keep = new Set(names.filter((_, i) => ok[i]));
-  p.setFilter((e) => e.dir || keep.has(e.name), mask);
+// applyMask shows only the files that match an entry's mask. The filter tests each name when the list is drawn, so
+// files that appear later show too when they match (board issue #111).
+function applyMask(p, mask) {
+  p.setFilter(hotlistMaskFilter(mask), mask);
 }
 
 export async function runEntry(p, it, { shift = false } = {}) {
@@ -44,7 +46,7 @@ export async function runEntry(p, it, { shift = false } = {}) {
       let ok;
       if (shift) { ok = await openInNewTab(p, a.path); p = theApp.panel(p.side); }
       else ok = await p.go(a.path);
-      if (ok && a.filter) await applyMask(p, a.filter);
+      if (ok && a.filter) applyMask(p, a.filter);
       if (a.target) await p.other.go(a.target);
       return ok;
     }
@@ -64,9 +66,12 @@ async function showHotlist(p, { anchor } = {}) {
   const stack = [];
   let level = tree, at = 0, crumbs = [];
   anchor ??= anchorFor(p);
+  const filter = !!theApp.setting('hotlistTypeFilter', false);
   for (;;) {
     const items = level.map((it) => (it.kind === 'sep' ? { sep: true }
-      : { label: it.kind === 'menu' ? `${it.label || it.title} ▸` : it.label || it.title || shortCmd(it), key: it.key || '', detail: it.kind === 'cmd' ? shortCmd(it) : '', value: it }));
+      : { label: it.kind === 'menu' ? `${it.label || it.title} ▸` : it.label || it.title || shortCmd(it), key: it.key || '', detail: it.kind === 'cmd' ? shortCmd(it) : '', value: it, sub: it.kind === 'menu' }));
+    // with the typed filter, the entries of the submenus wait at the end, shown only while something is typed
+    if (filter) for (const { crumbs, it } of nestedEntries(level)) items.push({ label: `${crumbs.join(' › ')} › ${it.label || it.title || shortCmd(it)}`, detail: shortCmd(it), value: it, only: true });
     if (!stack.length) {
       if (items.length) items.push({ sep: true });
       if (contains) items.push({ label: 'Remove current folder', key: 'r', value: 'remove' });
@@ -76,7 +81,7 @@ async function showHotlist(p, { anchor } = {}) {
       items.push({ label: 'Search…', value: 'search' });
       items.push({ label: 'Configure…', key: 'c', value: 'config' });
     }
-    const r = await showList({ title: stack.length ? crumbs.join(' › ') : 'Folder hotlist', items, anchor, index: at, kind: 'hotlist' });
+    const r = await showList({ title: stack.length ? crumbs.join(' › ') : 'Folder hotlist', items, anchor, index: at, kind: 'hotlist', filter, left: stack.length > 0 });
     if (!r) {
       if (!stack.length) return false;
       ({ level, at, crumbs } = stack.pop());

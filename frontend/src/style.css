@@ -133,6 +133,8 @@ input[type=text] { font: inherit; color: var(--text); background: var(--bg); bor
 .mc-popup .it.p .pt { flex: none; }
 .mc-popup .it.p .d { flex: none; }
 .mc-popup .sep { height: 1px; background: var(--line); margin: 3px 6px; }
+.mc-popup .q { padding: 2px 10px 5px; font-size: 12px; color: var(--accent); border-bottom: 1px solid var(--line); margin-bottom: 3px; }
+.mc-popup [hidden] { display: none; } /* (the typed filter of a popup list hides items, board issue #111) */
 
 /* ---- About window ---- */
 body.about-mode { overflow: auto; }

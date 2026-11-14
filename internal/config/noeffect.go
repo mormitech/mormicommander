@@ -159,7 +159,6 @@ var noEffect = map[string]bool{
 	"BackgroundQueue.KeepFinished": true,
 
 	"Hotlist.ShowPaths":     true,
-	"Hotlist.TypeToFilter":  true,
 	"Hotlist.AddAtTop":      true,
 	"Hotlist.CmdHistSize":   true,
 	"Hotlist.FrequentSize":  true,
