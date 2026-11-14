@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.83 – 2026-11-14
+
+### Fixed
+
+- Issue #112: only the active tab's folder history was saved, so the other tabs came back after a restart with no history. Now every tab keeps its own history in folders.ini (extra keys in the tab sections that Total Commander ignores), cut to the history size setting, and Alt+Left works in every tab after a restart. The active tab is saved in [LeftHistory]/[RightHistory] exactly as before; older folders.ini files load as they always did.
+
 ## 0.9.82 – 2026-11-14
 
 ### Added
