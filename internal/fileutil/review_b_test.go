@@ -3,8 +3,10 @@
 package fileutil
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -69,5 +71,28 @@ func TestCombineRefusesTargetAsNextPart(t *testing.T) {
 	}})
 	if err == nil || errors.Is(err, ErrCanceled) {
 		t.Fatalf("err = %v, want a refusal", err)
+	}
+}
+
+// PartCount added the part size to the file size before dividing, which overflowed for a huge part size (ParseSize
+// gives math.MaxInt64 on arm64 for "99999999 TB"): the count came out negative, so SplitFile skipped its up-front
+// checks, among them the one that keeps part 1 from overwriting a source named like a part. With Overwrite on, the
+// source "data.001" was emptied by its own first part and then removed by the cleanup.
+func TestSplitHugePartSizeKeepsSource(t *testing.T) {
+	if got := PartCount(10, math.MaxInt64); got != 1 {
+		t.Errorf("PartCount(10, MaxInt64) = %d, want 1", got)
+	}
+	if got := PartCount(math.MaxInt64, math.MaxInt64-1); got != 2 {
+		t.Errorf("PartCount(MaxInt64, MaxInt64-1) = %d, want 2", got)
+	}
+	dir := t.TempDir()
+	src, data := writeData(t, dir, "data.001", 3000)
+	_, err := SplitFile(context.Background(), SplitOptions{Source: src, PartSize: math.MaxInt64, Overwrite: true, NoCRCFile: true})
+	if err == nil {
+		t.Error("splitting data.001 into data.001 worked")
+	}
+	got, rerr := os.ReadFile(src)
+	if rerr != nil || !bytes.Equal(got, data) {
+		t.Fatalf("the source was damaged: %d bytes, %v", len(got), rerr)
 	}
 }
