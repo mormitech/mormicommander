@@ -212,6 +212,12 @@ jobs:
           path: dist
           pattern: mormicommander-{macos,linux,windows}
           merge-multiple: true
+      # The checksums for the download page (docs/DOWNLOADS.md), made from the very files that are uploaded.
+      - name: Checksums
+        run: |
+          cd dist
+          sha256sum -- * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
       - env:
           GH_TOKEN: ${{ github.token }}
         run: gh release create "$GITHUB_REF_NAME" dist/* --repo "$GITHUB_REPOSITORY" --generate-notes
