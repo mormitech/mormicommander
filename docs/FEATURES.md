@@ -505,7 +505,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-362 Swap panels — Ctrl+U — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-363 Open terminal / command prompt here — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-364 Open desktop folder (cm_OpenDesktop) — — — panel goes to Desktop folder
-- [N/A] F-365 Control Panel / Printers / Network neighborhood virtual folders (cm_OpenControls, cm_OpenPrinters, cm_OpenNetwork) — Windows shell namespaces — open OS settings; mounted network volumes in drive list
+- [N/A] F-365 Control Panel / Printers / Network neighborhood virtual folders (cm_OpenControls, cm_OpenPrinters, cm_OpenNetwork) — Windows shell namespaces — open OS settings; mounted network volumes in drive list. cm_OpenNetwork itself is real since 0.12.0: see F-386
 - [~] F-366 Run Explorer/Finder in current folder (cm_Explorer) — — — opens Finder / Explorer / file manager in current folder, revealing file under cursor
 - [ ] F-367 Show file in other panel (Ctrl+Left/Right) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [N/A] F-368 Shell virtual folders: fonts, startup, recycle bin namespace — Windows-only shell folders — real folders (~/Library/Fonts, ~/.local/share/fonts) and Trash view (cm_OpenRecycled maps to Trash)
@@ -527,10 +527,10 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-380 Show hidden FTP files / custom LIST command — — — option sends LIST -a; hidden files shown
 - [~] F-381 FTP download list (cm_FtpDownloadList) — — — queue of files to download later; transfer manager — #106: the list's queued items run one by one as Net.StartJob transfers that ask when a file is in the way; the live tests run that against vsftpd, OpenSSH and Apache WebDAV (download, skip, overwrite; live_net_test.go); the page's list dialog is not part of them
 - [ ] F-382 Background transfer manager (cm_BackgroundTransferManager) — — — transfers run in background with progress; can be queued, paused, removed
-- [N/A] F-383 Connect/disconnect network drive dialog (cm_NetConnect / cm_NetDisconnect) — Windows-specific dialog — macOS: open smb://server via OS Connect to Server; Linux: gio mount; Windows: native WNetConnectionDialog
+- [x] F-383 Connect/disconnect network drive (cm_NetConnect / cm_NetDisconnect, Net menu) — #148, 0.12.0 — type a share and map it (Windows: drive letter, reconnect at sign-in; macOS: /Volumes like Connect to Server; Linux: GVfs); Disconnect lists the network drives and unmounts one
 - [N/A] F-384 Share / unshare folder (cm_NetShareDir / cm_NetUnshareDir) — sharing is an OS setting — button opens OS sharing settings
 - [N/A] F-385 Port connection / direct cable (cm_DirectCableConnect) — obsolete serial/parallel/USB cable link — SFTP/FTP between machines
-- [N/A] F-386 Network neighborhood browsing — Windows-only namespace — mounted network volumes appear in drive list; UNC paths on Windows
+- [x] F-386 Network neighbourhood (cm_OpenNetwork, the Network button at the end of the drive bar) — #148, 0.12.0 — finds servers (Bonjour, Avahi, NetBIOS) and lists them after the ones used before; lists a server's shares (SMB in-process with sign-in and optional keychain password, NFS via showmount); Open shows a share in the panel, Map mounts it to stay; all three systems
 - [~] F-387 FTP transfer mode binary/ASCII/auto — — — transfer mode selectable; ASCII converts line endings
 - [~] F-388 Resume aborted download — — — partially downloaded file resumes from offset (REST) — #106: resumed downloads checked against real servers (vsftpd, OpenSSH, Apache WebDAV) in the live tests
 - [ ] F-389 FTP hidden filter / server-specific settings (passive, proxy, firewall, SSL/TLS, codepage UTF-8) — — — per-connection options saved and used
@@ -876,7 +876,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-643 Transfer queue with parallel connections — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-644 HTTP/HTTPS download (TC: URL in FTP connect) — — — URL file downloads to current folder with progress
 - [N/A] F-645 WebDAV / S3 / cloud via FS plugins — WFX plugins are Windows DLLs — later built-in feature (F-866, via rclone); OS-mounted cloud folders work as normal folders
-- [ ] F-646 SMB browsing (\\server\share) — — — Windows UNC paths work; macOS/Linux via mounted volumes
+- [x] F-646 SMB browsing (\\server\share) — #148, 0.12.0 — through the network neighbourhood (F-386): servers, shares, open or map, on all three systems
 - [N/A] F-647 FS plugins (WFX: registry, process list, etc.) — Windows DLLs, registry is Windows-only — built-in virtual folders (Trash, search results, archives, FTP/SFTP)
 - [ ] F-648 Edit/view remote file (F3/F4) — — — downloads to temp, opens, uploads on change
 - [ ] F-649 Remote file properties — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button

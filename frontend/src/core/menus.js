@@ -46,7 +46,8 @@ export const MENUS = [
   ['Net', [
     ['FTP connect…', 'cm_FtpConnect'], ['New FTP connection…', 'cm_FtpNew'], ['Disconnect', 'cm_FtpDisconnect'], '-',
     ['Show hidden FTP files', 'cm_FtpHiddenFiles'], ['Transfer mode', 'cm_FtpTransferMode'], ['Send FTP command…', 'cm_FtpSendCommand'], '-',
-    ['Background transfers…', 'cm_BackgroundTransferManager'], ['Download list…', 'cm_FtpDownloadList'],
+    ['Background transfers…', 'cm_BackgroundTransferManager'], ['Download list…', 'cm_FtpDownloadList'], '-',
+    ['Network neighbourhood…', 'cm_OpenNetwork'], ['Connect network drive…', 'cm_NetConnect'], ['Disconnect network drive…', 'cm_NetDisconnect'],
   ]],
   ['Show', [
     ['Brief', 'cm_SrcShort'], ['Full', 'cm_SrcLong'], ['Comments', 'cm_SrcComments'], ['Thumbnails', 'cm_SrcThumbs'], ['Custom columns…', 'cm_SrcCustomViewMenu'],

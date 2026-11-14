@@ -7,9 +7,11 @@
 #            certificate that is added to the system's trusted certificates, UTF-8 names, ASCII mode converted
 #   OpenSSH  SFTP on 2222: password (PAM) and an ed25519 key, an ed25519 host key only
 #   Apache   WebDAV (mod_dav, mod_dav_fs) on 8080 under /dav, basic authentication
+#   Samba    SMB on 445: the share "media" for mcuser only, no guests (network neighbourhood, #148)
+#   NFS      the export of the live folder to 127.0.0.1 (nfs-kernel-server; showmount lists it)
 #
-# All three serve the same user (mcuser). The packages must be installed already (vsftpd openssh-server apache2
-# apache2-utils openssl). It waits until every server answers (restarting one that does not, once) and writes the
+# All serve the same user (mcuser). The packages must be installed already (vsftpd openssh-server apache2
+# apache2-utils openssl samba nfs-kernel-server). It waits until every server answers (restarting one that does not, once) and writes the
 # MC_LIVE_* variables for the tests to <dir>/live.env.
 #
 # Usage: scripts/live_servers.sh <dir>     (<dir>: keys, configuration and logs; uploaded by CI on failure)
@@ -151,9 +153,41 @@ wait_for() { # name port banner start-function
   done
   echo "$name did not start"; return 1
 }
+# ---- Samba: SMB on 445, one share for mcuser, guests refused ----
+sudo systemctl stop smbd nmbd 2>/dev/null || true
+sudo pkill -x smbd 2>/dev/null || true
+mkdir -p "$dir/smb/lock" "$dir/smb/state" "$dir/smb/cache" "$dir/smb/private"
+cat > "$dir/smb.conf" <<EOF
+[global]
+  server role = standalone server
+  map to guest = never
+  smb ports = 445
+  server min protocol = SMB2
+  disable netbios = yes
+  log file = $dir/smbd.log
+  pid directory = $dir/smb
+  lock directory = $dir/smb/lock
+  state directory = $dir/smb/state
+  cache directory = $dir/smb/cache
+  private dir = $dir/smb/private
+[media]
+  path = $data
+  read only = no
+  valid users = $user
+EOF
+printf '%s\n%s\n' "$pass" "$pass" | sudo smbpasswd -c "$dir/smb.conf" -s -a "$user" >/dev/null
+start_smbd() { sudo smbd -D -s "$dir/smb.conf"; }
+
+# ---- NFS: the live folder exported to 127.0.0.1 ----
+echo "$data 127.0.0.1(ro,insecure,no_subtree_check)" | sudo tee /etc/exports >/dev/null
+sudo systemctl restart nfs-kernel-server 2>/dev/null || sudo service nfs-kernel-server restart
+sudo exportfs -ra
+
 wait_for vsftpd 2121 '220' start_vsftpd
 wait_for sshd 2222 'SSH-2.0' start_sshd
 wait_for apache 8080 '' start_apache
+wait_for smbd 445 '' start_smbd
+showmount -e 127.0.0.1 | grep -q "$data" || { echo "the NFS export is not listed"; showmount -e 127.0.0.1 || true; exit 1; }
 # the WebDAV share takes the login
 curl -fsS -o /dev/null -u "$user:$pass" -X PROPFIND -H 'Depth: 0' http://127.0.0.1:8080/dav/ \
   || { echo "the WebDAV share does not take the login"; exit 1; }
@@ -177,5 +211,11 @@ MC_LIVE_SFTP_HOSTKEY=$dir/ssh_host_ed25519_key.pub
 MC_LIVE_DAV_URL=webdav://127.0.0.1:8080/dav
 MC_LIVE_DAV_USER=$user
 MC_LIVE_DAV_PASS=$pass
+MC_LIVE_SMB_HOST=127.0.0.1
+MC_LIVE_SMB_USER=$user
+MC_LIVE_SMB_PASS=$pass
+MC_LIVE_SMB_SHARE=media
+MC_LIVE_NFS_HOST=127.0.0.1
+MC_LIVE_NFS_EXPORT=$data
 EOF
 echo "servers are up; the tests' settings are in $dir/live.env"

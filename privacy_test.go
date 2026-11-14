@@ -60,9 +60,10 @@ var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/web
 // loopbackFiles may listen or dial, but only on 127.0.0.1.
 var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true}
 
-// outboundFuncs are the functions (by file) that may make a request to an address the user configured: only the AI
-// chat completions client's send.
-var outboundFuncs = map[string]map[string]bool{"internal/ai/chat_http.go": set("send")}
+// outboundFuncs are the functions (by file) that may make a request to an address the user configured: the AI chat
+// completions client's send, and the SMB login that lists a server's shares when the user picks or types a server in
+// the network neighbourhood (#148).
+var outboundFuncs = map[string]map[string]bool{"internal/ai/chat_http.go": set("send"), "internal/netbrowse/shares.go": set("smbDial")}
 
 // sinkUse is one place a network name is used.
 type sinkUse struct {

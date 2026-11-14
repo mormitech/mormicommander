@@ -517,7 +517,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends libgtk-4-dev libwebkitgtk-6.0-dev \
-            vsftpd openssh-server apache2 apache2-utils openssl curl
+            vsftpd openssh-server apache2 apache2-utils openssl curl samba nfs-kernel-server
           sudo apt-get install -y --no-install-recommends 7zip || sudo apt-get install -y --no-install-recommends p7zip-full
           sudo apt-get install -y --no-install-recommends unrar || echo "no unrar package: 7-Zip checks the RAR sample"
           command -v 7zz || command -v 7z || command -v 7za
@@ -537,7 +537,7 @@ jobs:
         if: failure()
         run: |
           mkdir -p "$RUNNER_TEMP/live-logs"
-          sudo sh -c 'cp "$1"/*.log "$1"/xferlog "$1"/*.conf "$1"/sshd_config /var/log/apache2/mc-live-* "$2"/ 2>/dev/null; chmod -R a+rX "$2"' _ "$RUNNER_TEMP/live" "$RUNNER_TEMP/live-logs" || true
+          sudo sh -c 'cp "$1"/*.log "$1"/xferlog "$1"/*.conf "$1"/smb.conf "$1"/sshd_config /var/log/apache2/mc-live-* "$2"/ 2>/dev/null; chmod -R a+rX "$2"' _ "$RUNNER_TEMP/live" "$RUNNER_TEMP/live-logs" || true
       - name: Keep the logs
         if: failure()
         uses: actions/upload-artifact@v4
