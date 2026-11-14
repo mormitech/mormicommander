@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.89 – 2026-11-14
+
+### Added
+
+- Issue #120: new scripts/prune_merged.sh lists (and with --apply deletes) local eng/, spec/ and ui/ branches that are fully merged into main, together with their clean worktrees under .worktrees/. It never touches unmerged branches, dirty worktrees, ow/ or wip/ branches, main or remote branches. Without --apply it only shows what it would do. No change to the app itself.
+
 ## 0.9.88 – 2026-11-14
 
 ### Changed
