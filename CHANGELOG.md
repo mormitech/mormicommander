@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.53 – 2026-11-14
+
+### Added
+
+- Error list for file jobs (issue #15): every file a copy, move or delete could not handle is now recorded with its target and a plain-English reason (up to 10,000 entries; the error count has no limit). The progress box and the transfer window show the error count, and the transfer window's "Errors..." button opens the list of a finished job with Retry failed, Copy list and Save log. New setting "Skip errors in background jobs (list them at the end)" on Configuration > Copy/Delete, off by default: when on, background copies and moves skip errors without asking, a job sent to the background stops asking, and a job that skipped errors opens the error list when it ends. With the setting off nothing changes.
+
 ## 0.9.52 – 2026-11-14
 
 ### Added
