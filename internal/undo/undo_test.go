@@ -243,3 +243,29 @@ func TestUndoTrash(t *testing.T) {
 		t.Error("an entry of unknown items was not recorded")
 	}
 }
+
+// Undoing a case-only rename goes through a temporary name; for a name near the 255-byte limit that name used to be
+// too long, so the undo failed.
+func TestUndoCaseOnlyRenameLongName(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "probe"), "x")
+	if !exists(filepath.Join(dir, "PROBE")) {
+		t.Skip("the file system is case-sensitive")
+	}
+	name := strings.Repeat("n", 240) + ".txt"
+	upper := strings.ToUpper(name)
+	write(t, filepath.Join(dir, upper), "data")
+	e := Entry{Kind: Rename, Items: []Item{{From: filepath.Join(dir, name), To: filepath.Join(dir, upper)}}}
+	_, done, problems := Apply(PlanUndo(e, same).Steps)
+	if done != 1 || len(problems) > 0 {
+		t.Fatalf("done %d, problems %v", done, problems)
+	}
+	list, _ := os.ReadDir(dir)
+	found := false
+	for _, d := range list {
+		found = found || d.Name() == name
+	}
+	if !found {
+		t.Errorf("the old name did not come back: %v", list)
+	}
+}

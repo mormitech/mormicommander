@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"time"
+	"unicode/utf8"
 )
 
 // sameVolume is SameVolume; the tests replace it to drive the copy-and-delete path of a move on one disk.
@@ -395,7 +396,7 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 	}
 	final := dst // where the bytes end up; dst is where they are written
 	if wm == wmCreate && oldInfo != nil && oldInfo.Mode().IsRegular() {
-		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", filepath.Base(final), time.Now().UnixNano()))
+		dst = filepath.Join(filepath.Dir(final), fmt.Sprintf(".%s.mc-copy-%d", tempStem(filepath.Base(final)), time.Now().UnixNano()))
 	}
 	flag := os.O_WRONLY | os.O_CREATE | os.O_TRUNC
 	var offset int64
@@ -502,6 +503,22 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 		j.copyMeta(src, dst, info)
 	}
 	return nil
+}
+
+// tempStem is the part of a file name that goes into the name of a temporary file next to it. The whole name plus the
+// temporary file's prefix and suffix would pass the 255-byte limit of file names for names near that limit, so such a
+// file could never be overwritten or renamed; the stem keeps only the start of a long name (cut between characters),
+// which is still enough to tell what the temporary file belongs to.
+func tempStem(name string) string {
+	const max = 64
+	if len(name) <= max {
+		return name
+	}
+	cut := max
+	for cut > 0 && !utf8.RuneStart(name[cut]) {
+		cut--
+	}
+	return name[:cut]
 }
 
 // verifyFile re-reads the part of dst that was just written and compares its SHA-256 with want.
