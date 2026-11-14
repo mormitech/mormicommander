@@ -1,0 +1,17 @@
+/* The command palette and the command browser (features/palette.js): a search box over a list of commands, folders,
+   tabs and Options pages, each row with its kind, its name, a detail and its keys. Theme tokens only (see style.css). */
+
+.mc-box.mc-palette { width: min(600px, 92vw); display: flex; flex-direction: column; gap: 8px; }
+.mc-palette h2 { margin-bottom: 2px; }
+.mc-palette #palette-q { width: 100%; box-sizing: border-box; padding: 5px 8px; font-size: 14px; }
+.mc-palette-list { height: min(380px, 56vh); overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.mc-palette-it { display: flex; align-items: baseline; gap: 8px; padding: 3px 8px; white-space: nowrap; cursor: default; }
+.mc-palette-it.on { background: var(--cur); }
+.mc-palette-it.off { opacity: var(--hid); }
+.mc-palette-g { flex: 0 0 64px; color: var(--muted); font-size: 11px; }
+.mc-palette-l { flex: 0 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.mc-palette-d { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--muted); font-size: 11px; }
+.mc-palette-k { flex: 0 0 auto; margin-left: auto; color: var(--muted); font: var(--mono); font-size: 11px; }
+.mc-palette-none { margin: 10px; color: var(--muted); }
+.mc-palette-foot { display: flex; align-items: center; gap: 6px; }
+.mc-palette-count { flex: 1 1 auto; color: var(--muted); font-size: 11px; }

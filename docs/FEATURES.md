@@ -513,11 +513,11 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-370 Branch view — Ctrl+B — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-371 Run DOS / terminal — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-372 Command line focus (cm_FocusCmdLine) — — — focus to command line
-- [ ] F-373 Browse internal commands (cm_CommandBrowser) — — — dialog lists all cm_* commands with description and hotkey, searchable; can run or assign hotkey
+- [~] F-373 Browse internal commands (cm_CommandBrowser) — — — dialog lists all cm_* commands with description and hotkey, searchable; can run or assign hotkey
 - [ ] F-374 Internal command list completeness — — — every cm_* in this file appears in the command browser
 - [ ] F-375 Change start menu (cm_ConfigStartMenu) — — — user menu "Start" editable with items: title, command, parameters, start path, hotkey, submenus
 - [ ] F-376 Open folder in new window / second instance — — — allow multiple instances option (TC: only one instance setting)
-- [ ] F-857 Command palette: fuzzy search over all cm_* commands, hotlist, directory history, open tabs and settings pages — Ctrl+Shift+P (Cmd+Shift+P on macOS) — typing "sync" lists Synchronize dirs with its hotkey; Enter runs it; results ranked by recent use; works with the keyboard only
+- [~] F-857 Command palette (cm_CommandPalette, ours): fuzzy search over all cm_* commands, hotlist, directory history, open tabs and settings pages — Ctrl+Shift+P (Cmd+Shift+P on macOS) — typing "sync" lists Synchronize dirs with its hotkey; Enter runs it; results ranked by recent use; works with the keyboard only
 
 ## 15. Net menu
 

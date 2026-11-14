@@ -366,3 +366,13 @@ macOS) and `cm_UndoList` take an operation back after a confirm dialog of kind `
 |---|---|
 | `{"cmd": "undo-list"}` | `{ok, entries: [{id, time, kind, items: [{from, to, dir}], lost}]}`, oldest first (handled in Go) |
 | `{"cmd": "undo"}` / `{"cmd": "undo", "id": n}` | undoes the newest (or the given) operation without asking; `{ok}` |
+
+## Command palette
+
+The palette (Ctrl+Shift+P, Cmd+Shift+P on macOS) and "All commands…" are page dialogs of kind `palette`: fill field
+`palette-q` and answer with no button to run the highlighted item, or "Esc" to close. Run them with
+`{"cmd": "run", "name": "cm_CommandPalette", "args": {"query": "sync"}}` (or `cm_CommandBrowser`).
+
+| command | answer |
+|---|---|
+| `{"cmd": "palette", "query": "sync"}` | `{ok, items: [{key, group, label, detail, hint, disabled}]}`: what the palette would list, best first (`"only": "commands"` as in All commands, `"limit"`, default 50) |

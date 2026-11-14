@@ -129,6 +129,14 @@ export function tabCaption(p, t, { plain = false } = {}) {
   return c;
 }
 
+// tabList lists a side's tabs for other features (the command palette): position, caption, folder, and which one is
+// active. It is empty until the tabs were restored at start.
+export function tabList(side) {
+  const s = sides[side], p = panelOf(side);
+  if (!s || !p) return [];
+  return s.tabs.map((t, i) => ({ index: i, caption: tabCaption(p, t, { plain: true }), path: tabPath(p, t), active: i === s.active }));
+}
+
 // ---- switching ----
 
 // restore puts a tab's state into its panel and reads the folder again; a tab that has only a path (restored at

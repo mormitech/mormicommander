@@ -22,7 +22,7 @@ import { keyText } from './keys.js';
 import { applyAll, loadColors } from './layout.js';
 import { registerUserCommands } from './usercmds.js';
 
-const EXTRA_PAGES = {
+export const EXTRA_PAGES = { // (also read by the command palette, features/palette.js)
   Hotkeys: { title: 'Keyboard shortcuts', after: 'Misc', words: 'keys keyboard shortcuts hotkeys redefine shortcut key' },
   UserCommands: { title: 'User commands', after: 'Hotkeys', words: 'user commands em_ usercmd' },
   SettingsFile: { title: 'Settings file', after: null, words: 'settings file ini import export back up backup restore edit total commander wincmd portable reload' },
