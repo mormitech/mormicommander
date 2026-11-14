@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.92 – 2026-11-14
+
+### Added
+
+- Issue #19 (F-863): native macOS Quick Look. The new command cm_QuickLook (Cmd+Y on macOS, in the Show menu after Quick view, greyed out on other systems) opens the system Quick Look panel on the file or folder under the cursor. While it is open it follows the active panel's cursor, the main window keeps the keyboard, and Cmd+Y or Esc closes it. Files inside archives or on servers show a message that Quick Look works on files on this computer only. Nothing else changes.
+
 ## 0.9.91 – 2026-11-14
 
 ### Changed
