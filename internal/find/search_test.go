@@ -666,3 +666,63 @@ func TestArchiveHelpers(t *testing.T) {
 		t.Error("ArchiveFuncs")
 	}
 }
+
+// TestContentSearchSkipsLinkedFolder searches text without following links in
+// a tree that holds a symbolic link to a folder. The link is not a file and
+// has no text, like the folder itself, so it must neither be opened (reading a
+// folder fails with "is a directory", which was reported as an error for every
+// such link) nor be hashed as a duplicate candidate.
+func TestContentSearchSkipsLinkedFolder(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("symlinks need privileges on Windows")
+	}
+	// Targets of equal length give both links the same size, so the duplicate
+	// search groups them and would try to read them.
+	root := mkTree(t, map[string]string{"dir1/a.txt": "a needle here", "dir2/b.txt": "a needle here"})
+	if err := os.Symlink(filepath.Join(root, "dir1"), filepath.Join(root, "link1")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(root, "dir2"), filepath.Join(root, "link2")); err != nil {
+		t.Fatal(err)
+	}
+	for _, notContaining := range []bool{false, true} {
+		o := DefaultOptions()
+		o.SearchIn = []string{root}
+		o.Content.Text = "needle"
+		o.Content.NotContaining = notContaining
+		var errs []string
+		q, err := Compile(o)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := q.Run(context.Background(), Handler{Error: func(p string, e error) { errs = append(errs, p+": "+e.Error()) }}); err != nil {
+			t.Fatal(err)
+		}
+		if len(errs) > 0 {
+			t.Errorf("notContaining=%v: errors %v", notContaining, errs)
+		}
+	}
+	o := DefaultOptions()
+	o.SearchIn = []string{root}
+	o.Duplicates = DupOptions{Enabled: true, Size: true, Content: true}
+	var errs []string
+	q, err := Compile(o)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	if _, err := q.Run(context.Background(), Handler{
+		Result: func(r Result) error { got = append(got, r.Rel); return nil },
+		Error:  func(p string, e error) { errs = append(errs, p+": "+e.Error()) },
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(errs) > 0 {
+		t.Errorf("duplicates: errors %v", errs)
+	}
+	for _, g := range got {
+		if strings.HasPrefix(g, "link") {
+			t.Errorf("duplicates: link to a folder listed: %v", got)
+		}
+	}
+}

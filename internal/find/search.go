@@ -173,6 +173,23 @@ func (e *entry) special(f FS) bool {
 	return false
 }
 
+// noContent reports whether the entry has no file content to read: a pipe,
+// socket or device (see special), or a symbolic link to a folder that was not
+// followed. Such a link is listed like any other entry, but reading it would
+// read the folder and fail with "is a directory", so content search and
+// duplicate search by content skip it just as they skip folders.
+func (e *entry) noContent(f FS) bool {
+	if e.special(f) {
+		return true
+	}
+	if e.mode&fs.ModeSymlink != 0 && e.archive == "" {
+		if t, err := f.Stat(e.path); err == nil && t.IsDir() {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *entry) result() Result {
 	r := Result{Path: e.path, Name: e.name, Root: e.root, Rel: e.rel, Size: e.size, ModTime: e.mod,
 		Mode: e.mode, IsDir: e.isDir, Attr: e.attr, Archive: e.archive, Inner: e.inner}
@@ -424,7 +441,7 @@ func (r *run) consider(e *entry) error {
 		return nil
 	}
 	if r.q.dup != nil {
-		if !e.isDir && !(r.q.dup.needContent() && e.special(r.q.fs)) {
+		if !e.isDir && !(r.q.dup.needContent() && e.noContent(r.q.fs)) {
 			r.dupFound = append(r.dupFound, e)
 		}
 		return nil
@@ -469,7 +486,7 @@ func (q *Query) match(ctx context.Context, e *entry) (bool, error) {
 		// Folders have no text, and pipes, sockets and devices must never be opened:
 		// opening a named pipe without a writer blocks inside the open call, where
 		// neither the context nor Job.Stop can reach it.
-		if e.isDir || e.special(q.fs) {
+		if e.isDir || e.noContent(q.fs) {
 			return false, nil
 		}
 		rc, err := e.open()

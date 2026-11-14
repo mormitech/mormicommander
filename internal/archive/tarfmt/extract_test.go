@@ -329,6 +329,26 @@ func TestExtractHardlinkWithoutTarget(t *testing.T) {
 	}
 }
 
+// TestExtractFlattenHardlinkKeepsItsData unpacks without paths an archive in
+// which two different files share a base name and a hard link points to the
+// first one. The second file replaces the first under that name, so the link
+// must get the first file's data (from the second pass), not be linked to
+// whatever now carries the name.
+func TestExtractFlattenHardlinkKeepsItsData(t *testing.T) {
+	dest, err := extractAll(t, []member{
+		{name: "a/x", body: "first"},
+		{name: "b/x", body: "second"},
+		{name: "c/l", typ: tar.TypeLink, link: "a/x"},
+	}, archive.ExtractOptions{Flatten: true, Conflict: archive.ConflictOverwrite})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tree := listTree(t, dest)
+	if tree["x"] != "second" || tree["l"] != "first" {
+		t.Errorf("tree = %v, want x=second l=first", tree)
+	}
+}
+
 func TestExtractConflicts(t *testing.T) {
 	newer := testTime
 	older := testTime.Add(-time.Hour)

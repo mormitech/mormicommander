@@ -344,6 +344,31 @@ func TestExtractRarHardLinks(t *testing.T) {
 	}
 }
 
+// TestExtractRarHardLinkFlattenReplacedTarget unpacks without paths a RAR
+// archive in which two files share a base name and a hard link points to the
+// first one. By the time links are made the local file holds the second
+// file, so linking to it would give the link the wrong data; the link must
+// be skipped and reported instead.
+func TestExtractRarHardLinkFlattenReplacedTarget(t *testing.T) {
+	files := []tFile{
+		{name: "a/x", data: []byte("first")},
+		{name: "b/x", data: []byte("second")},
+		{name: "c/l", link: 4, target: "a/x"},
+	}
+	a := openT(t, makeArchive(t, "rar5", files))
+	dest := t.TempDir()
+	res, err := a.Extract(context.Background(), dest, ExtractOptions{FlattenPaths: true, Overwrite: OverwriteAll})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := tree(t, dest); got != "x=second" {
+		t.Errorf("tree:\n%s\nwant x=second (and no l with the wrong data)", got)
+	}
+	if len(res.Skipped) != 1 || res.Skipped[0].Path != "c/l" {
+		t.Errorf("skipped = %+v", res.Skipped)
+	}
+}
+
 func TestExtractConflicts(t *testing.T) {
 	old := time.Date(2001, 1, 1, 0, 0, 0, 0, time.UTC)
 	newer := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)

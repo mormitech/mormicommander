@@ -138,6 +138,12 @@ func TestChunkBoundaries(t *testing.T) {
 		{"regex across line break", ContentOptions{Text: `foo\nbar`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo\nbar" + pad(2)) }, true},
 		{"regex line start", ContentOptions{Text: `(?m)^bar`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo\nbar" + pad(2)) }, true},
 		{"regex line start false", ContentOptions{Text: `^bar`, Regex: true}, func(p int) []byte { return []byte("\n" + pad(p) + "foobar" + pad(2)) }, false},
+		// A greedy match that runs past the end of a chunk and started more than
+		// the tail length before it: the next round no longer sees "foo", so the
+		// match must be accepted when it is first seen.
+		{"regex greedy past tail", ContentOptions{Text: `foo.*`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo" + strings.Repeat("x", 40) + " end") }, true},
+		{"regex greedy word chars past tail", ContentOptions{Text: `fo+\w*`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo" + strings.Repeat("x", 40) + " end") }, true},
+		{"regex end of line still waits", ContentOptions{Text: `foo$`, Regex: true}, func(p int) []byte { return []byte(pad(p) + "foo" + "bar\n") }, false},
 		{"regex whole word false", ContentOptions{Text: `ne+dle`, Regex: true, WholeWords: true}, func(p int) []byte { return []byte(pad(p) + "needles" + pad(2)) }, false},
 	}
 	for _, c := range cases {

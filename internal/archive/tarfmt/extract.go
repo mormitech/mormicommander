@@ -526,8 +526,12 @@ func (x *extractor) makeHardlink(rel string, e archive.Entry, h *tar.Header) err
 		x.fail(e.Path, fmt.Errorf("%w (-> %s)", archive.ErrUnsafeLink, h.Linkname))
 		return nil
 	}
+	// Link to the unpacked copy only when the local file still holds that
+	// very member. Without paths two members can share a base name, and the
+	// local file may by now hold the other one; the data then comes from the
+	// second pass instead.
 	trel, ok := x.target(target, false)
-	if ok && x.written[trel] != "" && trel != rel {
+	if ok && x.written[trel] == target && trel != rel {
 		if fi, err := x.root.Lstat(local(trel)); err == nil && fi.Mode().IsRegular() {
 			return x.linkOrCopy(trel, rel, e, fi)
 		}

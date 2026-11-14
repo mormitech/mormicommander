@@ -7,7 +7,9 @@
 // boundary is still seen whole, and we remember the character before that tail so the
 // whole-word test is exact there too. A regular expression match can be at most the
 // tail length (64 KiB) long to be found across a boundary; matches inside one chunk can
-// be any length. For regular expressions the tail starts at a line start where one is
+// be any length; a match that runs past the chunk end is accepted at once unless the
+// expression looks past its own end ("$", "\b"), so "foo.*" in a long minified line is
+// never lost. For regular expressions the tail starts at a line start where one is
 // near, so "^" still means "start of line" (inside a single line longer than twice the
 // tail length it may also match where the tail begins).
 
@@ -21,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"regexp/syntax"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -61,6 +64,12 @@ type contentMatcher struct {
 	fold    bool           // lower-case the haystack before searching
 	wordL   bool           // check the boundary before a match
 	wordR   bool           // check the boundary after a match
+	// endSensitive is set when a regex match that touches the end of the
+	// text read so far may stop being a match once more text follows: with
+	// whole words, or when the expression looks at what comes after it
+	// ("$", "\z", "\b", "\B"). Only then must such a match wait for the
+	// next chunk.
+	endSensitive bool
 }
 
 // compileContent validates the options and prepares the matcher.
@@ -126,6 +135,7 @@ func compileContent(c ContentOptions) (*contentMatcher, error) {
 		m.re = re
 		m.overlap = regexOverlap
 		m.wordL, m.wordR = c.WholeWords, c.WholeWords
+		m.endSensitive = c.WholeWords || looksAhead(re.String())
 		return m, nil
 	}
 	m.fold = !c.CaseSensitive
@@ -161,6 +171,32 @@ func ParseHex(s string) ([]byte, error) {
 		return nil, fmt.Errorf("find: empty hex search string")
 	}
 	return out, nil
+}
+
+// looksAhead reports whether a regular expression contains an assertion
+// that depends on the text after the position where it is tested: end of
+// line, end of text, or a word boundary. Without one, a match found in the
+// text read so far stays a match whatever follows, so the search does not
+// have to wait for the next chunk to accept it.
+func looksAhead(expr string) bool {
+	re, err := syntax.Parse(expr, syntax.Perl)
+	if err != nil {
+		return true
+	}
+	var walk func(*syntax.Regexp) bool
+	walk = func(r *syntax.Regexp) bool {
+		switch r.Op {
+		case syntax.OpEndLine, syntax.OpEndText, syntax.OpWordBoundary, syntax.OpNoWordBoundary:
+			return true
+		}
+		for _, sub := range r.Sub {
+			if walk(sub) {
+				return true
+			}
+		}
+		return false
+	}
+	return walk(re)
 }
 
 // isWordRune is the "word character" test for whole-word matching: letters (in any
@@ -256,11 +292,14 @@ func (m *contentMatcher) feed(s *stream, raw []byte, eof bool) bool {
 // find searches one piece of decoded text. prev is the rune before text (-1 at the
 // start of the file). A match touching the end of the text while more data follows
 // is "not sure yet" when the right boundary matters; it lies inside the tail and will
-// be seen again with more context.
+// be seen again with more context. A regular expression match that touches the end
+// is accepted at once unless the expression looks past its end (endSensitive):
+// waiting would lose a greedy match such as "foo.*" that started more than the tail
+// length before the chunk end, because the next round no longer sees its start.
 func (m *contentMatcher) find(text string, prev rune, eof bool) bool {
 	if m.re != nil {
 		for _, loc := range m.re.FindAllStringIndex(text, -1) {
-			if loc[1] == len(text) && !eof {
+			if loc[1] == len(text) && !eof && m.endSensitive {
 				continue
 			}
 			if m.boundaryOK(text, loc[0], loc[1], prev, eof) {
