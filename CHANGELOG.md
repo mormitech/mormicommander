@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.79 – 2026-11-14
+
+### Fixed
+
+- Properties on Windows (issue #100): the Explorer properties sheet (Alt+Enter style "system properties") is now opened from the program's main UI thread, so it reliably appears. Before, it was opened from a background thread that had no message loop and the sheet could fail to show. macOS and Linux are unchanged.
+
 ## 0.9.78 – 2026-11-14
 
 ### Added
