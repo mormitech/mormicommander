@@ -1,5 +1,5 @@
 // This file provides the media fields TC users normally get from content plugins: image width and height, the EXIF
-// "date taken" of photos, and ID3 tags of MP3 files. They are read lazily, only for rows whose column set actually
+// "date taken" of photos, and ID3 tags of MP3 files (more formats: media_exif.go and media_vorbis.go). They are read lazily, only for rows whose column set actually
 // uses one of these fields, and only from the first bytes of the file (image headers, the EXIF block, the ID3v2 header
 // or the 128-byte ID3v1 trailer), so a Pictures column set stays fast. Results are cached in Item.Extra, so sorting by
 // such a column reads each file once.
@@ -79,7 +79,7 @@ func openRegular(it *Item) (*os.File, bool) {
 // values the file list shows.
 func LoadImageFacts(it *Item) { loadImage(it) }
 
-// LoadAudioFacts reads an item's ID3 tags into Item.Extra (keys ExtraTitle ... ExtraGenre), once per item.
+// LoadAudioFacts reads an item's audio tags (ID3, or the Vorbis comments of FLAC and Ogg files) into Item.Extra (keys ExtraTitle ... ExtraGenre), once per item.
 func LoadAudioFacts(it *Item) { loadAudio(it) }
 
 // loadImage reads dimensions and EXIF date once per item.
@@ -104,35 +104,57 @@ func loadImage(it *Item) {
 	n, _ := io.ReadFull(f, head)
 	if t, ok := ExifDate(head[:n]); ok {
 		setExtra(it, ExtraExifDate, t)
+		return
+	}
+	if isHEIF(head[:n]) {
+		// HEIF/HEIC (media_exif.go): the size and the EXIF item come from the file's boxes, not from a decoder
+		w, h, exif := heifFacts(f)
+		if _, ok := it.Extra[ExtraImgWidth]; !ok && w > 0 && h > 0 {
+			setExtra(it, ExtraImgWidth, int64(w))
+			setExtra(it, ExtraImgHeight, int64(h))
+		}
+		if t, ok := parseTIFFDate(exif); ok {
+			setExtra(it, ExtraExifDate, t)
+		}
 	}
 }
 
-// ExifDate finds DateTimeOriginal (or DateTime) in a JPEG's EXIF block. data is the start of the file. EXIF dates have
-// no time zone, so the result is in time.Local, matching what cameras and Explorer show.
+// ExifDate finds DateTimeOriginal (or DateTime) in the EXIF block of an image file: JPEG, and since issue #7 also
+// PNG, WebP and TIFF (with the camera raw formats built on TIFF, such as DNG, CR2, NEF and ARW; see media_exif.go).
+// data is the start of the file. EXIF dates have no time zone, so the result is in time.Local, matching what cameras
+// and Explorer show.
 func ExifDate(data []byte) (time.Time, bool) {
+	if t := exifBlock(data); t != nil {
+		return parseTIFFDate(t)
+	}
+	return time.Time{}, false
+}
+
+// jpegExif returns the TIFF block of a JPEG's EXIF segment (APP1 "Exif"), or nil.
+func jpegExif(data []byte) []byte {
 	if len(data) < 4 || data[0] != 0xFF || data[1] != 0xD8 {
-		return time.Time{}, false
+		return nil
 	}
 	p := 2
 	for p+4 <= len(data) {
 		if data[p] != 0xFF {
-			return time.Time{}, false
+			return nil
 		}
 		marker := data[p+1]
 		if marker == 0xDA || marker == 0xD9 { // start of scan / end: no EXIF before the image data
-			return time.Time{}, false
+			return nil
 		}
 		segLen := int(binary.BigEndian.Uint16(data[p+2:]))
 		if segLen < 2 || p+2+segLen > len(data) {
-			return time.Time{}, false
+			return nil
 		}
 		seg := data[p+4 : p+2+segLen]
 		if marker == 0xE1 && bytes.HasPrefix(seg, []byte("Exif\x00\x00")) {
-			return parseTIFFDate(seg[6:])
+			return seg[6:]
 		}
 		p += 2 + segLen
 	}
-	return time.Time{}, false
+	return nil
 }
 
 func parseTIFFDate(t []byte) (time.Time, bool) {
@@ -358,7 +380,7 @@ func loadAudio(it *Item) {
 		return
 	}
 	defer f.Close()
-	t, ok := ReadID3(f)
+	t, ok := ReadAudioTags(f) // ID3 of MP3 files, Vorbis comments of FLAC and Ogg files (media_vorbis.go)
 	if !ok {
 		return
 	}

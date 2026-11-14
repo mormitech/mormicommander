@@ -144,3 +144,49 @@ func TestMultiRenameMediaFields(t *testing.T) {
 		t.Errorf("not renamed: %v", mrList(t, dir))
 	}
 }
+
+// TestMultiRenameMediaMoreFormats checks the formats added for issue #7 end to end: the Vorbis comments of a FLAC
+// file answer [=audio.*], and the EXIF chunk of a PNG answers [=img.exifdate].
+func TestMultiRenameMediaMoreFormats(t *testing.T) {
+	m, dir := mrSetup(t)
+	// FLAC: "fLaC", a STREAMINFO block, then the last block, VORBIS_COMMENT
+	var vc bytes.Buffer
+	le := func(n int) { binary.Write(&vc, binary.LittleEndian, uint32(n)) }
+	le(1)
+	vc.WriteString("v")
+	pairs := []string{"ARTIST=Quartet", "TITLE=Night", "TRACKNUMBER=5"}
+	le(len(pairs))
+	for _, p := range pairs {
+		le(len(p))
+		vc.WriteString(p)
+	}
+	var flac bytes.Buffer
+	flac.WriteString("fLaC")
+	flac.Write([]byte{0, 0, 0, 34})
+	flac.Write(make([]byte, 34))
+	n := vc.Len()
+	flac.Write([]byte{0x84, byte(n >> 16), byte(n >> 8), byte(n)})
+	flac.Write(vc.Bytes())
+	// PNG with the TIFF block of mrExifJPEG in an eXIf chunk (the checksum is not read)
+	jpg := mrExifJPEG("2020:01:02 03:04:05")
+	tiff := jpg[12 : len(jpg)-2]
+	var pngb bytes.Buffer
+	pngb.WriteString("\x89PNG\r\n\x1a\n")
+	binary.Write(&pngb, binary.BigEndian, uint32(len(tiff)))
+	pngb.WriteString("eXIf")
+	pngb.Write(tiff)
+	pngb.Write(make([]byte, 4))
+	for name, data := range map[string][]byte{"a.flac": flac.Bytes(), "b.png": pngb.Bytes()} {
+		if err := os.WriteFile(filepath.Join(dir, name), data, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := m.Start(dir, []string{"a.flac", "b.png"}); err != nil {
+		t.Fatal(err)
+	}
+	s := multirename.DefaultSettings()
+	s.NameMask = "[=audio.track] [=audio.artist] - [=audio.title][=img.exifyear]"
+	if got := mrNews(m.Preview(s)); got[0] != "05 Quartet - Night.flac" || got[1] != "  - 2020.png" {
+		t.Errorf("got %q", got)
+	}
+}
