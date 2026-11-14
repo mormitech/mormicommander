@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 )
 
 // Settings is the whole Configuration dialog.
@@ -562,6 +564,14 @@ func LookupSetting(name string) (FieldInfo, bool) {
 // SearchSettings returns the options whose label, name, key or page title
 // contains every word of query (F-827), plus the pages they are on.
 func SearchSettings(query string) ([]FieldInfo, []string) {
+	return SearchSettingsWords(query, false)
+}
+
+// SearchSettingsWords is SearchSettings with a choice: with wholeWords, each
+// word of query must stand as a whole word in the option's text ("two" finds
+// "Two drive button bars" but not "network"); without it, any part of a word matches, as
+// the search always has (board issue #109).
+func SearchSettingsWords(query string, wholeWords bool) ([]FieldInfo, []string) {
 	words := strings.Fields(strings.ToLower(query))
 	var out []FieldInfo
 	var pages []string
@@ -573,7 +583,7 @@ func SearchSettings(query string) ([]FieldInfo, []string) {
 		}
 		match := true
 		for _, w := range words {
-			if !strings.Contains(hay, w) {
+			if !ContainsWord(hay, w, wholeWords) {
 				match = false
 				break
 			}
@@ -587,6 +597,36 @@ func SearchSettings(query string) ([]FieldInfo, []string) {
 		}
 	}
 	return out, pages
+}
+
+// ContainsWord reports whether hay contains word. With whole, the match must
+// not have a letter or digit right before or after it, so it is a word of its
+// own and not part of a longer one; every place word occurs is tried.
+func ContainsWord(hay, word string, whole bool) bool {
+	if !whole || word == "" {
+		return strings.Contains(hay, word)
+	}
+	for from := 0; ; {
+		i := strings.Index(hay[from:], word)
+		if i < 0 {
+			return false
+		}
+		start := from + i
+		end := start + len(word)
+		before, _ := utf8.DecodeLastRuneInString(hay[:start])
+		after, _ := utf8.DecodeRuneInString(hay[end:])
+		if !isWordRune(before) && !isWordRune(after) {
+			return true
+		}
+		_, size := utf8.DecodeRuneInString(hay[start:])
+		from = start + size
+	}
+}
+
+// isWordRune tells the letters and digits that make up words; utf8.RuneError
+// (the start or end of the text) is not one.
+func isWordRune(r rune) bool {
+	return r != utf8.RuneError && (unicode.IsLetter(r) || unicode.IsDigit(r))
 }
 
 func (s *Settings) field(fi FieldInfo) reflect.Value {

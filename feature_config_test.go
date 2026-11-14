@@ -63,3 +63,26 @@ func TestConfigSchemaMarksOptionsWithoutEffect(t *testing.T) {
 		}
 	}
 }
+
+// TestConfigSearchWords checks the binding behind the "Whole words" box (board issue #109): Search is unchanged, and
+// SearchWords with whole words leaves out options where the text is only part of a longer word.
+func TestConfigSearchWords(t *testing.T) {
+	c := &Configuration{app: &App{}}
+	has := func(r map[string]any, name string) bool {
+		for _, n := range r["fields"].([]string) {
+			if n == name {
+				return true
+			}
+		}
+		return false
+	}
+	if r := c.Search("two"); !has(r, "Refresh.RefreshNetwork") || !has(r, "Layout.DriveBar2") {
+		t.Errorf("Search(two) = %v, want network refresh and the drive bars", r["fields"])
+	}
+	if r := c.SearchWords("two", false); !has(r, "Refresh.RefreshNetwork") {
+		t.Errorf("SearchWords(two, false) = %v, want network refresh", r["fields"])
+	}
+	if r := c.SearchWords("two", true); has(r, "Refresh.RefreshNetwork") || !has(r, "Layout.DriveBar2") {
+		t.Errorf("SearchWords(two, true) = %v, want the drive bars only", r["fields"])
+	}
+}

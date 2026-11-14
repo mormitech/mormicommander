@@ -179,6 +179,17 @@ func (c *Configuration) Search(query string) map[string]any {
 	return map[string]any{"pages": pages, "fields": names}
 }
 
+// SearchWords is Search with a choice of whole words: with wholeWords, "two" finds "Two drive button bars" but not "network"
+// (the "Whole words" box under the search box, board issue #109). Search itself stays as it was.
+func (c *Configuration) SearchWords(query string, wholeWords bool) map[string]any {
+	fields, pages := config.SearchSettingsWords(query, wholeWords)
+	names := make([]string, 0, len(fields))
+	for _, f := range fields {
+		names = append(names, f.Name)
+	}
+	return map[string]any{"pages": pages, "fields": names}
+}
+
 // configScheme is a colour scheme for the page: colours as "#rrggbb", "" for "the theme's colour".
 type configScheme struct {
 	Name             string              `json:"name"`

@@ -20,6 +20,7 @@ import { renderFkeys } from '../../core/fkeys.js';
 import { state, loadSchema, loadValues, currentValue, BRIDGE, fillSelect } from './util.js';
 import { keyText } from './keys.js';
 import { applyAll, loadColors } from './layout.js';
+import { matchesAll, searchWords } from './search.js';
 import { registerUserCommands } from './usercmds.js';
 
 export const EXTRA_PAGES = { // (also read by the command palette, features/palette.js)
@@ -41,6 +42,10 @@ const COLOR_KEYS = [
   ['cursorText', 'Text under the cursor'], ['inactiveCursor', 'Cursor in the inactive panel'], ['inactiveMark', 'Selected files in the inactive panel'],
   ['inactiveBack', 'Background of the inactive panel'],
 ];
+
+// "Whole words" under the search box (board issue #109): off by default, so a search word may be any part of a word as
+// before; kept while the app runs, so the dialog opens again the way it was left.
+let wholeWords = false;
 
 const ICONIC = [{ value: '0', label: 'Normal window' }, { value: '1', label: 'Minimized' }, { value: '-1', label: 'Maximized' }];
 
@@ -194,6 +199,7 @@ async function showDialog(app, startPage) {
       <datalist id="mc-config-cmds">${allCommandNames(app.platform).map((n) => `<option value="${esc(n)}">${esc(commandLabel(n))}</option>`).join('')}</datalist>
       <div class="mc-config">
         <div class="mc-config-side"><input type="text" id="cfg-search" placeholder="Search options" spellcheck="false" aria-label="Search options">
+          <label class="mc-check mc-config-whole-words"><input type="checkbox" id="cfg-whole"${wholeWords ? ' checked' : ''}> Whole words</label>
           <select id="cfg-page" size="20" aria-label="Pages">${pages.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('')}</select></div>
         <div class="mc-config-main">${sections}</div>
       </div>
@@ -242,15 +248,19 @@ async function showDialog(app, startPage) {
       if (!filtering) return;
       box.querySelector(`.mc-config-page[data-page="${CSS.escape(pageSel.value)}"]`)?.scrollIntoView({ block: 'start' });
     });
-    $('#cfg-search').addEventListener('input', async (ev) => {
-      const q = ev.target.value.trim();
+    // (with "Whole words" ticked, every search word must be a word of its own, here and in Go's SearchWords)
+    const searchBox = $('#cfg-search');
+    const wholeBox = $('#cfg-whole');
+    const runSearch = async () => {
+      const q = searchBox.value.trim();
+      const whole = wholeBox.checked;
       if (!q) { endFilter(); return; }
-      const r = await go.Configuration.Search(q).catch(() => ({ pages: [], fields: [] }));
-      if (ev.target.value.trim() !== q) return;
-      const words = q.toLowerCase().split(/\s+/);
+      const r = await (whole ? go.Configuration.SearchWords(q, true) : go.Configuration.Search(q)).catch(() => ({ pages: [], fields: [] }));
+      if (searchBox.value.trim() !== q || wholeBox.checked !== whole) return;
+      const words = searchWords(q);
       const titleHits = new Set();
-      for (const p of pages) if (words.every((w) => p.title.toLowerCase().includes(w))) titleHits.add(p.id);
-      for (const [id, x] of Object.entries(EXTRA_PAGES)) if (words.every((w) => (x.title + ' ' + x.words).toLowerCase().includes(w))) titleHits.add(id);
+      for (const p of pages) if (matchesAll(p.title, words, whole)) titleHits.add(p.id);
+      for (const [id, x] of Object.entries(EXTRA_PAGES)) if (matchesAll(x.title + ' ' + x.words, words, whole)) titleHits.add(id);
       const hitPages = new Set(titleHits);
       box.querySelectorAll('.mc-config-hit, .mc-config-whole').forEach((e) => e.classList.remove('mc-config-hit', 'mc-config-whole'));
       for (const n of r.fields || []) {
@@ -274,7 +284,9 @@ async function showDialog(app, startPage) {
       if (shown.length) pageSel.value = shown[0].id;
       none.hidden = shown.length > 0;
       main.scrollTop = 0;
-    });
+    };
+    searchBox.addEventListener('input', runSearch);
+    wholeBox.addEventListener('change', () => { wholeWords = wholeBox.checked; runSearch(); });
 
     // ---- Colors page ----
     if (pendingColors) {
@@ -537,7 +549,7 @@ async function showDialog(app, startPage) {
         if (again) { again = false; live(0); }
       }, delay);
     };
-    box.addEventListener('change', (ev) => { if (ev.target.id !== 'cfg-search' && ev.target.id !== 'cfg-page') live(30); });
+    box.addEventListener('change', (ev) => { if (!['cfg-search', 'cfg-page', 'cfg-whole'].includes(ev.target.id)) live(30); });
     box.addEventListener('input', (ev) => { if (ev.target.id !== 'cfg-search' && ev.target.matches('input[type="text"], input[type="number"], textarea')) live(500); });
     box.addEventListener('click', (ev) => { if (ev.target.closest('button') && !ev.target.closest('.mc-btns')) live(60); }); // (list editors: hotkeys, colours, user commands)
     $('.cancel').onclick = () => done(null);

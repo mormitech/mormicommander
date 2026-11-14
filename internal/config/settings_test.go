@@ -217,6 +217,64 @@ func TestSearchSettings(t *testing.T) {
 	}
 }
 
+// TestSearchSettingsWholeWords checks board issue #109: by default "two" also
+// finds the network options (as the search always did); with whole words it
+// finds only "Two drive button bars".
+func TestSearchSettingsWholeWords(t *testing.T) {
+	names := func(fs []FieldInfo) map[string]bool {
+		m := map[string]bool{}
+		for _, f := range fs {
+			m[f.Name] = true
+		}
+		return m
+	}
+	part, _ := SearchSettings("two")
+	if pm := names(part); !pm["Layout.DriveBar2"] || !pm["Refresh.RefreshNetwork"] {
+		t.Errorf("part-word search for two = %v, want both the drive bars and network refresh", pm)
+	}
+	if p2, _ := SearchSettingsWords("two", false); len(p2) != len(part) {
+		t.Errorf("SearchSettingsWords(false) found %d, SearchSettings %d", len(p2), len(part))
+	}
+	whole, pages := SearchSettingsWords("two", true)
+	wm := names(whole)
+	if !wm["Layout.DriveBar2"] || wm["Refresh.RefreshNetwork"] {
+		t.Errorf("whole-word search for two = %v, want the drive bars and not network refresh", wm)
+	}
+	if len(pages) == 0 || pages[0] != "Layout" {
+		t.Errorf("whole-word pages = %v, want Layout", pages)
+	}
+	if fs, _ := SearchSettingsWords("network", true); !names(fs)["Refresh.RefreshNetwork"] {
+		t.Error("whole-word network should still find Refresh network folders (by its label)")
+	}
+	if fs, _ := SearchSettingsWords("", true); len(fs) != len(Fields()) {
+		t.Error("an empty whole-word query should list everything")
+	}
+}
+
+func TestContainsWord(t *testing.T) {
+	cases := []struct {
+		hay, w string
+		whole  bool
+		want   bool
+	}{
+		{"network folders", "two", false, true},
+		{"network folders", "two", true, false},
+		{"two drive bars", "two", true, true},
+		{"bars two", "two", true, true},
+		{"layout.two-panel", "two", true, true},
+		{"network and two", "two", true, true}, // a later place still counts
+		{"two2", "two", true, false},
+		{"zwei über", "über", true, true},
+		{"drüber", "über", true, false},
+		{"anything", "", true, true},
+	}
+	for _, c := range cases {
+		if got := ContainsWord(c.hay, c.w, c.whole); got != c.want {
+			t.Errorf("ContainsWord(%q, %q, %v) = %v, want %v", c.hay, c.w, c.whole, got, c.want)
+		}
+	}
+}
+
 // TestHiddenFilesOptions checks the two options of board issue #4: the status-line marker is on by default, and Find
 // files keeps its old way (hidden files as the last search had them) unless HiddenFromPanel is turned on; both are
 // read from and written to their ini keys, and the marker's label keeps its quotes.
