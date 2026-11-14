@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.101 – 2026-11-14
+
+### Fixed
+
+- Issue #91 (partly): engine review findings. Move to archive (tar and zip) no longer deletes files outside the selection when a folder link is packed: only the link itself is removed. Files that changed or kept growing while being packed are kept and named in the error. With "pack path names" off, move to archive refuses when two files would get the same name. The tar packer stores a file that grew after the scan whole. Extracting tar.gz and tar.xz now reports a bad gzip CRC or xz trailer. 7z and RAR extraction sends a different entry landing on a file written earlier in the same run through the conflict rules. Extraction applies the process umask. Find: regex matches across a chunk boundary and line break are no longer dropped, and duplicate search no longer lists a file as its own duplicate. Not done: the remaining "rest of the review findings" list, which is not in the issue or repository.
+
 ## 0.9.100 – 2026-11-14
 
 ### Added
