@@ -6,8 +6,10 @@
 //   - the FTP, SFTP and WebDAV clients (internal/ftp, internal/sftp, internal/webdav), which only run when the user
 //     connects to a server they typed in (Net > FTP connect and friends), and which only the network feature and the
 //     remote file system adapters may import;
-//   - two loopback-only listeners: control mode (control.go, off unless started with --control) and the "one app,
-//     several windows" hand-over (feature_config_start.go). Their address must be 127.0.0.1, written in the source.
+//   - three loopback-only listeners: control mode (control.go, off unless started with --control), the "one app,
+//     several windows" hand-over (feature_config_start.go) and the AI layer's MCP endpoint (feature_ai_mcp.go, only
+//     from the first AI run the user starts, for the Claude CLI that run starts). Their address must be 127.0.0.1,
+//     written in the source.
 //
 // Anything else, a new http.Get or net.Dial anywhere, fails the test with the file and line. The frontend half of the
 // promise is checked by frontend/test/privacy.test.js.
@@ -52,7 +54,7 @@ func set(names ...string) map[string]bool {
 var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/webdav/"}
 
 // loopbackFiles may listen or dial, but only on 127.0.0.1.
-var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true}
+var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true}
 
 // sinkUse is one place a network name is used.
 type sinkUse struct {

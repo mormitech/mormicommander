@@ -61,6 +61,7 @@ type Settings struct {
 	DragDrop        DragDropPage        `page:"Drag & drop and mouse"`
 	Tree            TreePage            `page:"Tree"`
 	FindFiles       FindFilesPage       `page:"Find files"`
+	AI              AIPage              `page:"AI"`
 }
 
 // LayoutPage: which parts of the main window are visible (F-413).
@@ -456,6 +457,15 @@ type FindFilesPage struct {
 	// Modeless (board issue #110): the Find files window leaves the main window usable, as TC's does. Off by default,
 	// so Find files keeps blocking the main window as it always did; it works with dialogs in windows of their own.
 	Modeless bool `ini:"SearchDefaults:Modeless" def:"0" label:"Find files window does not block the main window"`
+}
+
+// AIPage: the AI layer (issue #146), where the user writes what to do and an LLM does it with the app's own tools.
+// Step 1 has one provider, the Claude Code CLI; the path and model are empty to let the app find the command and the
+// CLI pick its default model.
+type AIPage struct {
+	Provider    int    `ini:"Configuration:AIProvider" def:"0" min:"0" max:"0" opts:"0=Claude Code (claude command)" label:"AI provider"`
+	ClaudePath  string `ini:"Configuration:AIClaudePath" def:"" label:"Claude command (empty = find it)"`
+	ClaudeModel string `ini:"Configuration:AIClaudeModel" def:"" label:"Claude model (empty = default)"`
 }
 
 // FieldInfo describes one option for dialogs, search and control mode.
