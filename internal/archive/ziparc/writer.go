@@ -171,7 +171,7 @@ func (Packer) Update(ctx context.Context, archivePath string, ch archive.Changes
 	}
 
 	dir := filepath.Dir(archivePath)
-	tmp, err := os.CreateTemp(dir, "."+filepath.Base(archivePath)+".*.tmp")
+	tmp, err := os.CreateTemp(dir, "."+robust.TempStem(filepath.Base(archivePath))+".*.tmp")
 	if err != nil {
 		return res, err
 	}

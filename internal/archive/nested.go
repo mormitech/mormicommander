@@ -13,6 +13,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+
+	"mormicommander/internal/robust"
 )
 
 // Sectioner is implemented by archives that can expose the raw bytes of an
@@ -61,7 +63,7 @@ func OpenNested(ctx context.Context, outer Archive, e Entry, opts OpenOptions, t
 	if tempDir == "" {
 		tempDir = os.TempDir()
 	}
-	tmp, err := os.CreateTemp(tempDir, "mc-nested-*-"+SanitizeName(e.Name))
+	tmp, err := os.CreateTemp(tempDir, "mc-nested-*-"+robust.ShortName(SanitizeName(e.Name), 100))
 	if err != nil {
 		return nil, err
 	}

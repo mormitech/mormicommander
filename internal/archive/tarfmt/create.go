@@ -300,7 +300,7 @@ func tempFor(final string) (*os.File, error) {
 	if dir == "" {
 		dir = "."
 	}
-	return os.CreateTemp(dir, "."+base+".mctmp-*")
+	return os.CreateTemp(dir, "."+robust.TempStem(base)+".mctmp-*")
 }
 
 // Create packs sources into a new archive at archivePath, replacing any

@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"mormicommander/internal/robust"
 )
 
 // Filter is a parsed "Only files of this type" field. The zero value takes everything.
@@ -157,15 +159,24 @@ func UniqueName(dir, name string) string {
 	return uniqueName(dir, name, func(p string) bool { _, err := lstat(p); return err == nil })
 }
 
+// maxNameBytes is the longest file name the common file systems take (APFS, ext4, NTFS in UTF-16 units, which a
+// UTF-8 count never undercuts).
+const maxNameBytes = 255
+
 func uniqueName(dir, name string, taken func(string) bool) string {
 	if !taken(filepath.Join(dir, name)) {
 		return name
 	}
 	base, ext, dot := splitExt(name)
 	for i := 2; ; i++ {
-		n := base + "(" + strconv.Itoa(i) + ")"
+		suffix := "(" + strconv.Itoa(i) + ")"
 		if dot {
-			n += "." + ext
+			suffix += "." + ext
+		}
+		// names are limited to 255 bytes: the base gives way so the number and the extension still fit
+		n := robust.ShortName(base, max(1, maxNameBytes-len(suffix))) + suffix
+		if len(base)+len(suffix) <= maxNameBytes {
+			n = base + suffix
 		}
 		if !taken(filepath.Join(dir, n)) {
 			return n
