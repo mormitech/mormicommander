@@ -307,15 +307,15 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 		j.log(verb, it.src, dst, nil)
 		return !move || j.removeSource(it)
 	}
-	if it.same && wm == wmCreate {
-		err := renameNew(it.src, dst)
+	if it.same && wm == wmCreate { // a new file or an agreed overwrite: a plain rename, which replaces
+		err := rename(it.src, dst)
 		if err == nil {
 			j.addBytes(size)
 			j.log(verb, it.src, dst, nil)
 			return true
 		}
 		if !crossDevice(err) {
-			err, _ = j.try("Can't move "+name, it.src, dst, nil, func() error { return renameNew(it.src, dst) })
+			err, _ = j.try("Can't move "+name, it.src, dst, nil, func() error { return rename(it.src, dst) })
 			if err != nil {
 				j.passBytes(size)
 				return false
