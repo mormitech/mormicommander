@@ -441,66 +441,6 @@ func vfsNewFilePerm(file string) {
 	}
 }
 
-// vfsPack7z packs with an installed 7-Zip. Arguments travel as separate arguments, never through a shell. For "move to
-// archive" the archive is tested before the sources are deleted.
-func vfsPack7z(ctx context.Context, target string, sources []string, o vfsPackOpts) error {
-	exe := vfsSevenZip()
-	if exe == "" {
-		return errors.New("Packing to 7z needs 7-Zip (7zz or 7z) installed.")
-	}
-	args := []string{"a", "-t7z", "-y", "-bd"}
-	if o.Level > 0 {
-		args = append(args, "-mx="+strconv.Itoa(o.Level))
-	}
-	if o.Password != "" {
-		args = append(args, "-p"+o.Password, "-mhe=on")
-	}
-	if o.VolumeSize > 0 {
-		args = append(args, "-v"+strconv.FormatInt(o.VolumeSize, 10)+"b")
-	}
-	if o.NoRecurse {
-		args = append(args, "-r-")
-	}
-	args = append(args, "--", target)
-	args = append(args, sources...) // 7-Zip stores each source under its base name, like the other packers
-	run := func(args ...string) error {
-		cmd := exec.CommandContext(ctx, exe, args...)
-		hideWindow(cmd)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			msg := strings.TrimSpace(string(out))
-			if i := strings.LastIndex(msg, "\n"); i >= 0 {
-				msg = msg[i+1:]
-			}
-			return fmt.Errorf("7-Zip failed: %s", msg)
-		}
-		return nil
-	}
-	if err := run(args...); err != nil {
-		return err
-	}
-	if !o.Move {
-		return nil
-	}
-	targ := target
-	if o.VolumeSize > 0 {
-		targ += ".001"
-	}
-	test := []string{"t", "-bd", "-y"}
-	if o.Password != "" {
-		test = append(test, "-p"+o.Password)
-	}
-	if err := run(append(test, "--", targ)...); err != nil {
-		return fmt.Errorf("the new archive failed its test, so nothing was deleted: %v", err)
-	}
-	for _, s := range sources {
-		if err := os.RemoveAll(s); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
 // vfsTopNames lists the names directly inside a local folder, sorted.
 func vfsTopNames(dir string) ([]string, error) {
 	des, err := os.ReadDir(dir)
