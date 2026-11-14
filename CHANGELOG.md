@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.26 – 2026-11-14
+
+### Fixed
+
+- WebDAV on Apache (mod_dav) and other servers that redirect a folder named without its trailing slash: the folder
+  could not be opened ("PROPFIND /dav: 200 OK"), because the redirect was followed as a plain web page request. The
+  client now sends the same WebDAV request again to the folder's address and follows no other redirect (found by the
+  live tests, #106).
+
 ## 0.10.25 – 2026-11-14
 
 ### Fixed

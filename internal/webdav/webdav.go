@@ -110,10 +110,17 @@ func New(cfg Config) (*Client, error) {
 		u.Path += "/"
 	}
 	u.RawPath = ""
-	c := &Client{base: u, cfg: cfg, http: cfg.HTTPClient, timeout: cfg.Timeout}
-	if c.http == nil {
-		c.http = &http.Client{}
+	c := &Client{base: u, cfg: cfg, timeout: cfg.Timeout}
+	// Redirects are not followed by the HTTP client: Go turns a redirected PROPFIND (or any method but GET/HEAD) into
+	// a GET, so Apache's "301 to the address with a slash" for a folder named without one came back as "200 OK" with a
+	// web page instead of a listing (found by the live tests, issue #106). do handles that one redirect itself. The
+	// caller's client is copied, not changed.
+	hc := http.Client{}
+	if cfg.HTTPClient != nil {
+		hc = *cfg.HTTPClient
 	}
+	hc.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	c.http = &hc
 	if c.timeout <= 0 {
 		c.timeout = 30 * time.Second
 	}
@@ -169,6 +176,22 @@ func (c *Client) do(ctx context.Context, method, p string, dir bool, body io.Rea
 	if err != nil {
 		return nil, fmt.Errorf("webdav: %s %s: %w", method, p, err)
 	}
+	// A folder named without its trailing slash: servers (Apache mod_dav) redirect to the same address with one. The
+	// request is sent again, with the same method and body, to the folder's address.
+	if !dir && slashRedirect(resp, req) && (body == nil || req.GetBody != nil) {
+		io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
+		resp.Body.Close()
+		var again io.Reader
+		if body != nil {
+			rc, err := req.GetBody()
+			if err != nil {
+				return nil, fmt.Errorf("webdav: %s %s: %w", method, p, err)
+			}
+			defer rc.Close()
+			again = rc
+		}
+		return c.do(ctx, method, p, true, again, hdr, ok...)
+	}
 	for _, code := range ok {
 		if resp.StatusCode == code {
 			return resp, nil
@@ -177,6 +200,22 @@ func (c *Client) do(ctx context.Context, method, p string, dir bool, body io.Rea
 	io.Copy(io.Discard, io.LimitReader(resp.Body, 64*1024))
 	resp.Body.Close()
 	return nil, &StatusError{Method: method, Path: clean(p), Code: resp.StatusCode, Status: resp.Status}
+}
+
+// slashRedirect says whether resp redirects req to the same address with a trailing slash added (a folder that was
+// named like a file).
+func slashRedirect(resp *http.Response, req *http.Request) bool {
+	switch resp.StatusCode {
+	case http.StatusMovedPermanently, http.StatusFound, http.StatusTemporaryRedirect, http.StatusPermanentRedirect:
+	default:
+		return false
+	}
+	loc, err := resp.Location()
+	if err != nil {
+		return false
+	}
+	return loc.Host == req.URL.Host && strings.TrimSuffix(loc.Path, "/") == strings.TrimSuffix(req.URL.Path, "/") &&
+		strings.HasSuffix(loc.Path, "/") && !strings.HasSuffix(req.URL.Path, "/")
 }
 
 // quick runs a metadata request with the per-request timeout and discards
