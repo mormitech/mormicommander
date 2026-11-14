@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.48 – 2026-11-14
+
+### Added
+
+- README (issue #46): says plainly that mormiCommander is inspired by Total Commander and not affiliated with Ghisler Software GmbH, and has a key table, a comparison with other file managers, and a no-telemetry section.
+- docs/DOWNLOADS.md: which download to pick, how to check it on each system, and package-manager commands. The release job now also writes SHA256SUMS.txt.
+- Tests: a README test checks every listed key and command against the real keymap, and a zero-network test fails if the code reaches the network outside the FTP/SFTP/WebDAV clients and the two local listeners.
+
 ## 0.9.47 – 2026-11-14
 
 ### Fixed
