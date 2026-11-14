@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.76 – 2026-11-14
+
+### Fixed
+
+- Folder history (Alt+Down) and frequently used folders (issue #95): long paths are no longer cut at the right edge with a horizontal scrollbar. The start of the path is shortened with an ellipsis, the last folder name always stays whole, and hovering shows the full path.
+
 ## 0.9.75 – 2026-11-14
 
 ### Added
