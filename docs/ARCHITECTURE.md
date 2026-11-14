@@ -246,6 +246,45 @@ additive (a new export, a new event), and say so in the commit message: `main.go
 don't add colours), everything in `frontend/src/core/`. Styles of a feature go in a CSS file next to its module
 (`import './hotlist.css'`), with classes prefixed by the feature name.
 
+## Web view security
+
+Every page of the app (main window, Lister windows, dialog windows) can call every bound Go method, so the rule is
+simple: **nothing from a file, an archive or the network may ever run as script inside one of our pages, or inside a
+frame of one.**
+
+**The Wails iframe advisory (GHSA-2p5f-2gx8-mh8m).** The advisory is that a frame inside a Wails page can reach the
+bound Go methods. Wails v3.1.0 fixes only part of it: reserved framework messages posted by a child frame are dropped
+(`handleWindowMessage` checks the frame on macOS; on Linux an injected guard script does it, and by its own note a
+same-origin child frame can still get around it; Windows passes the sender's address instead of a frame flag), but
+bound method calls travel as `fetch` requests
+to `/wails/runtime`, and the asset server does not ask which frame sent them. Any frame or embedded document that
+shares the app's origin and can run script therefore still reaches Go. Frames from another origin are held back by
+the web view's same-origin rules, but we do not rely on that alone.
+
+**Why the exposure is low here (checked for issue #116):**
+
+- No page creates an `<iframe>`, `<frame>`, `<object>` or `<portal>`, and no window loads anything but our own
+  bundled pages (`/`, `/viewer.html`, `/dialog.html`; see window.go, feature_viewer_window.go,
+  feature_dialog_window.go). Nothing is loaded from the network.
+- The Lister's rendered HTML and Markdown views (`viewer/sanitize.js`) parse the file without running it, drop
+  `script`, `iframe`, `frame`, `frameset`, `object`, `embed`, `portal`, `template` and the rest, remove every `on…`
+  attribute and `srcdoc`, and keep addresses only when they stay inside the page or are inline images. The result goes
+  into a shadow root of our page, not into a frame. `frontend/test/viewer-noremote.test.js` checks this.
+- Media files are drawn from a `blob:` address, which has the app's own origin. Images go in `<img>` (no scripts, SVG
+  included), sound and film in `<audio>`/`<video>`. The one `<embed>` is for PDF, and since issue #116 it is allowed
+  only for the types in `viewer/mediael.js` (just `application/pdf`); any other type gets no element at all. Go's
+  `TestMediaKindsAreSafeToEmbed` (internal/lister) checks the other end: the only "document" kind is PDF and SVG stays
+  an "image".
+
+When adding a feature that shows file content: draw it through `sanitize.js` or as plain text, never into an
+`<iframe>`, an `srcdoc`, or an `<embed>`/`<object>` of a `blob:` or `data:` address holding HTML, SVG or XML.
+
+**Upgrading Wails.** Wails stays pinned at v3.1.0 (go.mod, and `@wailsio/runtime` in frontend/package.json). The plan
+is to move to a later v3 weekly release once v3 settles (the research pointed at about 3.2–3.4) and, when doing so,
+check its notes for a full fix of the advisory (a frame check on `/wails/runtime` calls). An upgrade changes the
+runtime under every window, so it needs its own change: update go.mod and the npm runtime together, run all checks,
+build for every platform and try the app by hand on macOS, Windows and Linux before merging.
+
 ## Conventions
 
 - **Words:** plain, short, everyday English in the UI, messages and comments ("image", not "picture"; "folder", not

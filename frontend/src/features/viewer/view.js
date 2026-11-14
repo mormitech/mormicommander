@@ -15,6 +15,7 @@ import { label as keyLabel } from '../../core/keys.js';
 import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
+import { mediaTag } from './mediael.js';
 
 export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown' };
 const MEDIA_LIMIT = 256 * 1024 * 1024; // larger media files are not read into the page
@@ -447,6 +448,12 @@ export class ListerView {
       this.mediaFor = id;
       return;
     }
+    const tag = mediaTag(m.kind, m.mime);
+    if (!tag) { // a type that is not safe to draw as live content (viewer/mediael.js); never true for today's formats
+      this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(this.info.name)} can't be shown here.<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+      this.mediaFor = id;
+      return;
+    }
     const parts = [];
     this.loading = true;
     try {
@@ -464,20 +471,14 @@ export class ListerView {
     if (this.id !== id) return;
     this.blobURL = URL.createObjectURL(new Blob(parts, { type: m.mime || 'application/octet-stream' }));
     this.mediaFor = id;
-    let el;
-    if (m.kind === 'image') {
-      el = document.createElement('img');
+    const el = document.createElement(tag);
+    if (tag === 'img') {
       el.alt = this.info.name;
       el.draggable = false;
       el.addEventListener('load', () => this.transform());
-    } else if (m.kind === 'video') {
-      el = document.createElement('video');
-      el.controls = true;
-    } else if (m.kind === 'audio') {
-      el = document.createElement('audio');
+    } else if (tag === 'video' || tag === 'audio') {
       el.controls = true;
     } else {
-      el = document.createElement('embed');
       el.type = m.mime;
     }
     el.className = 'mc-viewer-mediael';
