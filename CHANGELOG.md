@@ -6,6 +6,36 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.5 – 2026-11-14
+
+### Fixed
+
+A fresh review of the engines (#91) found 23 bugs; each has a test that failed before the fix.
+
+- Data loss and safety:
+  - Splitting a file with an absurd part size could empty the source file with its own first part.
+  - Combining could append the result to itself until the disk was full (when the last part was missing).
+  - "Move to archive" into a zip deleted a file the archive never stored, when two sources had the same name in the
+    archive; such a move is now refused before anything is written, as for tar.
+  - A folder download from an FTP, SFTP or WebDAV server could write files outside the target folder when the server
+    listed names like "../x" (path traversal); such names now fail the copy.
+  - Linux: the AI runs' working folder in /tmp could be one another user planted; it is used only when it is the
+    user's own private folder. The control-mode file (--control) is always written new and private.
+  - Windows Terminal: a folder name with ";" could start another command ("open terminal here").
+  - FTP: a server answering PASV with 127.0.0.1 could make the client connect to its own local ports.
+  - Copying a link or file over an existing one no longer removes the old one before the new one is in place.
+  - Copy or move of a folder into itself through a link or another case of its name is refused clearly.
+- Correct results:
+  - Regex content search found nothing in long single-line files when a match ran past a 1 MiB read chunk.
+  - Unpacking tar and RAR archives without paths could give a hard link another file's content.
+  - WebDAV: resuming a download checks where the server's answer starts (a wrong range broke the file); a folder
+    listing keeps only its own children.
+  - Files with names near 255 bytes can be overwritten, renamed case-only, undone, and replaced as links.
+  - The branch view of a selection says when it was cut at the limit.
+  - Content search no longer counts links to folders as errors.
+  - FTP uploads through an HTTP proxy close cleanly (they could lose their end).
+  - Passwords typed in URLs no longer appear in error messages.
+
 ## 0.11.4 – 2026-11-14
 
 ### Added
