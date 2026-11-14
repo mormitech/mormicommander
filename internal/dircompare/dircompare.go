@@ -6,6 +6,8 @@
 // both sides because neither can be called newer. Equal files stay unselected, and an optional "hide equal" view
 // leaves only the differing files visible.
 //
+// Names pair up after Unicode NFC normalisation, so a decomposed (NFD) macOS name meets its composed (NFC) twin.
+//
 // The engine compares by name, date and size, with the tolerances people need in practice: FAT and many network
 // shares store times with two-second resolution, and a daylight saving switch or a time zone mismatch shifts every
 // time by exactly one hour, so both can be ignored. It can also open the files and compare their bytes, so that two
@@ -22,6 +24,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 // Status is the verdict for one name that appears in at least one of the two folders.
@@ -340,8 +344,12 @@ func (c *comparer) caseInsensitive() bool {
 	return defaultCaseInsensitive
 }
 
-// key is the matching key of a name under the chosen case mode.
+// key is the matching key of a name under the chosen case mode. Names are first brought to Unicode NFC, because macOS
+// hands out decomposed (NFD) names while Linux, SMB servers and most archives keep the composed (NFC) form the user
+// typed: "é" as one code point and "e" plus a combining accent are the same file name to a person, so they pair up
+// here like they do in Find and Synchronize directories. Each side keeps its own spelling in Item and Result.
 func (c *comparer) key(name string) string {
+	name = norm.NFC.String(name)
 	if c.caseInsensitive() {
 		return strings.ToLower(strings.ToUpper(name))
 	}

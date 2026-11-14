@@ -54,6 +54,7 @@ res.Flatten(), res.Counts, res.Errors, res.Differ()
 Folders: ignored by default; `SubdirsMissing` selects folders present on one side only; `SubdirsRecursive` also
 walks folders present on both sides and selects such a folder on each side that has something selected inside it.
 Times are truncated to milliseconds before comparing. Names that fold together on a case-sensitive side are not
-merged twice: the extra one is reported as a lone entry. Unicode normalization (NFC vs NFD names) is not applied.
+merged twice: the extra one is reported as a lone entry. Names are paired in Unicode NFC, so a macOS NFD name
+matches the NFC name a Linux/SMB server or archive keeps; each panel still selects its own spelling.
 Pipes, sockets and devices (`Entry.Special`) are compared by date and size only and never opened; `OS.Open` refuses
 them (`ErrNotRegular`).

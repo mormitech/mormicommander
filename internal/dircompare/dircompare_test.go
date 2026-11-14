@@ -514,3 +514,47 @@ func TestDepthLimitWithoutRealPather(t *testing.T) {
 		t.Error("deep nesting not cut off")
 	}
 }
+
+// TestUnicodeNormalisation checks that a decomposed (NFD, as macOS hands out) name and its composed (NFC) twin pair up
+// as one file instead of showing as two one-sided entries, that each panel selects its own spelling, that content
+// comparison and recursion open each side under its own spelling, and that case folding still applies on top.
+func TestUnicodeNormalisation(t *testing.T) {
+	const nfc, nfd = "café.txt", "café.txt"
+	const dirNFC, dirNFD = "résumé", "résumé"
+	l := memLister{
+		nfd:               data("same", 0),
+		dirNFD:            dir(),
+		dirNFD + "/n.txt": data("left", time.Hour),
+		"Ångström":        file(1, 0),
+	}
+	r := memLister{
+		nfc:               data("same", time.Hour),
+		dirNFC:            dir(),
+		dirNFC + "/n.txt": data("rite", 0),
+		"ångström":      file(1, 0), // lower-case NFD of "Ångström"
+	}
+	res, err := Compare(context.Background(), l, "", r, "", Options{Subdirs: SubdirsRecursive, ByContent: true, Case: CaseInsensitive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(res.Items) != 3 {
+		t.Fatalf("want 3 paired items, got %d: %+v", len(res.Items), res.Items)
+	}
+	got := statuses(res)
+	want := map[string]Status{nfd: Equal, dirNFD: LeftNewer, dirNFD + "/n.txt": LeftNewer, "Ångström": Equal}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("statuses %v, want %v", got, want)
+	}
+	if !reflect.DeepEqual(res.LeftSelect, []string{dirNFD}) || len(res.RightSelect) != 0 {
+		t.Errorf("select left %q right %q", res.LeftSelect, res.RightSelect)
+	}
+	if !reflect.DeepEqual(res.RightEqual, []string{"ångström", nfc}) {
+		t.Errorf("right equal %q", res.RightEqual)
+	}
+
+	items := CompareEntries([]Entry{{Name: nfd, Size: 1, ModTime: t0.Add(time.Hour)}}, []Entry{{Name: nfc, Size: 1, ModTime: t0}},
+		Options{Case: CaseSensitive})
+	if len(items) != 1 || items[0].Status != LeftNewer || items[0].Left.Name != nfd || items[0].Right.Name != nfc {
+		t.Errorf("CompareEntries did not pair NFD with NFC: %+v", items)
+	}
+}
