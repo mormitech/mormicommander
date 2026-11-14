@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.35 – 2026-11-14
+
+### Fixed
+
+- After F5/F6 copy or move, only the files and folders that really got across are unselected. Sources that were
+  skipped (for example with "copy all larger") or failed, or that the job never reached, stay selected so you can see
+  what is left. A cancelled job still keeps the whole selection, and server and archive jobs behave as before.
+
 ## 0.9.34 – 2026-11-14
 
 ### Fixed
