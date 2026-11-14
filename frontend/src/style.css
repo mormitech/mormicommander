@@ -159,3 +159,7 @@ body.about-mode { overflow: auto; }
    it is shown in full instead of cut off. Not when the Ext column is switched off (then there is nothing to take). */
 body:not(.mc-config-no-ext) .row.dir > .e { display: none; }
 body:not(.mc-config-no-ext) .row.dir > .e + .s { grid-column: span 2; }
+/* the "Not responding, retrying…" notice over a panel whose folder read hangs (features/slowread.js, issue #16) */
+.list .slowread { position: absolute; left: 12px; right: 12px; top: 30px; padding: 10px 14px; text-align: center; white-space: normal; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 2px 10px rgba(0, 0, 0, .2); z-index: 2; }
+.list .slowread-title { font-weight: 600; }
+.list .slowread-hint { color: var(--muted); margin: 4px 0 8px; }

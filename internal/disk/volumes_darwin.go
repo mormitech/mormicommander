@@ -17,12 +17,14 @@
 package disk
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 
 	"golang.org/x/sys/unix"
 
 	"mormicommander/internal/dirsize"
+	"mormicommander/internal/hang"
 )
 
 // Volumes lists the startup disk as "/" and everything mounted under /Volumes. Unlike a disk analyzer, a file manager
@@ -38,28 +40,47 @@ func Volumes() []Volume {
 	}
 	// The home folder comes right after the startup disk, as on Linux: it is where users go most.
 	if home, err := os.UserHomeDir(); err == nil {
-		if u, err := UsageOf(home); err == nil {
+		if u, err := UsageOfQuick(home); err == nil {
 			out = append(out, Volume{Name: "Home", Path: home, Kind: "home", Total: u.Total, Free: u.Free})
 		}
 	}
+	// Each entry of /Volumes is asked in its own goroutine with a time limit (probeEach): a share whose server is gone
+	// would otherwise block the whole drive bar. One that does not answer is listed as a stale network volume, since
+	// only a remote or vanished file system hangs like that.
 	entries, _ := os.ReadDir("/Volumes")
-	for _, e := range entries {
-		p := filepath.Join("/Volumes", e.Name())
-		if info, err := os.Lstat(p); err != nil || info.Mode()&os.ModeSymlink != 0 {
-			continue // "/Volumes/Macintosh HD" is a link to "/"
+	paths := make([]string, len(entries))
+	for i, e := range entries {
+		paths[i] = filepath.Join("/Volumes", e.Name())
+	}
+	vols, errs := probeEach(paths, darwinMount)
+	for i, p := range paths {
+		switch {
+		case errors.Is(errs[i], hang.ErrNotResponding):
+			out = append(out, Volume{Name: entries[i].Name(), Path: p, Kind: "network", Stale: true})
+		case errs[i] == nil && vols[i] != nil:
+			v := *vols[i]
+			v.Name = entries[i].Name()
+			out = append(out, v)
 		}
-		var st unix.Statfs_t
-		if unix.Statfs(p, &st) != nil || st.Blocks == 0 {
-			continue
-		}
-		if cstr(st.Mntonname[:]) != p {
-			continue // a plain folder under /Volumes, not a mount point
-		}
-		bs := uint64(st.Bsize)
-		out = append(out, Volume{Name: e.Name(), Path: p, Kind: darwinKind(cstr(st.Fstypename[:]), st.Flags),
-			Total: st.Blocks * bs, Free: st.Bavail * bs})
 	}
 	return out
+}
+
+// darwinMount describes the volume mounted at p, or nil when p is not a mount point (a link such as
+// "/Volumes/Macintosh HD", which points to "/", or a plain folder).
+func darwinMount(p string) (*Volume, error) {
+	if info, err := os.Lstat(p); err != nil || info.Mode()&os.ModeSymlink != 0 {
+		return nil, nil
+	}
+	var st unix.Statfs_t
+	if unix.Statfs(p, &st) != nil || st.Blocks == 0 {
+		return nil, nil
+	}
+	if cstr(st.Mntonname[:]) != p {
+		return nil, nil
+	}
+	bs := uint64(st.Bsize)
+	return &Volume{Path: p, Kind: darwinKind(cstr(st.Fstypename[:]), st.Flags), Total: st.Blocks * bs, Free: st.Bavail * bs}, nil
 }
 
 // darwinKind classifies a volume by its file system type name and statfs flags (see the file comment).

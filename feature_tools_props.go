@@ -6,13 +6,16 @@ package main
 // which walks in parallel, counts hard links once and can be cancelled.
 
 import (
+	"context"
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"mormicommander/internal/attrs"
 	"mormicommander/internal/dirsize"
 	"mormicommander/internal/fileutil"
+	"mormicommander/internal/hang"
 	"mormicommander/internal/links"
 )
 
@@ -228,7 +231,10 @@ func (t *Tools) Space(id string, paths []string) (ToolsSpace, error) {
 			t.app.emit("tools-progress", map[string]any{"id": id, "itemDone": i, "path": r.Path, "bytes": r.Bytes, "complete": r.Complete})
 		},
 	}
-	sum, err := dirsize.CalculateAll(ctx, paths, opts)
+	// Counted in a goroutine of its own (internal/hang), so Esc stops the count within a second even when a folder on a
+	// share whose server is gone holds the counter in a system call. A count that stops normally still hands back what
+	// it counted so far.
+	sum, err := hang.DoGrace(ctx, time.Second, func(ctx context.Context) (dirsize.Summary, error) { return dirsize.CalculateAll(ctx, paths, opts) })
 	out := ToolsSpace{Total: toolsSpaceItem(sum.Total), Items: make([]ToolsSpaceItem, 0, len(sum.Items))}
 	for _, r := range sum.Items {
 		it := toolsSpaceItem(r)

@@ -22,6 +22,7 @@ import (
 	"mormicommander/internal/archive"
 	"mormicommander/internal/archive/sevenrar"
 	"mormicommander/internal/disk"
+	"mormicommander/internal/hang"
 	"mormicommander/internal/vfs"
 )
 
@@ -32,6 +33,7 @@ type FS struct {
 	mu     sync.Mutex
 	gen    map[string]listing // the listing in progress per panel ("left", "right", or any key)
 	seq    int
+	stuck  hang.Guard // listings still running per folder, so a dead share can't pile up blocked reads
 }
 
 type listing struct {
@@ -110,7 +112,12 @@ func (f *FS) List(key, path string) (vfs.Listing, error) {
 		f.mu.Unlock()
 	}()
 	fsys := f.fsFor(path)
-	l, err := fsys.List(ctx, path)
+	// The read runs in a goroutine of its own (internal/hang): on a share whose server is gone the system call can block
+	// for minutes, and Esc (CancelList) or a newer listing must still bring the panel back at once. At most a few
+	// reads of the same folder are left hanging; past that the answer is "not responding" right away.
+	l, err := hang.Guarded(&f.stuck, ctx, fsys.Clean(path), func(ctx context.Context) (vfs.Listing, error) {
+		return fsys.List(ctx, path)
+	})
 	if err != nil {
 		return vfs.Listing{}, errors.New(listError(fsys.Clean(path), err))
 	}
@@ -132,6 +139,8 @@ func listError(p string, err error) string {
 	switch {
 	case errors.Is(err, context.Canceled):
 		return "Stopped reading " + p + "."
+	case errors.Is(err, hang.ErrNotResponding):
+		return p + " is not responding (a network share whose server is gone, or a disk that was removed?)."
 	case errors.Is(err, vfs.ErrNotFolder):
 		return p + " is a file, not a folder."
 	case errors.Is(err, fs.ErrNotExist):
@@ -262,7 +271,7 @@ func (f *FS) VolumeOf(path string) VolumeInfo {
 		if pathWithin(p, v.Path) {
 			info := VolumeInfo{Name: v.Name, Path: v.Path, Total: v.Total, Free: v.Free}
 			if f.app.mock == nil {
-				if u, err := disk.UsageOf(p); err == nil {
+				if u, err := disk.UsageOfQuick(p); err == nil {
 					info.Total, info.Free = u.Total, u.Free
 				}
 			}
@@ -271,7 +280,7 @@ func (f *FS) VolumeOf(path string) VolumeInfo {
 	}
 	info := VolumeInfo{Path: f.Root(p)}
 	if f.app.mock == nil {
-		if u, err := disk.UsageOf(p); err == nil {
+		if u, err := disk.UsageOfQuick(p); err == nil {
 			info.Total, info.Free = u.Total, u.Free
 		}
 	}

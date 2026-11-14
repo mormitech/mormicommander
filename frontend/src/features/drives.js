@@ -12,7 +12,7 @@ async function openDrives(app, panel) {
   const on = app.driveFor(panel.path);
   const items = vols.map((v) => ({
     label: v.label ? `${v.name} ${v.label}` : v.name,
-    detail: v.total ? `${size(v.free)} free of ${size(v.total)}` : v.path,
+    detail: v.stale ? `${v.path}: not responding` : v.total ? `${size(v.free)} free of ${size(v.total)}` : v.path,
     key: v.kind === 'home' ? '~' : v.kind === 'map' ? '' : app.platform === 'windows' ? v.name[0] : '',
     value: v,
   }));

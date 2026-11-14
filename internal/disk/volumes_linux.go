@@ -10,9 +10,12 @@ package disk
 
 import (
 	"bufio"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"mormicommander/internal/hang"
 )
 
 var localFS = map[string]bool{
@@ -26,7 +29,7 @@ var netFS = map[string]bool{"nfs": true, "nfs4": true, "cifs": true, "smb3": tru
 func Volumes() []Volume {
 	out := rootOnly()
 	if home, err := os.UserHomeDir(); err == nil {
-		if u, err := UsageOf(home); err == nil {
+		if u, err := UsageOfQuick(home); err == nil {
 			out = append(out, Volume{Name: "Home", Path: home, Kind: "home", Total: u.Total, Free: u.Free})
 		}
 	}
@@ -35,7 +38,8 @@ func Volumes() []Volume {
 		return out
 	}
 	defer f.Close()
-	seen := map[string]bool{"/": true}
+	type mount struct{ dev, mnt, typ string }
+	var mounts []mount
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		fields := strings.Fields(sc.Text())
@@ -43,27 +47,46 @@ func Volumes() []Volume {
 			continue
 		}
 		dev, mnt, typ := fields[0], unescapeMount(fields[1]), fields[2]
-		if !localFS[typ] && !netFS[typ] || seen[mnt] || seen[dev] {
+		if !localFS[typ] && !netFS[typ] || mnt == "/" {
 			continue
 		}
 		if strings.HasPrefix(mnt, "/snap") || strings.HasPrefix(mnt, "/var/lib/docker") || strings.HasPrefix(mnt, "/boot") {
 			continue
 		}
-		u, err := UsageOf(mnt)
-		if err != nil || u.Total == 0 {
+		mounts = append(mounts, mount{dev, mnt, typ})
+	}
+	// statfs on every mount at the same time, each with a time limit (probeEach): an NFS or CIFS share whose server is
+	// gone is listed as stale instead of blocking the drive bar.
+	paths := make([]string, len(mounts))
+	for i, m := range mounts {
+		paths[i] = m.mnt
+	}
+	usages, errs := probeEach(paths, UsageOf)
+	seen := map[string]bool{"/": true} // once per device and mount point, the first one that answers wins
+	for i, m := range mounts {
+		if seen[m.mnt] || seen[m.dev] {
 			continue
 		}
-		seen[dev], seen[mnt] = true, true
 		kind := "fixed"
 		switch {
-		case netFS[typ]:
+		case netFS[m.typ]:
 			kind = "network"
-		case typ == "iso9660" || typ == "udf":
+		case m.typ == "iso9660" || m.typ == "udf":
 			kind = "cdrom"
-		case strings.HasPrefix(mnt, "/media/") || strings.HasPrefix(mnt, "/run/media/") || strings.HasPrefix(mnt, "/mnt/"):
+		case strings.HasPrefix(m.mnt, "/media/") || strings.HasPrefix(m.mnt, "/run/media/") || strings.HasPrefix(m.mnt, "/mnt/"):
 			kind = "removable"
 		}
-		out = append(out, Volume{Name: filepath.Base(mnt), Path: mnt, Kind: kind, Total: u.Total, Free: u.Free})
+		v := Volume{Name: filepath.Base(m.mnt), Path: m.mnt, Kind: kind}
+		switch {
+		case errors.Is(errs[i], hang.ErrNotResponding):
+			v.Stale = true
+		case errs[i] != nil || usages[i].Total == 0:
+			continue
+		default:
+			v.Total, v.Free = usages[i].Total, usages[i].Free
+		}
+		seen[m.dev], seen[m.mnt] = true, true
+		out = append(out, v)
 	}
 	return out
 }
