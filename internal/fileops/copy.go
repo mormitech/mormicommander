@@ -232,7 +232,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 	}
 	if !mode.IsRegular() && !isLink(it.info) {
 		j.fail("Skipped %s: it is not a regular file.", filepath.Base(it.src))
-		j.addBytes(size)
+		j.passBytes(size)
 		return false
 	}
 	dst, wm, out := j.resolve(it)
@@ -241,7 +241,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 			j.skipped()
 			j.log("skip", it.src, dst, nil)
 		}
-		j.addBytes(size)
+		j.passBytes(size)
 		return false
 	}
 	name := filepath.Base(it.src)
@@ -281,7 +281,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 		if !crossDevice(err) {
 			err, _ = j.try("Can't move "+name, it.src, dst, nil, func() error { return rename(it.src, dst) })
 			if err != nil {
-				j.addBytes(size)
+				j.passBytes(size)
 				return false
 			}
 			j.addBytes(size)
@@ -291,7 +291,7 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 	}
 	err, _ := j.try("Can't "+verb+" "+name, it.src, dst, nil, func() error { return j.copyFile(it.src, dst, it.info, wm) })
 	if err != nil {
-		j.addBytes(size) // counted as done so the bar still reaches the end; copyFile took back what it wrote
+		j.passBytes(size) // counted as done so the bar still reaches the end; copyFile took back what it wrote
 		return false
 	}
 	j.log(verb, it.src, dst, nil)

@@ -90,7 +90,7 @@ func (j *job) deleteAll(wipe bool) {
 					break
 				}
 			}
-			j.addBytes(size - j.snapshot().CurrentDone)
+			j.passBytes(size - j.snapshot().CurrentDone)
 			continue
 		}
 		if !it.info.IsDir() {

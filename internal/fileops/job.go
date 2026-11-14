@@ -30,6 +30,7 @@ type job struct {
 	resume    chan struct{} // closed by Resume
 	workStart time.Time     // when the current stretch of work (between pauses) began
 	worked    time.Duration // work before that stretch
+	passed    int64         // bytes in BytesDone only so the bar reaches the end (skipped or failed files), not written
 
 	// decisions that "… all" answers make for the rest of the job; only the job's goroutine touches them
 	policy     Policy
@@ -105,23 +106,27 @@ func (j *job) finish() {
 		switch {
 		case j.ctx.Err() != nil:
 			p.State = StateCancelled
+			p.BytesDone -= j.passed // a stopped job's bar won't reach the end anyway; show what was really done
+			j.passed = 0
 		case len(p.Errors) > 0:
 			p.State = StateFailed
 		default:
 			p.State = StateDone
 		}
-		p.Summary = summary(*p)
+		p.Summary = summary(*p, p.BytesDone-j.passed)
 	})
 	close(j.done)
 	j.log("done", "", "", nil)
 	j.q.Emit(EventDone, j.snapshot())
 }
 
-func summary(p Progress) string {
+// summary is the closing sentence of a job. done is the bytes really transferred, which can be less than
+// p.BytesDone: skipped and failed files are counted there too, so the progress bar still reaches the end.
+func summary(p Progress, done int64) string {
 	verb := map[Kind]string{Copy: "Copied", Move: "Moved", Delete: "Deleted", Trash: "Moved to the trash", Wipe: "Wiped"}[p.Kind]
 	s := fmt.Sprintf("%s %d of %d files", verb, p.FilesDone, p.Files)
 	if p.Kind == Copy || p.Kind == Move || p.Kind == Wipe {
-		s += fmt.Sprintf(" (%s)", formatBytes(p.BytesDone))
+		s += fmt.Sprintf(" (%s)", formatBytes(done))
 	}
 	s += fmt.Sprintf(" in %s", (time.Duration(p.Elapsed) * time.Millisecond).Round(100*time.Millisecond))
 	if p.Skipped > 0 {
@@ -222,6 +227,15 @@ func (j *job) addBytes(n int64) {
 	j.mu.Lock()
 	j.p.BytesDone += n
 	j.p.CurrentDone += n
+	j.mu.Unlock()
+}
+
+// passBytes counts n bytes of a skipped or failed file as done for the progress bar only: the summary leaves them out.
+func (j *job) passBytes(n int64) {
+	j.mu.Lock()
+	j.p.BytesDone += n
+	j.p.CurrentDone += n
+	j.passed += n
 	j.mu.Unlock()
 }
 

@@ -239,3 +239,45 @@ func TestTryRetriesAutomatically(t *testing.T) {
 		t.Fatalf("err %v after %d calls", err, calls)
 	}
 }
+
+// The summary counts only bytes really written (#124): skipped and failed files still fill the bar, but a stopped
+// job reports what it copied, both in the summary and in BytesDone.
+func TestSummaryLeavesOutSkippedAndFailedBytes(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	write(t, filepath.Join(src, "a"), "new a")
+	write(t, filepath.Join(src, "b"), "new b")
+	write(t, filepath.Join(dst, "a"), "old")
+	write(t, filepath.Join(dst, "b"), "old")
+	q := NewQueue(nil)
+	srcs := []string{filepath.Join(src, "a"), filepath.Join(src, "b")}
+	p := start(t, q, Request{Kind: Copy, Sources: srcs, Target: dst, Overwrite: Skip})
+	if p.Skipped != 2 || p.BytesDone != p.Bytes || !strings.HasPrefix(p.Summary, "Copied 0 of 2 files (0 bytes)") {
+		t.Fatalf("conflict skip: %+v", p)
+	}
+
+	if runtime.GOOS != "windows" && os.Geteuid() != 0 {
+		ro := t.TempDir()
+		os.Chmod(ro, 0o555)
+		defer os.Chmod(ro, 0o755)
+		q.AskFunc = func(p Progress) Answer { return Answer{Choice: ChoiceSkipAll} }
+		p = start(t, q, Request{Kind: Copy, Sources: srcs, Target: ro, OnError: ErrorsAsk})
+		if p.Skipped != 2 || !strings.HasPrefix(p.Summary, "Copied 0 of 2 files (0 bytes)") {
+			t.Fatalf("read-only target: %+v", p)
+		}
+	}
+
+	big := filepath.Join(src, "big")
+	if err := os.WriteFile(big, make([]byte, 4<<20), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	id, err := q.Start(Request{Kind: Copy, Sources: []string{big}, Target: t.TempDir(), SpeedLimit: 1 << 20})
+	if err != nil {
+		t.Fatal(err)
+	}
+	time.Sleep(300 * time.Millisecond)
+	q.Cancel(id)
+	p = q.Wait(id)
+	if p.State != StateCancelled || p.BytesDone != 0 || !strings.HasPrefix(p.Summary, "Copied 0 of 1 files (0 bytes)") {
+		t.Fatalf("cancelled: %+v", p)
+	}
+}
