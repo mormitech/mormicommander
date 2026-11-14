@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.94 – 2026-11-14
+
+### Added
+
+- Issue #23: Git status column and branch indicator, off by default (nothing changes until you turn it on). "Show > Git status" switches it on, and "Configuration > Git status settings..." picks the parts. In a folder inside a git work tree, each name gets a status letter (M changed, A added, D deleted, R renamed, U conflict, ? untracked, ! ignored); a subfolder with changes inside gets M, or U if one of them is a conflict. Ignored files can be shown, dimmed, or treated as hidden files. The path bar shows a badge with the branch (or commit when detached), a dot when something is uncommitted, and ahead/behind counts; its tooltip says the same in words. Outside a git repository no space is used. The control command "git" reports each panel's answer for QA.
+
 ## 0.9.93 – 2026-11-14
 
 ### Added
