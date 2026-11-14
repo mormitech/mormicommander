@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.59 – 2026-11-14
+
+### Fixed
+
+- Typing an sftp:// address without a password in the path bar, or after "cd" on the command line, now asks for the password when the server accepts nothing else (it used to just fail; only quick connect asked). The password is tried last, after the agent, key files and keyboard-interactive, is asked again up to three times if refused, and is remembered for the session so a reconnect does not ask again.
+- Still open on issue #10: saved passwords have no OS keychain storage yet (the master password is the only option).
+
 ## 0.9.58 – 2026-11-14
 
 ### Fixed
