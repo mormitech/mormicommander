@@ -6,6 +6,45 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.6 – 2026-11-14
+
+### Fixed
+
+The review follow-ups (#149): each suspicion from the #91 review was checked with a test first, against the real
+7-Zip where it mattered.
+
+- Data safety:
+  - 7z: "pack without subfolders" was ignored, because 7-Zip packs a folder named on its command line completely even
+    with `-r-`. The files are now listed one by one, and "without paths" works for 7z too (two files with one name are
+    refused). "Move to archive" deletes a source only when the tested archive lists it with the same size, and a
+    folder only when it is empty afterwards. File names are never read as wildcards. Outside Windows the password goes
+    to 7-Zip on its input and no longer shows in the process list.
+  - Putting back from the trash, undo and moves on one volume use a rename that never replaces (renamex_np,
+    renameat2, MoveFileEx), so a file that appears at the destination in the meantime is no longer overwritten.
+  - Undo of a copied folder leaves the folder alone when something was added to it after the copy.
+  - Zip split archives: the parts are written to temporary files first, so a split that fails leaves the parts of
+    an older set in place.
+- Correct results:
+  - A rename that only changes the Unicode form of a name (NFC to NFD, as on macOS) is no longer refused as "exists".
+  - Renaming a file to the name of another hard link of it (a case-only rename on a case-sensitive disk) is refused,
+    in rename and in undo, instead of leaving the file under a temporary name.
+  - Multi-rename: search and replace and the duplicate check compare names in NFC, as masks and Find do. A name
+    ending in a dot ("file.") keeps it with the default mask.
+  - Unpacking without paths keeps two files with one name: zip and 7z write the second under a free name, so the
+    overwrite question sees both; tar skips the second and says so.
+  - Names close to the 255-byte limit: temporary files (archives, settings, compare) use only the start of the name,
+    and "name(2).ext" stays within 255 bytes.
+  - macOS: folder sizes calculated earlier are found again whichever Unicode form the path has.
+- Security hardening:
+  - FTP active mode prefers the data connection from the server's own address, so another machine on the network
+    can't take over a transfer by connecting first. A server that connects from another address still works.
+  - AI (OpenRouter): a redirect from https to http is refused, so the API key never travels unencrypted.
+  - The access tokens of the AI endpoint and the control mode are compared in constant time.
+  - A tampered FTP password-store header can no longer ask for billions of key derivation rounds.
+  - Windows: when a button's program is a .bat or .cmd file, names with `& | < > ^ ( )` are quoted, so a file name
+    can't add commands. Other programs get names as Total Commander passes them.
+  - Extended attributes: the size-then-read retries are bounded.
+
 ## 0.11.5 – 2026-11-14
 
 ### Fixed
