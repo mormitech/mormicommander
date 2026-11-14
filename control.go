@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -256,8 +255,10 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		w := a.about
 		a.mu.Unlock()
 		return map[string]any{"ok": true, "windows": a.windowNames(), "windowId": windowNumber(w)}, nil
-	case "screenshot": // the window as a PNG file: {path}; window: "lister-2" takes another window of the app
-		return c.screenshot(str(m, "path"), str(m, "window"))
+	case "screenshot": // the window as a PNG file: {path}; window: "lister-2" takes another window of the app;
+		// dialogs: false leaves the window's dialog windows out of the picture
+		dialogs, set := m["dialogs"].(bool)
+		return c.screenshot(str(m, "path"), str(m, "window"), dialogs || !set)
 	case "answer": // the answer for the next system dialog of a kind: "value" or "values"
 		kind := str(m, "kind")
 		c.mu.Lock()
@@ -297,14 +298,21 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 }
 
 // screenshot saves the window as a PNG. On macOS it uses `screencapture -l` with the window's number (the window may
-// be behind others). Other systems: the script makes the picture itself (scripts/mc_ctl.py shot()).
-func (c *control) screenshot(path, window string) (map[string]any, error) {
+// be behind others). Other systems: the script makes the picture itself (scripts/mc_ctl.py shot()). It first waits for
+// the page and the window's dialog windows to be painted, and lays those dialog windows over the picture unless
+// dialogs is false (control_shot.go).
+func (c *control) screenshot(path, window string, dialogs bool) (map[string]any, error) {
 	if path == "" {
 		return nil, errors.New("give a path for the PNG")
 	}
 	if runtime.GOOS != "darwin" {
 		return nil, errors.New("screenshots from inside the app work on macOS only")
 	}
+	owner := mainWindowName
+	if window != "" {
+		owner = window
+	}
+	c.waitForPaint(owner)
 	wid := c.app.windowID()
 	if window != "" {
 		w := c.app.windowByName(window)
@@ -320,15 +328,21 @@ func (c *control) screenshot(path, window string) (map[string]any, error) {
 		return nil, err
 	}
 	time.Sleep(150 * time.Millisecond) // the last change is painted
-	out, err := exec.Command("screencapture", "-x", "-o", "-l", fmt.Sprint(wid), path).CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("screencapture: %v %s", err, out)
+	if err := captureWindow(wid, path); err != nil {
+		return nil, err
 	}
-	st, err := os.Stat(path)
-	if err != nil || st.Size() == 0 {
-		return nil, errors.New("screencapture made no file (Screen Recording permission?)")
+	res := map[string]any{"ok": true, "path": path}
+	if dialogs {
+		n, err := c.addDialogs(path, owner)
+		if err != nil {
+			return nil, err
+		}
+		res["dialogs"] = n
 	}
-	return map[string]any{"ok": true, "path": path, "bytes": st.Size()}, nil
+	if st, err := os.Stat(path); err == nil {
+		res["bytes"] = st.Size()
+	}
+	return res, nil
 }
 
 func (a *App) windowTitle() string {

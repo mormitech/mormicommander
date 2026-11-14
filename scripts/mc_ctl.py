@@ -202,12 +202,14 @@ class MC:
             args.update(x=x, y=y)
         return self.cmd("window", **args)
 
-    def shot(self, path, delay=0.3):
-        """A PNG of the window. The app makes it on macOS; if that fails (permission), it is made from here."""
+    def shot(self, path, delay=0.3, dialogs=None):
+        """A PNG of the window. The app makes it on macOS, with its open dialog windows laid over it (dialogs=False
+        leaves them out); if that fails (permission), the window alone is made from here."""
         time.sleep(delay)
         path = os.path.abspath(path)
+        args = {} if dialogs is None else {"dialogs": dialogs}
         try:
-            return self.cmd("screenshot", path=path)
+            return self.cmd("screenshot", path=path, **args)
         except MCError as first:
             wid = self.info().get("windowId", 0)
             if not wid or sys.platform != "darwin":
