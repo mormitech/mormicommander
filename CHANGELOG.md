@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.30 – 2026-11-14
+
+### Fixed
+
+- Each tab now keeps its own view (Ctrl+F2 and the other view choices). Before, a new tab shared the view of the tab it
+  was made from, so changing the view in one tab changed it in the other. Duplicated tabs and tabs copied to the other
+  side start with a copy of the view, and the view is saved with the tab: in the tab lists, .tab files, favourite tabs,
+  closed tabs and across restarts. Tabs saved by older versions open as before.
+
 ## 0.9.29 – 2026-11-14
 
 ### Fixed
