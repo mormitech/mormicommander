@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.25 – 2026-11-14
+
+### Fixed
+
+- Clicking the drive that is already lit on a panel's own drive bar (or picking it in the Alt+F1 / Alt+F2 drive list)
+  now goes to that drive's root again (/ for Macintosh HD, ~ for Home). It used to jump to the other panel's folder
+  whenever the other panel was on the same drive. The other panel's folder is only taken when switching to a
+  different drive.
+
 ## 0.9.24 – 2026-11-13
 
 ### Fixed
