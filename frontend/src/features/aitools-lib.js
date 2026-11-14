@@ -231,12 +231,27 @@ export function findContext({ active, other, platform, home, searchIn }, now = n
   return lines.join('\n');
 }
 
-// providerLine is the AI tab's line about the provider, from AI.Providers().claude.
-export function providerLine(c) {
-  if (!c) return { ok: false, text: 'AI is not available in this build.' };
+// providerLine is the AI tab's line about the provider, from AI.Providers(): {selected: "claude"|"openrouter", claude,
+// openrouter}. It names the provider a run will use (the one chosen in the AI settings) and its model, or says what
+// is missing. name is how the log speaks of it ("Asking Claude…"). An object with "available" is read as the Claude
+// entry alone (the shape of step 1).
+export function providerLine(p) {
+  if (!p) return { ok: false, text: 'AI is not available in this build.', name: 'the AI' };
+  if ('available' in p) p = { selected: 'claude', claude: p };
+  if (p.selected === 'openrouter') {
+    const o = p.openrouter || {};
+    // (another OpenAI-compatible server is named by its host; OpenRouter's own address needs no mention)
+    let host = '';
+    try { host = o.url ? new URL(o.url).host : ''; } catch { host = ''; }
+    const label = !host || host === 'openrouter.ai' || host.endsWith('.openrouter.ai') ? 'OpenRouter' : `OpenAI-compatible API at ${host}`;
+    if (o.available) return { ok: true, text: `${label}, model ${o.model}`, name: o.model };
+    return { ok: false, text: `${label}: ${o.error || 'not set up yet.'}`, error: o.error || '', name: label };
+  }
+  const c = p.claude;
+  if (!c) return { ok: false, text: 'AI is not available in this build.', name: 'the AI' };
   if (c.available) {
     const v = String(c.version || '').replace(/\s*\(Claude Code\)\s*$/i, '').trim();
-    return { ok: true, text: `Claude Code${v ? ' ' + v : ''} found at ${c.path}` };
+    return { ok: true, text: `Claude Code${v ? ' ' + v : ''} found at ${c.path}`, name: 'Claude' };
   }
-  return { ok: false, text: 'Claude Code was not found: install it from claude.com/claude-code, or set its path in Options > AI.', error: c.error || '' };
+  return { ok: false, text: 'Claude Code was not found: install it from claude.com/claude-code, or set its path in Options > AI.', error: c.error || '', name: 'Claude' };
 }

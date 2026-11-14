@@ -1,9 +1,10 @@
 // The AI tab of the Find files dialog and the find_files tool (issue #146, step 1 of the AI layer). The user writes
 // what to find in plain words ("PDFs in Documents I changed this week, bigger than 1 MB"); Start search sends it to
-// the model (Go: AI.Start, the Claude Code CLI for now), which answers by calling find_files, and the search runs as
-// a normal Find files search: the results fill the dialog's list, so Go to file, View, Feed to listbox and the rest
-// work on them as on any search. The tab shows which provider was found, and a short log of the run: the tools the
-// model calls, its text, the final answer or the error.
+// the model (Go: AI.Start with the provider chosen in Configuration > AI settings: the Claude Code CLI, or OpenRouter),
+// which answers by calling find_files, and the search runs as a normal Find files search: the results fill the
+// dialog's list, so Go to file, View, Feed to listbox and the rest work on them as on any search. The tab shows which
+// provider and model a run will use (or what is missing, with a button to the AI settings, ai-settings.js), and a
+// short log of the run: the tools the model calls, its text, the final answer or the error.
 //
 // find_files is one tool of core/aitools.js. Called by a run of this dialog's AI tab, it searches through the dialog
 // (find.js findDialog.search); called by any other run, it runs go.Find.Start itself and reads the results back.
@@ -17,6 +18,7 @@ import { esc } from '../core/dialogs.js';
 import { addAITool, onAIProgress } from '../core/aitools.js';
 import { app as theApp } from '../core/app.js';
 import { addFindTab, findDialog } from './find.js';
+import { openAISettings } from './ai-settings.js';
 import { findRequest, findSummary, describeTool, findContext, providerLine, day } from './aitools-lib.js';
 
 const TOOL_TIMEOUT = 100_000; // ms a search may take before it is stopped (Go waits 120 s for a tool's answer)
@@ -60,7 +62,7 @@ function renderProvider() {
   const el = $('.mc-find-ai-provider');
   if (!el) return;
   const p = A.provider;
-  if (!p) { el.textContent = 'Looking for Claude Code…'; el.className = 'mc-find-ai-provider'; return; }
+  if (!p) { el.textContent = 'Looking for the AI provider…'; el.className = 'mc-find-ai-provider'; return; }
   el.className = `mc-find-ai-provider${p.ok ? ' ok' : ' bad'}`;
   // (plain text, not a link: the page links only to the sites privacy.test.js allows)
   el.textContent = p.text;
@@ -68,7 +70,7 @@ function renderProvider() {
 }
 
 async function refreshProvider() {
-  try { A.provider = providerLine((await go.AI.Providers())?.claude); } catch { A.provider = providerLine(null); }
+  try { A.provider = providerLine(await go.AI.Providers()); } catch { A.provider = providerLine(null); }
   renderProvider();
 }
 
@@ -122,9 +124,10 @@ async function startAI() {
     active: theApp.cur, other: theApp.other, platform: theApp.platform, home: theApp.home, searchIn,
   });
   Object.assign(A, { run: 0, running: true, early: [], stopWanted: false, log: [] });
-  push('note', 'Asking Claude…');
+  push('note', `Asking ${A.provider?.ok ? A.provider.name : 'the AI'}…`);
   findDialog.sync();
-  A.starting = Promise.resolve(go.AI.Start({ prompt, context, provider: 'claude' }));
+  // (no provider of its own: Go uses the one chosen in the AI settings)
+  A.starting = Promise.resolve(go.AI.Start({ prompt, context, provider: '' }));
   try {
     A.run = await A.starting;
   } catch (e) {
@@ -154,9 +157,14 @@ addFindTab({
   label: 'AI',
   html: () => `<textarea id="ff-ai-prompt" rows="3" spellcheck="false" data-enter-submits aria-label="What to find"
       placeholder="What are you looking for? E.g. PDFs in Documents changed this week, bigger than 1 MB">${esc(theApp.setting('findAiPrompt', '') || '')}</textarea>
-    <div class="mc-find-ai-provider"></div>
+    <div class="mc-find-ai-providerbar"><div class="mc-find-ai-provider"></div>
+      <button type="button" class="mc-find-ai-settings" title="Choose the AI provider, the model and the API key">AI settings…</button></div>
     <div class="mc-find-ai-log" aria-live="polite"></div>`,
-  setup: () => { renderProvider(); renderLog(); refreshProvider(); },
+  setup: () => {
+    renderProvider(); renderLog(); refreshProvider();
+    const b = $('.mc-find-ai-settings');
+    if (b) b.onclick = async () => { await openAISettings(); refreshProvider(); $('#ff-ai-prompt')?.focus(); };
+  },
   shown: () => { refreshProvider(); const t = $('#ff-ai-prompt'); t?.focus(); },
   start: startAI,
   busy: () => A.running,
