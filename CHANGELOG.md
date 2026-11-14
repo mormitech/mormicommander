@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.73 – 2026-11-14
+
+### Fixed
+
+- Control mode: the `screenshot` command now waits for the page to finish painting and for any open dialog windows to show their dialog, then lays those dialog windows over the main window's picture, so the PNG shows what is on screen (issue #41). The reply says how many dialogs were laid over (`dialogs`); passing `dialogs: false` gives the window alone as before. Nothing changes for normal use of the app.
+
 ## 0.9.72 – 2026-11-14
 
 ### Added
