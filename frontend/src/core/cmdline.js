@@ -15,6 +15,11 @@ export function addCmdlineHandler(fn, { first = false } = {}) { if (first) handl
 const el = () => document.getElementById('cmd');
 let histPos = -1;
 let typed = false; // the field has the focus because the user typed in a panel (not because it was clicked)
+// With the command line turned off (Options > Layout > Show command line), typing shows it for the time being, as in
+// Total Commander; Esc (or running the line) hides it again. The class wins over the "off" rule (config.css).
+const TEMP_CLASS = 'mc-cmdline-temp';
+const isOff = () => document.body.classList.contains('mc-config-no-cmdline');
+function hideTemp() { document.body.classList.remove(TEMP_CLASS); }
 
 // backToPanel gives the focus back to the active panel's list when typing had taken it to the command line.
 function backToPanel() {
@@ -79,13 +84,18 @@ export const cmdline = {
     i.setSelectionRange(p, p);
   },
 
-  clear() { this.set(''); histPos = -1; backToPanel(); },
+  clear() { this.set(''); histPos = -1; backToPanel(); hideTemp(); },
+
+  // shownForTyping: the line is turned off but shown because the user typed (Esc hides it).
+  get shownForTyping() { return document.body.classList.contains(TEMP_CLASS); },
   focus() { el().focus(); },
 
   // focusFromTyping gives the field the focus after a letter typed in a panel went into it.
   focusFromTyping() {
     const i = el();
-    if (!i || i.offsetParent === null || document.activeElement === i) return; // hidden (Layout.CmdLine off) or already there
+    if (!i) return;
+    if (isOff()) document.body.classList.add(TEMP_CLASS); // turned off: shown until Esc
+    if (i.offsetParent === null || document.activeElement === i) return; // still hidden, or already there
     wire();
     const a = i.selectionStart, b = i.selectionEnd;
     i.focus({ preventScroll: true });

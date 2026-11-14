@@ -56,6 +56,8 @@ export function onKeyDown(ev) {
   }
   if (!combo) return;
   const hasText = cmdline.text.length > 0;
+  // a command line shown only because the user typed (it is turned off) goes away again with Esc, even when empty
+  if (combo === 'Esc' && cmdline.shownForTyping) { ev.preventDefault(); cmdline.clear(); app.cur?.$.list.focus(); return; }
   if (inCmd || hasText) {
     if (combo === 'Enter' || combo === 'Shift+Enter') { ev.preventDefault(); if (hasText) app.run('cm_ExecuteCmdLine', { shift: combo === 'Shift+Enter' }); return; }
     if (combo === 'Esc') { ev.preventDefault(); cmdline.clear(); app.cur?.$.list.focus(); return; }

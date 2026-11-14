@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.9 – 2026-11-14
+
+### Changed
+
+- With the command line turned off (Options > Layout > Show command line), typing in a panel shows it for the time
+  being, as Total Commander does; Esc, or running the line with Enter, hides it again.
+
 ## 0.10.8 – 2026-11-14
 
 ### Changed
