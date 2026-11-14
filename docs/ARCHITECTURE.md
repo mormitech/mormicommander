@@ -140,6 +140,16 @@ A file system for the panels (archives, FTP, SFTP) implements `vfs.FS` and regis
 
 - **Go:** `go test ./...` — one `_test.go` per file, plain `testing`, `t.TempDir()` for every file test. Never the user's
   files, never the network beyond servers you start on 127.0.0.1.
+- **Live (real servers and tools, board issue #106):** `live_*_test.go` carry the `live` build tag, so `go test ./...`
+  never compiles them. They drive the app's own Go code (the Net service and the panels' router, `Net.StartJob` for
+  F5/F6 and the download list, `VfsJobs` for F8 and archives, Synchronize folders, Find files and Feed to listbox)
+  against real servers given by `MC_LIVE_*` variables (listed in `live_helpers_test.go`) and the installed 7-Zip and
+  unrar; a test skips without its server unless `MC_LIVE_REQUIRE` names it (`all` in CI). CI's `live` job starts
+  vsftpd (FTP, explicit FTPS, passive and active), OpenSSH (SFTP, password and key) and Apache mod_dav (WebDAV) on the
+  runner with `scripts/live_servers.sh` (a throwaway machine only: it adds a user and a trusted certificate) and runs
+  `go test -tags live -run '^TestLive' .`. Any FTP/SFTP/WebDAV server works locally too, for example pyftpdlib,
+  asyncssh and wsgidav in a scratch Python venv on 127.0.0.1; on macOS give a self-signed FTPS certificate with
+  `MC_LIVE_FTP_CA` (the app trusts only the system's certificates).
 - **Page:** pure logic (parsers, masks, formatting) goes in a module without DOM use and gets a test in
   `frontend/test/<name>.test.js` (vitest: `cd frontend && npm test`).
 - **The real app:** through control mode, in fresh temporary folders. Start from `scripts/qa_nav.py` (copy a suite

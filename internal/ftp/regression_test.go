@@ -4,17 +4,22 @@
 // wrong file), a resume against a target that is larger than the source
 // must fail instead of reporting success, and a folder download must fetch
 // files behind symbolic links and report what it could not copy instead of
-// silently leaving it out.
+// silently leaving it out. An upload over a TLS data connection must arrive
+// whole although the server sent something (a TLS 1.3 session ticket) the
+// client never read (found by the live tests of board issue #106).
 package ftp
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
 	"testing"
+	"time"
 )
 
 func TestListKeepsLeadingSpaces(t *testing.T) {
@@ -133,6 +138,58 @@ func TestDownloadTreeLinks(t *testing.T) {
 				if _, err := os.Lstat(filepath.Join(back, n)); err == nil {
 					t.Errorf("%s was created locally", n)
 				}
+			}
+		})
+	}
+}
+
+// A TLS 1.3 server sends session tickets on the data connection right after
+// the handshake, which an upload never reads. Closing a socket with unread
+// data makes the system send a reset instead of a normal close, and the
+// server sees the upload fail or loses the part it had not read yet (the live
+// FTPS test of board issue #106 got 1425408 of 1572871 bytes, reported as a
+// success). The upload must end its side cleanly (close_notify, a half-close)
+// and wait for the server to close. The test server sends one byte instead of
+// a ticket, over plain FTP and over TLS, and answers 426 when its read fails.
+func TestUploadWithUnreadServerDataArrivesWhole(t *testing.T) {
+	serverTLS, clientTLS := testCert(t)
+	for _, tc := range []struct {
+		name   string
+		tls    bool
+		active bool
+	}{{"plain", false, false}, {"tls", true, false}, {"tls active", true, true}} {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := newTestServer(t, func(s *testServer) {
+				s.storSends = true
+				s.storDelay = 200 * time.Millisecond // the data waits in the socket buffers when the client is done
+				if tc.tls {
+					s.tlsConf = serverTLS
+					s.requireTLS = true
+				}
+			})
+			cfg := srv.cfg()
+			if tc.tls {
+				cfg.Security = SecurityExplicitTLS
+				cfg.TLSConfig = clientTLS
+			}
+			if tc.active {
+				cfg.DataMode = Active
+			}
+			c := dialT(t, cfg)
+			data := make([]byte, 3<<20+11)
+			rand.Read(data)
+			src := filepath.Join(t.TempDir(), "big.bin")
+			os.WriteFile(src, data, 0o644)
+			n, err := c.Upload(context.Background(), src, "big.bin", TransferOptions{Mode: TransferBinary})
+			if err != nil {
+				t.Fatalf("upload: %v", err)
+			}
+			if got := []byte(srv.read("big.bin")); n != int64(len(data)) || !bytes.Equal(got, data) {
+				t.Fatalf("%d bytes sent, %d arrived of %d", n, len(got), len(data))
+			}
+			// the control connection is still in step: the next command works
+			if _, err := c.Size(context.Background(), "big.bin"); err != nil {
+				t.Fatalf("SIZE after the upload: %v", err)
 			}
 		})
 	}

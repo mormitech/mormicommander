@@ -214,7 +214,12 @@ func (c *Client) store(ctx context.Context, verb, p string, r io.Reader, offset 
 	cr := &countingReader{r: src}
 	_, cerr := io.Copy(conn, cr)
 	stop()
-	closeErr := conn.Close()
+	var closeErr error
+	if cerr == nil {
+		closeErr = closeUpload(conn, c.cfg.Timeout)
+	} else {
+		conn.Close()
+	}
 	if cerr == nil {
 		cerr = closeErr
 	}
