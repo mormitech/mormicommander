@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.51 – 2026-11-14
+
+### Added
+
+- Zero-network checks (issue #14): a new run-time test builds every feature in a temporary settings folder and runs a scripted session (list folders, view text, Markdown and HTML files with remote images and styles, search by name and text, copy, thumbnails) while it refuses and records HTTP requests, DNS lookups and any internet socket beyond loopback. A second test feeds remote-heavy Markdown and HTML through the Lister and checks nothing remote is loaded. docs/privacy.md describes the guarantees; a CI job that drives the built app and watches its sockets is still planned. No change to app behaviour.
+
 ## 0.9.50 – 2026-11-14
 
 ### Added
