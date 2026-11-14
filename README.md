@@ -144,7 +144,8 @@ of each file in `SHA256SUMS.txt`. How to check a download, and which file to pic
 [docs/DOWNLOADS.md](docs/DOWNLOADS.md). Copies of the app elsewhere are not ours.
 
 What it runs on: **macOS 13 (Ventura) or newer** on Apple silicon or Intel; Windows x64 with the Microsoft Edge WebView2
-runtime (part of Windows 11 and current Windows 10); Linux x64 with GTK 4 and WebKitGTK 6.0 (the .deb installs them).
+runtime (part of Windows 11 and current Windows 10); Linux x64 with GTK 4 and WebKitGTK 6.0 (the .deb installs them), or, on older distributions such as Ubuntu 22.04 and
+Debian 12, the GTK 3 build with WebKitGTK 4.1 (`mormicommander-gtk3_X.Y.Z_amd64.deb`).
 
 To build it yourself you need [Go](https://go.dev) 1.26 or newer and
 [Node.js](https://nodejs.org); the window is [Wails v3](https://v3.wails.io), which comes in as a Go module (no CLI to

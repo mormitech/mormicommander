@@ -22,6 +22,8 @@ Each release `vX.Y.Z` has these files (X.Y.Z is the version):
 | Windows (x64) | `mormicommander-X.Y.Z-windows-x64.zip` | `mormicommander.exe` without an installer |
 | Debian, Ubuntu (x64) | `mormicommander_X.Y.Z_amd64.deb` | `sudo apt install ./mormicommander_X.Y.Z_amd64.deb` |
 | Linux (x64) | `mormicommander-X.Y.Z-linux-x64.tar.gz` | The binary, a desktop entry and `install.sh` |
+| Older Debian, Ubuntu (x64): Ubuntu 22.04, Debian 12 | `mormicommander-gtk3_X.Y.Z_amd64.deb` | The GTK 3 build (WebKitGTK 4.1), for systems without GTK 4 and WebKitGTK 6.0; `sudo apt install ./mormicommander-gtk3_X.Y.Z_amd64.deb` |
+| Older Linux (x64) | `mormicommander-X.Y.Z-linux-x64-gtk3.tar.gz` | The GTK 3 build as a tar.gz |
 | All | `SHA256SUMS.txt` | The SHA-256 checksum of every file above |
 
 ## With a package manager

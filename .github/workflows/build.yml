@@ -332,6 +332,125 @@ jobs:
           apt-get remove -y mormicommander
           if [ -e /usr/bin/mormicommander ] || [ -e /usr/share/applications/mormicommander.desktop ]; then echo 'files left after removal'; exit 1; fi
 
+  # The Linux build for older distributions (board issue #40): Ubuntu 22.04, Debian 12 and others ship GTK 3 with
+  # WebKitGTK 4.1 but not GTK 4 with WebKitGTK 6.0, which the main Linux build needs. Wails v3 still builds against GTK 3
+  # with the gtk3 build tag (build.sh: EXTRA_TAGS), and the app's own GTK code has a gtk3 branch (dialogwin_linux.go).
+  # Built on Ubuntu 22.04, so the binary needs nothing newer than its glibc. The packages are named -gtk3: a tar.gz and
+  # a .deb (package mormicommander-gtk3, which takes the place of mormicommander when one is installed).
+  build-gtk3:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Linux dependencies (GTK 3, WebKitGTK 4.1)
+        run: sudo apt-get update && sudo apt-get install -y libgtk-3-dev libwebkit2gtk-4.1-dev imagemagick
+      - run: npm ci && npm run build
+        working-directory: frontend
+      - run: go vet -tags gtk3 ./...
+      - run: EXTRA_TAGS=gtk3 bash scripts/build.sh --skip-frontend
+      - name: Version
+        id: version
+        run: echo "version=$(node -p "require('./wails.json').info.productVersion")" >> "$GITHUB_OUTPUT"
+      - name: Package (tar.gz and .deb)
+        run: |
+          v='${{ steps.version.outputs.version }}'
+          mkdir dist
+          cp packaging/linux/mormicommander.desktop packaging/linux/install.sh build/appicon.png build/bin/
+          tar -czf "dist/mormicommander-$v-linux-x64-gtk3.tar.gz" -C build/bin mormicommander mormicommander.desktop install.sh appicon.png -C "$PWD" LICENSE
+          pkg="$RUNNER_TEMP/deb"
+          install -Dm755 build/bin/mormicommander "$pkg/usr/bin/mormicommander"
+          install -Dm644 LICENSE "$pkg/usr/share/doc/mormicommander-gtk3/copyright"
+          install -Dm644 packaging/linux/mormicommander.desktop "$pkg/usr/share/applications/mormicommander.desktop"
+          for s in 64 128 256 512; do
+            mkdir -p "$pkg/usr/share/icons/hicolor/${s}x${s}/apps"
+            convert build/appicon.png -resize ${s}x${s} "$pkg/usr/share/icons/hicolor/${s}x${s}/apps/mormicommander.png"
+          done
+          work="$RUNNER_TEMP/shlibs" && mkdir -p "$work/debian" && printf 'Source: mormicommander\n\nPackage: mormicommander-gtk3\nArchitecture: amd64\n' > "$work/debian/control"
+          deps=$(cd "$work" && dpkg-shlibdeps -O "$pkg/usr/bin/mormicommander" | sed 's/^shlibs:Depends=//')
+          echo "Depends: $deps"
+          for need in libgtk-3-0 libwebkit2gtk-4.1-0; do
+            case ", $deps" in *", $need"*) ;; *) echo "Depends lacks $need"; exit 1 ;; esac
+          done
+          case "$deps" in *libgtk-4*|*libwebkitgtk-6*) echo "the GTK 3 build must not need GTK 4 / WebKitGTK 6.0"; exit 1 ;; esac
+          mkdir -p "$pkg/DEBIAN"
+          cat > "$pkg/DEBIAN/control" <<EOF
+          Package: mormicommander-gtk3
+          Version: $v
+          Architecture: amd64
+          Maintainer: Mormitech <accounts@mormitech.com>
+          Depends: $deps
+          Conflicts: mormicommander
+          Replaces: mormicommander
+          Provides: mormicommander
+          Section: utils
+          Priority: optional
+          Homepage: https://github.com/mormitech/mormicommander
+          Installed-Size: $(du -sk "$pkg/usr" | cut -f1)
+          Description: Two-panel file manager (GTK 3 build for older distributions)
+           mormiCommander is a two-panel file manager in the spirit of Total Commander: copy, move, rename and
+           delete files between two folders side by side, with Total Commander's keys. This build uses GTK 3 and
+           WebKitGTK 4.1, for distributions without GTK 4 and WebKitGTK 6.0 (Ubuntu 22.04, Debian 12).
+          EOF
+          dpkg-deb --build --root-owner-group "$pkg" "dist/mormicommander-gtk3_${v}_amd64.deb"
+          dpkg-deb --info "dist/mormicommander-gtk3_${v}_amd64.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mormicommander-linux-gtk3
+          path: dist/*
+          if-no-files-found: error
+
+  # The GTK 3 .deb installed the way a user would, on clean Ubuntu 22.04 and Debian 12: apt has to bring GTK 3 and
+  # WebKitGTK 4.1, and the app has to start and keep running.
+  deb-gtk3:
+    needs: build-gtk3
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['ubuntu:22.04', 'debian:12']
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: mormicommander-linux-gtk3
+          path: dist
+      - name: Install the .deb with apt
+        run: |
+          apt-get update
+          apt-get install -y ./dist/mormicommander-gtk3_*_amd64.deb
+          apt-get install -y --no-install-recommends xvfb xauth dbus
+          dbus-uuidgen --ensure
+          dpkg -L mormicommander-gtk3
+      # (no GPU and no user namespaces in the container: WebKit without compositing and, for this test only, without
+      # its web process sandbox, as in the deb job)
+      - name: The app starts and keeps running (demo files, virtual display)
+        env:
+          WEBKIT_DISABLE_COMPOSITING_MODE: '1'
+          WEBKIT_DISABLE_DMABUF_RENDERER: '1'
+          WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: '1'
+        run: |
+          set +e
+          timeout 20 dbus-run-session -- xvfb-run -a mormicommander --demo > /tmp/app.log 2>&1
+          code=$?
+          cat /tmp/app.log
+          if [ $code -ne 124 ]; then echo "mormicommander exited with $code before the 20 s were up"; exit 1; fi
+          echo 'mormicommander ran for 20 s'
+      - name: Removed cleanly
+        run: |
+          apt-get remove -y mormicommander-gtk3
+          if [ -e /usr/bin/mormicommander ]; then echo 'files left after removal'; exit 1; fi
+
   # The zero-network test of the built app (board issue #14, F-875; docs/privacy.md): the Linux build starts on a
   # virtual display in control mode with a temporary HOME, a scripted session runs through it (browse, the Lister on
   # Markdown and HTML full of remote pictures and links, quick view, thumbnails, copy, Find files, the Options and Ask AI
@@ -430,7 +549,7 @@ jobs:
   # Pushing a tag like v0.5.0 attaches every package to a GitHub release.
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, deb, zero-network]
+    needs: [build, deb, zero-network, build-gtk3, deb-gtk3]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -438,7 +557,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: dist
-          pattern: mormicommander-{macos,linux,windows}
+          pattern: mormicommander-{macos,linux,windows,linux-gtk3}
           merge-multiple: true
       # The checksums for the download page (docs/DOWNLOADS.md), made from the very files that are uploaded.
       - name: Checksums

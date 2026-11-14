@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.11.4 – 2026-11-14
+
+### Added
+
+- A Linux build for older distributions (#40): GTK 3 with WebKitGTK 4.1, for Ubuntu 22.04, Debian 12 and others
+  without GTK 4 and WebKitGTK 6.0. Built on Ubuntu 22.04 with Wails' gtk3 tag, it comes as
+  `mormicommander-gtk3_X.Y.Z_amd64.deb` (package mormicommander-gtk3, which takes the place of mormicommander) and
+  `mormicommander-X.Y.Z-linux-x64-gtk3.tar.gz`. CI installs the .deb on clean Ubuntu 22.04 and Debian 12 and checks the
+  app starts and keeps running; releases include both files.
+
 ## 0.11.3 – 2026-11-14
 
 ### Changed
