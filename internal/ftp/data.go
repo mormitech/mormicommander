@@ -139,6 +139,45 @@ func (c *Client) openData(ctx context.Context, cmd string, offset int64) (net.Co
 	return &idleConn{Conn: conn, timeout: c.cfg.Timeout}, nil
 }
 
+// closeUpload ends the data connection of an upload so that all of it
+// arrives. Closing a socket that still holds unread data (a TLS 1.3 server
+// sends session tickets on the data connection, which an upload never reads)
+// makes the system reset the connection instead of closing it, and the
+// server then loses whatever it had not read yet: the end of the file. So
+// the client says it is done (TLS close_notify, then a TCP half-close),
+// reads until the server closes its side (at most timeout), and only then
+// closes.
+func closeUpload(conn net.Conn, timeout time.Duration) error {
+	raw := conn
+	if ic, ok := raw.(*idleConn); ok {
+		raw = ic.Conn
+	}
+	var err error
+	if tc, ok := raw.(*tls.Conn); ok {
+		err = tc.CloseWrite()
+		raw = tc.NetConn()
+	}
+	if hc, ok := raw.(interface{ CloseWrite() error }); ok && err == nil {
+		if err = hc.CloseWrite(); err == nil {
+			if timeout <= 0 || timeout > 30*time.Second {
+				timeout = 30 * time.Second
+			}
+			deadline := time.Now().Add(timeout)
+			buf := make([]byte, 4096)
+			for {
+				conn.SetReadDeadline(deadline)
+				if _, rerr := conn.Read(buf); rerr != nil {
+					break // the server closed (or went quiet): what it sends here is never needed
+				}
+			}
+		}
+	}
+	if cerr := conn.Close(); err == nil {
+		err = cerr
+	}
+	return err
+}
+
 // finishData reads the final reply of a transfer after the data connection
 // was closed.
 func (c *Client) finishData(cmd string) error {

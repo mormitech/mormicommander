@@ -58,6 +58,8 @@ type testServer struct {
 	proxyOpen   bool   // expect "OPEN host" before USER
 	latin1Names bool   // speak Latin-1 on the wire
 	greeting    string
+	storDelay   time.Duration // STOR waits this long before reading the data (a busy server)
+	storSends   bool          // STOR first sends something on the data connection (like a TLS 1.3 session ticket)
 
 	mu   sync.Mutex
 	cmds []string
@@ -673,6 +675,10 @@ func (ss *session) stor(arg string, appendMode bool) {
 	if !ok {
 		return
 	}
+	if ss.srv.storSends {
+		c.Write([]byte{0})
+	}
+	time.Sleep(ss.srv.storDelay)
 	b, err := io.ReadAll(c)
 	c.Close()
 	if ss.typ == 'A' {
