@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.67 – 2026-11-14
+
+### Added
+
+- The quick view panel (Ctrl+Q) now has a right-click menu, so with the mouse you can change its view mode (1-5), copy, Find, Find next, Go to, use image commands, pick the encoding and text options, and Reload or Follow. It uses the Lister's own menus; keys and the Lister window work as before (issue #11).
+
 ## 0.9.66 – 2026-11-14
 
 ### Fixed
