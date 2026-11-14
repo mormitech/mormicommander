@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.98 – 2026-11-14
+
+### Added
+
+- Issue #24 (F-872, partly): Folder size treemap. A new command "Folder size treemap" (cm_ShowTreemap) in the Show menu, also in the command line and command palette, with no default key. It shows the active panel's folder as blocks sized by the space each file or folder takes, in place of the file list. Folder sizes are counted in the background by the same code Space and Alt+Shift+Enter use, so blocks grow while counting and folders still being counted are striped. Click a folder block to open its treemap, click a file block to go back to the list with the cursor on it, Backspace or the Up button goes to the parent. Arrow keys, Home and End move between blocks, Enter opens one, Esc returns to the list and stops any running count. Sizes already counted by Space or Alt+Shift+Enter are reused, and sizes counted by the treemap go into the panel's size cache. Not done: sharing the engine with mormiDiskFree (the treemap logic and the counting code are kept free of the UI, ready to move), keeping sizes cached for good, and a check in the real app (mouse, keys, both themes). Nothing existing changes behaviour.
+
 ## 0.9.97 – 2026-11-14
 
 ### Added
