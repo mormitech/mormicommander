@@ -102,6 +102,10 @@ type Request struct {
 
 	// NoJournal keeps the job out of the app's undo journal (the jobs an undo itself runs); the engine ignores it.
 	NoJournal bool `json:"noJournal,omitempty"`
+	// FindTrashed (trash jobs) asks the engine to find where each item went in the trash and report it in the "trash"
+	// log entry (Entry.Trashed), so the undo journal can put it back. The app sets it only while it keeps the journal;
+	// the page can't, because looking through the trash after every item costs time nobody else needs.
+	FindTrashed bool `json:"-"`
 }
 
 // AskType tells which question a Conflict is.
