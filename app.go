@@ -66,6 +66,9 @@ func (a *App) startup() {
 		}
 	}
 	a.reveal()
+	if w := a.mainWindow(); w != nil && a.saved != nil {
+		maximiseSaved(w, *a.saved)
+	}
 	if a.opts.Control != "" {
 		if addr, err := a.startControl(a.opts.Control); err != nil {
 			fmt.Fprintln(os.Stderr, "mormicommander: control mode:", err)
@@ -172,9 +175,13 @@ func (a *App) Minimize() {
 	}
 }
 
-// ToggleMaximize maximises the window, or brings it back to its size (cm_Maximize / cm_Restore).
+// ToggleMaximize maximises the window, or brings it back to its size (cm_Maximize / cm_Restore). Before maximising,
+// the window's place and size are saved, so it can come back to them after a restart (F-018).
 func (a *App) ToggleMaximize() {
 	if w := a.mainWindow(); w != nil {
+		if !w.IsMaximised() {
+			a.SaveWindow()
+		}
 		w.ToggleMaximise()
 	}
 }

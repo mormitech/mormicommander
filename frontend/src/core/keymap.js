@@ -49,7 +49,7 @@ export const DEFAULT_KEYS = {
   'Ctrl+W': 'cm_CloseCurrentTab', 'Ctrl+Shift+W': 'cm_CloseAllTabs', 'Ctrl+Z': 'cm_EditComment',
   'Ctrl+Tab': 'cm_SwitchToNextTab', 'Ctrl+Shift+Tab': 'cm_SwitchToPreviousTab', 'Ctrl+Up': 'cm_OpenDirInNewTab', 'Ctrl+Shift+Up': 'cm_OpenDirInNewTabOther',
   'Ctrl+Enter': 'cm_AddFilenameToCmdline', 'Ctrl+Shift+Enter': 'cm_AddPathAndNameToCmdline',
-  'Ctrl+=': 'cm_ZoomIn', 'Ctrl+-': 'cm_ZoomOut',
+  'Ctrl+=': 'cm_ZoomIn', 'Ctrl+-': 'cm_ZoomOut', 'Ctrl+Shift+=': 'cm_ZoomIn', // (Ctrl++ : the + is Shift+= on most keyboards)
 };
 
 // Extra keys on macOS only (F-285, F-289). The TC keys above work on macOS too, with Control and Option.
@@ -60,7 +60,7 @@ export const MAC_KEYS = {
   'Cmd+L': 'cm_EditPath', 'Cmd+F': 'cm_SearchFor', 'Shift+Cmd+G': 'cm_EditPath', 'Alt+Cmd+C': 'cm_CopyFullNamesToClip',
   'Alt+Shift+Cmd+C': 'cm_CopySrcPathToClip', 'Cmd+Z': 'cm_UndoFileOp', // undo of file operations (ours, board #13)
   'Alt+Cmd+Left': 'cm_TransferLeft', 'Alt+Cmd+Right': 'cm_TransferRight', 'Alt+Cmd+Up': 'cm_OpenDirInNewTab',
-  'Cmd+=': 'cm_ZoomIn', 'Cmd+-': 'cm_ZoomOut', 'Cmd+[': 'cm_GoToPreviousDir', 'Cmd+]': 'cm_GoToNextDir',
+  'Cmd+=': 'cm_ZoomIn', 'Cmd+-': 'cm_ZoomOut', 'Shift+Cmd+=': 'cm_ZoomIn', 'Cmd+[': 'cm_GoToPreviousDir', 'Cmd+]': 'cm_GoToNextDir',
 };
 
 // Keyboards without a numpad (most laptops): Shift+= / Shift+- / Shift+8 act as Num+ / Num- / Num*, but only while the

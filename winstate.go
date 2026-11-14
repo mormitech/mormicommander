@@ -70,6 +70,24 @@ func onScreen(st winState, totalW int) bool {
 	return st.Y >= 0 && st.X+st.W > 100 && st.X < totalW-100
 }
 
+// stateToSave is what window.json gets for a window that is now at bounds (its place and size as the system reports
+// them), maximised or not. A maximised window keeps the place and size it had before it was maximised: the ones saved
+// earlier (saved, ok), so un-maximising after the next start gives the window the user had. When nothing was saved
+// before (the window was maximised before it was ever saved), the maximised bounds are kept, so the next start still
+// opens maximised instead of forgetting it.
+func stateToSave(bounds winState, maxed bool, saved winState, ok bool) winState {
+	if !maxed {
+		bounds.Max = false
+		return bounds
+	}
+	st := bounds
+	if ok {
+		st = saved
+	}
+	st.Max = true
+	return st
+}
+
 // SaveWindow remembers the place and size of the window (also done when the window closes).
 func (a *App) SaveWindow() {
 	w := a.mainWindow()
@@ -79,22 +97,15 @@ func (a *App) SaveWindow() {
 	if w.IsFullscreen() || w.IsMinimised() {
 		return
 	}
-	if w.IsMaximised() {
-		st, ok := loadWinState()
-		if !ok {
-			return
-		}
-		st.Max = true
-		saveWinState(st)
-		return
-	}
 	x, y := w.Position()
 	width, height := w.Size()
-	saveWinState(winState{X: x, Y: y, W: width, H: height})
+	saved, ok := loadWinState()
+	saveWinState(stateToSave(winState{X: x, Y: y, W: width, H: height}, w.IsMaximised(), saved, ok))
 }
 
 // restoreWindow puts the window where it was left, when that is still on a screen. The size is set again here, so the
-// window has exactly the size that was saved whatever the system did with the one it was made with.
+// window has exactly the size that was saved whatever the system did with the one it was made with. A window left
+// maximised is maximised again by maximiseSaved, once the window is shown.
 func restoreWindow(wapp *application.App, w *application.WebviewWindow, st winState) {
 	w.SetSize(st.W, st.H)
 	total := 0
@@ -104,7 +115,13 @@ func restoreWindow(wapp *application.App, w *application.WebviewWindow, st winSt
 	if total == 0 || onScreen(st, total) {
 		w.SetPosition(st.X, st.Y)
 	}
-	if st.Max {
+}
+
+// maximiseSaved maximises a window that was left maximised. It runs after the window is shown: on macOS maximising is
+// the window's "zoom", which does not stick to a window that is not on screen yet. Maximise does nothing to a window
+// that already is maximised, so calling it twice is harmless.
+func maximiseSaved(w *application.WebviewWindow, st winState) {
+	if st.Max && !w.IsMaximised() {
 		w.Maximise()
 	}
 }

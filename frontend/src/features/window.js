@@ -4,6 +4,7 @@
 import { command } from '../core/registry.js';
 import { go } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
+import { syncSplitter } from '../core/splitter.js';
 
 const SITE = 'https://github.com/mormitech/mormicommander';
 
@@ -28,8 +29,12 @@ command({ name: 'cm_VisitHomepage', label: 'Website', run: () => go.App.OpenURL(
 command({ name: 'cm_CheckForUpdates', label: 'Check for updates', run: () => go.App.OpenURL(`${SITE}/releases/latest`) });
 
 // Text size: the font of the panels, saved (F-101). The row height follows it.
+// nextFontSize is the panel font size one step larger (d = 1) or smaller (d = -1), kept between 10 and 22 pixels.
+export function nextFontSize(cur, d) {
+  return Math.max(10, Math.min(22, (Number(cur) || 13) + d));
+}
 function zoom(app, d) {
-  const px = Math.max(10, Math.min(22, (app.setting('fontSize', 13) || 13) + d));
+  const px = nextFontSize(app.setting('fontSize', 13), d);
   app.setSetting('fontSize', px);
   applyFont(app, px);
 }
@@ -48,6 +53,7 @@ command({
   run: (app) => {
     const on = document.getElementById('panels').classList.toggle('horizontal');
     app.setSetting('horizontal', on);
+    syncSplitter();
     for (const p of app.panels) p.renderRows();
   },
 });
@@ -56,4 +62,5 @@ export function init(app) {
   const px = app.setting('fontSize', 13);
   if (px !== 13) applyFont(app, px);
   if (app.setting('horizontal', false)) document.getElementById('panels').classList.add('horizontal');
+  syncSplitter();
 }

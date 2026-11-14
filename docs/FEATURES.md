@@ -56,7 +56,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-005 Swap panels with tabs (cm_ExchangeWithTabs) — Ctrl+Shift+U — whole tab sets of both sides swap
 - [ ] F-006 Target = source (cm_MatchSrc) — — (Commands menu) — other panel shows the same directory as the active one
 - [~] F-007 Make other panel show folder under cursor (cm_TransferLeft / cm_TransferRight) — Ctrl+Left / Ctrl+Right — when cursor is on a folder in the left panel, Ctrl+Right opens it in the right panel (and vice versa); on a file it opens the current folder there
-- [~] F-008 Resizable splitter between panels — — — dragging the splitter changes panel widths; double-click resets to 50/50; context menu offers 50/50, 60/40, 70/30 ... splits
+- [~] F-008 Resizable splitter between panels — — — dragging the splitter changes panel widths; double-click resets to 50/50; context menu offers 50/50, 60/40, 70/30 ... splits — #37: drag, double-click and a right-click list of shares (50/50 to 80/20 and back) on the bar; kept in the session
 - [ ] F-009 Panel size presets (cm_50Percent, cm_100Percent etc.) — — — commands set the splitter position; cm_100Percent maximizes active panel (other panel hidden until toggled back)
 - [ ] F-010 Menu bar — — — menu bar with Files, Mark, Commands, Net, Show, Configuration, Start, Help; on macOS the native app menu bar carries the same menus
 - [ ] F-011 Path bar per panel (current directory line) — — — shows full path; clicking it allows editing the path; Enter navigates; Esc cancels
@@ -66,7 +66,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-015 Status bar per panel — — — shows "x of y KB in a of b files selected" and updates live on selection change
 - [~] F-016 Drive info line (free space) — — — above each panel shows the volume name, free and total space of the current drive/volume
 - [ ] F-017 Window title shows app name and active path option — — — title is "mormiCommander" (optionally with path); configurable
-- [ ] F-018 Remember window position, size, maximized state, splitter — — — after restart, the window reopens where and how it was closed (per-monitor safe, like mormiview winstate.go)
+- [ ] F-018 Remember window position, size, maximized state, splitter — — — after restart, the window reopens where and how it was closed (per-monitor safe, like mormiview winstate.go) — #37: a maximised window is remembered even without an earlier save and is maximised again after it is shown; control `window` with `max` maximises after sizing
 - [ ] F-019 Full-screen / maximize toggle — — — window can be maximized; on macOS native full screen works
 - [ ] F-020 Font and color settings applied to panels — — — user-changed font size/colors apply immediately to both panels
 - [x] F-021 Dark and light theme following system (prefers-color-scheme) with manual override — — — switching the OS theme switches the app; Configuration lets the user force light or dark
@@ -176,7 +176,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-098 Sort folders first, by name always option — — — folders listed before files and sorted by name regardless of file sort (configurable)
 - [ ] F-099 Inverse selection marking styles (selected = red text TC default) — — — selected files shown in a distinct color and counted in status bar
 - [ ] F-100 Show path in tab / window title options — — — options alter labels
-- [~] F-101 Zoom panel font larger/smaller — Ctrl++ / Ctrl+- (ours, Cmd on macOS) — font size of panels changes and is saved
+- [~] F-101 Zoom panel font larger/smaller — Ctrl++ / Ctrl+- (ours, Cmd on macOS) — font size of panels changes and is saved — #37: Ctrl+= and Ctrl+Shift+= (Ctrl++) / Ctrl+-, Cmd variants on macOS; saved as fontSize
 - [ ] F-102 Show ".." entry in every folder (option) — — — ".." line present at top of list unless turned off
 - [ ] F-103 Show hidden files greyed / with ghost icon — — — hidden files are visually dimmed when shown
 - [ ] F-104 Horizontal scrolling in Full view when columns exceed width — — — horizontal scrollbar appears; no layout break

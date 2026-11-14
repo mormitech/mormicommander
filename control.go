@@ -212,10 +212,12 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 		if win == nil {
 			return nil, errors.New("no window yet")
 		}
-		if v, ok := m["max"].(bool); ok {
-			if v != win.IsMaximised() {
-				win.ToggleMaximise()
-			}
+		// Maximising comes after the size and place: setting a size un-maximises a window (on macOS a zoomed window
+		// stops being zoomed when its frame changes), so {w, h, max: true} must end maximised, with w x h as the size it
+		// comes back to. Un-maximising comes first, so the size asked for is the one the window gets.
+		maxV, hasMax := m["max"].(bool)
+		if hasMax && !maxV && win.IsMaximised() {
+			win.ToggleMaximise()
 		}
 		if w, h := num(m, "w", 0), num(m, "h", 0); w > 0 && h > 0 {
 			win.SetSize(w, h)
@@ -224,6 +226,12 @@ func (c *control) do(m map[string]any) (map[string]any, error) {
 			} else {
 				win.Center()
 			}
+		}
+		if hasMax && maxV && !win.IsMaximised() {
+			if win == a.mainWindow() {
+				a.SaveWindow() // (the size to come back to, as when the user maximises with cm_Maximize)
+			}
+			win.ToggleMaximise()
 		}
 		time.Sleep(300 * time.Millisecond)
 		if other != "" {
