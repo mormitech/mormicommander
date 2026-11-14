@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.87 – 2026-11-14
+
+### Changed
+
+- Issue #119: five Go files (args.go, feature_find.go, feature_find_feed.go, feature_net.go, internal/launch/params.go) were not gofmt-formatted; they are now (whitespace and alignment only, no change in behaviour). The CI build gains a "gofmt" step, run on Linux before go vet, that fails if any tracked Go file needs formatting.
+
 ## 0.9.86 – 2026-11-14
 
 ### Security
