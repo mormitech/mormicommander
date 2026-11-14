@@ -14,7 +14,9 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"net/url"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -187,4 +189,39 @@ func (p *ProgressReader) Read(b []byte) (int, error) {
 		p.Progress(Progress{Path: p.Path, Done: p.Done, Total: p.Total})
 	}
 	return n, err
+}
+
+// HidePassword replaces the password of a server URL ("ftp://bob:secret@host/") with "****", for error messages: the
+// panel shows them and logs keep them, and a URL typed with its password must not end up there.
+func HidePassword(p string) string {
+	i := strings.Index(p, "://")
+	if i < 0 {
+		return p
+	}
+	rest := p[i+3:]
+	auth, rpath := rest, ""
+	if j := strings.IndexByte(rest, '/'); j >= 0 {
+		auth, rpath = rest[:j], rest[j:]
+	}
+	k := strings.LastIndexByte(auth, '@')
+	if k < 0 {
+		return p
+	}
+	user, _, hasPass := strings.Cut(auth[:k], ":")
+	if !hasPass {
+		return p
+	}
+	return p[:i+3] + user + ":****" + auth[k:] + rpath
+}
+
+// HideURLErrorPassword hides the password in the address a *url.Error repeats ("parse "ftp://bob:secret@host:x/":
+// invalid port"); other errors are returned as they are.
+func HideURLErrorPassword(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		c := *ue
+		c.URL = HidePassword(c.URL)
+		return &c
+	}
+	return err
 }

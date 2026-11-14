@@ -19,6 +19,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/agent"
+
+	"mormicommander/internal/remotefs"
 )
 
 // DefaultPort is the standard SSH port.
@@ -200,7 +202,7 @@ type ParsedURL struct {
 func ParseURL(raw string) (ParsedURL, error) {
 	u, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return ParsedURL{}, fmt.Errorf("sftp: bad URL: %w", err)
+		return ParsedURL{}, fmt.Errorf("sftp: bad URL: %w", remotefs.HideURLErrorPassword(err))
 	}
 	scheme := strings.ToLower(u.Scheme)
 	if scheme != "sftp" && scheme != "scp" && scheme != "ssh" {
