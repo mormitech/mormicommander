@@ -282,6 +282,13 @@ function install(p) {
     if (m === 'thumbs') { const g = thumbGeo(p); return Math.max(1, Math.floor(p.$.list.clientHeight / g.tileH)) * g.cols; }
     return core.pageSize();
   };
+  // the step of Shift+Left / Shift+Right (selection.js): a column in Brief, one tile in Thumbnails, a page otherwise
+  p.sideStep = () => {
+    const m = modeOf(p);
+    if (m === 'brief') return briefGeo(p).rows;
+    if (m === 'thumbs') return 1;
+    return p.pageSize();
+  };
   p.ensureVisible = (center = false) => {
     const m = modeOf(p), list = p.$.list;
     if (m === 'brief') {

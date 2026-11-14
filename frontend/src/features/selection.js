@@ -66,6 +66,12 @@ command({ name: 'cm_SelUp', label: 'Select up', run: (app) => selMove(app, app.c
 command({ name: 'cm_SelDown', label: 'Select down', run: (app) => selMove(app, app.cur.cursor + 1, app.cur.cursor === app.cur.entries.length - 1) });
 command({ name: 'cm_SelPageUp', label: 'Select page up', run: (app) => selMove(app, app.cur.cursor - app.cur.pageSize()) });
 command({ name: 'cm_SelPageDown', label: 'Select page down', run: (app) => selMove(app, app.cur.cursor + app.cur.pageSize()) });
+// Shift+Left / Shift+Right (ours: TC has no cm_* names for them; spec area 3, 1.2): one side step with range marking.
+// The views feature gives each panel sideStep(): a column in Brief, a tile in Thumbnails; without it (the Full view)
+// the step is a page, so they act as Shift+PgUp / Shift+PgDn.
+export const sideStep = (p) => Math.max(1, typeof p.sideStep === 'function' ? p.sideStep() : p.pageSize());
+command({ name: 'cm_SelLeft', label: 'Select left', run: (app) => selMove(app, app.cur.cursor - sideStep(app.cur)) });
+command({ name: 'cm_SelRight', label: 'Select right', run: (app) => selMove(app, app.cur.cursor + sideStep(app.cur)) });
 command({ name: 'cm_SelHome', label: 'Select to the top', run: (app) => selMove(app, 0, true) });
 command({ name: 'cm_SelEnd', label: 'Select to the end', run: (app) => selMove(app, app.cur.entries.length - 1, true) });
 

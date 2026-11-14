@@ -184,7 +184,7 @@ It is based on the Total Commander 11.x menus, keyboard reference and cm_* comma
 ## 6. Selection (marking)
 
 - [~] F-118 Select/unselect file under cursor and move down — Ins / Space — file toggles selection; Space on a folder also calculates folder size
-- [ ] F-119 Shift+cursor selects range — Shift+Up/Down/PgUp/PgDn/Home/End — range selection extends with cursor
+- [ ] F-119 Shift+cursor selects range — Shift+Up/Down/PgUp/PgDn/Home/End, Shift+Left/Right (cm_SelLeft / cm_SelRight, ours: a column in Brief, a page in Full) — range selection extends with cursor
 - [ ] F-120 Select group by wildcard (cm_SelectFiles / cm_SpreadSelection) — Num + — dialog "Select files" with pattern (e.g. *.txt) and saved filters; matching files get selected
 - [ ] F-121 Unselect group (cm_ShrinkSelection / cm_UnselectFiles) — Num - — dialog unselects matching files
 - [ ] F-122 Select all (cm_SelectAll) — Ctrl+A / Ctrl+Num + — all files (and folders per option) selected

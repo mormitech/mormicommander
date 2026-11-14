@@ -22,6 +22,7 @@ export const DEFAULT_KEYS = {
   // selection
   Ins: 'cm_SelectToggleDown', Space: 'cm_SelectToggle',
   'Shift+Up': 'cm_SelUp', 'Shift+Down': 'cm_SelDown', 'Shift+PgUp': 'cm_SelPageUp', 'Shift+PgDn': 'cm_SelPageDown', 'Shift+Home': 'cm_SelHome', 'Shift+End': 'cm_SelEnd',
+  'Shift+Left': 'cm_SelLeft', 'Shift+Right': 'cm_SelRight',
   'Num+': 'cm_SpreadSelection', 'Num-': 'cm_ShrinkSelection', 'Num*': 'cm_ExchangeSelection', 'Num/': 'cm_RestoreSelection',
   'Shift+Num+': 'cm_SelectBoth', 'Shift+Num-': 'cm_UnselectFiles', 'Shift+Num*': 'cm_ExchangeSelBoth',
   'Ctrl+Num+': 'cm_SelectAll', 'Ctrl+Num-': 'cm_ClearAll', 'Ctrl+Shift+Num+': 'cm_SelectAllBoth', 'Ctrl+Shift+Num-': 'cm_ClearFiles',
