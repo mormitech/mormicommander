@@ -173,6 +173,11 @@ type OperationPage struct {
 	// CursorRepeat: held Up/Down (and Page Up/Down) keys repeat at the system's rate (0, the default) or faster, at
 	// mormiCommander's own pace (core/keyrepeat.js).
 	CursorRepeat int `ini:"Configuration:CursorRepeatSpeed" def:"0" min:"0" max:"3" opts:"0=System setting|1=Fast|2=Faster|3=Fastest" label:"Held Up/Down key repeat speed"`
+	// UndoJournal: renames, new folders, copies, moves and deletes to the trash are written to the undo journal, so
+	// cm_UndoFileOp (Cmd+Z on macOS) can take them back (board issue #13). On by default, as the journal was before
+	// the option existed; off stops the recording and leaves the entries already there. The page bridges it to the
+	// settings key "undoJournal" (features/config/optbridge.js), which feature_undo.go and the overwrite question read.
+	UndoJournal bool `ini:"Configuration:UndoJournal" def:"1" label:"Keep an undo journal of file operations (Cmd+Z on macOS)"`
 }
 
 // ViewerEditorPage (F-420).

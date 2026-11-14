@@ -18,7 +18,7 @@ test('with nothing stored, the dialog shows the features\' own defaults', () => 
   const app = fakeApp();
   const want = {
     'Refresh.AutoRefresh': '1', 'Refresh.OnlyForeground': '0', 'Refresh.RefreshNetwork': '1', 'Refresh.ExcludeFolders': '',
-    'DragDrop.ConfirmDrop': '1', 'DragDrop.SpringLoaded': '0', 'DragDrop.SpringDelayMs': '1000', 'DragDrop.NativeDragOut': '0', 'Hotlist.HistorySize': '30', 'Hotlist.TypeToFilter': '0',
+    'DragDrop.ConfirmDrop': '1', 'DragDrop.SpringLoaded': '0', 'DragDrop.SpringDelayMs': '1000', 'DragDrop.NativeDragOut': '0', 'Hotlist.HistorySize': '30', 'Hotlist.TypeToFilter': '0', 'Operation.UndoJournal': '1',
     'Log.Enabled': '0', 'Log.File': '', 'FolderTabs.Show': '1', 'FolderTabs.MultiLine': '0', 'FolderTabs.CloseButton': '1',
     'FolderTabs.DoubleClickOpen': '1', 'FolderTabs.NewNextToCur': '1', 'FolderTabs.ConfirmCloseAll': '1', 'FolderTabs.LockedIcon': '1',
     'FolderTabs.MaxTitleChars': '0',
@@ -95,4 +95,15 @@ test('the log file options write the keys the Go log reads', () => {
   expect(app.data).toEqual({ enableLog: true, logFile: '/tmp/x.log' });
   expect(MORE_BRIDGE['Log.Enabled'].get(app)).toBe('1');
   expect(MORE_BRIDGE['Log.File'].get(app)).toBe('/tmp/x.log');
+});
+
+test('the undo journal option is on unless the journal was turned off, and writes where feature_undo.go reads', () => {
+  const k = MORE_BRIDGE['Operation.UndoJournal'];
+  expect(k.get(fakeApp())).toBe('1');
+  expect(k.get(fakeApp({ undoJournal: false }))).toBe('0');
+  const app = fakeApp();
+  k.set(app, '0');
+  expect(app.data).toEqual({ undoJournal: false });
+  k.set(app, '1');
+  expect(app.data).toEqual({ undoJournal: true });
 });

@@ -65,6 +65,8 @@ export const MORE_BRIDGE = {
   'Hotlist.HistorySize': intKey('historyLength', 30),
   // typing in the hotlist popup filters it instead of jumping by letter (features/hotlist.js; off by default, board #111)
   'Hotlist.TypeToFilter': boolKey('hotlistTypeFilter', false),
+  // the undo journal of file operations (feature_undo.go reads "undoJournal" before recording; on by default, board #13)
+  'Operation.UndoJournal': boolKey('undoJournal', true),
   // the log file (feature_system_watch.go, SystemLog.Write; "" = mormicommander.log in the settings folder)
   'Log.Enabled': boolKey('enableLog', false),
   'Log.File': strKey('logFile'),
