@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.9.69 – 2026-11-14
+
+### Fixed
+
+- Copying or moving a folder to an FTP, SFTP or WebDAV server now shows one clear error when a plain file with the same name already sits where the folder should go, instead of a confusing failure further on. Merging into an existing same-named folder on a server works as before. The rest of issue #17 (queue, background transfer window, progress box, merge on local copies) was already in the app and is covered by tests (issue #17).
+
 ## 0.9.68 – 2026-11-14
 
 ### Changed
