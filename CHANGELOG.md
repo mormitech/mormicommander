@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.10.13 – 2026-11-14
+
+### Changed
+
+- Held Up/Down key repeat: Faster and Fastest also start repeating sooner, after 300 ms and 230 ms (the Mac's default
+  wait is about 375 ms); Fast keeps the system's wait. A system set to repeat even sooner still does.
+
 ## 0.10.12 – 2026-11-14
 
 ### Added

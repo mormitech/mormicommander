@@ -1,6 +1,6 @@
 // Tests of core/keyrepeat.js: the faster repeat of held Up/Down keys.
 import { afterEach, expect, test, vi } from 'vitest';
-import { takeRepeat, stopRepeat, repeatInterval } from '../src/core/keyrepeat.js';
+import { takeRepeat, armRepeat, stopRepeat, repeatInterval, repeatDelay } from '../src/core/keyrepeat.js';
 
 afterEach(() => { stopRepeat(); vi.useRealTimers(); });
 
@@ -32,4 +32,26 @@ test('from the first system repeat on, the command runs at our pace and the syst
   stopRepeat();
   await vi.advanceTimersByTimeAsync(300);
   expect(n).toBe(11);
+});
+
+test('Faster and Fastest start on their own a little sooner; Fast waits for the system', async () => {
+  expect([0, 1, 2, 3].map(repeatDelay)).toEqual([0, 0, 300, 230]);
+  vi.useFakeTimers();
+  let n = 0;
+  const step = () => { n++; };
+  armRepeat({ repeat: false, code: 'ArrowDown' }, 'Down', '1', step);
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(n).toBe(0); // Fast: no own start
+  armRepeat({ repeat: false, code: 'ArrowDown' }, 'Down', '2', step);
+  await vi.advanceTimersByTimeAsync(299);
+  expect(n).toBe(0);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(n).toBe(1);
+  expect(takeRepeat({ repeat: true, code: 'ArrowDown' }, 'Down', '2', step)).toBe(true); // the system's repeat is swallowed
+  stopRepeat();
+  n = 0;
+  armRepeat({ repeat: false, code: 'ArrowDown' }, 'Down', '3', step);
+  stopRepeat(); // let go before the wait was over
+  await vi.advanceTimersByTimeAsync(1000);
+  expect(n).toBe(0);
 });

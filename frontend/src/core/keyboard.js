@@ -10,7 +10,7 @@
 import { comboFromEvent, printable } from './keys.js';
 import { commandForKey } from './registry.js';
 import { cmdline } from './cmdline.js';
-import { takeRepeat, watchRepeatEnd } from './keyrepeat.js';
+import { takeRepeat, armRepeat, watchRepeatEnd } from './keyrepeat.js';
 import { app } from './app.js';
 
 const handlers = [];
@@ -94,6 +94,8 @@ export function onKeyDown(ev) {
   if (name) {
     ev.preventDefault();
     app.run(name, { key: combo });
+    // Faster / Fastest: the repeat may start sooner than the system's (core/keyrepeat.js)
+    if (!inCmd) armRepeat(ev, combo, app.config?.values?.['Operation.CursorRepeat'], () => app.run(name, { key: combo }));
     return;
   }
   if (!inCmd && printable(ev) && ev.key !== ' ') {
