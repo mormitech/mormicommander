@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.2 – 2026-11-15
+
+### Fixed
+
+- Network panel: servers and shares show an empty Attr column instead of a made-up "rwxr-xr-x" (a new entry flag,
+  NoAttr, says there is nothing to show; a real folder with no permissions still shows dashes).
+- A server name used before the network search has found it, such as a button bar "cd network://DiskStation", a
+  bookmark or a typed path right after the start, now waits up to 8 seconds for the server to answer instead of
+  failing at once with "The folder … is not there".
+
 ## 0.13.1 – 2026-11-15
 
 ### Changed

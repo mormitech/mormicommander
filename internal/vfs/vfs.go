@@ -25,6 +25,7 @@ const (
 	FlagBroken               // a link whose target is missing
 	FlagSystem               // Windows FILE_ATTRIBUTE_SYSTEM
 	FlagReadOnly             // Windows FILE_ATTRIBUTE_READONLY, or no write bit for anyone on Unix
+	FlagNoAttr               // has no attributes to show (a server or share in the Network panel): the Attr column is blank
 )
 
 // Entry is one file or folder of a listing.

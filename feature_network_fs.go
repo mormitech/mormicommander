@@ -246,7 +246,7 @@ func (n *Network) rootServers() map[string]netbrowse.Server {
 }
 
 // resolve reads a network path: the server (from the root's names, or a typed smb://host), and the share part.
-func (n *Network) resolve(p string) (t netbrowse.Target, server string, share string, err error) {
+func (n *Network) resolve(ctx context.Context, p string) (t netbrowse.Target, server string, share string, err error) {
 	if strings.HasPrefix(p, networkRoot) {
 		rest := strings.TrimPrefix(p, networkRoot)
 		name, share, _ := strings.Cut(rest, "/")
@@ -256,6 +256,9 @@ func (n *Network) resolve(p string) (t netbrowse.Target, server string, share st
 		w.mu.Unlock()
 		if !ok {
 			s, ok = n.rootServers()[name]
+		}
+		if !ok {
+			s, ok = n.awaitServer(ctx, name)
 		}
 		if !ok {
 			return t, "", "", &fs.PathError{Op: "list", Path: p, Err: fs.ErrNotExist}
@@ -274,11 +277,32 @@ func (n *Network) resolve(p string) (t netbrowse.Target, server string, share st
 	return t, t.URL(), share, nil
 }
 
+// serverWait is how long a server name the search hasn't found yet is waited for: a button, a bookmark or a typed
+// network://Name right after the start comes before the first answers.
+var serverWait = 8 * time.Second
+
+// awaitServer starts the search (when it isn't running) and waits for a server of that name to answer.
+func (n *Network) awaitServer(ctx context.Context, name string) (netbrowse.Server, bool) {
+	n.startWatch()
+	end := time.Now().Add(serverWait)
+	for time.Now().Before(end) {
+		select {
+		case <-ctx.Done():
+			return netbrowse.Server{}, false
+		case <-time.After(200 * time.Millisecond):
+		}
+		if s, ok := n.rootServers()[name]; ok {
+			return s, true
+		}
+	}
+	return netbrowse.Server{}, false
+}
+
 // listNetwork is the Network panel's List.
 func (n *Network) listNetwork(ctx context.Context, p string) (vfs.Listing, error) {
 	p = networkClean(p)
 	dirEntry := func(name string) vfs.Entry {
-		return vfs.Entry{Name: name, Flags: vfs.FlagDir, Mode: uint32(fs.ModeDir | 0o755)}
+		return vfs.Entry{Name: name, Flags: vfs.FlagDir | vfs.FlagNoAttr, Mode: uint32(fs.ModeDir | 0o755)}
 	}
 	if p == networkRoot {
 		n.startWatch()
@@ -293,7 +317,7 @@ func (n *Network) listNetwork(ctx context.Context, p string) (vfs.Listing, error
 		}
 		return l, nil
 	}
-	t, server, share, err := n.resolve(p)
+	t, server, share, err := n.resolve(ctx, p)
 	if err != nil {
 		return vfs.Listing{}, err
 	}
@@ -388,7 +412,7 @@ func (networkFS) List(ctx context.Context, p string) (vfs.Listing, error) {
 
 func (networkFS) Stat(p string) (vfs.Entry, error) {
 	name := p[strings.LastIndex(networkClean(p), "/")+1:]
-	return vfs.Entry{Name: name, Flags: vfs.FlagDir, Mode: uint32(fs.ModeDir | 0o755)}, nil
+	return vfs.Entry{Name: name, Flags: vfs.FlagDir | vfs.FlagNoAttr, Mode: uint32(fs.ModeDir | 0o755)}, nil
 }
 
 func (networkFS) Clean(p string) string { return networkClean(p) }
