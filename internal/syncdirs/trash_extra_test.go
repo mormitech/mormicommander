@@ -168,3 +168,70 @@ func TestTrashReplacedLinks(t *testing.T) {
 		t.Errorf("failing trash: link changed to %q", tgt)
 	}
 }
+
+func TestTrashReplacedFiles(t *testing.T) {
+	setup := func() (string, string, *Result) {
+		l, r := trees(t, map[string]spec{"a.txt": file("new contents", 0)}, map[string]spec{"a.txt": file("old", 0)})
+		res := mustCompare(t, l, r, DefaultOptions())
+		if err := res.SetAction("a.txt", CopyLeftToRight); err != nil {
+			t.Fatal(err)
+		}
+		_ = res.SetSelected("a.txt", true)
+		return l, r, res
+	}
+
+	// Off (the default): the old file is replaced in place, the hook is not called.
+	l, r, res := setup()
+	hook, _, got := binHook(t, r)
+	rep := syncAll(t, res, l, r, PlanFilter{LeftToRight: true}, ExecOptions{Trash: hook, Force: true})
+	if len(rep.Errors) != 0 || rep.Done == 0 {
+		t.Fatalf("default: %+v", rep)
+	}
+	if len(*got) != 0 {
+		t.Errorf("default: hook called for %v", *got)
+	}
+	if readFile(t, filepath.Join(r, "a.txt")) != "new contents" {
+		t.Error("default: file not replaced")
+	}
+
+	// On: the old file goes to the trash with its contents, the new one takes its name.
+	l, r, res = setup()
+	hook, bin, got := binHook(t, r)
+	rep = syncAll(t, res, l, r, PlanFilter{LeftToRight: true}, ExecOptions{Trash: hook, TrashReplacedFiles: true, Force: true})
+	if len(rep.Errors) != 0 || rep.Done == 0 {
+		t.Fatalf("on: %+v", rep)
+	}
+	if strings.Join(*got, ",") != "a.txt" {
+		t.Errorf("on: hook got %v", *got)
+	}
+	if readFile(t, filepath.Join(r, "a.txt")) != "new contents" {
+		t.Error("on: file not replaced")
+	}
+	if readFile(t, filepath.Join(bin, "a.txt")) != "old" {
+		t.Error("on: old file not in the trash")
+	}
+
+	// A failing trash leaves the old file as it was and reports the error; no temporary file is left behind.
+	l, r, res = setup()
+	rep = syncAll(t, res, l, r, PlanFilter{LeftToRight: true}, ExecOptions{Force: true, TrashReplacedFiles: true,
+		Trash: func(WritableFS, string) error { return ErrNoTrash }})
+	if len(rep.Errors) != 1 || !errors.Is(rep.Errors[0].Err, ErrNoTrash) {
+		t.Errorf("failing trash: %+v", rep)
+	}
+	if readFile(t, filepath.Join(r, "a.txt")) != "old" {
+		t.Error("failing trash: old file changed")
+	}
+	if ents, _ := os.ReadDir(r); len(ents) != 1 {
+		t.Errorf("failing trash: left %d entries, want only a.txt", len(ents))
+	}
+
+	// A new file (nothing to replace) never calls the hook.
+	l, r = trees(t, map[string]spec{"b.txt": file("b", 0)}, map[string]spec{})
+	res = mustCompare(t, l, r, DefaultOptions())
+	res.SelectTree("", true)
+	hook, _, got = binHook(t, r)
+	rep = syncAll(t, res, l, r, PlanFilter{LeftToRight: true}, ExecOptions{Trash: hook, TrashReplacedFiles: true})
+	if len(rep.Errors) != 0 || len(*got) != 0 {
+		t.Errorf("new file: %+v, hook got %v", rep, *got)
+	}
+}

@@ -18,6 +18,7 @@ import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
 import { mediaTag } from './mediael.js';
 import { TableGrid, FORMAT_NAMES, rowsLabel } from './table.js';
+import { LISTER_DEFAULTS } from './lister-defaults.js';
 
 export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown', table: 'Table' };
 const MEDIA_LIMIT = 256 * 1024 * 1024; // larger media files are not read into the page
@@ -26,23 +27,8 @@ const WORD = /[\p{L}\p{N}_]/u;
 const MAC_ALIASES = { 'Cmd+C': 'Ctrl+C', 'Cmd+A': 'Ctrl+A', 'Cmd+F': 'Ctrl+F', 'Cmd+G': 'F3', 'Shift+Cmd+G': 'Shift+F3', 'Cmd+S': 'Ctrl+S',
   'Cmd+L': 'Ctrl+G', 'Cmd+=': 'Ctrl+=', 'Cmd+-': 'Ctrl+-', 'Cmd+Up': 'Ctrl+Home', 'Cmd+Down': 'Ctrl+End' };
 
-// The settings of the Lister ("lister" in settings.json), with Total Commander's defaults.
-export const LISTER_DEFAULTS = {
-  defaultMode: 'auto', // auto, text, binary, hex
-  defaultCharset: 'auto', // auto, ansi, oem, utf-8, unicode
-  autoHex: true, // binary files open in hex mode (TC opens them as text)
-  showMedia: true, // images, audio and video open in mode 4 (TC's BmpStartup / Multimedia)
-  renderHTML: true, // HTML and Markdown open rendered
-  openTables: false, // CSV, TSV, JSONL and SQLite files open as a table (off: they open as before; T shows the table)
-  wrap: true,
-  tabWidth: 8,
-  binaryWidth: 75,
-  font: 'fixed', // fixed or variable (V)
-  fontSize: 12,
-  fitImage: true,
-  viewer: '', // external viewer for F3 ('' = Lister); Alt+F3 then opens the other one
-  findHistory: [],
-};
+// The settings of the Lister ("lister" in settings.json) and their defaults are in lister-defaults.js.
+export { LISTER_DEFAULTS };
 
 export function listerSettings(app) { return { ...LISTER_DEFAULTS, ...(app.setting('lister', {}) || {}) }; }
 export function saveListerSettings(app, changes) { return app.setSetting('lister', { ...(app.setting('lister', {}) || {}), ...changes }); }
@@ -545,7 +531,10 @@ export class ListerView {
       const W = this.$.media.clientWidth - 8, H = this.$.media.clientHeight - 8;
       const w = img.naturalWidth || 1, h = img.naturalHeight || 1;
       const bw = turned ? h : w, bh = turned ? w : h;
-      const k = Math.min(1, W / bw, H / bh); // TC's "fit": larger images shrink, smaller ones stay as they are
+      // TC's "fit": larger images shrink, smaller ones stay as they are; with "fitGrow" (Options > Lister > Image size:
+      // Fit to window) smaller ones are enlarged to the window as well
+      const grow = !!listerSettings(this.app).fitGrow;
+      const k = grow ? Math.min(W / bw, H / bh) : Math.min(1, W / bw, H / bh);
       img.style.width = `${w * k}px`;
       img.style.height = `${h * k}px`;
     } else {

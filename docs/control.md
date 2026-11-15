@@ -421,6 +421,28 @@ The palette (Ctrl+Shift+P, Cmd+Shift+P on macOS) and "All commands…" are page 
 |---|---|
 | `{"cmd": "palette", "query": "sync"}` | `{ok, items: [{key, group, label, detail, hint, disabled}]}`: what the palette would list, best first (`"only": "commands"` as in All commands, `"limit"`, default 50) |
 
+In All commands, the button "Assign key…" (or F2, also in the palette on a command) closes the dialog and opens
+Options > Keyboard shortcuts with the highlighted command picked; `cm_ConfigHotkeys` takes the same as
+`{"command": "cm_Copy"}`.
+
+## Folder tree, menu, separate tree, printing, volume information
+
+The second slice of board issue #38 (features/reserved-more.js) gave these Total Commander commands a body:
+
+| command | key | what control mode sees |
+|---|---|---|
+| `cm_CDtree` | Alt+F10 | a popup of kind `cdtree`: first item "Go to <folder>", then `..` and the subfolders; choosing a folder lists its subfolders, "Go to" changes the panel's folder |
+| `cm_ActivateMenu` | F9, F10 | a popup of kind `app-menu` with the menu titles; choosing one opens a popup of the same kind with its items; choosing an item runs its command |
+| `cm_SeparateTreeOff`, `cm_SeparateTree1`, `cm_SeparateTree2`, `cm_SeparateTreeCycle` | Ctrl+Shift+F8 cycles | no dialog: no panel, one panel (the active one) or both panels switch to the tree view (`views` answers `mode: "tree"` for them) |
+| `cm_FocusTreeToggle` | Shift+Tab | no dialog: the other panel becomes active |
+| `cm_PrintFile` | Ctrl+F9 | a message of kind `print-file` (buttons Print, Cancel); Print sends the file to the system's print path |
+| `cm_PrintDir` | — | a form of kind `print-dir` showing the text to print (buttons Cancel, Print) |
+| `cm_VolumeId` | — | the volume's Properties box, kind `volume-props` (button Close, and Eject for a removable volume) |
+| `cm_SearchStandalone` | — | the Find files dialog (kind `find`), modeless in a window of its own |
+
+Print and Eject act outside the sandbox (a printer, a mounted volume), so a QA run answers those dialogs with Cancel or
+Close.
+
 ## Folder size treemap
 
 `cm_ShowTreemap` (Show menu, board #24, F-872) replaces the active panel's file list with a treemap of its folder and

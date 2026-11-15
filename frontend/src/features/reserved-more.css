@@ -1,0 +1,6 @@
+/* The preview of the printed file list (cm_PrintDir, reserved-more.js): the text exactly as it will be printed, in a
+   monospaced font so the columns line up, scrolling inside the dialog when the folder is long. */
+.mc-print-preview {
+    font: var(--mono); max-height: 50vh; max-width: min(80vw, 900px); overflow: auto; margin: 8px 0; padding: 8px;
+    border: 1px solid var(--line); border-radius: 4px; white-space: pre;
+}

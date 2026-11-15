@@ -73,7 +73,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-022 Show/hide hidden elements: menu, button bar, drive bar, command line, status bar, tab bar, function key buttons, current dir, sort header, drive combobox, vertical button bar — — — each element can be turned on and off in Configuration > Layout and the layout updates without restart
 - [ ] F-023 Function key button row at bottom (F3 View ... Alt+F4 Exit) — — — clicking a button runs the same command as the key; labels change while Shift/Alt/Ctrl is held (TC shows shifted functions)
 - [ ] F-024 Vertical button bar between panels (TC 9+) — — — optional middle bar with configurable buttons (e.g. copy/move arrows)
-- [ ] F-025 Separate tree panel (cm_SeparateTreeOff/1/2) — — — Show > Separate tree: none, one shared tree, or one tree per panel; tree follows panel path; clicking a tree node navigates
+- [~] F-025 Separate tree panel (cm_SeparateTreeOff/1/2) — — — Show > Separate tree: none, one shared tree, or one tree per panel; tree follows panel path; clicking a tree node navigates — #38: no pane of its own; mapped onto the panels' tree view (Ctrl+F8): Off = no panel in the tree view, One for both panels = one panel (the active one), One per panel = both; leaving puts each panel back in its earlier view and folder
 - [ ] F-026 Two-panel visual feedback when other panel is target — — — inactive panel is dimmed slightly; target panel is the one copy/move goes to
 - [ ] F-766 Focus left / right / source panel directly (cm_FocusLeft / cm_FocusRight / cm_FocusSrc) — — — each command puts keyboard focus in the named panel
 - [ ] F-767 Show/hide each layout element by command (cm_VisButtonbar, cm_VisButtonbar2, cm_VisDriveButtons, cm_VisTwoDriveButtons, cm_VisFlatDriveButtons, cm_VisDriveCombo, cm_VisCurDir, cm_VisBreadCrumbs, cm_VisTabHeader, cm_VisStatusbar, cm_VisCmdLine, cm_VisKeyButtons, cm_VisDirTabs, cm_VisHistHotButtons, cm_VisFlatInterface) — — — each command toggles its element, its menu entry shows a check mark, and the state is saved
@@ -262,14 +262,14 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-161 Make folder (cm_MkDir) — F7 — dialog asks name; supports nested "a/b/c"; new folder gets the cursor
 - [ ] F-162 Make folder with template/history list (TC 10+) — F7 — dropdown has last created names and options like "<date>"
 - [ ] F-163 Find files (cm_SearchFor) — Alt+F7 — Find files dialog
-- [ ] F-164 Find in separate process (cm_SearchStandalone) — — — search window runs independently; main window stays usable
+- [~] F-164 Find in separate process (cm_SearchStandalone) — — — search window runs independently; main window stays usable — #38: cm_SearchStandalone opens the Find files dialog modeless in a window of its own (whatever Options > Find files > Modeless says), so the main window stays usable; with dialogs in the main window it opens as usual
 - [ ] F-165 Delete (cm_Delete) — F8 / Delete — confirmation dialog; deletes to trash (Recycle Bin) by default
 - [ ] F-166 Delete permanently (cm_Delete with Shift) — Shift+F8 / Shift+Delete — deletes without trash after confirmation
 - [x] F-167 Command line history (cm_ShowCmdLineHistory) — Alt+F8 — dropdown with previous command lines
-- [ ] F-168 Activate menu above current panel (cm_ActivateMenu) — F9 — focuses the menu; on macOS opens the app menu bar equivalent (in-window menu)
+- [~] F-168 Activate menu above current panel (cm_ActivateMenu) — F9 — focuses the menu; on macOS opens the app menu bar equivalent (in-window menu) — #38: F9 / F10 open the menu bar as a popup over the active panel with the same items as the native menu (which the page can't open, least of all on macOS): Enter or Right opens a menu, Left or Esc goes back, choosing runs the command
 - [ ] F-169 Unpack — Alt+F9 — see unpack
 - [ ] F-170 Activate main menu — F10 — focuses the main menu
-- [ ] F-171 Tree of folders (cm_CDtree) — Alt+F10 — popup folder tree of current drive for fast navigation with type-to-search
+- [~] F-171 Tree of folders (cm_CDtree) — Alt+F10 — popup folder tree of current drive for fast navigation with type-to-search — #38: a popup of the active panel's folder, one level at a time: Enter or Right opens a subfolder, ".." goes up, "Go to …" (first item) or Shift+Enter changes the panel's folder, typing filters
 - [ ] F-172 Show context menu of file (cm_ContextMenu) — Shift+F10 — context menu for file(s) under cursor opens at cursor position
 - [ ] F-173 Exit (cm_Exit) — Alt+F4 — app quits (asks to confirm if operations running); on macOS also Cmd+Q; minimize-on-close option see F-771
 - [~] F-174 Left drive list — Alt+F1 — drive popup for left panel
@@ -310,8 +310,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-206 F6 move — F6 — cm_RenMov wired
 - [ ] F-207 F7 mkdir — F7 — cm_MkDir wired
 - [ ] F-208 F8 delete — F8 — cm_Delete wired
-- [ ] F-209 F9 menu — F9 — cm_ActivateMenu wired
-- [ ] F-210 F10 menu — F10 — menu focus wired
+- [~] F-209 F9 menu — F9 — cm_ActivateMenu wired — #38: runs cm_ActivateMenu, the in-window menu popup (see F-168)
+- [~] F-210 F10 menu — F10 — menu focus wired — #38: runs cm_ActivateMenu, the in-window menu popup (see F-168)
 - [ ] F-211 Shift+F1 custom column view menu — Shift+F1 — cm_SrcCustomViewMenu wired
 - [~] F-212 Shift+F2 compare dirs — Shift+F2 — cm_CompareDirs wired
 - [ ] F-213 Shift+F3 view current only — Shift+F3 — wired
@@ -330,14 +330,14 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-226 Alt+F8 cmd history — Alt+F8 — wired
 - [ ] F-227 Alt+F9 unpack — Alt+F9 — wired
 - [ ] F-228 Alt+Shift+F9 test archive — Alt+Shift+F9 — cm_TestArchive wired
-- [ ] F-229 Alt+F10 folder tree — Alt+F10 — cm_CDtree wired
+- [~] F-229 Alt+F10 folder tree — Alt+F10 — cm_CDtree wired — #38: runs cm_CDtree (see F-171)
 - [ ] F-230 Alt+F11 / Alt+F12 left / right current directory bar (breadcrumb) — Alt+F11 / Alt+F12 — opens the left/right path bar for keyboard use (see F-772)
 - [ ] F-231 Ctrl+F1..F12 view/sort/filter — Ctrl+F1..F12 — Brief, Full, sort name/ext/date/size/unsorted, Tree, Print (F9), all files, programs, custom filter wired
-- [ ] F-232 Ctrl+F9 print file under cursor — Ctrl+F9 — cm_PrintFile wired (system print of associated app, where supported)
+- [~] F-232 Ctrl+F9 print file under cursor — Ctrl+F9 — cm_PrintFile wired (system print of associated app, where supported) — #38: asks, then prints the file under the cursor through SystemLaunch.Print (lp on macOS and Linux, the print verb on Windows); lp's error, such as no default printer, is shown
 - [ ] F-233 Ctrl+Shift+F1 thumbnails — Ctrl+Shift+F1 — wired
 - [ ] F-234 Ctrl+Shift+F2 comments view — Ctrl+Shift+F2 — wired
 - [ ] F-235 Ctrl+A select all — Ctrl+A — wired
-- [ ] F-236 Ctrl+B branch view — Ctrl+B — wired
+- [~] F-236 Ctrl+B branch view — Ctrl+B — wired — #38: Ctrl+B was already bound to the branch view (F-086)
 - [x] F-237 Ctrl+C / Ctrl+X / Ctrl+V clipboard copy, cut, paste files — Ctrl+C / Ctrl+X / Ctrl+V — cm_CopyToClipboard / cm_CutToClipboard / cm_PasteFromClipboard wired; works with OS file clipboard (Finder/Explorer/Nautilus) where possible
 - [ ] F-238 Ctrl+D hotlist — Ctrl+D — wired
 - [ ] F-239 Ctrl+E previous command line — Ctrl+E — wired
@@ -380,8 +380,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-276 Shift+Esc minimize (TC) — Shift+Esc — app window minimizes
 - [ ] F-277 Ctrl+Shift+F5 create shortcut/link — Ctrl+Shift+F5 — wired
 - [ ] F-278 Alt+Shift+F5 move to archive — — — wired
-- [ ] F-279 Ctrl+Shift+F8 cycle separate tree — Ctrl+Shift+F8 — cm_SeparateTreeOff -> 1 -> 2 cycles
-- [ ] F-280 Print current file list (cm_PrintDir) — — — wired from Files menu
+- [~] F-279 Ctrl+Shift+F8 cycle separate tree — Ctrl+Shift+F8 — cm_SeparateTreeOff -> 1 -> 2 cycles — #38: cycles Off -> one tree -> two trees -> Off on the panels' tree view (see F-025)
+- [~] F-280 Print current file list (cm_PrintDir) — — — wired from Files menu — #38: Files > Print file list shows the list as text (panel order, filter, sizes, dates, summary) and prints it after Print (SystemLaunch.PrintText)
 - [ ] F-281 Ctrl+Tab / Ctrl+Shift+Tab tabs — — — wired
 - [ ] F-282 User-redefinable hotkeys (Configuration > Misc > Redefine hotkeys) — — — user can assign any key combo to any cm_* or user command; conflict warning; saved to ini; works in both panels
 - [ ] F-283 Restore default hotkeys — — — button resets all hotkeys to TC defaults
@@ -390,11 +390,11 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-800 Ctrl+Shift+T new tab in background — Ctrl+Shift+T — cm_OpenNewTabBg wired
 - [~] F-801 Ctrl+Shift+S reuse last quick filter — Ctrl+Shift+S — wired
 - [ ] F-802 Ctrl+Shift+M FTP transfer mode — Ctrl+Shift+M — wired (see Net)
-- [ ] F-803 Ctrl+Shift+B branch view of selection — Ctrl+Shift+B — cm_DirBranchSel wired
+- [~] F-803 Ctrl+Shift+B branch view of selection — Ctrl+Shift+B — cm_DirBranchSel wired — #38: Ctrl+Shift+B was already bound to the branch view of the selection (F-087)
 - [ ] F-804 Ctrl+Down command line history — Ctrl+Down — opens the command line history list (same as Alt+F8)
 - [ ] F-805 Shift+Num + / Shift+Num - / Shift+Num * selection variants — Shift+Num keys — cm_SelectBoth / cm_UnselectFiles / cm_ExchangeSelBoth wired
 - [ ] F-806 Ctrl+Shift+Num + / Ctrl+Shift+Num - — Ctrl+Shift+Num +/- — cm_SelectAllBoth / cm_ClearFiles wired
-- [ ] F-807 Shift+Tab file list / separate tree focus — Shift+Tab — wired
+- [~] F-807 Shift+Tab file list / separate tree focus — Shift+Tab — wired — #38: with the separate tree mapped onto a panel's tree view (F-025), Shift+Tab gives the keyboard to the other panel: the tree or the file list
 - [ ] F-808 Ctrl+< root on European keyboards — Ctrl+< — cm_GoToRoot wired (IntlBackslash key code)
 - [ ] F-809 Delete / Shift+Delete — Delete / Shift+Delete — cm_Delete wired, same as F8 / Shift+F8
 - [~] F-810 F8 and Shift+F8 swap when 'delete to trash' is off — F8 / Shift+F8 — with trash turned off in Configuration, F8 deletes permanently and Shift+F8 moves to trash (TC rule)
@@ -456,7 +456,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-320 Test archive (cm_TestArchive) — Alt+Shift+F9 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-321 Compare by content (cm_CompareFilesByContent) — — — opens compare tool for 2 selected files (or file in each panel with same name)
 - [N/A] F-322 Change system file associations (cm_Associate) — changing OS associations is OS-specific and risky on macOS/Linux — internal associations (next line) plus 'Open with' and a button to open the OS association settings
-- [ ] F-323 Internal associations (cm_InternalAssociate, TC 9+) — — — user maps extensions to commands inside the app; Enter uses them before system default
+- [ ] F-323 Internal associations (cm_InternalAssociate, TC 9+) — — — user maps extensions to commands inside the app; Enter uses them before system default — #38: not built: internal/launch/assoc.go has the engine (masks, verbs, %1 parameters), but there is no settings storage, no dialog and no hook in Enter / F3 / F4 yet
 - [~] F-324 Properties (cm_Properties) — Alt+Enter — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-325 Calculate occupied space (cm_GetFileSpace) — Ctrl+L — dialog with bytes, allocated size, files, folders; cancellable
 - [ ] F-326 Multi-Rename tool (cm_MultiRenameFiles) — Ctrl+M — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
@@ -467,8 +467,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-331 Decode file (MIME, UUE, XXE, BinHex) (cm_UUDecode) — — — decodes encoded file to original; round-trip test passes
 - [~] F-332 Create checksum files (cm_CRCCreate) — — — dialog: CRC32 (.sfv), MD5, SHA1, SHA256, SHA512, BLAKE3 (ours); one file for all or one per file; output matches md5sum/shasum format
 - [~] F-333 Verify checksums (cm_CRCCheck) — — — on .md5/.sha/.sfv file checks all listed files and shows OK/FAILED/missing summary
-- [ ] F-334 Print file list (cm_PrintDir / cm_PrintDirSub) — — — prints current file list (optionally with subfolders) via system print dialog or a printable page
-- [ ] F-335 Print file (via associated app) — — — file under cursor sent to system print where supported
+- [~] F-334 Print file list (cm_PrintDir / cm_PrintDirSub) — — — prints current file list (optionally with subfolders) via system print dialog or a printable page — #38: cm_PrintDir as in F-280; cm_PrintDirSub (with subfolders) is not built
+- [~] F-335 Print file (via associated app) — — — file under cursor sent to system print where supported — #38: see F-232
 - [ ] F-336 Quit (cm_Exit) — Alt+F4 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-337 Create symbolic link / hard link (cm_CreateSymbolicLink / cm_CreateHardLink) — — — dialog creates link; tested in temp dir
 - [~] F-338 Change owner/group (Unix) — — — N/A on Windows; on macOS/Linux attributes dialog allows chown where permitted
@@ -495,11 +495,11 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 ## 14. Commands menu
 
 - [ ] F-354 Directory hotlist — Ctrl+D — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-355 Directory tree / CD tree — Alt+F10 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-355 Directory tree / CD tree — Alt+F10 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #38: the Commands menu entry and Alt+F10 both run cm_CDtree
 - [ ] F-356 Find files — Alt+F7 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-357 Find in separate process — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-357 Find in separate process — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #38: the Commands menu entry runs cm_SearchStandalone (see F-164)
 - [N/A] F-358 Locate with Everything (TC 'Everything' search) — Everything is Windows-only — Spotlight (mdfind) on macOS, plocate/locate on Linux when installed, normal search otherwise
-- [ ] F-359 Volume label (cm_VolumeId) — — — rename volume where OS allows (Windows label, macOS diskutil rename, Linux disabled unless supported); otherwise menu entry disabled with a note
+- [~] F-359 Volume label (cm_VolumeId) — — — rename volume where OS allows (Windows label, macOS diskutil rename, Linux disabled unless supported); otherwise menu entry disabled with a note — #38: shows the volume of the active panel (name, mount point, file system, device, size, free) with a note on where the system lets the label be changed; renaming is deliberately not offered (diskutil rename on a mounted disk is too easy to aim at the wrong volume)
 - [~] F-360 Synchronize dirs — — — see Sync
 - [ ] F-361 Source = target (cm_MatchSrc) — — — other panel shows same folder
 - [ ] F-362 Swap panels — Ctrl+U — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
@@ -513,7 +513,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-370 Branch view — Ctrl+B — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-371 Run DOS / terminal — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-372 Command line focus (cm_FocusCmdLine) — — — focus to command line
-- [~] F-373 Browse internal commands (cm_CommandBrowser) — — — dialog lists all cm_* commands with description and hotkey, searchable; can run or assign hotkey
+- [~] F-373 Browse internal commands (cm_CommandBrowser) — — — dialog lists all cm_* commands with description and hotkey, searchable; can run or assign hotkey — #38: F2 or "Assign key…" in All commands opens Options > Keyboard shortcuts with the highlighted command picked and the caret in the key field
 - [ ] F-374 Internal command list completeness — — — every cm_* in this file appears in the command browser
 - [ ] F-375 Change start menu (cm_ConfigStartMenu) — — — user menu "Start" editable with items: title, command, parameters, start path, hotkey, submenus
 - [ ] F-376 Open folder in new window / second instance — — — allow multiple instances option (TC: only one instance setting)
@@ -550,7 +550,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-397 Custom columns submenu — — — lists column sets for choosing
 - [ ] F-398 Tree — Ctrl+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-399 Quick view — Ctrl+Q — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-400 Separate tree (off / 1 / 2) — Ctrl+Shift+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-400 Separate tree (off / 1 / 2) — Ctrl+Shift+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #38: the Show > Separate tree items and Ctrl+Shift+F8 run cm_SeparateTreeOff / 1 / 2 / cm_SeparateTreeCycle (see F-025)
 - [ ] F-401 All files — Ctrl+F10 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-402 Programs — Ctrl+F11 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [ ] F-403 *.* custom filter — Ctrl+F12 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
@@ -739,7 +739,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-540 Results: view (F3), edit (F4) from list — F3/F4 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
 - [~] F-541 Results: feed to listbox (cm_ "Feed to listbox") — — — results shown in a panel as virtual folder; normal file operations (copy, delete, pack) work on it — #106: live test: results that all come from one 7z, RAR or ZIP are fed as the archive's members; F5 copies them out, F8 deletes them from a ZIP and is refused for 7z and RAR (read-only) (live_archive_test.go)
 - [~] F-542 New search / last search remembered — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: not built: "Find files in a new window" (cm_SearchStandalone) is in the Commands menu but greyed out, the command is not registered; the search itself already runs as a background job (internal/find job.go)
+- [~] F-543 Search in separate process window — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: was not built (greyed-out menu entry, command not registered) — #38: cm_SearchStandalone is registered and opens Find files modeless in its own window (see F-164)
 - [~] F-544 Search in found files (refine) — — — search again only within results
 - [~] F-545 Search on FTP/SFTP — — — name search works on remote folders (content search not required) — audit #103: wired: Find files searches remote folders through the panels' file systems (feature_find_fs.go, findVFS); no test against an FTP/SFTP server yet
 - [ ] F-837 Find: exclude folders by pattern ('|vendor/' or '|.git\') — — — `*.go|vendor/` skips everything under vendor folders

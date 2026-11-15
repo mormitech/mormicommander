@@ -34,14 +34,15 @@ command({
 // ---- opening ----
 
 // enter opens what is under the cursor: ".." goes up, a folder (or a link to one) opens, a file goes to the open
-// handlers (archives, URL files…) and then to the system's app for it.
-async function enter(app) {
+// handlers (archives, URL files…) and then to the system's app for it. opts go to the handlers: Ctrl+PgDn passes
+// {intoArchive: true}, so it opens an archive like a folder also when Enter is set to open archives with their program.
+async function enter(app, opts = {}) {
   const p = app.cur, e = p.cur;
   if (!e) return false;
   if (e.up) return goParent(p);
   const path = p.fullPath(e.name);
   if (e.dir) return p.go(path);
-  for (const h of app.openHandlers) if (await h(p, e, path)) return true;
+  for (const h of app.openHandlers) if (await h(p, e, path, opts)) return true;
   if (e.broken) { app.flash(`${e.name} is a link to something that is not there.`, 'err'); return false; }
   await go.FS.OpenFile(path);
   app.flash(`Opened ${e.name}.`);
@@ -53,7 +54,7 @@ function goParent(p) {
   return p.go(p.parent, { focus: base(p.path) });
 }
 
-command({ name: 'cm_Enter', label: 'Open', run: enter });
+command({ name: 'cm_Enter', label: 'Open', run: (app) => enter(app) });
 command({ name: 'cm_GoToParent', label: 'Parent folder', run: (app) => goParent(app.cur) });
 command({
   // Ctrl+PgDn (ours: TC's Ctrl+PgDn): open the folder under the cursor; on a link, jump to its target with the cursor
@@ -71,7 +72,7 @@ command({
         return p.go(i > 0 ? st.target.slice(0, i) : sep, { focus: st.target.slice(i + 1) });
       }
     }
-    return e.dir ? p.go(p.fullPath(e.name)) : enter(app);
+    return e.dir ? p.go(p.fullPath(e.name)) : enter(app, { intoArchive: true });
   },
 });
 command({

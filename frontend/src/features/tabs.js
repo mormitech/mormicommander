@@ -340,6 +340,7 @@ function render(side) {
   bar.classList.add('mc-tabs-bar');
   bar.classList.toggle('mc-tabs-multi', !!tabOpt('multiLine'));
   bar.classList.toggle('mc-tabs-x', !!tabOpt('closeButton'));
+  placeBar(p, !!tabOpt('bottom'));
   bar.setAttribute('role', 'tablist');
   bar.innerHTML = s.tabs.map((t, i) => `<div class="mc-tabs-tab${i === s.active ? ' on' : ''}${t.lock ? ' locked' : ''}" role="tab" aria-selected="${i === s.active}" draggable="true" data-i="${i}" title="${esc(tabPath(p, t))}${t.lock === LOCK_FULL ? ' (locked)' : t.lock === LOCK_DIRS ? ' (locked, folder changes allowed)' : ''}"><span class="mc-tabs-cap">${esc(tabCaption(p, t))}</span>${s.tabs.length > 1 ? '<button type="button" class="mc-tabs-close" tabindex="-1" aria-label="Close tab" title="Close tab">×</button>' : ''}</div>`).join('')
     + '<button type="button" class="mc-tabs-fav" tabindex="-1" title="Favourite tabs" aria-label="Favourite tabs">☆</button>';
@@ -347,6 +348,14 @@ function render(side) {
 }
 
 export function renderAll() { render('left'); render('right'); }
+
+// placeBar puts a panel's tab bar above the path bar (the default) or, with the option "bottom" (Options > Folder tabs >
+// Tabs below the file list), between the file list and the status line. Moving the element keeps its event handlers.
+function placeBar(p, bottom) {
+  const bar = p.$.tabbar, before = bottom ? p.$.status : p.$.pathbar;
+  bar.classList.toggle('mc-tabs-bottom', bottom);
+  if (before && bar.nextElementSibling !== before) before.before(bar);
+}
 
 function wireBar(p) {
   const bar = p.$.tabbar;
@@ -604,9 +613,21 @@ async function favoritesMenu({ anchor = null } = {}) {
   return applyFavorite(r.item.value);
 }
 
+// applyFavorite opens a set of favourite tabs. By default (Options > Favorite tabs) it replaces the tabs of both
+// panels without asking; the options can limit it to the active panel, add the tabs after the open ones instead, and
+// ask first.
 async function applyFavorite(f) {
-  if (f.left?.tabs?.length) await replaceTabs('left', f.left);
-  if (f.right?.tabs?.length) await replaceTabs('right', f.right);
+  const both = !!tabOpt('favBothPanels'), replace = !!tabOpt('favCloseOld');
+  const sideList = (both ? ['left', 'right'] : [curSide(theApp)]).filter((side) => f[side]?.tabs?.length);
+  if (!sideList.length) return false;
+  if (replace && tabOpt('favConfirm')) {
+    const a = await messageDialog({ Title: 'Favourite tabs', Message: `Replace the open tabs with the favourite tabs ${f.name}?`, Buttons: ['Replace', 'Cancel'], Kind: 'favorite-tabs-replace' });
+    if (a !== 'Replace') return false;
+  }
+  for (const side of sideList) {
+    if (replace) await replaceTabs(side, f[side]);
+    else for (const x of f[side].tabs) await newTab(side, { ...tabFields(x), background: true });
+  }
   theApp.flash(`Favourite tabs ${f.name} are open.`);
   return true;
 }
@@ -817,8 +838,10 @@ export function init(app) {
       const set = saved?.[side];
       const hist = saved?.[`${side}History`] || [];
       if (set?.tabs?.length) {
-        const tabs = set.tabs.map((x) => makeTab(tabFields(x)));
-        const active = Math.max(0, Math.min(set.active || 0, tabs.length - 1));
+        let tabs = set.tabs.map((x) => makeTab(tabFields(x)));
+        let active = Math.max(0, Math.min(set.active || 0, tabs.length - 1));
+        // Options > Folder tabs > Restore tabs at startup off: only the tab each panel showed comes back, with its view
+        if (!tabOpt('restoreTabs')) { tabs = [tabs[active]]; active = 0; }
         // the active tab is what the panel shows now (the start folder from the command line wins over the saved one)
         if (samePath(tabs[active].path, p.path) && !p.back.length) p.back = [...hist].reverse().filter((x) => !samePath(x, p.path));
         if (tabs[active].sort) { const so = tabs[active].sort; if (so.key !== p.sort.key || so.desc !== p.sort.desc) p.sortBy(so.key, so.desc); }

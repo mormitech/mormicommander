@@ -4,6 +4,7 @@
 import { go } from '../../core/go.js';
 import { esc } from '../../core/dialogs.js';
 import { MORE_BRIDGE } from './optbridge.js';
+import { FEATURE_BRIDGE } from './optbridge-features.js';
 
 // The options as text by "Page.Field" name ("1"/"0" for yes/no), as Go's Configuration.Values returns them.
 export const state = { values: {}, schema: null, loaded: false };
@@ -137,6 +138,9 @@ export const BRIDGE = {
   },
   // refresh, drag and drop, history size, log file and folder tabs (board issue #94)
   ...MORE_BRIDGE,
+  // rename, overwrite and drop questions, Lister, histories, packer, folder and favourite tabs, column sets,
+  // thumbnails and the log size (board issue #94, second round)
+  ...FEATURE_BRIDGE,
 };
 
 // currentValue is what the dialog shows for an option: the app's live value when another feature keeps it, else the

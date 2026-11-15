@@ -1,7 +1,8 @@
 // Tab completion of file and folder names in the command line: Tab completes the word at the caret from the folder it
 // names (the active panel's folder for a plain name); with more than one match, each further Tab goes on to the next
-// (Shift+Tab back). A folder gets a separator after it, so the next Tab looks inside. With no match Tab does what it
-// did before: the keyboard goes back to the panel (core/keyboard.js).
+// (Shift+Tab back). A folder gets a separator after it, so the next Tab looks inside. With no match, or with the option
+// Misc > Command line auto-complete off, Tab does what it did before: the keyboard goes back to the panel
+// (core/keyboard.js).
 
 import { setCmdlineCompleter } from '../core/cmdline.js';
 import { app as theApp } from '../core/app.js';
@@ -20,6 +21,8 @@ function put(input, value, start, word, last0) {
 
 async function complete(input, back) {
   const app = theApp, p = app.cur;
+  // Options > Misc > Command line auto-complete off: Tab does what it did without a completion (back to the panel)
+  if (app.config?.values?.['Misc.CmdLineAutoCmp'] === '0') return false;
   const windows = app.platform === 'windows';
   const value = input.value, caret = input.selectionStart ?? value.length;
   // a further Tab right after a completion with several matches: the next (or previous) one

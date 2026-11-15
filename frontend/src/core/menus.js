@@ -35,7 +35,7 @@ export const MENUS = [
   ]],
   ['Commands', [
     ['Folder hotlist', 'cm_DirectoryHotlist'], ['Folder history', 'cm_DirectoryHistory'], ['Folder tree…', 'cm_CDtree'], '-',
-    ['Find files…', 'cm_SearchFor'], ['Find files in a new window…', 'cm_SearchStandalone'], ['Volume label…', 'cm_VolumeId'], ['Synchronize folders…', 'cm_SyncDirs'], '-',
+    ['Find files…', 'cm_SearchFor'], ['Find files in a new window…', 'cm_SearchStandalone'], ['Volume information…', 'cm_VolumeId'], ['Synchronize folders…', 'cm_SyncDirs'], '-',
     ['Target = source', 'cm_MatchSrc'], ['Swap panels', 'cm_Exchange'], ['Swap panels with tabs', 'cm_ExchangeWithTabs'],
     ['Show folder under cursor in left panel', 'cm_TransferLeft'], ['Show folder under cursor in right panel', 'cm_TransferRight'], '-',
     ['Branch view (all files in subfolders)', 'cm_DirBranch'], ['Branch view of selected folders', 'cm_DirBranchSel'], '-',

@@ -18,4 +18,9 @@ export const TAB_DEFAULTS = {
   closeButton: true,       // a × on each tab (shown on hover and on the active tab)
   resetLocked: false,      // a "folder changes allowed" tab goes back to its locked folder when activated again
   lockedChange: 0,         // folder change in a locked tab: 0 new tab, 1 reuse a tab with that folder, 2 first unlocked, 3 last unlocked
+  bottom: false,           // the tab bar sits below the file list instead of above it
+  restoreTabs: true,       // the tabs of the last session come back at start (off: only each panel's active tab)
+  favBothPanels: true,     // favourite tabs open in both panels (off: only the active panel's tabs)
+  favCloseOld: true,       // favourite tabs replace the open tabs (off: they are added after them)
+  favConfirm: false,       // ask before favourite tabs replace the open tabs
 };

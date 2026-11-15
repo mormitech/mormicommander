@@ -67,11 +67,15 @@ async function showHotlist(p, { anchor } = {}) {
   let level = tree, at = 0, crumbs = [];
   anchor ??= anchorFor(p);
   const filter = !!theApp.setting('hotlistTypeFilter', false);
+  // each entry's folder (or command) is shown next to its name unless "hotlistShowPaths" (Options > Directory hotlist >
+  // Show folders next to hotlist names) is off; it is on when not set, as the popup always showed them
+  const paths = theApp.setting('hotlistShowPaths', true) !== false;
+  const detailOf = (it) => (paths ? shortCmd(it) : '');
   for (;;) {
     const items = level.map((it) => (it.kind === 'sep' ? { sep: true }
-      : { label: it.kind === 'menu' ? `${it.label || it.title} ▸` : it.label || it.title || shortCmd(it), key: it.key || '', detail: it.kind === 'cmd' ? shortCmd(it) : '', value: it, sub: it.kind === 'menu' }));
+      : { label: it.kind === 'menu' ? `${it.label || it.title} ▸` : it.label || it.title || shortCmd(it), key: it.key || '', detail: it.kind === 'cmd' ? detailOf(it) : '', value: it, sub: it.kind === 'menu' }));
     // with the typed filter, the entries of the submenus wait at the end, shown only while something is typed
-    if (filter) for (const { crumbs, it } of nestedEntries(level)) items.push({ label: `${crumbs.join(' › ')} › ${it.label || it.title || shortCmd(it)}`, detail: shortCmd(it), value: it, only: true });
+    if (filter) for (const { crumbs, it } of nestedEntries(level)) items.push({ label: `${crumbs.join(' › ')} › ${it.label || it.title || shortCmd(it)}`, detail: detailOf(it), value: it, only: true });
     if (!stack.length) {
       if (items.length) items.push({ sep: true });
       if (contains) items.push({ label: 'Remove current folder', key: 'r', value: 'remove' });
@@ -307,6 +311,9 @@ function configHotlist(app) {
 
 // ---- folder history (Alt+Down, F-055, F-660) ----
 
+// frequentMax is how many frequently used folders the popup shows: the setting "frequentLength" (Options > Directory
+// hotlist > Frequently used folders shown), 20 when it is not set, as it always was; 0 shows none.
+const frequentMax = (v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.max(0, Math.min(200, n)) : 20; };
 const histMax = () => Math.max(5, Math.min(200, +theApp.setting('historyLength', 30) || 30));
 const DIGITS = '1234567890';
 
@@ -345,7 +352,8 @@ async function showHistory(p, { anchor } = {}) {
 }
 
 async function showFrequent(p, { anchor } = {}) {
-  const list = await go.TabsHotlist.Frequent(20);
+  const n = frequentMax(theApp.setting('frequentLength', 20));
+  const list = n > 0 ? await go.TabsHotlist.Frequent(n) : [];
   const items = list.map((x, n) => ({ label: x, key: DIGITS[n] || '', value: x, path: true }));
   if (!items.length) items.push({ label: 'No folders counted yet', disabled: true });
   items.push({ sep: true }, { label: 'Clear frequently used folders', value: 'clear', disabled: !list.length });
@@ -401,7 +409,7 @@ command({ name: 'cm_ConfigSaveDirHistory', label: 'Save folder history', run: ()
 
 // ---- control mode (for QA) ----
 addControlCommand('hotlist', async () => ({ ok: true, hotlist: await go.TabsHotlist.Hotlist() }));
-addControlCommand('frequent', async () => ({ ok: true, folders: await go.TabsHotlist.Frequent(20) }));
+addControlCommand('frequent', async () => { const n = frequentMax(theApp.setting('frequentLength', 20)); return { ok: true, folders: n > 0 ? await go.TabsHotlist.Frequent(n) : [] }; });
 
 // ---- start-up ----
 

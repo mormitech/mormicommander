@@ -110,3 +110,13 @@ describe('the palette key', () => {
     }
   });
 });
+
+test('assignTarget names the command of a command item only (F-373)', async () => {
+  const { assignTarget } = await import('../src/features/palette-lib.js');
+  expect(assignTarget({ key: 'cmd:cm_Copy', group: 'cmd' })).toBe('cm_Copy');
+  expect(assignTarget({ key: 'cmd:em_backup', group: 'cmd' })).toBe('em_backup');
+  expect(assignTarget({ key: 'dir:/tmp', group: 'dir' })).toBe('');
+  expect(assignTarget({ key: 'page:Layout', group: 'page' })).toBe('');
+  expect(assignTarget({ key: 'cmd:not a name', group: 'cmd' })).toBe('');
+  expect(assignTarget(undefined)).toBe('');
+});

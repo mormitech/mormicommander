@@ -498,12 +498,14 @@ async function columnSetMenu(app, p, anchor) {
   return setMode(p, r.item.value.mode, r.item.value.set);
 }
 
-// folder rules: a column set with a folder mask is chosen when such a folder is shown (F-668)
+// folder rules: a column set with a folder mask is chosen when such a folder is shown (F-668). With the setting
+// "columnsAutoSwitch" off (Options > Custom columns > Switch column sets by folder; on when not set) no set is chosen by
+// folder, and a panel showing one that was chosen that way goes back to its own view at the next folder.
 let autoSeq = 0;
 async function autoSwitch(p) {
   const vs = vsOf(p);
   if (vs.mode === 'tree') return;
-  const all = sets().filter((s) => (s.autoSwitch || '').trim());
+  const all = theApp.setting('columnsAutoSwitch', true) === false ? [] : sets().filter((s) => (s.autoSwitch || '').trim());
   if (!all.length && !vs.auto) return;
   const seq = ++autoSeq;
   vs.autoSeq = seq;
@@ -1115,6 +1117,14 @@ function sortByColumn(p, n) {
 function toggleTree(p) {
   if (modeOf(p) === 'tree') return leaveTree(p, {});
   return enterTree(p);
+}
+
+// inTreeView and setTreeView let the "separate tree" commands of features/reserved-more.js (board issue #38) put a
+// panel into the tree view or take it out again, exactly as Ctrl+F8 does, without knowing how the view is kept.
+export const inTreeView = (p) => !!p && modeOf(p) === 'tree';
+export async function setTreeView(p, on) {
+  if (!p || inTreeView(p) === !!on) return false;
+  return toggleTree(p);
 }
 
 command({ name: 'cm_EditComment', label: 'Edit comment…', run: editComment });

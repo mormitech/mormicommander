@@ -133,3 +133,11 @@ export function flattenHotlist(tree, trail = []) {
   }
   return out;
 }
+
+// assignTarget is the command a palette item stands for, for "Assign key…" (F2) in the command browser (F-373): the
+// cm_* or em_* name of a command item, "" for anything else (a folder, a tab, an Options page) or no item at all.
+export function assignTarget(item) {
+  if (!item || item.group !== 'cmd' || typeof item.key !== 'string' || !item.key.startsWith('cmd:')) return '';
+  const name = item.key.slice(4);
+  return /^(cm|em)_\w+$/.test(name) ? name : '';
+}

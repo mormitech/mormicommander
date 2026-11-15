@@ -114,11 +114,11 @@ function sortMenu(app, p, args) {
 }
 
 // props shows a box of name/value lines with buttons; the answer is the label of the button pressed.
-function props(title, rows, buttons, kind) {
+function props(title, rows, buttons, kind, note = '') {
   return modal((box, done) => {
     box.classList.add('mc-system-props');
     box.innerHTML = `<h2>${esc(title)}</h2><table>${rows.filter(([, v]) => v !== '' && v != null).map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('')}</table>
-      <div class="mc-btns">${buttons.map((b, i) => `<button type="button"${i === buttons.length - 1 ? ' class="primary"' : ''}>${esc(b)}</button>`).join('')}</div>`;
+      ${note ? `<p class="mc-note">${esc(note)}</p>` : ''}<div class="mc-btns">${buttons.map((b, i) => `<button type="button"${i === buttons.length - 1 ? ' class="primary"' : ''}>${esc(b)}</button>`).join('')}</div>`;
     box.querySelectorAll('button').forEach((b) => { b.onclick = () => done(b.textContent); });
     box.onsubmit = (ev) => { ev.preventDefault(); done(buttons.at(-1)); };
   }, 'Close', { kind });
@@ -155,7 +155,8 @@ async function eject(app, v) {
   return true;
 }
 
-async function volumeProps(app, v) {
+// volumeProps shows what is known about a volume (its Properties box). note: an extra sentence under the table.
+async function volumeProps(app, v, note = '') {
   const x = await go.SystemFiles.VolumeProps(v.path);
   const buttons = ejectable(app, v) ? ['Eject', 'Close'] : ['Close'];
   const b = await props(v.label ? `${v.name} ${v.label}` : v.name, [
@@ -168,7 +169,7 @@ async function volumeProps(app, v) {
     ['Used', x.total ? `${size(x.used)} (${Math.round((x.used / x.total) * 100)}%)` : ''],
     ['Free', x.total ? `${size(x.available)} (${bytes(x.available)} bytes)` : ''],
     ['Read only', x.readOnly ? 'Yes' : ''],
-  ], buttons, 'volume-props');
+  ], buttons, 'volume-props', note);
   if (b === 'Eject') return eject(app, v);
   return true;
 }
@@ -204,6 +205,26 @@ command({
     const v = app.volumeFor(app.cur.path);
     if (!ejectable(app, v)) { app.flash('This volume can\'t be ejected.'); return false; }
     return eject(app, v);
+  },
+});
+
+// cm_VolumeId (Commands > Volume information, board issue #38): Total Commander's "Volume label" dialog changes the
+// label of a drive. Here it shows the Properties box of the volume the active panel is on (name, mount point, file
+// system, device, size, free space). Changing the label is deliberately not offered: on macOS it means running
+// diskutil rename on a mounted disk, and a mistake there renames the wrong volume, so the box says where the system
+// lets the user do it safely instead.
+const RENAME_NOTE = {
+  darwin: 'To change the name of the volume, rename it in Finder or in Disk Utility.',
+  windows: 'To change the label of the drive, use its Properties in Explorer.',
+  linux: 'To change the label of the volume, use the disk tool of your desktop or the file system\'s own label tool.',
+};
+command({
+  name: 'cm_VolumeId', label: 'Volume information…',
+  run: (app) => {
+    const path = app.cur?.path || '';
+    const v = app.volumeFor(path);
+    if (!v || /^[a-z][a-z0-9+.-]*:\/\//i.test(path)) { app.flash('The active panel is not on a volume of this computer.'); return false; }
+    return volumeProps(app, v, RENAME_NOTE[app.platform] || RENAME_NOTE.linux);
   },
 });
 

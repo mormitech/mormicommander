@@ -289,6 +289,13 @@ type ExecOptions struct {
 	// overwriting it (board issue #99). Only the link itself goes, never what
 	// it points to.
 	TrashReplacedLinks bool
+	// TrashReplacedFiles, with Trash set, moves a file that a copy overwrites
+	// to the trash first (board #99): the new contents are written to a
+	// temporary file as always, and only when that is complete does the old
+	// file go to the trash and the new one take its name, so a failed copy
+	// leaves the old file where it was. Off, the old file is replaced in
+	// place by the rename, as before.
+	TrashReplacedFiles bool
 }
 
 // OpError is one failed operation.
@@ -669,6 +676,11 @@ func (e *executor) copyFile(op *Op) error {
 	}
 	if err := dst.Chtimes(tmp, srcE.ModTime); err != nil {
 		return err
+	}
+	if exists && e.opts.Trash != nil && e.opts.TrashReplacedFiles {
+		if err := e.opts.Trash(dst, op.Dst); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return err
+		}
 	}
 	if err := dst.Rename(tmp, op.Dst); err != nil {
 		return err

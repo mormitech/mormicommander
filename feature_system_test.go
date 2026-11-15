@@ -229,6 +229,43 @@ func TestSystemLogFile(t *testing.T) {
 	}
 }
 
+// With "logMaxKB" the log starts again once it has reached that size, keeping the previous one as .old.
+func TestSystemLogMaxSize(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MORMICOMMANDER_CONFIG_DIR", dir)
+	a := NewApp(startOpts{})
+	a.settings = loadSettings(filepath.Join(dir, "settings.json"))
+	l := &SystemLog{app: a}
+	a.settings.put("enableLog", true)
+	log := filepath.Join(dir, "mormicommander.log")
+	big := strings.Repeat("x", 1100)
+	for i := 0; i < 3; i++ {
+		if err := l.Write([]string{big}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if st, _ := os.Stat(log); st == nil || st.Size() < 3000 {
+		t.Fatal("without a limit the log only grows")
+	}
+	a.settings.put("logMaxKB", float64(1)) // (numbers come back from settings.json as float64)
+	if err := l.Write([]string{"after the limit"}); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if lines := strings.Split(strings.TrimSpace(string(b)), "\n"); len(lines) != 1 || !strings.HasSuffix(lines[0], ": after the limit") {
+		t.Errorf("new log: %q", b)
+	}
+	if st, err := os.Stat(log + ".old"); err != nil || st.Size() < 3000 {
+		t.Errorf("the full log is kept as .old: %v", err)
+	}
+	if logMaxBytes(nil) != 0 || logMaxBytes(float64(0)) != 0 || logMaxBytes(2) != 2048 {
+		t.Error("logMaxBytes")
+	}
+}
+
 func TestSystemWatchable(t *testing.T) {
 	if systemWatchable("ftp://host/x") || systemWatchable("") || systemWatchable("rel/dir") {
 		t.Error("only local absolute folders are watched")

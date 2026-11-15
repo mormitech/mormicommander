@@ -340,7 +340,7 @@ export class Panel {
   onMouseDown(ev) {
     this.app.setActive(this);
     const row = ev.target.closest('.row');
-    if (!row) return;
+    if (!row) { this.onEmptyPress(ev); return; }
     const i = +row.dataset.i;
     const e = this.entries[i];
     if (ev.button === 2) { this.setCursor(i); return; }
@@ -369,6 +369,17 @@ export class Panel {
       this.anchor = i;
       this.setCursor(i);
     }
+  }
+
+  // onEmptyPress: a double-click on the empty space below the files goes to the parent folder when Options > Operation >
+  // Double click on empty space goes up is on (off by default). A press on the list's scroll bar is not empty space.
+  onEmptyPress(ev) {
+    if (ev.button !== 0 || ev.detail !== 2 || this.app.config?.values?.['Operation.DoubleClickParent'] !== '1') return;
+    const list = this.$.list, r = list.getBoundingClientRect();
+    if (ev.clientX - r.left > list.clientWidth || ev.clientY - r.top > list.clientHeight) return;
+    if (!this.parent) return;
+    ev.preventDefault();
+    this.app.run('cm_GoToParent');
   }
 
   // ---- path editing (click on the path bar, cm_EditPath) ----

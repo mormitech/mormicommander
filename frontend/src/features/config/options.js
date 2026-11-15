@@ -155,13 +155,15 @@ function settingsFileHTML(info) {
     <p class="mc-note">Starting with <code>-I=file</code> uses another settings file; a settings file named mormicommander.ini next to the program makes the program portable.</p>`;
 }
 
-// openOptions shows the dialog; page: the page to show first.
-export async function openOptions(app, page = '') {
-  for (let again = page || 'Layout'; again;) again = await showDialog(app, again);
+// openOptions shows the dialog; page: the page to show first. opts.command (with the Keyboard shortcuts page) picks
+// that command in the list, ready for a new key: the command browser's "Assign key…" uses it (F-373).
+export async function openOptions(app, page = '', opts = {}) {
+  let first = opts;
+  for (let again = page || 'Layout'; again;) { again = await showDialog(app, again, first); first = {}; }
   return true;
 }
 
-async function showDialog(app, startPage) {
+async function showDialog(app, startPage, opts = {}) {
   const schema = await loadSchema();
   await loadValues();
   await loadColors();
@@ -410,7 +412,14 @@ async function showDialog(app, startPage) {
       paintHk();
     };
     $('.hk-restore').onclick = () => { pendingKeys = {}; keysDirty = true; paintHk(); };
-    paintHk();
+    // opened for one command: filter the list down to its name, pick it and put the caret in the key field
+    if (startPage === 'Hotkeys' && opts.command && names.includes(opts.command)) {
+      $('#hk-filter').value = opts.command;
+      paintHk();
+      hkList.value = opts.command;
+      paintHk();
+      requestAnimationFrame(() => $('#hk-key').focus());
+    } else paintHk();
 
     // ---- User commands page ----
     const ucSel = $('#uc-list');
@@ -590,7 +599,7 @@ async function revertOptions(app, opened, touched) {
 
 // ---- commands ----
 command({ name: 'cm_Config', label: 'Options…', run: (app, args) => openOptions(app, args?.page || '') });
-command({ name: 'cm_ConfigHotkeys', label: 'Keyboard shortcuts…', run: (app) => openOptions(app, 'Hotkeys') });
+command({ name: 'cm_ConfigHotkeys', label: 'Keyboard shortcuts…', run: (app, args) => openOptions(app, 'Hotkeys', { command: args?.command || '' }) });
 command({
   name: 'cm_ConfigSaveSettings', label: 'Save settings',
   run: async (app) => { await go.Configuration.Save(); app.saveSession(); app.flash('The settings were saved.'); return true; },

@@ -14,10 +14,12 @@ export function hiddenMarkHTML(show) {
 }
 
 // findIncludeHidden says whether "Include hidden files" starts ticked in a new search. last is the last search's
-// request (or null); followPanel is the option; showHidden is whether the panels show hidden files now.
-export function findIncludeHidden({ last = null, followPanel = false, showHidden = false } = {}) {
+// request (or null); followPanel is the option; showHidden is whether the panels show hidden files now; fresh is
+// what a search starts with when there is no last search (Options > Find files > Search hidden files, on by default).
+export function findIncludeHidden({ last = null, followPanel = false, showHidden = false, fresh = true } = {}) {
   if (followPanel) return !!showHidden;
-  return !last?.skipHidden;
+  if (!last) return !!fresh;
+  return !last.skipHidden;
 }
 
 // menuLabel adds the key to a menu label, as "Hidden files (Ctrl+H)"; with no key the label stays as it is.
