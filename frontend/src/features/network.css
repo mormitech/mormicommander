@@ -1,0 +1,14 @@
+/* The network folder's banner (network.js): over the bottom of the list, a spinner while the search is in its first
+   seconds, then a quiet line that it is still listening. */
+.panel:has(> .mc-net-banner) { position: relative; }
+.mc-net-banner {
+  position: absolute; left: 8px; right: 8px; bottom: 34px; z-index: 3;
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 6px;
+  font-size: 12px; color: var(--muted); background: var(--panel);
+  border: 1px solid var(--line); pointer-events: auto;
+}
+.mc-net-banner.warn { color: var(--err, #c33); }
+.mc-net-spin { flex: none; width: 12px; height: 12px; border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; display: none; }
+.mc-net-banner.searching .mc-net-spin { display: inline-block; animation: mc-net-spin 0.9s linear infinite; }
+@keyframes mc-net-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .mc-net-banner.searching .mc-net-spin { animation: none; border-right-color: currentColor; opacity: 0.6; } }

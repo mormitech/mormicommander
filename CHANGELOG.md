@@ -6,6 +6,23 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.12.2 – 2026-11-15
+
+### Changed
+
+- **The Network button opens the network in the panel** (#148), like Total Commander's Network Neighborhood, instead
+  of a popup. The panel shows network://: a banner with a spinner while it searches, and servers appear one by one as
+  they answer. The search keeps running in the background while the app runs, so coming back to the folder shows at
+  once everything found meanwhile, and servers that go away disappear. Enter on a server lists its shares (asking for
+  a user name and password when needed); Enter on a share connects it and shows its files, with ".." back to the
+  shares. smb://server, nfs://server and afp://server typed in the path bar work the same way. An AFP server that
+  also answers SMB is listed once.
+- The drive bar shows Home and Network as icons only, with tooltips; Network sits at the right end of the bar.
+
+### Fixed
+
+- macOS: servers were not found before 10 in the morning, because dns-sd pads the hour with a blank.
+
 ## 0.12.1 – 2026-11-15
 
 ### Fixed

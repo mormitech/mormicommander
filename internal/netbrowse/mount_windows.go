@@ -13,6 +13,8 @@ import (
 
 func discover(ctx context.Context) ([]Server, string) { return discoverNetView(ctx) }
 
+func watch(ctx context.Context, emit func(Event)) string { return watchNetView(ctx, emit) }
+
 var (
 	mpr                       = windows.NewLazySystemDLL("mpr.dll")
 	procWNetAddConnection2W   = mpr.NewProc("WNetAddConnection2W")

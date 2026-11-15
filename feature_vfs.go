@@ -71,6 +71,11 @@ func (f *FS) PathInfo(path string) PathInfo {
 		// commands that ask (quick view, F3, the copy target); the branch feature marks the path bar itself
 		return PathInfo{Kind: "local"}
 	}
+	if networkPath(path) {
+		// the Network panel's servers and shares (feature_network_fs.go): nothing can be copied there; a mounted
+		// share is a local folder and gets here as one
+		return PathInfo{Kind: "network", ReadOnly: true, ReadOnlyWhy: "Servers and shares can't be changed here; open a share first."}
+	}
 	kind := vfsPathKind(f.router, path)
 	info := PathInfo{Kind: kind, Remote: kind == "ftp" || kind == "sftp" || strings.Contains(path, "://")}
 	if kind == "archive" {

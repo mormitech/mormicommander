@@ -63,6 +63,11 @@ Timestamp     A/R    Flags  if Domain               Service Type         Instanc
 	if got := ParseDNSSDBrowse(browse); !reflect.DeepEqual(got, []string{"My NAS"}) {
 		t.Errorf("browse = %q", got)
 	}
+	// before 10 in the morning the hour is padded with a blank
+	morning := " 7:17:44.781  Add        3   7 local.               _smb._tcp.           DiskStation\n"
+	if got := ParseDNSSDBrowse(morning); !reflect.DeepEqual(got, []string{"DiskStation"}) {
+		t.Errorf("morning browse = %q", got)
+	}
 	host, port := ParseDNSSDLookup("19:20:02.100  My\\032NAS._smb._tcp.local. can be reached at my-nas.local.:445 (interface 4)\n")
 	if host != "my-nas.local" || port != 445 {
 		t.Errorf("lookup = %q %d", host, port)

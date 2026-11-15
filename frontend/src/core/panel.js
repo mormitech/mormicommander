@@ -492,8 +492,14 @@ export class Panel {
     const on = this.app.driveFor(currentPath ?? this.path);
     const firstMap = volumes.findIndex((v) => v.kind === 'map');
     // the Network button (features/network.js, #148) closes the bar: servers and shares on the local network
-    const net = this.app.openNetwork ? '<span class="mc-drive-sep" aria-hidden="true"></span><button type="button" class="mc-drive-net" data-net="1" title="Network: servers and shared folders on the local network">' + driveIcon('lan') + 'Network</button>' : '';
-    this.$.drives.innerHTML = volumes.map((v, i) => `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on ? 'on' : ''}" title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${esc(shortName(v, this.app.platform))}</button>`).join('') + net;
+    // Home and Network show only their icon (the tooltip names them); Network sits at the right end of the bar
+    const inNet = /^(network|smb|nfs|afp):\/\//i.test(currentPath ?? this.path ?? '');
+    const net = this.app.openNetwork ? `<button type="button" class="mc-drive-net mc-drive-icon${inNet ? ' on' : ''}" data-net="1" title="Network: servers and shared folders on the local network" aria-label="Network">${driveIcon('lan')}</button>` : '';
+    this.$.drives.innerHTML = volumes.map((v, i) => {
+      const iconOnly = v.kind === 'home';
+      const name = esc(shortName(v, this.app.platform));
+      return `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${iconOnly ? '' : name}</button>`;
+    }).join('') + net;
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');
       if (!b) return;

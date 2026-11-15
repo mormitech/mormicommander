@@ -23,10 +23,12 @@ Only when you ask it to, and only to the place you name:
 - **Remote locations you open.** Net > FTP connect (FTP, FTPS), SFTP and WebDAV connect to the server you typed in or
   saved, and only while you use that connection. A network share (SMB, NFS, AFP) that your system has mounted is just a
   folder to the app; the system does the networking for it.
-- **The Network button, when you press it** (the end of the drive bar, or Net > Network neighbourhood; issue #148). Only
-  then does the app look for file servers on your **local network**, for about three seconds, with your system's own
-  tool: Bonjour (`dns-sd`) on macOS, Avahi (`avahi-browse`) on Linux, NetBIOS (`net view`) on Windows. Those send
-  discovery queries to the local network only, never to the internet. When you pick or type a server, the app
+- **The Network button, when you press it** (the right end of the drive bar, or Net > Network neighbourhood; issue
+  #148). Only then does the app start looking for file servers on your **local network**, with your system's own
+  tool: Bonjour (`dns-sd`) on macOS, Avahi (`avahi-browse`) on Linux, NetBIOS (`net view`, asked again every minute)
+  on Windows. From then on it keeps listening in the background until the app quits, so the Network panel stays
+  current. Those tools send discovery queries to the local network only, never to the internet. On macOS the system
+  asks once whether mormiCommander may use the local network. When you pick or type a server, the app
   connects to that server alone: to list its shares (SMB on port 445, signing in as guest unless you give a user name;
   NFS through `showmount`), and, when you open or map a share, the system mounts it (macOS like Finder's Connect to
   Server, Linux through GVfs, Windows as a network drive). A share that Open had to mount is disconnected again when

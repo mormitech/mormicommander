@@ -178,7 +178,8 @@ export const app = {
   panelChanged(p, info = {}) {
     if (info.moved) {
       p.renderDrives(this.volumes);
-      go.FS.VolumeOf(p.path).then((v) => p.renderDriveInfo(v), () => p.renderDriveInfo(null));
+      if (/^(network|smb|nfs|afp):\/\//i.test(p.path)) p.renderDriveInfo({ name: 'Network' }); // the Network panel (#148)
+      else go.FS.VolumeOf(p.path).then((v) => p.renderDriveInfo(v), () => p.renderDriveInfo(null));
     }
     if (p === this.cur) this.updateTitle();
     this.emit('panel', p, info);

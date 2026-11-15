@@ -69,8 +69,9 @@ func runFor(ctx context.Context, d time.Duration, name string, args ...string) (
 
 // --- macOS: dns-sd ---
 
-// dnssdAdd matches a line of `dns-sd -B`: time, Add, flags, interface, domain, type, instance name.
-var dnssdAdd = regexp.MustCompile(`^\S+\s+(Add|Rmv)\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(.+?)\s*$`)
+// dnssdAdd matches a line of `dns-sd -B`: time, Add, flags, interface, domain, type, instance name. Before 10 in the
+// morning the time starts with a blank (" 7:17:44.781").
+var dnssdAdd = regexp.MustCompile(`^\s*\S+\s+(Add|Rmv)\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(.+?)\s*$`)
 
 // ParseDNSSDBrowse reads the instances `dns-sd -B <type>` found (removed ones left out).
 func ParseDNSSDBrowse(out string) (names []string) {
