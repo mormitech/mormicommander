@@ -6,6 +6,25 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.1 – 2026-11-15
+
+### Changed
+
+Tech-debt round:
+
+- Tests: the dialog-window theme test waits for the change instead of a single tick, so it no longer fails now and
+  then (#145).
+- The drive bar's sizes come from the same code as the rest of the app (internal/dirsize Space); internal/disk no
+  longer has its own copies of the statfs and GetDiskFreeSpaceEx arithmetic (#102). The other #102 items were already
+  done: round-trip quoting in descript.ion, the Linux creation date (statx), descript.ion hidden on Windows, and FTP
+  stopping on unsafe server names like SFTP.
+- Big folders and start-up measured (#20): 100,000 files listed in 0.36 s and scrolled smoothly; panels shown 0.49 s
+  after the start (F-742 and F-757 done).
+- The pointer-only features were tried with control mode's pointer gestures (#107): resizing a column by dragging
+  its border, and reordering Multi-rename rows by dragging, both work.
+- Wails advisories checked again (#116): v3.1.0 is still the newest stable release; the frame advisories that apply
+  to v3 are fixed in it.
+
 ## 0.13.0 – 2026-11-15
 
 Release of 0.12.1 and 0.12.2: the **Network panel**. The Network button (now at the right end of the drive bar) opens
