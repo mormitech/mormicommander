@@ -60,3 +60,21 @@ func TestStartupDiskName(t *testing.T) {
 		t.Errorf("startup disk kind = %q", vols[0].Kind)
 	}
 }
+
+// macOS can name a share's mount folder after the server (share "z" of DiskStation.local at
+// /Volumes/DiskStation.local); the drive bar then shows the share's name. Other folders keep their own name.
+func TestShareLabel(t *testing.T) {
+	for _, c := range []struct{ folder, source, want string }{
+		{"DiskStation.local", "//GUEST@DiskStation.local/z", "z"},
+		{"DiskStation", "//pat@DiskStation.local/z", "z"},
+		{"DiskStation.local", "//GUEST:@DiskStation.local:445/my%20files", "my files"},
+		{"music", "//GUEST:@DiskStation.local/music", ""},
+		{"music-1", "//GUEST@other.local/music", ""},
+		{"DiskStation.local", "//GUEST@DiskStation.local/", ""},
+		{"nas", "nas:/export/media", ""},
+	} {
+		if got := shareLabel(c.folder, c.source); got != c.want {
+			t.Errorf("shareLabel(%q, %q) = %q, want %q", c.folder, c.source, got, c.want)
+		}
+	}
+}
