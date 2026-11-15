@@ -6,6 +6,7 @@ package disk
 import (
 	"context"
 	"errors"
+	"mormicommander/internal/dirsize"
 	"sync"
 	"time"
 
@@ -47,6 +48,12 @@ func probe[T any](key string, fn func() (T, error)) (T, error) {
 		err = hang.ErrNotResponding
 	}
 	return v, err
+}
+
+// UsageOf reports the volume that holds path (internal/dirsize does the asking, for the whole app).
+func UsageOf(path string) (Usage, error) {
+	u, err := dirsize.Space(path)
+	return Usage{Total: u.Total, Free: u.Available}, err
 }
 
 // UsageOfQuick is UsageOf that never waits longer than probeTimeout: for a volume that does not answer it returns
