@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.0 – 2026-11-15
+
+Release of 0.12.1 and 0.12.2: the **Network panel**. The Network button (now at the right end of the drive bar) opens
+the network in the panel, servers appear as they answer and the search keeps running in the background. On macOS the
+app declares its use of the local network, so the system asks once, and servers are found at any hour.
+
 ## 0.12.2 – 2026-11-15
 
 ### Changed
