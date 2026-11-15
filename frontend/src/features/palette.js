@@ -4,7 +4,9 @@
 // Options. Typing filters and ranks them (fuzzy: "sync" finds Synchronize folders, "sydi" too), recently chosen items
 // come first, Up/Down/PgUp/PgDn/Home/End move, Enter runs the highlighted item and Esc closes, so it works with the
 // keyboard only; a click runs an item too. "All commands…" (Commands menu) opens the same dialog with only the
-// commands, and its "Keyboard shortcuts…" button goes to Options to give one a key.
+// commands, and its "Keyboard shortcuts…" button goes to Options to give one a key. F2 or "Assign key…" (board issue
+// #38, F-373) opens Options > Keyboard shortcuts with the highlighted command already picked, so a key can be given to
+// it straight from the list; this works in the palette too when the highlighted item is a command.
 //
 // The palette is additive: nothing else changes, and it only remembers what was chosen in it (settings key
 // "commandPalette": {recent: [item keys]}). The matching and ranking are pure (palette-lib.js). Control mode: the
@@ -18,7 +20,7 @@ import { label as keyLabel } from '../core/keys.js';
 import { addControlCommand } from '../core/control.js';
 import { go } from '../core/go.js';
 import { app as theApp } from '../core/app.js';
-import { rankItems, noteRecent, commandWords, uniqueFolders, flattenHotlist } from './palette-lib.js';
+import { rankItems, noteRecent, commandWords, uniqueFolders, flattenHotlist, assignTarget } from './palette-lib.js';
 import { tabList, activate } from './tabs.js';
 import { runEntry } from './hotlist.js';
 import { loadSchema } from './config/util.js';
@@ -106,7 +108,7 @@ async function openPalette(app, { only = '', query = '' } = {}) {
       <input id="palette-q" type="text" spellcheck="false" autofocus aria-label="Search" placeholder="${browser ? 'Type to find a command' : 'Type a command, folder, tab or setting'}" value="${esc(query)}">
       <div class="mc-palette-list" role="listbox"></div>
       <div class="mc-palette-foot"><span class="mc-palette-count"></span>
-        ${browser ? '<button type="button" class="mc-palette-keys">Keyboard shortcuts…</button>' : ''}
+        ${browser ? '<button type="button" class="mc-palette-assign" title="Give the highlighted command a key (F2)">Assign key…</button><button type="button" class="mc-palette-keys">Keyboard shortcuts…</button>' : ''}
         <button type="button" class="cancel">Close</button></div>`;
     const input = box.querySelector('#palette-q');
     const list = box.querySelector('.mc-palette-list');
@@ -144,6 +146,14 @@ async function openPalette(app, { only = '', query = '' } = {}) {
     box.querySelector('.cancel').onclick = () => done(null);
     const keysBtn = box.querySelector('.mc-palette-keys');
     if (keysBtn) keysBtn.onclick = () => done({ key: '', run: () => app.run('cm_ConfigHotkeys') });
+    // assign opens the keyboard shortcuts for the highlighted command (a disabled one can get a key too)
+    const assign = () => {
+      const name = assignTarget(shown[at]);
+      if (!name) { app.flash('Highlight a command to give it a key.'); return; }
+      done({ key: '', run: () => app.run('cm_ConfigHotkeys', { command: name }) });
+    };
+    const assignBtn = box.querySelector('.mc-palette-assign');
+    if (assignBtn) assignBtn.onclick = assign;
     box.onsubmit = (ev) => { ev.preventDefault(); choose(at); };
     onKey = (ev) => {
       const page = 8;
@@ -152,6 +162,7 @@ async function openPalette(app, { only = '', query = '' } = {}) {
         case 'ArrowUp': move(-1); return true;
         case 'PageDown': move(page); return true;
         case 'PageUp': move(-page); return true;
+        case 'F2': assign(); return true;
         default: break;
       }
       if (ev.ctrlKey && !ev.altKey && !ev.metaKey && (ev.key === 'Home' || ev.key === 'End')) { at = ev.key === 'Home' ? 0 : shown.length - 1; move(0); return true; }

@@ -1119,6 +1119,14 @@ function toggleTree(p) {
   return enterTree(p);
 }
 
+// inTreeView and setTreeView let the "separate tree" commands of features/reserved-more.js (board issue #38) put a
+// panel into the tree view or take it out again, exactly as Ctrl+F8 does, without knowing how the view is kept.
+export const inTreeView = (p) => !!p && modeOf(p) === 'tree';
+export async function setTreeView(p, on) {
+  if (!p || inTreeView(p) === !!on) return false;
+  return toggleTree(p);
+}
+
 command({ name: 'cm_EditComment', label: 'Edit comment…', run: editComment });
 command({
   name: 'cm_SwitchDirSort', label: 'Sort folders always by name', checked: (app) => !app.setting('dirsLikeFiles', false), menu: 'Show', menuAfter: 'cm_SrcNegOrder',

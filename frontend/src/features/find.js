@@ -817,7 +817,7 @@ async function openDialog(app, args = {}) {
     requestAnimationFrame(render);
     if (args.fields) for (const [id, v] of Object.entries(args.fields)) { const el = box.querySelector(`#${CSS.escape(id)}`); if (el) { if (el.type === 'checkbox') el.checked = !!v; else el.value = v; } }
     if (args.start) queueMicrotask(startSearch);
-  }, null, { kind: 'find', modeless: optOn('FindFiles.Modeless') });
+  }, null, { kind: 'find', modeless: args.modeless === true || optOn('FindFiles.Modeless') });
   shown.then(() => {
     window.removeEventListener('keydown', onKey, true);
     if (S.running) stopSearch();
@@ -860,6 +860,12 @@ export const findDialog = {
 // ---- commands ----
 
 command({ name: 'cm_SearchFor', label: 'Find files…', short: 'Find', run: openDialog });
+// cm_SearchStandalone (Commands > Find files in a new window, board issue #38): Total Commander starts Find files as a
+// process of its own, so the main window stays usable while it searches. Here the same dialog opens modeless, in a
+// window of its own, whatever Options > Find files > Modeless says; the search already runs as a background job in Go.
+// With dialogs shown inside the main window (Options: dialogs in windows off) there is no window to put it in, and the
+// dialog opens as usual. An open Find files dialog is brought to the front instead of opening a second one.
+command({ name: 'cm_SearchStandalone', label: 'Find files in a new window…', run: (app, args) => openDialog(app, { ...(args || {}), modeless: true }) });
 
 // ---- control mode ----
 

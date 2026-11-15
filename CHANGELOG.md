@@ -6,6 +6,24 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.5 – 2026-11-15
+
+### Added
+
+- **More Total Commander commands work** (#38); before, their keys and menu items said "not ready yet". No key changed
+  meaning.
+  - cm_CDtree (Alt+F10): a folder popup to walk down and up the tree and go to a folder.
+  - cm_SeparateTree1/2/Cycle/Off (Ctrl+Shift+F8 cycles) and cm_FocusTreeToggle (Shift+Tab): mapped onto the panels'
+    tree view (none, the active panel, both), each panel coming back to its earlier view.
+  - cm_ActivateMenu (F9/F10): the menu bar as a popup over the panel, since the page can't open the native menu.
+  - cm_VolumeId: the volume's information (name, mount point, file system, size, free space); renaming the label is
+    left to the system.
+  - cm_PrintFile (Ctrl+F9) asks, then prints a file with the system's print command; cm_PrintDir previews the file list
+    as text and prints it on Print.
+  - cm_SearchStandalone: Find files in a window of its own.
+  - The command browser assigns keys (F-373): F2 or "Assign key…" opens Keyboard shortcuts with the command picked.
+  - cm_InternalAssociate stays open: it needs association storage and a dialog of its own.
+
 ## 0.14.4 – 2026-11-15
 
 ### Changed
