@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.3 – 2026-11-15
+
+### Fixed
+
+- File operations: a job writes its closing "done" line to the operations log before it counts as finished, so a log
+  read right after the job ends always has it (the Linux CI run of 0.13.2 caught it missing once).
+
 ## 0.13.2 – 2026-11-15
 
 ### Fixed
