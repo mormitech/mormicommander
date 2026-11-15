@@ -103,13 +103,18 @@ func TestWatchFile(t *testing.T) {
 	ch := WatchFile(ctx, p, 10*time.Millisecond)
 	time.Sleep(30 * time.Millisecond)
 	writeFile(t, p, "two two", 0o644)
-	select {
-	case ev := <-ch:
-		if ev.Removed || ev.Size != 7 {
-			t.Errorf("change event = %+v", ev)
+	// writing truncates the file first, so a poll in between can report it empty; the event with the new size follows
+	deadline := time.After(5 * time.Second)
+	for got := false; !got; {
+		select {
+		case ev := <-ch:
+			if ev.Removed {
+				t.Fatalf("change event = %+v", ev)
+			}
+			got = ev.Size == 7
+		case <-deadline:
+			t.Fatal("no change to the new size noticed")
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("no change noticed")
 	}
 	if err := os.Remove(p); err != nil {
 		t.Fatal(err)

@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.2 – 2026-11-15
+
+Release of 0.14.0 (the 0.14.0 and 0.14.1 builds each stopped on a test timing problem, so neither was published).
+
+### Fixed
+
+- Tests: the edited-file watch test waits for the change to the new size; writing truncates the file first, so a poll
+  in between could see it empty, as it did on the Linux runner for v0.14.1.
+
 ## 0.14.1 – 2026-11-15
 
 Release of 0.14.0 (its macOS build stopped on a test timing problem, so 0.14.0 was never published).
