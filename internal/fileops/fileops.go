@@ -89,7 +89,7 @@ type Request struct {
 	// system trash first instead of being replaced in place. A copy still writes the new contents to a temporary file
 	// first, so the old file is trashed only once they are complete; a folder in the way is never trashed.
 	TrashReplaced bool `json:"trashReplaced"`
-	Verify  bool `json:"verify"`  // re-read every copy and compare its SHA-256 with the source's
+	Verify        bool `json:"verify"` // re-read every copy and compare its SHA-256 with the source's
 
 	SpeedLimit int64 `json:"speedLimit"` // bytes per second, 0 = no limit; can be changed while running (SetSpeedLimit)
 	BufferSize int   `json:"bufferSize"` // copy buffer in bytes; 0 = 1 MiB. Large values plus NoCache are TC's "big file" mode

@@ -6,7 +6,8 @@
 //   - on a program in a panel: it runs with the files as parameters;
 //   - on the command line: their paths are inserted (F-699).
 // Files dragged from Finder / Explorer / other apps are copied into the panel or folder they are dropped on (F-695;
-// Wails gives their paths); dragged out of the window they carry file URLs and paths as text. The drop dialog asks
+// Wails gives their paths); dragged out of the window they carry file URLs and paths as text (unless the setting
+// "dragToOtherApp", default on, is off). The drop dialog asks
 // first (setting "confirmDrop", default on, F-719) and lets the user pick copy / move / link and change the folder.
 // While dragging, the list scrolls near its top and bottom edge (F-701) and, with the setting "springLoaded", a folder
 // opens after hovering over it ("springDelay" ms, default 1000; F-702).
@@ -158,13 +159,18 @@ export function init(app) {
       if (!e || e.up || !onRow || !isLocal(p.path) || app.demo) { ev.preventDefault(); return; }
       const list = p.isSelected(e) ? p.selectedEntries() : [e];
       const paths = list.map((x) => p.fullPath(x.name));
-      if (useNativeDrag(app.setting('nativeDragOut', false), nativeOK)) { ev.preventDefault(); startNative(app, p, paths); return; }
+      // "dragToOtherApp" (Options > Drag & drop > Allow dragging to other programs, on by default) off: the drag
+      // carries only our own data, so it can be dropped inside the window but other programs get nothing from it
+      const outside = app.setting('dragToOtherApp', true) !== false;
+      if (outside && useNativeDrag(app.setting('nativeDragOut', false), nativeOK)) { ev.preventDefault(); startNative(app, p, paths); return; }
       drag = { from: p, paths };
       const dt = ev.dataTransfer;
       dt.effectAllowed = 'all';
       dt.setData(MIME, JSON.stringify({ side: p.side, paths }));
-      dt.setData('text/uri-list', paths.map(fileURL).join('\r\n'));
-      dt.setData('text/plain', paths.join('\n'));
+      if (outside) {
+        dt.setData('text/uri-list', paths.map(fileURL).join('\r\n'));
+        dt.setData('text/plain', paths.join('\n'));
+      }
       const img = document.createElement('div');
       img.className = 'mc-system-dragimg';
       img.textContent = list.length === 1 ? list[0].name : plural(list.length, 'file');

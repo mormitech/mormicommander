@@ -22,6 +22,13 @@ let completer = null;
 export function setCmdlineCompleter(fn) { completer = fn; }
 export function addCmdlineHandler(fn, { first = false } = {}) { if (first) handlers.unshift(fn); else handlers.push(fn); }
 
+// cmdHistoryMax is how many commands the history keeps: the setting "cmdHistoryLength" (Options > Directory hotlist >
+// Command line history size), 50 when it is not set, as it always was, and from 1 to 500.
+export function cmdHistoryMax(v) {
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? Math.max(1, Math.min(500, n)) : 50;
+}
+
 const el = () => document.getElementById('cmd');
 let histPos = -1;
 let typed = false; // the field has the focus because the user typed in a panel (not because it was clicked)
@@ -143,7 +150,7 @@ export const cmdline = {
     const kept = withoutUrlPasswords(text);
     const h = this.history.filter((x) => x !== kept);
     h.unshift(kept);
-    setSetting('cmdHistory', h.slice(0, 50));
+    setSetting('cmdHistory', h.slice(0, cmdHistoryMax(getSetting('cmdHistoryLength', 50))));
     histPos = -1;
     this.clear();
     for (const fn of handlers) {

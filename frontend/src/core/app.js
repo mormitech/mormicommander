@@ -160,6 +160,8 @@ export const app = {
   drivePath(p, v) {
     const o = p.other;
     if (p.path && this.driveFor(p.path) === v) return v.path;
+    // Options > Operation > Go to root when changing drive: always the drive's root, not the other panel's folder
+    if (this.config?.values?.['Operation.AlwaysToRoot'] === '1') return v.path;
     if (o && o.path && this.driveFor(o.path) === v) return o.path;
     return v.path;
   },

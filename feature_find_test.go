@@ -259,3 +259,23 @@ func TestFindQuickMatch(t *testing.T) {
 	no.Wildcards = false
 	check("d*", no, []int{})
 }
+
+// Options > Find files > Stop after this many results: a search stops once it has found that many, and keeps only
+// those; 0 (the default) is no limit.
+func TestFindResultLimit(t *testing.T) {
+	f := newTestFind(t)
+	dir := t.TempDir()
+	for i := 0; i < 20; i++ {
+		findWriteFile(t, filepath.Join(dir, "f"+strings.Repeat("x", i)+".txt"), "x")
+	}
+	old := findMaxResults
+	t.Cleanup(func() { findMaxResults = old })
+	findMaxResults = func() int { return 0 }
+	if got := runTestFind(t, f, FindRequest{SearchFor: "*.txt", SearchIn: dir, Depth: -1}); len(got) != 20 {
+		t.Errorf("no limit: %d results, want 20", len(got))
+	}
+	findMaxResults = func() int { return 3 }
+	if got := runTestFind(t, f, FindRequest{SearchFor: "*.txt", SearchIn: dir, Depth: -1}); len(got) != 3 {
+		t.Errorf("limit 3: %d results", len(got))
+	}
+}

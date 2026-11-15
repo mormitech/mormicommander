@@ -30,7 +30,8 @@ import { size, date, plural } from '../core/format.js';
 import { track } from '../core/busy.js';
 import { comboFromEvent } from '../core/keys.js';
 import { findIncludeHidden } from '../core/hidden.js';
-import { on as optOn } from './config/util.js';
+import { on as optOn, opt as optValue } from './config/util.js';
+import { findDefaults } from './find-defaults.js';
 import { runJob } from '../core/jobs.js';
 import { DUP_RULES, planDuplicates, hasDuplicates, dropGone } from './find-dups-lib.js';
 
@@ -432,6 +433,7 @@ function statusText() {
   let t = S.items.length ? `${plural(S.files, 'file')} and ${plural(S.dirs, 'folder')} found` : 'No files found';
   if (d.groups) t += ` in ${plural(d.groups, 'group')} of duplicates`;
   if (d.stopped) t = `Search stopped: ${t}`;
+  if (d.limit) t = `Search stopped at ${plural(d.limit, 'result')} (Options > Find files): ${t}`;
   if (d.errors) t += `; ${plural(d.errors, 'folder or file', 'folders or files')} could not be read`;
   return t + '.';
 }
@@ -754,9 +756,11 @@ async function openDialog(app, args = {}) {
     // fields
     if (resume) fill(resume, { keepIn: false });
     else {
-      fill(setup.last || { searchFor: '*', depth: -1 }, { keepIn: true });
+      // the last search's fields, or Options > Find files when there is no last search (find-defaults.js)
+      const fresh = findDefaults((name) => optValue(name));
+      fill(setup.last || fresh, { keepIn: true });
       // hidden files as the last search had them, or as the panels show them when the option says so (issue #4)
-      setHidden(findIncludeHidden({ last: setup.last, followPanel: optOn('FindFiles.HiddenFromPanel'), showHidden: app.showHidden }));
+      setHidden(findIncludeHidden({ last: setup.last, followPanel: optOn('FindFiles.HiddenFromPanel'), showHidden: app.showHidden, fresh: !fresh.skipHidden }));
       setVal('ff-for', setup.history?.name?.[0] || setup.last?.searchFor || '*');
       // (from a branch view the search starts in the folder it lists: its subfolders are searched anyway)
       setVal('ff-in', /^branch(sel)?:\/\//i.test(p.path) && p.parent ? p.parent : p.path);

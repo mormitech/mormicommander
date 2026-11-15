@@ -147,6 +147,15 @@ func TestOptionsWiredInIssue94(t *testing.T) {
 		"Log.Enabled", "Log.File", "FolderTabs.Show", "FolderTabs.MultiLine", "FolderTabs.CloseButton",
 		"FolderTabs.DoubleClickOpen", "FolderTabs.NewNextToCur", "FolderTabs.ConfirmCloseAll", "FolderTabs.LockedIcon",
 		"FolderTabs.MaxTitleChars", "Misc.HideNoEffect",
+		// the second round
+		"Operation.RenameSelectsName", "Operation.DoubleClickParent", "Operation.AlwaysToRoot", "Operation.ArchiveEnter",
+		"CopyDelete.ConfirmOverwrite", "CopyDelete.ConfirmDragDrop", "DragDrop.DragToOtherApp", "Lister.TabWidth",
+		"Lister.BinaryWidth", "Lister.ImageFit", "Font.ListerSize", "ViewerEditor.Viewer", "Hotlist.CmdHistSize",
+		"Hotlist.FrequentSize", "Hotlist.ShowPaths", "Packer.DefaultPacker", "FolderTabs.Bottom", "FolderTabs.RestoreTabs",
+		"FolderTabs.ActivateNew", "FavoriteTabs.RestoreBoth", "FavoriteTabs.CloseOldTabs", "FavoriteTabs.ConfirmReplac",
+		"CustomColumns.AutoSwitch", "Thumbnails.Width", "Log.MaxSizeKB", "Misc.CmdLineAutoCmp", "FindFiles.Depth",
+		"FindFiles.Archives", "FindFiles.CaseSensitive", "FindFiles.RegEx", "FindFiles.Hidden", "FindFiles.FollowLinks",
+		"FindFiles.MaxResults",
 	} {
 		f, ok := config.LookupSetting(name)
 		if !ok {

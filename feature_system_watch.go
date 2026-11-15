@@ -251,7 +251,9 @@ func (s *SystemWatch) State() map[string]any {
 }
 
 // Write appends lines to the log file when the log is on (settings "enableLog", path in "logFile", default
-// mormicommander.log in the settings folder). Each line gets the date and time in front.
+// mormicommander.log in the settings folder). Each line gets the date and time in front. With "logMaxKB" (Options >
+// Log file > Start a new log above; 0, the default, never), a log that has reached that size is renamed to the same
+// name with ".old" added, replacing the one before, and a new log is started.
 func (l *SystemLog) Write(lines []string) error {
 	if l.app.settings == nil || l.app.mock != nil {
 		return nil
@@ -269,6 +271,14 @@ func (l *SystemLog) Write(lines []string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
+	if max := logMaxBytes(l.app.settings.Get("logMaxKB")); max > 0 {
+		if st, err := os.Stat(path); err == nil && st.Size() >= max {
+			_ = os.Remove(path + ".old") // (Windows can't rename over an existing file)
+			if err := os.Rename(path, path+".old"); err != nil {
+				return err
+			}
+		}
+	}
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return err
@@ -281,6 +291,22 @@ func (l *SystemLog) Write(lines []string) error {
 	}
 	_, err = f.WriteString(b.String())
 	return err
+}
+
+// logMaxBytes is the size in bytes at which the log starts again, from the setting "logMaxKB" (a number of kB, as
+// the settings file holds it); 0 means never.
+func logMaxBytes(v any) int64 {
+	var kb float64
+	switch x := v.(type) {
+	case float64:
+		kb = x
+	case int:
+		kb = float64(x)
+	}
+	if kb <= 0 {
+		return 0
+	}
+	return int64(kb) * 1024
 }
 
 // Path is the log file that Write uses.

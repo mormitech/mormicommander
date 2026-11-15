@@ -20,6 +20,7 @@ import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { num as optNum } from './config/util.js';
 import './vfs.css';
 
 const base = (p) => String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
@@ -55,8 +56,12 @@ async function updateInfo(p) {
 }
 
 // ---- Enter on an archive opens it as a folder ----
-async function openArchive(panel, entry, path) {
-  if (entry.dir || !(await go.FS.IsArchive(entry.name).catch(() => false))) return false;
+// With Options > Operation > Enter on an archive set to "Open with associated program" (ArchiveEnter 1), Enter leaves
+// archives to the system's app for them; Ctrl+PgDn (opts.intoArchive) still opens them like a folder, as in TC.
+async function openArchive(panel, entry, path, opts = {}) {
+  if (entry.dir) return false;
+  if (!opts.intoArchive && optNum('Operation.ArchiveEnter', 0) === 1) return false;
+  if (!(await go.FS.IsArchive(entry.name).catch(() => false))) return false;
   await panel.go(path);
   return true;
 }

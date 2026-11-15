@@ -6,6 +6,25 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.4 – 2026-11-15
+
+### Changed
+
+- **33 more Options work** (#94); they are off the "no effect yet" list. With nothing stored, each one does what the
+  app did before.
+  - Bridged to existing settings: Shift+F6 selects the name (Operation.RenameSelectsName), Confirm overwriting files,
+    Confirm drag and drop, Allow dragging to other programs (new "dragToOtherApp", on by default), Lister tab width,
+    binary line width, font size, external viewer and image size (new: 2 also enlarges small images), command line
+    history size and frequently used folders count (were fixed at 50 and 20), hotlist paths, default packer, tabs
+    below the file list, restore tabs at startup, activate tabs opened with Ctrl+Up, the three Favorite tabs options,
+    custom column sets switching by folder, thumbnail size, and a size limit for the error log (renamed to .old).
+  - Read directly: double click on empty space goes up, go to root when changing drive, Enter on an archive opens it
+    with its program, command line Tab completion, the Find Files defaults for the first search (depth, archives,
+    case, regular expressions, hidden files, links) and Stop after this many results.
+  - Still marked "no effect yet": options whose feature isn't there (FTP and proxy, icons, translations, thumbnail
+    cache, ignore list, most log categories) or that can't be honest as labelled (Zip.Level's "0 = store", the refresh
+    delay).
+
 ## 0.14.3 – 2026-11-15
 
 ### Added

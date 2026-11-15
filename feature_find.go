@@ -51,6 +51,21 @@ type findRun struct {
 	results []find.Result
 	done    bool
 	cut     bool // more results than findMaxKept: the rest went to the page but is not kept here
+	max     int  // stop after this many results (Options > Find files > Stop after this many results; 0 = no limit)
+}
+
+// findMaxResults reads the result limit of new searches from the Options dialog (0, no limit, when the settings can't
+// be read). It is a variable so the tests can set a limit without a settings file.
+var findMaxResults = func() int {
+	if configFeature == nil {
+		return 0
+	}
+	cfg, err := configFeature.get()
+	if err != nil {
+		return 0
+	}
+	defer configFeature.mu.Unlock()
+	return cfg.Settings.FindFiles.MaxResults
 }
 
 // findMaxKept is how many results a search keeps for Feed to listbox and saving (the page gets all of them).
@@ -447,6 +462,7 @@ type FindDone struct {
 	Elapsed  int64            `json:"elapsed"` // milliseconds
 	Groups   int              `json:"groups,omitempty"`
 	Cut      bool             `json:"cut,omitempty"`
+	Limit    int              `json:"limit,omitempty"` // the search stopped at this many results (the option's limit)
 }
 
 // Start checks the request and starts the search; the answer is the search's number for the events and Stop. The
@@ -463,7 +479,7 @@ func (f *Find) Start(r FindRequest) (int, error) {
 	f.remember(r, o)
 	f.mu.Lock()
 	f.seq++
-	run := &findRun{id: f.seq}
+	run := &findRun{id: f.seq, max: findMaxResults()}
 	f.runs[run.id] = run
 	// only the last few searches are kept (for Feed to listbox and search in results)
 	for id := range f.runs {
@@ -494,6 +510,7 @@ func (f *Find) pump(run *findRun) {
 	}
 	ch := run.job.Results()
 	groups := 0
+	limited := false // the result limit was reached and the search was stopped
 	for {
 		select {
 		case r, ok := <-ch:
@@ -501,7 +518,9 @@ func (f *Find) pump(run *findRun) {
 				flush()
 				st, err := run.job.Wait()
 				d := FindDone{ID: run.id, Files: files, Dirs: dirs, Errors: st.Errors, Examined: st.Files, Elapsed: st.Elapsed.Milliseconds(), Groups: groups}
-				if errors.Is(err, context.Canceled) {
+				if limited {
+					d.Limit = run.max
+				} else if errors.Is(err, context.Canceled) {
 					d.Stopped = true
 				} else if err != nil {
 					d.Error = findErrText(err)
@@ -517,6 +536,9 @@ func (f *Find) pump(run *findRun) {
 				run.mu.Unlock()
 				f.app.emit("find-done", d)
 				return
+			}
+			if limited {
+				continue // (results that were on their way when the search was stopped)
 			}
 			if r.IsDir {
 				dirs++
@@ -536,6 +558,10 @@ func (f *Find) pump(run *findRun) {
 			batch = append(batch, findItemOf(r))
 			if len(batch) >= 500 {
 				flush()
+			}
+			if run.max > 0 && files+dirs >= run.max {
+				limited = true
+				run.job.Stop()
 			}
 		case <-tick.C:
 			flush()
