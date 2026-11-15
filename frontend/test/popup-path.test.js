@@ -1,7 +1,14 @@
 // Folder paths in popup lists (src/core/popup.js, src/core/fitpath.js, issue #95): the folder history (Alt+Down) used
 // to cut long paths at the right edge, so ".../A/s1" and ".../A/s2" looked the same. A path row is now drawn as its
 // start (which CSS shortens with "…") and its last name (kept whole), with the full path as a tooltip.
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
+
+// popup.js reaches the Wails runtime through go.js, whose load-time timer could outlive this quick file's environment;
+// a stand-in bridge keeps the runtime out (see fitpath.test.js).
+vi.mock('../src/core/go.js', () => {
+  const go = new Proxy({}, { get: () => new Proxy({}, { get: () => () => Promise.resolve(null) }) });
+  return { go, on: () => () => {}, errText: String };
+});
 import { splitTail } from '../src/core/fitpath.js';
 import { labelHTML } from '../src/core/popup.js';
 

@@ -2,7 +2,14 @@
 // Long paths are shortened at the start, not the end (src/core/fitpath.js, issue #129): the path bar hides leading
 // folders behind a "…" so the current folder's name stays visible, and the prompt keeps the end of the path. happy-dom
 // lays nothing out, so a stand-in layout makes every character 8 px wide (hidden elements take no room).
-import { beforeAll, describe, expect, test } from 'vitest';
+import { beforeAll, describe, expect, test, vi } from 'vitest';
+
+// panel.js reaches the Wails runtime through go.js; the runtime starts a 50 ms timer on load that could fire after this
+// quick file's environment is gone ("window is not defined"), so the bridge is a stand-in here, as in sel-side.test.js.
+vi.mock('../src/core/go.js', () => {
+  const go = new Proxy({}, { get: () => new Proxy({}, { get: () => () => Promise.resolve(null) }) });
+  return { go, on: () => () => {}, errText: String };
+});
 import { crumbCut, tailCut, fitCrumbs, fitText, ELLIPSIS } from '../src/core/fitpath.js';
 import { splitPath } from '../src/core/panel.js';
 

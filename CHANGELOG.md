@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.1 – 2026-11-15
+
+Release of 0.14.0 (its macOS build stopped on a test timing problem, so 0.14.0 was never published).
+
+### Fixed
+
+- Tests: fitpath.test.js and popup-path.test.js no longer load the Wails runtime, whose 50 ms start-up timer could fire
+  after the file's test environment was gone and fail the run ("window is not defined"), as it did on the macOS
+  runner for v0.14.0.
+
 ## 0.14.0 – 2026-11-15
 
 Release of 0.13.1 to 0.13.4: the tech-debt round and fixes from testing the Network panel against a real NAS. Servers
