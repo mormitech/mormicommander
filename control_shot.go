@@ -47,12 +47,24 @@ func overlayShots(base image.Image, frame dlgRect, overlays []shotOverlay) *imag
 	scale := float64(b.Dx()) / float64(frame.W)
 	for _, o := range overlays {
 		ob := o.img.Bounds()
+		if groupShot(ob, o.rect, scale) {
+			continue
+		}
 		x := int(float64(o.rect.X-frame.X)*scale + 0.5)
 		y := int(float64(o.rect.Y-frame.Y)*scale + 0.5)
 		r := image.Rect(x, y, x+ob.Dx(), y+ob.Dy())
 		draw.Draw(out, r, o.img, ob.Min, draw.Over)
 	}
 	return out
+}
+
+// groupShot tells whether a dialog window's picture is bigger than the window itself: newer macOS (26) takes a child
+// window together with its parent and the parent's other children, so the picture is the whole group, and the
+// window's own picture already shows the dialog. Laying such a picture over it would draw the window a second time,
+// shifted to where the dialog stands, so it is left out. A few pixels of slack allow for rounding.
+func groupShot(img image.Rectangle, rect dlgRect, scale float64) bool {
+	const slack = 4
+	return float64(img.Dx()) > float64(rect.W)*scale+slack || float64(img.Dy()) > float64(rect.H)*scale+slack
 }
 
 // shotDialog is what the screenshot needs to know of a dialog window over the window it takes.

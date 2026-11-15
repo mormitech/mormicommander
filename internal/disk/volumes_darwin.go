@@ -18,8 +18,10 @@ package disk
 
 import (
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"golang.org/x/sys/unix"
 
@@ -59,7 +61,9 @@ func Volumes() []Volume {
 			out = append(out, Volume{Name: entries[i].Name(), Path: p, Kind: "network", Stale: true})
 		case errs[i] == nil && vols[i] != nil:
 			v := *vols[i]
-			v.Name = entries[i].Name()
+			if v.Name == "" {
+				v.Name = entries[i].Name()
+			}
 			out = append(out, v)
 		}
 	}
@@ -80,7 +84,42 @@ func darwinMount(p string) (*Volume, error) {
 		return nil, nil
 	}
 	bs := uint64(st.Bsize)
-	return &Volume{Path: p, Kind: darwinKind(cstr(st.Fstypename[:]), st.Flags), Total: st.Blocks * bs, Free: st.Bavail * bs}, nil
+	kind := darwinKind(cstr(st.Fstypename[:]), st.Flags)
+	v := &Volume{Path: p, Kind: kind, Total: st.Blocks * bs, Free: st.Bavail * bs}
+	if kind == "network" {
+		v.Name = shareLabel(filepath.Base(p), cstr(st.Mntfromname[:]))
+	}
+	return v, nil
+}
+
+// shareLabel is the drive bar name of a network share mounted at a folder named folder from source
+// ("//user@host/share"). macOS sometimes names the folder after the server instead of the share (share "z" of
+// DiskStation.local mounts at /Volumes/DiskStation.local), so a folder named like the server shows the share's name;
+// any other folder keeps its own name ("" means the folder name).
+func shareLabel(folder, source string) string {
+	rest, ok := strings.CutPrefix(source, "//")
+	if !ok {
+		return ""
+	}
+	host, share, _ := strings.Cut(rest, "/")
+	if i := strings.LastIndex(host, "@"); i >= 0 {
+		host = host[i+1:]
+	}
+	if j := strings.LastIndex(host, ":"); j >= 0 && !strings.Contains(host[j:], "]") {
+		host = host[:j]
+	}
+	share = strings.Trim(share, "/")
+	if share == "" || strings.Contains(share, "/") {
+		return ""
+	}
+	if dec, err := url.PathUnescape(share); err == nil {
+		share = dec
+	}
+	short, _, _ := strings.Cut(host, ".")
+	if strings.EqualFold(folder, host) || strings.EqualFold(folder, short) {
+		return share
+	}
+	return ""
 }
 
 // darwinKind classifies a volume by its file system type name and statfs flags (see the file comment).

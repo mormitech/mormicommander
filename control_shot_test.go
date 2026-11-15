@@ -73,6 +73,23 @@ func TestOverlayShotsClipsAndOrders(t *testing.T) {
 	}
 }
 
+// Newer macOS takes a dialog window together with its parent window, so its picture is the whole window group, which
+// the window's own picture already shows: it must not be laid over again (that drew the window twice, shifted).
+func TestOverlayShotsSkipsGroupPictures(t *testing.T) {
+	base := solid(100, 80, cBase)
+	frame := dlgRect{X: 0, Y: 0, W: 100, H: 80}
+	out := overlayShots(base, frame, []shotOverlay{
+		{solid(100, 80, cRed), dlgRect{X: 30, Y: 20, W: 40, H: 20}}, // the whole group, not the 40x20 dialog
+		{solid(10, 10, cBlue), dlgRect{X: 5, Y: 5, W: 10, H: 10}},   // a dialog window's own picture
+	})
+	if !same(out.At(50, 30), cBase) || !same(out.At(99, 79), cBase) {
+		t.Fatal("a picture of the whole window group was laid over the window")
+	}
+	if !same(out.At(8, 8), cBlue) {
+		t.Fatal("a dialog window's own picture was left out")
+	}
+}
+
 func TestOverlayShotsNothingToLay(t *testing.T) {
 	base := solid(4, 4, cBase)
 	if out := overlayShots(base, dlgRect{W: 0}, []shotOverlay{{solid(2, 2, cRed), dlgRect{}}}); !same(out.At(0, 0), cBase) {

@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.4 – 2026-11-15
+
+### Fixed
+
+- Drive bar: a network share that macOS mounted at a folder named after the server (share "z" of DiskStation at
+  /Volumes/DiskStation.local) shows the share's name.
+- Control mode: a screenshot with an open dialog no longer shows the window twice. Newer macOS takes a dialog window
+  together with its parent, so its picture is the whole window group, which the window's own picture already shows;
+  such a picture is no longer laid over it.
+
 ## 0.13.3 – 2026-11-15
 
 ### Fixed
