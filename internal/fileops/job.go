@@ -131,8 +131,9 @@ func (j *job) finish() {
 			}
 		}
 	})
-	close(j.done)
+	// the closing log line comes before done is closed, so whoever waits for the job finds it in the log
 	j.log("done", "", "", nil)
+	close(j.done)
 	j.q.Emit(EventDone, j.snapshot())
 }
 
