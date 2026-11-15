@@ -6,10 +6,5 @@
 
 package disk
 
-import "errors"
-
-// UsageOf is not supported on this platform.
-func UsageOf(path string) (Usage, error) { return Usage{}, errors.New("unsupported platform") }
-
 // Volumes lists only "/" on this platform.
 func Volumes() []Volume { return []Volume{{Name: "Root", Path: "/", Kind: "fixed"}} }

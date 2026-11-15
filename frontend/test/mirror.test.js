@@ -32,6 +32,16 @@ const { Copy } = await import('../src/core/mirror-copy.js');
 const { Sequencer } = await import('../src/core/mirror-dom.js');
 
 const tick = () => new Promise((r) => setTimeout(r, 0));
+// eventually runs check (which throws until the window has caught up) until it passes, for up to 2 s: changes of the
+// page's <head> and <html> reach the window through a MutationObserver, whose delivery happy-dom schedules itself, so
+// one tick is not always enough (board #145).
+async function eventually(check) {
+  const end = Date.now() + 2000;
+  for (;;) {
+    try { return check(); } catch (e) { if (Date.now() > end) throw e; }
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
 const pushesFor = (name) => calls.filter((c) => c.m === 'Push' && c.args[0] === name).map((c) => c.args[1]);
 
 // win builds the stand-in for a dialog window from the last Open and keeps it in step with the Pushes.
@@ -304,14 +314,16 @@ describe('mirror: popups, look, nested dialogs', () => {
     st.id = 'mc-config-colors';
     st.textContent = ':root { --bg: #123; }';
     document.head.append(st);
-    await tick();
-    w.sync();
-    expect(w.doc.documentElement.dataset.theme).toBe('dark');
-    expect(w.doc.head.querySelector('style[data-mirror="mc-config-colors"]').textContent).toBe(':root { --bg: #123; }');
+    await eventually(() => {
+      w.sync();
+      expect(w.doc.documentElement.dataset.theme).toBe('dark');
+      expect(w.doc.head.querySelector('style[data-mirror="mc-config-colors"]')?.textContent).toBe(':root { --bg: #123; }');
+    });
     st.textContent = ':root { --bg: #456; }';
-    await tick();
-    w.sync();
-    expect(w.doc.head.querySelector('style[data-mirror="mc-config-colors"]').textContent).toBe(':root { --bg: #456; }');
+    await eventually(() => {
+      w.sync();
+      expect(w.doc.head.querySelector('style[data-mirror="mc-config-colors"]')?.textContent).toBe(':root { --bg: #456; }');
+    });
     st.remove();
     delete document.documentElement.dataset.theme;
     s.close();

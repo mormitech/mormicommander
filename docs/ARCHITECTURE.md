@@ -297,6 +297,13 @@ check its notes for a full fix of the advisory (a frame check on `/wails/runtime
 runtime under every window, so it needs its own change: update go.mod and the npm runtime together, run all checks,
 build for every platform and try the app by hand on macOS, Windows and Linux before merging.
 
+Checked again on 2026-11-15 (issue #116): v3.1.0 is still the newest stable release; after it there are only
+3.2.0 nightlies, so there is nothing settled to move to yet. GHSA-2p5f-2gx8-mh8m is no longer listed among Wails'
+advisories. The frame-related advisories it has now are GHSA-vfcr-9mmf-hc6m (macOS child frames reaching the
+framework channel), fixed in v3.0.0-beta.31 and so in our v3.1.0, and GHSA-r5j2-ghh9-2jqw (Linux: the script bridge
+checks the top-level address instead of the calling frame), which lists Wails v2 up to 2.17.0 only. That one concerns
+mormiView and mormiDiskFree, still on v2.17.0 (issue #117), not this app.
+
 ## Conventions
 
 - **Words:** plain, short, everyday English in the UI, messages and comments ("image", not "picture"; "folder", not

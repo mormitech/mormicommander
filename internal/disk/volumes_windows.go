@@ -25,19 +25,6 @@ import (
 // label and size.
 const queryTimeout = 1500 * time.Millisecond
 
-// UsageOf reports the volume that holds path.
-func UsageOf(path string) (Usage, error) {
-	p, err := windows.UTF16PtrFromString(path)
-	if err != nil {
-		return Usage{}, err
-	}
-	var avail, total, free uint64
-	if err := windows.GetDiskFreeSpaceEx(p, &avail, &total, &free); err != nil {
-		return Usage{}, err
-	}
-	return Usage{Total: total, Free: avail}, nil
-}
-
 // noErrorDialogs turns off the system's critical-error and open-file error
 // boxes for this process, so querying an empty drive fails quietly.
 func noErrorDialogs() {
