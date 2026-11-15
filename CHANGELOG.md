@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.12.1 – 2026-11-15
+
+### Fixed
+
+- macOS: the Network button found no servers when the app was started from the Dock or Finder. macOS's Local Network
+  privacy shows an app nothing on the local network unless the app declares that it uses it; the app now does
+  (NSLocalNetworkUsageDescription, NSBonjourServices), so macOS asks once. When nothing is found, the message points to
+  System Settings > Privacy & Security > Local Network.
+
 ## 0.12.0 – 2026-11-14
 
 Release of everything since 0.11.0 (0.11.1 to 0.11.7, listed below), and the **network neighbourhood**: browse the
