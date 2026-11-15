@@ -284,6 +284,13 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 		return false
 	}
 	name := filepath.Base(it.src)
+	if isLink(it.info) || (it.same && wm == wmCreate) {
+		// a link or a move by rename replaces what is in the way at once: with TrashReplaced it goes to the trash first
+		if err, _ := j.try("Can't move the old "+filepath.Base(dst)+" to the trash", dst, "", nil, func() error { return j.trashReplaced(dst) }); err != nil {
+			j.passBytes(size)
+			return false
+		}
+	}
 	if isLink(it.info) {
 		if it.same {
 			if err := rename(it.src, dst); err == nil {
@@ -332,6 +339,19 @@ func (j *job) copyEntry(it item, verb string, move bool) bool {
 	}
 	j.log(verb, it.src, dst, nil)
 	return !move || j.removeSource(it)
+}
+
+// trashReplaced moves the file or link at dst, which an overwrite is about to replace, to the system trash when the
+// job asks for it (Request.TrashReplaced). Nothing there, a folder there or the option off: nothing happens.
+func (j *job) trashReplaced(dst string) error {
+	if !j.req.TrashReplaced {
+		return nil
+	}
+	di, err := lstat(dst)
+	if err != nil || (di.IsDir() && !isLink(di)) {
+		return nil
+	}
+	return trashMove(j.ctx, dst)
 }
 
 // replaceWithLink makes the link dst pointing to target. Something already at dst (an overwrite) is replaced only
@@ -518,6 +538,9 @@ func (j *job) copyFile(src, dst string, info fs.FileInfo, wm writeMode) (err err
 	if dst != final {
 		if j.req.NoPerms && oldInfo != nil {
 			chmod(dst, oldInfo.Mode().Perm()) // without permission copying an overwrite keeps the old file's mode
+		}
+		if err := j.trashReplaced(final); err != nil {
+			return err // the deferred cleanup removes the temporary file; the old target is still whole
 		}
 		err := rename(dst, final)
 		if err != nil && overLink {

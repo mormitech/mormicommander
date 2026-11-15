@@ -16,6 +16,8 @@
 //   bigFileMode, bufferKB, overwriteDefault ('' ask, 'overwrite', 'skip', 'older', 'rename', 'rename_target',
 //   'larger', 'smaller'), showOptions, renameSelectExt (false: Shift+F6 selects the name without the extension),
 //   speedLimitOn / speedLimitKB (the transfer window's limit for background jobs).
+//   trashReplaced (false)      copy/move: files and links an overwrite replaces go to the trash first (board #99); the
+//                              dialog's checkbox remembers the last choice
 //   skipErrorsBackground (false) background jobs don't stop to ask when a file fails: the failures are listed at the
 //                              end, with Retry failed, Copy list and Save log (board issue #15, core/joberrors.js)
 // Histories: "copyHistory" (copy/move targets) and "mkdirHistory" (F7 names), newest first.
@@ -39,7 +41,7 @@ const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
   background: false, verify: false, copyTimes: true, copyPermissions: true, copyOwner: false, copyAttributes: true, followLinks: false,
   checkFreeSpace: true, ignoreErrors: false, bigFileMode: false, bufferKB: 1024, overwriteDefault: '', showOptions: false, renameSelectExt: false,
-  skipErrorsBackground: false,
+  skipErrorsBackground: false, trashReplaced: false,
 };
 const opt = (app, key) => { const s = app.setting('fileops', {}) || {}; return s[key] ?? DEFAULTS[key]; };
 const setOpt = (app, key, v) => app.setSetting('fileops', { ...(app.setting('fileops', {}) || {}), [key]: v });
@@ -213,6 +215,7 @@ function copyDialog(app, { move, same, items }) {
           ${ch('links', 'Copy links as links (off: copy what they point to)', !opt(app, 'followLinks'))}
           ${ch('bigfile', 'Big file mode (large buffer, no system cache)', opt(app, 'bigFileMode'))}
           ${ch('ignoreErrors', 'Don\'t stop on files that can\'t be read (list them at the end)', opt(app, 'ignoreErrors'))}
+          ${ch('trashReplaced', 'Move files that are overwritten to the trash', opt(app, 'trashReplaced'), 'The old file or link goes to the trash before the new one takes its place (local folders)')}
         </div>
       </div>
       <p class="mc-err" hidden></p>
@@ -274,8 +277,9 @@ function copyDialog(app, { move, same, items }) {
           text, t, queued: q,
           filter: $('#filter').value.trim(), overwrite: $('#overwrite').value, verify: $('#verify').checked, dates: $('#dates').checked,
           perms: $('#perms').checked, owner: $('#owner').checked, attrs: $('#attrs').checked, links: $('#links').checked,
-          bigfile: $('#bigfile').checked, ignoreErrors: $('#ignoreErrors').checked,
+          bigfile: $('#bigfile').checked, ignoreErrors: $('#ignoreErrors').checked, trashReplaced: $('#trashReplaced').checked,
         });
+        if ($('#trashReplaced').checked !== !!opt(app, 'trashReplaced')) setOpt(app, 'trashReplaced', $('#trashReplaced').checked);
       } finally { busy = false; }
     };
   }, null, {
@@ -306,7 +310,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     const t = await go.Jobs.ParseTarget(withSep(app, dst.path), items.length, fromOf(src, items));
     a = { text: '', t, queued: false, filter: '', overwrite: opt(app, 'overwriteDefault'), verify: opt(app, 'verify'), dates: opt(app, 'copyTimes'),
       perms: opt(app, 'copyPermissions'), owner: opt(app, 'copyOwner'), attrs: opt(app, 'copyAttributes'), links: !opt(app, 'followLinks'),
-      bigfile: opt(app, 'bigFileMode'), ignoreErrors: opt(app, 'ignoreErrors') };
+      bigfile: opt(app, 'bigFileMode'), ignoreErrors: opt(app, 'ignoreErrors'), trashReplaced: opt(app, 'trashReplaced') };
   } else {
     a = await copyDialog(app, { move, same, items });
     if (!a) return false;
@@ -332,7 +336,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     readOnly: opt(app, 'confirmOverwriteRO') ? '' : 'overwrite',
     filter: normFilter(a.filter),
     links: a.links ? '' : 'follow',
-    noDates: !a.dates, noPerms: !a.perms, noAttrs: !a.attrs, owner: !!a.owner, verify: !!a.verify,
+    noDates: !a.dates, noPerms: !a.perms, noAttrs: !a.attrs, owner: !!a.owner, verify: !!a.verify, trashReplaced: !!a.trashReplaced,
     bufferSize: a.bigfile ? 16 << 20 : Math.max(16, Number(opt(app, 'bufferKB')) || 1024) * 1024, noCache: !!a.bigfile,
     onError: onErrorFor({ ignoreErrors: !!a.ignoreErrors, background, skipErrorsBackground: !!opt(app, 'skipErrorsBackground') }),
     ignoreSpace: !opt(app, 'checkFreeSpace'),

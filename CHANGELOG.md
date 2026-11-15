@@ -6,6 +6,18 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.3 – 2026-11-15
+
+### Added
+
+- **Overwritten files can go to the trash** (#99), off by default. Copy/Move Options has "Move files that are overwritten
+  to the trash" (the dialog remembers the choice), and Synchronize directories has "Also trash files that are
+  overwritten" under "Delete to the trash". A copy still writes the new contents to a temporary file first, and only
+  when they are complete does the old file (or link) go to the trash and the new one take its name, so a failed copy
+  leaves the old file where it was; a failing trash stops that file with an error and changes nothing. A move within
+  one disk trashes the old file just before the rename. Folders in the way are never trashed. In Synchronize the
+  option works between local folders; on servers and in archives files are replaced as before.
+
 ## 0.14.2 – 2026-11-15
 
 Release of 0.14.0 (the 0.14.0 and 0.14.1 builds each stopped on a test timing problem, so neither was published).

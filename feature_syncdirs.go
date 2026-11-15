@@ -78,6 +78,9 @@ type SyncExecRequest struct {
 	// TrashAll (board issue #99, off by default): with Trash on, the emptied folders a sync removes and the links a
 	// link copy replaces go to the trash too, instead of being removed directly.
 	TrashAll bool `json:"trashAll"`
+	// TrashReplaced (board issue #99, off by default): with Trash on, a local file that a copy overwrites goes to the
+	// trash first instead of being replaced in place. On a server or in an archive files are replaced as before.
+	TrashReplaced bool `json:"trashReplaced"`
 	// Left and Right are the folders the window shows; when given, they must be the compared pair, so a sync never
 	// writes into folders the window no longer shows.
 	Left  string `json:"left"`
@@ -479,11 +482,14 @@ func (s *SyncDirs) Synchronize(id int, r SyncExecRequest) error {
 	}
 	if r.Trash {
 		opts.Trash = syncdirs.SystemTrash
-		if (lside != nil && lside.vfs != nil) || (rside != nil && rside.vfs != nil) {
+		remote := (lside != nil && lside.vfs != nil) || (rside != nil && rside.vfs != nil)
+		if remote {
 			// Servers and archives have no trash: deletes there are permanent, as the Synchronize dialog says.
 			opts.Trash = syncTrash
 		}
 		opts.TrashEmptyDirs, opts.TrashReplacedLinks = r.TrashAll, r.TrashAll
+		// an overwritten file goes to the trash only between local folders: syncTrash would delete it on a server
+		opts.TrashReplacedFiles = r.TrashReplaced && !remote
 	}
 	go func() {
 		rep, err := syncdirs.Execute(ctx, plan, lfs, rfs, opts)
