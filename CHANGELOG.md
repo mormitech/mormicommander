@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.0 – 2026-11-15
+
+Release of 0.13.1 to 0.13.4: the tech-debt round and fixes from testing the Network panel against a real NAS. Servers
+and shares show no made-up attributes; a button, bookmark or typed network://Server works right after the start; a
+share macOS mounts under the server's name shows the share's name in the drive bar; the operations log always has
+its closing line; and control-mode screenshots with a dialog are drawn once.
+
 ## 0.13.4 – 2026-11-15
 
 ### Fixed
