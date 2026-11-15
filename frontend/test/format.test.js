@@ -15,6 +15,10 @@ test('attr on Unix and Windows', () => {
   expect(attr(0o640, 0, 'linux')).toBe('rw-r-----');
   expect(attr(0, F.READONLY | F.HIDDEN, 'windows')).toBe('rah-');
   expect(attr(0, F.DIR | F.SYSTEM, 'windows')).toBe('---s');
+  // a server or share in the Network panel has no attributes: blank, while a real folder with no permissions shows dashes
+  expect(attr(0o755, F.DIR | F.NOATTR, 'darwin')).toBe('');
+  expect(attr(0, F.DIR | F.NOATTR, 'windows')).toBe('');
+  expect(attr(0, F.DIR, 'linux')).toBe('---------');
 });
 
 test('splitExt like vfs.SplitExt', () => {

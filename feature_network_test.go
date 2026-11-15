@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"mormicommander/internal/keychain"
 	"mormicommander/internal/netbrowse"
@@ -149,7 +151,7 @@ func TestNetworkFolder(t *testing.T) {
 	emit(netbrowse.Event{Server: netbrowse.Server{Name: "Gone", Host: "gone.local", Kind: "smb"}})
 	emit(netbrowse.Event{Gone: true, Server: netbrowse.Server{Name: "Gone", Kind: "smb"}})
 	l, _ = n.listNetwork(ctx, "network://")
-	if len(l.Entries) != 1 || l.Entries[0].Name != "NAS" || l.Entries[0].Flags&vfs.FlagDir == 0 {
+	if len(l.Entries) != 1 || l.Entries[0].Name != "NAS" || l.Entries[0].Flags&vfs.FlagDir == 0 || l.Entries[0].Flags&vfs.FlagNoAttr == 0 {
 		t.Fatalf("root: %+v", l.Entries)
 	}
 	if s := n.Status(); !s.Searching || s.Count != 2 {
@@ -163,7 +165,7 @@ func TestNetworkFolder(t *testing.T) {
 		t.Fatal(err)
 	}
 	l, err = n.listNetwork(ctx, "network://NAS/")
-	if err != nil || len(l.Entries) != 1 || l.Entries[0].Name != "media" || l.Parent != "network://" {
+	if err != nil || len(l.Entries) != 1 || l.Entries[0].Name != "media" || l.Parent != "network://" || l.Entries[0].Flags&vfs.FlagNoAttr == 0 {
 		t.Fatalf("shares: %+v %v", l, err)
 	}
 	l, err = n.listNetwork(ctx, "network://NAS/media")
@@ -182,5 +184,29 @@ func TestNetworkFolder(t *testing.T) {
 	}
 	if got := fsys.Join("network://", "NAS"); got != "network://NAS" {
 		t.Errorf("Join = %q", got)
+	}
+}
+
+// A server name used before the search has found it (a button bar "cd network://NAS", a bookmark, a typed path right
+// after the start) waits for the search instead of failing at once; a name nobody answers to still fails.
+func TestNetworkServerBeforeSearch(t *testing.T) {
+	n, _, _ := fakeNetwork(t)
+	n.watch = func(ctx context.Context, emit func(netbrowse.Event)) string {
+		time.Sleep(300 * time.Millisecond)
+		emit(netbrowse.Event{Server: netbrowse.Server{Name: "NAS", Host: "nas.local", Kind: "smb"}})
+		<-ctx.Done()
+		return ""
+	}
+	defer n.shutdown()
+	old := serverWait
+	serverWait = 3 * time.Second
+	defer func() { serverWait = old }()
+	ctx := context.Background()
+	if _, err := n.listNetwork(ctx, "network://NAS/"); errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("a server found a moment later: %v", err)
+	}
+	serverWait = 500 * time.Millisecond
+	if _, err := n.listNetwork(ctx, "network://Nobody"); !errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("a server nobody answers to: %v", err)
 	}
 }
