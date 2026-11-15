@@ -6,6 +6,38 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.13.0 – 2026-11-15
+
+Release of 0.12.1 and 0.12.2: the **Network panel**. The Network button (now at the right end of the drive bar) opens
+the network in the panel, servers appear as they answer and the search keeps running in the background. On macOS the
+app declares its use of the local network, so the system asks once, and servers are found at any hour.
+
+## 0.12.2 – 2026-11-15
+
+### Changed
+
+- **The Network button opens the network in the panel** (#148), like Total Commander's Network Neighborhood, instead
+  of a popup. The panel shows network://: a banner with a spinner while it searches, and servers appear one by one as
+  they answer. The search keeps running in the background while the app runs, so coming back to the folder shows at
+  once everything found meanwhile, and servers that go away disappear. Enter on a server lists its shares (asking for
+  a user name and password when needed); Enter on a share connects it and shows its files, with ".." back to the
+  shares. smb://server, nfs://server and afp://server typed in the path bar work the same way. An AFP server that
+  also answers SMB is listed once.
+- The drive bar shows Home and Network as icons only, with tooltips; Network sits at the right end of the bar.
+
+### Fixed
+
+- macOS: servers were not found before 10 in the morning, because dns-sd pads the hour with a blank.
+
+## 0.12.1 – 2026-11-15
+
+### Fixed
+
+- macOS: the Network button found no servers when the app was started from the Dock or Finder. macOS's Local Network
+  privacy shows an app nothing on the local network unless the app declares that it uses it; the app now does
+  (NSLocalNetworkUsageDescription, NSBonjourServices), so macOS asks once. When nothing is found, the message points to
+  System Settings > Privacy & Security > Local Network.
+
 ## 0.12.0 – 2026-11-14
 
 Release of everything since 0.11.0 (0.11.1 to 0.11.7, listed below), and the **network neighbourhood**: browse the

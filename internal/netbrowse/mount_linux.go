@@ -14,6 +14,8 @@ import (
 
 func discover(ctx context.Context) ([]Server, string) { return discoverAvahi(ctx) }
 
+func watch(ctx context.Context, emit func(Event)) string { return watchAvahi(ctx, emit) }
+
 // gioLocalPath is the local folder GVfs shows a mounted location under, "" when it isn't mounted.
 func gioLocalPath(ctx context.Context, uri string) string {
 	out, err := exec.CommandContext(ctx, "gio", "info", uri).Output()

@@ -11,6 +11,8 @@ import (
 
 func discover(ctx context.Context) ([]Server, string) { return discoverDNSSD(ctx) }
 
+func watch(ctx context.Context, emit func(Event)) string { return watchDNSSD(ctx, emit) }
+
 // mountedAt says where t is mounted now, "" when it isn't.
 func mountedAt(ctx context.Context, t Target) string {
 	out, err := exec.CommandContext(ctx, "mount").Output()

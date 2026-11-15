@@ -27,5 +27,13 @@
         <string>true</string>
         <key>NSHumanReadableCopyright</key>
         <string>@COPYRIGHT@</string>
+        <key>NSLocalNetworkUsageDescription</key>
+        <string>mormiCommander looks for file servers on your local network, and connects to the one you choose, only when you press the Network button or connect a network drive.</string>
+        <key>NSBonjourServices</key>
+        <array>
+            <string>_smb._tcp</string>
+            <string>_afpovertcp._tcp</string>
+            <string>_nfs._tcp</string>
+        </array>
     </dict>
 </plist>

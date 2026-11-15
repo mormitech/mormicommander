@@ -69,8 +69,9 @@ func runFor(ctx context.Context, d time.Duration, name string, args ...string) (
 
 // --- macOS: dns-sd ---
 
-// dnssdAdd matches a line of `dns-sd -B`: time, Add, flags, interface, domain, type, instance name.
-var dnssdAdd = regexp.MustCompile(`^\S+\s+(Add|Rmv)\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(.+?)\s*$`)
+// dnssdAdd matches a line of `dns-sd -B`: time, Add, flags, interface, domain, type, instance name. Before 10 in the
+// morning the time starts with a blank (" 7:17:44.781").
+var dnssdAdd = regexp.MustCompile(`^\s*\S+\s+(Add|Rmv)\s+\d+\s+\d+\s+(\S+)\s+(\S+)\s+(.+?)\s*$`)
 
 // ParseDNSSDBrowse reads the instances `dns-sd -B <type>` found (removed ones left out).
 func ParseDNSSDBrowse(out string) (names []string) {
@@ -143,6 +144,11 @@ func discoverDNSSD(ctx context.Context) ([]Server, string) {
 		}()
 	}
 	wg.Wait()
+	if len(out) == 0 {
+		// macOS shows an app nothing on the local network until it is allowed there (Local Network privacy); the
+		// question comes once, and a "Don't allow" is changed only in System Settings
+		return out, "No servers found. If your servers are missing, allow mormiCommander in System Settings > Privacy & Security > Local Network, then try again; or type a server."
+	}
 	return out, ""
 }
 

@@ -36,11 +36,13 @@ type Network struct {
 	shares       func(context.Context, netbrowse.Target, netbrowse.Creds) ([]netbrowse.Share, error)
 	mount        func(context.Context, netbrowse.Target, netbrowse.Creds, netbrowse.MountOptions) (netbrowse.Mounted, error)
 	unmount      func(context.Context, string) error
+	watch        func(context.Context, func(netbrowse.Event)) string
 	openKeychain func() (keychain.Keychain, error)
 	dir          func() string // where network.json lives
 
 	mu    sync.Mutex
-	temps []string // shares Open mounted, disconnected at the end
+	temps []string  // shares Open mounted, disconnected at the end
+	w     *netPanel // the Network panel's background search (feature_network_fs.go)
 }
 
 var networkFeature *Network
@@ -59,7 +61,7 @@ func init() {
 
 func newNetwork(a *App) *Network {
 	return &Network{app: a, discover: netbrowse.Discover, shares: netbrowse.Shares, mount: netbrowse.Mount,
-		unmount: netbrowse.Unmount, openKeychain: keychain.Open, dir: configDir}
+		unmount: netbrowse.Unmount, watch: netbrowse.Watch, openKeychain: keychain.Open, dir: configDir}
 }
 
 // NetServer is a server in the Network dialog.
@@ -262,8 +264,11 @@ func (n *Network) Forget(address string) error {
 	return n.saveRecent(keep)
 }
 
-// shutdown disconnects the shares Open mounted.
+// shutdown stops the background search and disconnects the shares Open mounted.
 func (n *Network) shutdown() {
+	if w := n.watchState(); w.stop != nil {
+		w.stop()
+	}
 	n.mu.Lock()
 	temps := n.temps
 	n.temps = nil

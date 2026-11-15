@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"mormicommander/internal/keychain"
 	"mormicommander/internal/netbrowse"
+	"mormicommander/internal/vfs"
 )
 
 // fakeNetwork is a Network with a fake network: one server "nas" whose shares need user "pat" with password "pw".
@@ -110,5 +114,73 @@ func TestNetworkOpenMountsAreTemporary(t *testing.T) {
 	n.shutdown()
 	if len(*unmounted) != 1 || (*unmounted)[0] != "/Volumes/media" {
 		t.Fatalf("disconnected at the end: %v, want only the opened share", *unmounted)
+	}
+}
+
+// The network folder (#148): the background search fills the root as servers answer (an AFP twin of an SMB server is
+// left out), a server lists its shares, a share is mounted and shown with ".." back to the shares, and a server that
+// wants a password makes the page ask.
+func TestNetworkFolder(t *testing.T) {
+	n, _, _ := fakeNetwork(t)
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "movie.mkv"), []byte("x"), 0o644)
+	n.app.fs = vfs.Local{}
+	emitted := make(chan func(netbrowse.Event), 1)
+	n.watch = func(ctx context.Context, emit func(netbrowse.Event)) string {
+		emitted <- emit
+		<-ctx.Done()
+		return ""
+	}
+	n.mount = func(_ context.Context, tg netbrowse.Target, c netbrowse.Creds, _ netbrowse.MountOptions) (netbrowse.Mounted, error) {
+		if c.Password != "pw" {
+			return netbrowse.Mounted{}, netbrowse.ErrAuth
+		}
+		return netbrowse.Mounted{Path: dir, Made: true}, nil
+	}
+	defer n.shutdown()
+	ctx := context.Background()
+	l, err := n.listNetwork(ctx, "network://")
+	if err != nil || len(l.Entries) != 0 {
+		t.Fatalf("empty root: %+v %v", l, err)
+	}
+	emit := <-emitted
+	emit(netbrowse.Event{Server: netbrowse.Server{Name: "NAS", Host: "nas.local", Kind: "smb"}})
+	emit(netbrowse.Event{Server: netbrowse.Server{Name: "NAS", Host: "nas.local", Kind: "afp"}})
+	emit(netbrowse.Event{Server: netbrowse.Server{Name: "Gone", Host: "gone.local", Kind: "smb"}})
+	emit(netbrowse.Event{Gone: true, Server: netbrowse.Server{Name: "Gone", Kind: "smb"}})
+	l, _ = n.listNetwork(ctx, "network://")
+	if len(l.Entries) != 1 || l.Entries[0].Name != "NAS" || l.Entries[0].Flags&vfs.FlagDir == 0 {
+		t.Fatalf("root: %+v", l.Entries)
+	}
+	if s := n.Status(); !s.Searching || s.Count != 2 {
+		t.Fatalf("status %+v", s)
+	}
+	// the shares want a password: the page is asked
+	if _, err := n.listNetwork(ctx, "network://NAS"); !errors.As(err, new(errNetAuth)) {
+		t.Fatalf("shares without a password: %v", err)
+	}
+	if err := n.SetCreds(NetRequest{Address: "smb://nas.local", User: "pat", Password: "pw"}); err != nil {
+		t.Fatal(err)
+	}
+	l, err = n.listNetwork(ctx, "network://NAS/")
+	if err != nil || len(l.Entries) != 1 || l.Entries[0].Name != "media" || l.Parent != "network://" {
+		t.Fatalf("shares: %+v %v", l, err)
+	}
+	l, err = n.listNetwork(ctx, "network://NAS/media")
+	if err != nil || l.Path != dir || l.Parent != "network://NAS" || len(l.Entries) != 1 {
+		t.Fatalf("share: %+v %v", l, err)
+	}
+	// typed in the path bar
+	if l, err := n.listNetwork(ctx, "smb://nas.local"); err != nil || len(l.Entries) != 1 {
+		t.Fatalf("smb://nas.local: %+v %v", l, err)
+	}
+	fsys := networkFS{}
+	for in, want := range map[string]string{"network://NAS/media": "network://NAS", "network://NAS": "network://", "network://": "", "smb://nas": "network://", "smb://nas/media": "smb://nas"} {
+		if got := fsys.Parent(in); got != want {
+			t.Errorf("Parent(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := fsys.Join("network://", "NAS"); got != "network://NAS" {
+		t.Errorf("Join = %q", got)
 	}
 }

@@ -40,7 +40,7 @@ async function updateInfo(p) {
   p.el.classList.toggle('mc-vfs-archive', info.kind === 'archive');
   p.el.classList.toggle('mc-vfs-remote', !!info.remote);
   let badge = p.$.pbtns.querySelector('.mc-vfs-badge');
-  if (info.kind === 'local') { badge?.remove(); return; }
+  if (info.kind === 'local' || info.kind === 'network') { badge?.remove(); return; } // (the Network panel has its own banner)
   if (!badge) {
     badge = document.createElement('span');
     badge.className = 'mc-vfs-badge';

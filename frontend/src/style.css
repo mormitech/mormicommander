@@ -169,6 +169,9 @@ body.about-mode { overflow: auto; }
 .header.mc-col-dragging > span { pointer-events: none; }
 /* Mapped folders on the drive bar (features/drivemaps.js) sit behind a thin divider after the real drives. */
 .drivebar .mc-drive-sep { flex: none; width: 1px; margin: 3px 4px; background: var(--line); }
+/* Home and Network show only their icon; Network keeps to the right end of the bar (network.js, #148) */
+.drivebar button.mc-drive-icon { padding: 1px 6px; }
+.drivebar .mc-drive-net { margin-left: auto; flex: none; }
 /* Folders have no extension (a dot in a folder name is part of its name): their size (a calculated folder size can be long) also takes the empty Ext column, so
    it is shown in full instead of cut off. Not when the Ext column is switched off (then there is nothing to take). */
 body:not(.mc-config-no-ext) .row.dir > .e { display: none; }
