@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.12 – 2026-11-16
+
+### Fixed
+
+- **Dragging a dialog window (Options and the others) is smooth again on macOS.** A dialog window is a child window of
+  the main window, and macOS moved it against its parent on every step of a drag, at some ten frames a second. It now
+  lets go of the main window while it is dragged and is attached again, above it, when the mouse button is up, so it
+  still stays above the main window and moves with it.
+
 ## 0.14.11 – 2026-11-16
 
 ### Fixed

@@ -12,6 +12,35 @@ package main
 #cgo CFLAGS: -x objective-c
 #cgo LDFLAGS: -framework Cocoa
 #import <Cocoa/Cocoa.h>
+#import <objc/runtime.h>
+
+// While the user drags a dialog window by its title bar it is not a child window: macOS moves a child window against its
+// parent on every step of a drag, and on recent macOS that made the drag choppy (some ten frames a second). The window
+// lets go of its parent when the drag starts (NSWindowWillMoveNotification) and is attached again, above it, once the
+// mouse button is up. Windows moved by code (dlgPlace) are no child windows' drags and are not touched: the
+// notification comes only for user moves.
+static char dlgParentKey;
+
+static void dlgWatchDrags(void) {
+	static dispatch_once_t once;
+	dispatch_once(&once, ^{
+		[[NSNotificationCenter defaultCenter] addObserverForName:NSWindowWillMoveNotification object:nil queue:nil
+			usingBlock:^(NSNotification *n) {
+				NSWindow *c = n.object;
+				NSWindow *p = [c parentWindow];
+				if (!p) return;
+				objc_setAssociatedObject(c, &dlgParentKey, p, OBJC_ASSOCIATION_ASSIGN);
+				[p removeChildWindow:c];
+				[NSTimer scheduledTimerWithTimeInterval:0.05 repeats:YES block:^(NSTimer *t) {
+					if ([NSEvent pressedMouseButtons] & 1) return;
+					[t invalidate];
+					NSWindow *back = objc_getAssociatedObject(c, &dlgParentKey);
+					objc_setAssociatedObject(c, &dlgParentKey, nil, OBJC_ASSOCIATION_ASSIGN);
+					if (back && [c isVisible] && [back isVisible] && ![c parentWindow]) [back addChildWindow:c ordered:NSWindowAbove];
+				}];
+			}];
+	});
+}
 
 // dlgPlace gives a window an inside of cw x ch points with its top left corner at x, y (measured from the top left of
 // the primary screen, as Wails' Position is).
@@ -41,7 +70,9 @@ static int dlgFrameExtra(void *w, int *ew, int *eh) {
 
 static void dlgAttach(void *parent, void *child) {
 	if (!parent || !child) return;
+	dlgWatchDrags();
 	NSWindow *p = (__bridge NSWindow *)parent, *c = (__bridge NSWindow *)child;
+	objc_setAssociatedObject(c, &dlgParentKey, nil, OBJC_ASSOCIATION_ASSIGN); // (a drag in progress gives it back to no one else)
 	if ([c parentWindow] == p) return;
 	if ([c parentWindow]) [[c parentWindow] removeChildWindow:c];
 	[p addChildWindow:c ordered:NSWindowAbove];
@@ -95,6 +126,7 @@ static void dlgWake(void *w) {
 static void dlgDetach(void *child) {
 	if (!child) return;
 	NSWindow *c = (__bridge NSWindow *)child;
+	objc_setAssociatedObject(c, &dlgParentKey, nil, OBJC_ASSOCIATION_ASSIGN); // (closing: a drag's end must not attach it again)
 	if ([c parentWindow]) [[c parentWindow] removeChildWindow:c];
 }
 */
