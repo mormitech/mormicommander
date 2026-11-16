@@ -76,8 +76,14 @@ export const BRIDGE = {
     get: () => undefined,
     set: (app, v) => { if ((v === '1') !== !!app.showHidden) return app.run('cm_SwitchHidSys', {}, { quiet: true }); return null; },
   },
-  'Layout.Horizontal': { get: (app) => b(app.setting('horizontal', undefined)), set: () => {} }, // applied by layout.js
-  'Font.PanelSize': { get: (app) => { const x = app.setting('fontSize', undefined); return x === undefined ? undefined : String(x); }, set: () => {} },
+  // The panels' arrangement and text size are applied by layout.js from the option's value. set writes the new value to
+  // the key Ctrl+Shift+H and Ctrl+= keep as well: get prefers that key, so a stale one would bring the old value back
+  // after OK (the panels could be put above each other but never side by side again).
+  'Layout.Horizontal': { get: (app) => b(app.setting('horizontal', undefined)), set: (app, v) => app.setSetting('horizontal', v === '1') },
+  'Font.PanelSize': {
+    get: (app) => { const x = app.setting('fontSize', undefined); return x === undefined ? undefined : String(x); },
+    set: (app, v) => { const n = parseInt(v, 10); return Number.isFinite(n) ? app.setSetting('fontSize', n) : null; },
+  },
   'Colors.DarkMode': {
     get: (app) => { const t = app.setting('theme', undefined); return t === undefined ? undefined : t === 'light' ? '0' : t === 'dark' ? '1' : '2'; },
     set: (app, v) => app.setSetting('theme', v === '0' ? 'light' : v === '1' ? 'dark' : ''),

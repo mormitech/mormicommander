@@ -123,3 +123,18 @@ test('tab, favourite, column and thumbnail options merge into their objects', ()
   FEATURE_BRIDGE['CustomColumns.AutoSwitch'].set(app, '0');
   expect(app.data.columnsAutoSwitch).toBe(false);
 });
+
+// "Panels above each other" and the panel text size are also kept by Ctrl+Shift+H and Ctrl+=: after OK the dialog reads
+// that key back, so the dialog must write it too, or the old value returns (panels stuck above each other).
+test('the panel arrangement and text size are written where the dialog reads them back', () => {
+  const app = fakeApp({ horizontal: true, fontSize: 13 });
+  expect(BRIDGE['Layout.Horizontal'].get(app)).toBe('1');
+  BRIDGE['Layout.Horizontal'].set(app, '0');
+  expect(BRIDGE['Layout.Horizontal'].get(app)).toBe('0');
+  BRIDGE['Layout.Horizontal'].set(app, '1');
+  expect(BRIDGE['Layout.Horizontal'].get(app)).toBe('1');
+  BRIDGE['Font.PanelSize'].set(app, '16');
+  expect(BRIDGE['Font.PanelSize'].get(app)).toBe('16');
+  BRIDGE['Font.PanelSize'].set(app, 'x');
+  expect(BRIDGE['Font.PanelSize'].get(app)).toBe('16');
+});

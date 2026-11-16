@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.9 – 2026-11-16
+
+### Fixed
+
+- **"Panels above each other" can be turned off again in Options.** Once on, unticking it put the panels back above each
+  other after OK. The panel text size in Options (Font) had the same flaw after Ctrl+= or Ctrl+- had been used.
+
 ## 0.14.8 – 2026-11-16
 
 ### Changed
