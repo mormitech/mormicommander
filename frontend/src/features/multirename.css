@@ -33,7 +33,7 @@
 .mc-multirename-list:focus-visible { border-color: var(--accent); }
 .mc-multirename-list table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .mc-multirename-list th { position: sticky; top: 0; z-index: 1; background: var(--panel); color: var(--muted); font-weight: 500; text-align: left; padding: 3px 8px;
-    border-bottom: 1px solid var(--line); white-space: nowrap; user-select: none; }
+    border-bottom: 1px solid var(--line); white-space: nowrap; -webkit-user-select: none; user-select: none; }
 .mc-multirename-list th[data-sort] { cursor: pointer; }
 .mc-multirename-list th.sorted::after { content: ' ▲'; font-size: 10px; }
 .mc-multirename-list th.sorted.desc::after { content: ' ▼'; }

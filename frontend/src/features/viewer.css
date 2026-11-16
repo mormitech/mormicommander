@@ -14,7 +14,7 @@
 .mc-viewer-main { flex: 1; min-height: 0; position: relative; display: flex; }
 .mc-viewer-text { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; padding: 2px 6px; cursor: text; }
 .mc-viewer-text[hidden], .mc-viewer-sb[hidden], .mc-viewer-media[hidden], .mc-viewer-doc[hidden], .mc-viewer-note[hidden] { display: none; }
-.mc-viewer-rows { font: var(--mono); font-size: var(--mc-viewer-fs); line-height: var(--mc-viewer-lh, 17px); width: max-content; min-width: 100%; user-select: none; }
+.mc-viewer-rows { font: var(--mono); font-size: var(--mc-viewer-fs); line-height: var(--mc-viewer-lh, 17px); width: max-content; min-width: 100%; -webkit-user-select: none; user-select: none; }
 .mc-viewer-variable .mc-viewer-rows { font-family: -apple-system, "Segoe UI", system-ui, sans-serif; }
 .mc-viewer-rows.mc-viewer-wrap { width: auto; }
 .mc-viewer-ln { white-space: pre; height: var(--mc-viewer-lh, 17px); }
@@ -36,7 +36,7 @@
 .mc-viewer-media embed { width: 100%; height: 100%; }
 .mc-viewer-big { color: var(--muted); text-align: center; line-height: 1.6; }
 
-.mc-viewer-doc { position: absolute; inset: 0; overflow: auto; user-select: text; }
+.mc-viewer-doc { position: absolute; inset: 0; overflow: auto; -webkit-user-select: text; user-select: text; }
 .mc-viewer-dochost { min-height: 100%; }
 
 /* table mode (viewer/table.js): a sticky header row and the rows on screen, each a grid of the same columns */
@@ -78,7 +78,7 @@
 .mc-viewer-findopts { display: grid; grid-template-columns: 1fr 1fr; gap: 0 14px; margin-bottom: 8px; }
 .mc-viewer-opts { min-width: 460px; }
 .mc-viewer-optrow { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 6px; }
-.mc-viewer-info { border-collapse: collapse; font-size: 12px; user-select: text; }
+.mc-viewer-info { border-collapse: collapse; font-size: 12px; -webkit-user-select: text; user-select: text; }
 .mc-viewer-info th { text-align: left; color: var(--muted); font-weight: normal; padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
 .mc-viewer-info td { padding: 2px 0; overflow-wrap: anywhere; }
 

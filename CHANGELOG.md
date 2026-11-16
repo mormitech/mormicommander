@@ -6,6 +6,19 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.11 – 2026-11-16
+
+### Fixed
+
+- **No more text selection in menus, lists and other parts of the interface.** Dragging over the Options page list (or
+  any label, button or list) painted a text selection; the "no selection" rule was written only in the form WebKit
+  ignores. Text fields and the places meant for copying (messages, paths, logs, file contents) can still be selected.
+- **List boxes in dialog windows no longer jump under the pointer** (the shortcut, button, user command, colour,
+  start menu, hotlist, connection, download, tab set, column set and saved search lists). When a list's choice changed,
+  the dialog's copy in the main window scrolled to it and sent that scroll to the dialog window, which moved the list
+  between press and release, so a click could choose another row. The dialog window now keeps its lists' scrolling.
+- The test of 0.14.7's volume tops failed on Windows (it built its paths with "/" only); the app itself was right.
+
 ## 0.14.10 – 2026-11-16
 
 ### Fixed

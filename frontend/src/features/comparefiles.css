@@ -10,8 +10,8 @@
 .mc-cmp-rows { position: absolute; inset: 0 0 auto 0; --cmp-x: 0; }
 .mc-cmp-row { position: absolute; left: 0; right: 0; height: 18px; display: grid; grid-template-columns: 4.5em 1fr 4.5em 1fr; font: var(--mono); line-height: 18px; cursor: default; }
 .mc-cmp-row.hex { grid-template-columns: 6em 1fr 6em 1fr; }
-.mc-cmp-n { color: var(--muted); text-align: right; padding-right: 8px; border-right: 1px solid var(--line); user-select: none; }
-.mc-cmp-t { white-space: pre; overflow: hidden; padding-left: 6px; tab-size: 4; text-indent: calc(var(--cmp-x) * -1ch); user-select: text; }
+.mc-cmp-n { color: var(--muted); text-align: right; padding-right: 8px; border-right: 1px solid var(--line); -webkit-user-select: none; user-select: none; }
+.mc-cmp-t { white-space: pre; overflow: hidden; padding-left: 6px; tab-size: 4; text-indent: calc(var(--cmp-x) * -1ch); -webkit-user-select: text; user-select: text; }
 .mc-cmp-row.hex .mc-cmp-t { text-indent: 0; }
 .mc-cmp-t.s0 { border-right: 1px solid var(--line); }
 .mc-cmp-row.k1 .s0, .mc-cmp-row.k2 .s1, .mc-cmp-row.k3 .mc-cmp-t { background: color-mix(in srgb, var(--accent) 13%, transparent); }

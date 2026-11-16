@@ -17,7 +17,7 @@
 
 .mc-system-log { width: min(720px, 92vw); }
 .mc-system-loglist { list-style: none; margin: 6px 0; padding: 0; max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px; }
-.mc-system-loglist > li { padding: 4px 8px; border-bottom: 1px solid var(--line); user-select: text; }
+.mc-system-loglist > li { padding: 4px 8px; border-bottom: 1px solid var(--line); -webkit-user-select: text; user-select: text; }
 .mc-system-loglist > li:last-child { border-bottom: 0; }
 .mc-system-loglist time { color: var(--muted); font: var(--mono); }
 .mc-system-loglist ul { margin: 2px 0 0 1.2em; padding: 0; color: var(--muted); }
@@ -25,6 +25,6 @@
 
 .mc-system-check { display: flex; gap: 6px; align-items: center; margin: 4px 0; }
 
-.mc-system-props table { border-collapse: collapse; margin: 6px 0; user-select: text; }
+.mc-system-props table { border-collapse: collapse; margin: 6px 0; -webkit-user-select: text; user-select: text; }
 .mc-system-props th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
 .mc-system-props td { padding: 2px 0; word-break: break-all; }

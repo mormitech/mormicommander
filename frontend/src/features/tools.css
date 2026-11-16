@@ -20,7 +20,7 @@
 .mc-btns.mc-tools-left { justify-content: flex-start; }
 
 .mc-tools-propsbox { min-width: 440px; }
-.mc-tools-props { border-collapse: collapse; width: 100%; user-select: text; }
+.mc-tools-props { border-collapse: collapse; width: 100%; -webkit-user-select: text; user-select: text; }
 .mc-tools-props th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
 .mc-tools-props td { padding: 2px 0; overflow-wrap: anywhere; }
 .mc-tools-props code, .mc-tools-digest code { font: var(--mono); }
@@ -29,13 +29,13 @@
 .mc-tools-bad { color: var(--danger); }
 .mc-tools-good { color: var(--accent); }
 .mc-tools-inline { display: flex; gap: 8px; align-items: center; }
-.mc-tools-digest { margin: 6px 0; overflow-wrap: anywhere; user-select: text; min-height: 1em; }
+.mc-tools-digest { margin: 6px 0; overflow-wrap: anywhere; -webkit-user-select: text; user-select: text; min-height: 1em; }
 .mc-tools-digest button { padding: 1px 8px; margin-left: 6px; }
 
 .mc-tools-verifybox { min-width: 480px; }
 .mc-tools-verifybox h3 { font-size: 13px; margin: 10px 0 4px; font-weight: 600; overflow-wrap: anywhere; }
 .mc-tools-list { max-height: 50vh; overflow: auto; border: 1px solid var(--line); border-radius: 6px; padding: 0 8px 6px; margin: 6px 0; }
-.mc-tools-verify { border-collapse: collapse; width: 100%; user-select: text; }
+.mc-tools-verify { border-collapse: collapse; width: 100%; -webkit-user-select: text; user-select: text; }
 .mc-tools-verify td { padding: 1px 10px 1px 0; overflow-wrap: anywhere; vertical-align: top; }
 .mc-tools-verify td.st { white-space: nowrap; width: 1%; font-weight: 600; }
 .mc-tools-verify tr.ok td.st { color: var(--accent); }

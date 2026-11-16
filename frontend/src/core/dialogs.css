@@ -2,7 +2,7 @@
 .mc-box { min-width: 340px; max-width: min(620px, 92vw); max-height: 88vh; overflow: auto; background: var(--panel); color: var(--text); border: 1px solid var(--line);
     border-radius: 10px; padding: 16px 18px 14px; box-shadow: 0 14px 44px #0008; position: relative; }
 .mc-box h2 { margin: 0 0 10px; font-size: 15px; font-weight: 600; }
-.mc-msg { margin: 0 0 14px; line-height: 1.45; user-select: text; overflow-wrap: anywhere; }
+.mc-msg { margin: 0 0 14px; line-height: 1.45; -webkit-user-select: text; user-select: text; overflow-wrap: anywhere; }
 .mc-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
 .mc-row label { color: var(--muted); font-size: 12px; }
 .mc-row input[type=text], .mc-row select { width: 100%; padding: 5px 7px; }
@@ -19,7 +19,7 @@
 .mc-progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .15s; }
 @media (prefers-reduced-motion: reduce) { .mc-modal { animation: none; } .mc-progress i { transition: none; } }
 /* Moving dialogs (dialogs.js draggable): the title is the handle. */
-.mc-draggable > h2, .mc-draggable .mc-drag { cursor: move; user-select: none; }
+.mc-draggable > h2, .mc-draggable .mc-drag { cursor: move; -webkit-user-select: none; user-select: none; }
 .mc-dragging { transition: none !important; }
 /* Dialogs shown in windows of their own (mirror.js): the real box stays here, invisible and out of the pointer's way,
    with the same heading rule as the window (its title bar shows the heading) so both measure alike. */

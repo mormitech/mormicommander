@@ -544,6 +544,11 @@ function install() {
   }, true);
   document.addEventListener('scroll', (ev) => {
     if (!live.size || quiet || ev.target?.nodeType !== 1) return;
+    // A list box (<select size>) scrolls itself here when its selection changes (it brings the chosen row into view in
+    // this page's copy, which may be sized a little differently). Sent to the window, that scroll moved the list under
+    // the pointer between press and release, so a click chose another row. The window's list keeps its own scrolling:
+    // the selection it gets back brings the row into view there anyway.
+    if (ev.target.localName === 'select') return;
     const s = sessionOf(ev.target);
     if (s) { s.scrollPending.add(ev.target); s.schedule(); }
   }, true);

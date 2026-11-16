@@ -17,7 +17,7 @@ func TestVolumeTopHasNoParent(t *testing.T) {
 	os.Mkdir(filepath.Join(vol, "flac"), 0o755)
 	f := &FS{app: &App{fs: vfs.Local{}}, gen: map[string]listing{}}
 	f.rootOf = func(p string) string {
-		if p == vol || strings.HasPrefix(p, vol+"/") {
+		if p == vol || strings.HasPrefix(p, vol+string(filepath.Separator)) {
 			return vol
 		}
 		return ""
@@ -38,7 +38,7 @@ func TestVolumeTopHasNoParent(t *testing.T) {
 	if l, _ := f.List("left", other); l.Parent != filepath.Dir(other) {
 		t.Fatalf("plain folder: parent %q", l.Parent)
 	}
-	if r := f.Root(other); r != "/" {
+	if r := f.Root(other); r != (vfs.Local{}).Root(other) {
 		t.Fatalf("plain folder Root = %q", r)
 	}
 }
