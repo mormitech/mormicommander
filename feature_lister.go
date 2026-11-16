@@ -800,6 +800,7 @@ func (l *Lister) Close(id int) {
 	s := l.sessions[id]
 	delete(l.sessions, id)
 	l.mu.Unlock()
+	mediaSrv.dropSession(id) // (its streamed sound or film: feature_lister_stream.go)
 	if s != nil {
 		s.close()
 	}

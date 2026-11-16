@@ -486,6 +486,19 @@ export class ListerView {
     if (this.mediaFor === id) { this.transform(); return; }
     this.pauseMedia();
     this.$.media.textContent = '';
+    // sound and films are streamed from Go (feature_lister_stream.go): played as they are read, with no size limit, and
+    // formats the web view can't play (MPEG-2 .mpg/.ts, .mkv, .avi, .wmv...) converted on the fly by ffmpeg
+    if (m.kind === 'video' || m.kind === 'audio') {
+      let st = null;
+      try { st = await go.Lister.Stream(id); } catch { st = null; }
+      if (this.id !== id) return;
+      if (st?.url) { this.playStream(id, m.kind, st); return; }
+      if (st?.error && !(st.error.startsWith('Playing this kind') && m.mime && this.info.size <= MEDIA_LIMIT)) {
+        this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(st.error)}<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+        this.mediaFor = id;
+        return;
+      }
+    }
     if (this.info.size > MEDIA_LIMIT) {
       this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(this.info.name)} is too large to show here (${esc(fmtSize(this.info.size))}).<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
       this.mediaFor = id;
@@ -531,6 +544,24 @@ export class ListerView {
     el.src = this.blobURL;
     this.$.media.append(el);
     this.transform();
+  }
+
+  // playStream shows a <video> or <audio> that plays from the address Go gave (st.url: the file itself, or an HLS playlist
+  // for a file converted on the fly). A converted stream says so in the status line.
+  playStream(id, kind, st) {
+    this.mediaFor = id;
+    const el = document.createElement(kind === 'audio' && !st.hls ? 'audio' : 'video');
+    el.controls = true;
+    el.autoplay = !this.quick; // (as in showMedia: the Lister plays at once, Quick View doesn't)
+    el.preload = 'auto';
+    el.className = 'mc-viewer-mediael';
+    el.addEventListener('error', () => {
+      if (this.id !== id) return;
+      this.note(`${this.info.name} can't be played here. Press ${this.altKey()} to open it with another app.`, true);
+    });
+    el.src = st.url;
+    this.$.media.append(el);
+    if (st.hls) { this.msg = 'Converted while it plays (ffmpeg)'; this.status(); }
   }
 
   transform() {
@@ -1232,7 +1263,7 @@ export class ListerView {
       top: this.top, percent: p?.percent ?? 0, atEnd: p?.atEnd ?? false, line: p?.line ?? 0, rows: p ? p.rows.map((r) => (this.mode === 'hex' ? `${hexOffset(r.o, this.info.offsetDigits || 8)}: ${r.h} ${r.t}` : r.t)) : [],
       selection: sr ? { start: sr[0], end: sr[1] } : null, match: this.match ? { offset: this.match.o, length: this.match.l } : null,
       size: this.info?.size ?? 0, suggest: this.info?.suggest ?? '', media: this.info?.media ? { kind: this.info.media.kind, format: this.info.media.format, width: this.info.media.width, height: this.info.media.height } : null,
-      mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, playing: !!this.$.media.querySelector('video, audio') && !this.$.media.querySelector('video, audio').paused, docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
+      mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, playing: !!this.$.media.querySelector('video, audio') && !this.$.media.querySelector('video, audio').paused, mediaTime: this.$.media.querySelector('video, audio')?.currentTime ?? null, mediaSize: (() => { const v = this.$.media.querySelector('video'); return v ? `${v.videoWidth}x${v.videoHeight}` : null; })(), docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
       follow: this.follow, searching: this.searching, status: this.$.stl.textContent, statusRight: this.$.str.textContent, folder: this.folder?.path ?? null,
       note: this.$.note.hidden ? '' : this.$.note.textContent.trim(), table: this.info?.table ?? '', grid: this.mode === 'table' ? this.grid.state() : null,
     };

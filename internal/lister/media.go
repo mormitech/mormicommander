@@ -66,6 +66,19 @@ func (m *MediaInfo) addTag(name, value string) {
 	}
 }
 
+// tsPackets says whether b holds MPEG transport stream packets: the sync byte 0x47 at off and then every size bytes,
+// at least three times (five when the sample is long enough), so a text file that happens to start with "G" is no match.
+func tsPackets(b []byte, off, size int) bool {
+	n := 0
+	for i := off; i < len(b) && n < 5; i += size {
+		if b[i] != 0x47 {
+			return false
+		}
+		n++
+	}
+	return n >= 3
+}
+
 // ErrUnknownMedia is returned for data that is no recognised media format.
 var ErrUnknownMedia = errors.New("lister: not a recognised image or media file")
 
@@ -103,6 +116,18 @@ func sniffMedia(b []byte) (mediaFormat, bool) {
 		return mediaFormat{"WAV", "audio/wav", "audio"}, true
 	case has(0, "RIFF") && has(8, "AVI "):
 		return mediaFormat{"AVI", "video/x-msvideo", "video"}, true
+	case has(0, "\x00\x00\x01\xba"), has(0, "\x00\x00\x01\xb3"):
+		// an MPEG-1/2 program stream (.mpg, .vob) or a bare MPEG video stream (.m1v, .m2v)
+		return mediaFormat{"MPEG", "video/mpeg", "video"}, true
+	case tsPackets(b, 0, 188):
+		// an MPEG transport stream (.ts from a TV recording; a TypeScript file never starts like this)
+		return mediaFormat{"MPEG-TS", "video/mp2t", "video"}, true
+	case tsPackets(b, 4, 192):
+		return mediaFormat{"M2TS", "video/mp2t", "video"}, true // (Blu-ray and camcorder .m2ts/.mts: 4 bytes before each packet)
+	case has(0, "\x30\x26\xb2\x75\x8e\x66\xcf\x11"):
+		return mediaFormat{"ASF", "video/x-ms-asf", "video"}, true // .wmv, .wma, .asf
+	case has(0, "FLV\x01"):
+		return mediaFormat{"FLV", "video/x-flv", "video"}, true
 	case has(0, "fLaC"):
 		return mediaFormat{"FLAC", "audio/flac", "audio"}, true
 	case has(0, "OggS"):

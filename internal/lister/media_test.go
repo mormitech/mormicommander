@@ -483,3 +483,34 @@ func TestProbeMediaFile(t *testing.T) {
 		t.Fatal("missing file")
 	}
 }
+
+func TestSniffVideoContainers(t *testing.T) {
+	ts := make([]byte, 188*5)
+	for i := 0; i < len(ts); i += 188 {
+		ts[i] = 0x47
+	}
+	m2ts := make([]byte, 192*5)
+	for i := 4; i < len(m2ts); i += 192 {
+		m2ts[i] = 0x47
+	}
+	for name, c := range map[string]struct {
+		b    []byte
+		want string
+	}{
+		"program stream": {[]byte("\x00\x00\x01\xba\x44\x00\x04\x00"), "MPEG"},
+		"mpeg video":     {[]byte("\x00\x00\x01\xb3\x16\x00\xf0\x15"), "MPEG"},
+		"transport":      {ts, "MPEG-TS"},
+		"m2ts":           {m2ts, "M2TS"},
+		"asf":            {[]byte("\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9"), "ASF"},
+		"flv":            {[]byte("FLV\x01\x05\x00\x00\x00\x09"), "FLV"},
+	} {
+		f, ok := sniffMedia(c.b)
+		if !ok || f.name != c.want || f.kind != "video" {
+			t.Errorf("%s: %+v %v, want %s video", name, f, ok, c.want)
+		}
+	}
+	// a TypeScript file (.ts) is no transport stream, even one that starts with "G"
+	if f, ok := sniffMedia([]byte("Gimport { x } from './y';\nexport const z = 1;\n")); ok {
+		t.Errorf("TypeScript taken for %+v", f)
+	}
+}

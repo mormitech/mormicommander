@@ -219,7 +219,7 @@ and `shown`.
 
 | cmd | arguments | does |
 |---|---|---|
-| `viewer` | `window` | the window's state: `open`, `list` (the N/P names), `dir`, `side`, `lister` (as `lister` below: path, mode, rows, media, mediaLoaded, playing, selection, match, status…), `dialog`, `popup`, `documentTitle`, `theme` |
+| `viewer` | `window` | the window's state: `open`, `list` (the N/P names), `dir`, `side`, `lister` (as `lister` below: path, mode, rows, media, mediaLoaded, playing, mediaTime, mediaSize (the picture size of a film), selection, match, status…), `dialog`, `popup`, `documentTitle`, `theme` |
 | `viewer_key` | `window`, `keys` | key presses in that window (1-7, N, P, F7, W, Esc…); a key that closes it answers `{closed: true}` |
 | `viewer_menu` | `window`, `menu`, `item` | chooses a Lister menu item by its label; with `"quick": true` (no `menu`) an item of the quick view panel's right-click menu |
 | `viewer_select` | `window`, `start`, `end` | sets the selection by bytes |

@@ -6,6 +6,19 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.15 – 2026-11-16
+
+### Added
+
+- **The Lister (F3) plays every kind of film and sound, streamed** (board issue #150). A film is no longer read whole
+  before it plays: it starts at once, can be sought anywhere, and there is no size limit any more (the 256 MB limit
+  is gone for sound and films). Files the web view plays itself (MP4 and MOV with H.264 or HEVC, MP3, AAC, WAV, FLAC)
+  are read in pieces as they play. Everything else (MPEG-2 .mpg and .ts TV recordings, .mkv, .avi, .wmv, .flv, MP4
+  with AC-3 sound and so on) is converted while it plays by ffmpeg, when it is installed (brew install ffmpeg), in
+  6-second pieces made only when they are needed (with the hardware video encoder on macOS); the status line says
+  "Converted while it plays". MPEG program and transport streams, M2TS, ASF/WMV and FLV files are now recognised as
+  films (a TypeScript .ts file still is text).
+
 ## 0.14.14 – 2026-11-16
 
 ### Fixed
