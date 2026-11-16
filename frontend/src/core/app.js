@@ -174,7 +174,7 @@ export const app = {
     let vols;
     try { vols = (await go.FS.Volumes()) || []; } catch { vols = []; }
     // (a mapped network share stands for its mounted volume: core/drivemerge.js)
-    this.volumes = mergeMaps(vols, (getSetting('driveMaps', []) || []).filter((m) => m && m.path));
+    this.volumes = mergeMaps(vols, (getSetting('driveMaps', []) || []).filter((m) => m && m.path), { keepOrder: this.platform === 'windows' });
     for (const p of this.panels) p.renderDrives(this.volumes);
   },
 

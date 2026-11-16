@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.17 – 2026-11-16
+
+### Changed
+
+- **The drive bar has a divider before the network drives too**, so it reads in three groups: disks and Home, network
+  drives (connected shares and the shares you mapped), and the folders you mapped. On macOS and Linux the volumes are
+  put in those groups; on Windows the drive letters keep their order.
+
 ## 0.14.16 – 2026-11-16
 
 ### Changed

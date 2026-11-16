@@ -33,3 +33,15 @@ test('a mapped share hides its mounted volume and takes over its folder', () => 
   // without maps nothing changes
   expect(mergeMaps(vols, [])).toEqual(vols);
 });
+
+test('the drive bar comes in groups: disks, network drives, mapped folders', () => {
+  const vols = [
+    { name: 'Macintosh HD', path: '/', kind: 'fixed' }, { name: 'Home', path: '/Users/pat', kind: 'home' },
+    { name: 'music', path: '/Volumes/music', kind: 'network', host: 'nas', share: 'music' },
+    { name: 'USB', path: '/Volumes/USB', kind: 'removable' },
+  ];
+  const out = mergeMaps(vols, [{ name: 'Code', path: '/Users/pat/Code' }, { name: 'z', path: 'network://nas/z' }]);
+  expect(out.map((v) => v.name)).toEqual(['Macintosh HD', 'Home', 'USB', 'music', 'z', 'Code']);
+  // Windows keeps the drive letters in their order
+  expect(mergeMaps(vols, [], { keepOrder: true }).map((v) => v.name)).toEqual(['Macintosh HD', 'Home', 'music', 'USB']);
+});

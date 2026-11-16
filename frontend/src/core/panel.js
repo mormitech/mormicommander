@@ -502,7 +502,10 @@ export class Panel {
   // renderDrives draws the drive bar: one button per volume, the one the panel is on highlighted.
   renderDrives(volumes, currentPath) {
     const on = this.app.driveFor(currentPath ?? this.path);
-    const firstMap = volumes.findIndex((v) => v.kind === 'map' && !v.net); // (the divider: mapped network shares stand with the drives)
+    // the bar comes in groups with a divider between them: the disks (and Home), the network drives (mounted shares and
+    // the shares you mapped, core/drivemerge.js), and the folders you mapped
+    const group = (v) => (v.kind === 'network' || v.net ? 1 : v.kind === 'map' ? 2 : 0);
+    let last = -1;
     // the Network button (features/network.js, #148) closes the bar: servers and shares on the local network
     // Home and Network show only their icon (the tooltip names them); Network sits at the right end of the bar
     const inNet = /^(network|smb|nfs|afp):\/\//i.test(currentPath ?? this.path ?? '');
@@ -511,7 +514,9 @@ export class Panel {
       if (v.hidden) return ''; // (a mounted share a mapped button stands for: core/drivemerge.js)
       const iconOnly = v.kind === 'home';
       const name = esc(shortName(v, this.app.platform));
-      return `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.net ? 'network' : v.kind)}${iconOnly ? '' : name}</button>`;
+      const g = group(v), sep = last >= 0 && g !== last;
+      last = g;
+      return `${sep ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.net ? 'network' : v.kind)}${iconOnly ? '' : name}</button>`;
     }).join('') + net;
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');

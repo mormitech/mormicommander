@@ -21,7 +21,7 @@ export function sameServer(a, b) {
 
 // A mapped network share is a network drive of its own (net: true): its button stands with the drives, before the
 // divider, and the folders you mapped (local bookmarks) come after the divider.
-export function mergeMaps(vols, maps) {
+export function mergeMaps(vols, maps, { keepOrder = false } = {}) {
   const out = [], buttons = maps.map((m) => ({ name: m.name || m.path, path: m.path, kind: 'map', ...(shareOfPath(m.path) ? { net: true } : {}) }));
   for (const v of vols) {
     const b = v.kind === 'network' && v.share
@@ -30,5 +30,8 @@ export function mergeMaps(vols, maps) {
     if (b) b.mount = v.path;
     out.push(b ? { ...v, hidden: true } : v);
   }
-  return [...out, ...buttons.filter((b) => b.net), ...buttons.filter((b) => !b.net)];
+  // in groups, each in its own order: disks and Home, network drives (mounted, then mapped), mapped folders. On Windows
+  // the drive letters keep their A-Z order (keepOrder).
+  const net = (v) => !keepOrder && v.kind === 'network';
+  return [...out.filter((v) => !net(v)), ...out.filter(net), ...buttons.filter((b) => b.net), ...buttons.filter((b) => !b.net)];
 }
