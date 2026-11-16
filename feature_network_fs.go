@@ -56,6 +56,9 @@ type NetSearch struct {
 	Searching bool   `json:"searching"` // the first seconds of the search: show that it's looking
 	Count     int    `json:"count"`     // servers found so far
 	Note      string `json:"note"`      // why nothing can be found, when it can't search
+	// Opening lists the servers and shares being opened now (feature_network_open.go), for a page that starts while
+	// one is: the "network-opening" event tells about the changes after that.
+	Opening []string `json:"opening"`
 }
 
 // netSearchPhase is how long the page shows "Searching…" after the search starts; servers that answer later still
@@ -123,10 +126,12 @@ func (n *Network) changed() {
 
 // Status says whether the Network panel's search is still in its first phase, and how many servers it found.
 func (n *Network) Status() NetSearch {
+	opening := n.openingNow() // (before w.mu: the two locks are never held together)
 	w := n.watchState()
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	return NetSearch{Searching: !w.started.IsZero() && time.Since(w.started) < netSearchPhase && w.note == "", Count: len(w.found), Note: w.note}
+	return NetSearch{Searching: !w.started.IsZero() && time.Since(w.started) < netSearchPhase && w.note == "", Count: len(w.found), Note: w.note,
+		Opening: opening}
 }
 
 // SetCreds keeps a user name and password for a server for this session (and in the keychain when Save is ticked,
@@ -323,7 +328,7 @@ func (n *Network) listNetwork(ctx context.Context, p string) (vfs.Listing, error
 	}
 	t, c := n.panelCreds(t)
 	if share == "" && t.Kind != "afp" {
-		list, err := n.shares(ctx, t, c)
+		list, err := n.sharesOf(ctx, p, t, c)
 		if errors.Is(err, netbrowse.ErrAuth) {
 			return vfs.Listing{}, n.askAuth(t, p)
 		}
@@ -355,7 +360,7 @@ func (n *Network) listNetwork(ctx context.Context, p string) (vfs.Listing, error
 		}
 	}
 	w.mu.Unlock()
-	m, err := n.mount(ctx, t, c, netbrowse.MountOptions{})
+	m, err := n.mountOf(ctx, p, t, c)
 	if errors.Is(err, netbrowse.ErrAuth) {
 		return vfs.Listing{}, n.askAuth(t, p)
 	}
@@ -363,12 +368,6 @@ func (n *Network) listNetwork(ctx context.Context, p string) (vfs.Listing, error
 		return vfs.Listing{}, err
 	}
 	n.remember(t, NetRequest{})
-	if m.Made {
-		n.mu.Lock()
-		n.temps = append(n.temps, m.Path)
-		n.mu.Unlock()
-		n.app.emit("system-volumes")
-	}
 	l, err := n.app.fs.List(ctx, m.Path)
 	if err != nil {
 		return l, err

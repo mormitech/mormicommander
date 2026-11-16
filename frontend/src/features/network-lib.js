@@ -38,3 +38,29 @@ export function bannerText(status, shown) {
   if (status.searching) return shown ? `Searching the local network… ${shown} found so far.` : 'Searching the local network…';
   return shown ? `Still listening for more servers. ${typeHint}` : `No servers found yet; still listening. ${typeHint}`;
 }
+
+// netKey is a network folder's path as Go names it in "network-opening": without a trailing "/" (but "network://"
+// stays as it is), so the panel's path and a row's full path compare equal.
+export function netKey(p) {
+  const s = String(p || '');
+  if (s === 'network://' || s === 'network:') return 'network://';
+  return s.replace(/\/+$/, '');
+}
+
+// isNetFolder says whether p is a network folder that has to be opened (a server's shares or a share): network://Server,
+// network://Server/share, smb://host, nfs://host/export… — not the list of servers itself.
+export function isNetFolder(p) {
+  const k = netKey(p);
+  return /^(network|smb|nfs|afp):\/\/./i.test(k) && k !== 'network://';
+}
+
+// netParent is the folder a network folder is listed in: network://Server/share → network://Server, network://Server
+// → network://, smb://host/share → smb://host, smb://host → network:// (as Go's Parent).
+export function netParent(p) {
+  const k = netKey(p);
+  const m = k.match(/^([a-z]+:\/\/)(.*)$/i);
+  if (!m) return '';
+  const rest = m[2];
+  const i = rest.lastIndexOf('/');
+  return i < 0 ? 'network://' : m[1] + rest.slice(0, i);
+}

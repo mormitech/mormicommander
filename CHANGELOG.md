@@ -6,6 +6,23 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.6 – 2026-11-16
+
+### Changed
+
+- **Opening a server or share in the Network panel shows a spinner next to it** instead of fading the list, and the open
+  goes on in the background when you go elsewhere meanwhile: coming back shows the spinner still turning next to it,
+  and when it opens while you are back at its folder, the panel goes into it. A second Enter on the same folder waits
+  for the same open instead of starting another. A server's list of shares is kept for a minute, so going back and
+  forth between a server and its shares doesn't ask the server every time; mounted shares open at once anyway.
+
+### Fixed
+
+- macOS: after macOS's own window from mounting a share (its sign-in window, or "There was a problem connecting…")
+  closes, mormiCommander takes the focus back when it had it before, so the keyboard works again without a click.
+- macOS: volumes mounted "nobrowse" are left out of the drive bar, as Finder does, such as the Recovery volume macOS
+  mounts at /Volumes/Recovery while it prepares an update (it couldn't be ejected from here anyway).
+
 ## 0.14.5 – 2026-11-15
 
 ### Added

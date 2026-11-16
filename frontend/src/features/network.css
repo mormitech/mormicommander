@@ -12,3 +12,12 @@
 .mc-net-banner.searching .mc-net-spin { display: inline-block; animation: mc-net-spin 0.9s linear infinite; }
 @keyframes mc-net-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .mc-net-banner.searching .mc-net-spin { animation: none; border-right-color: currentColor; opacity: 0.6; } }
+
+/* A server or share being opened (network.js, "network-opening"): a small spinner after its name, in every panel that
+   shows it, until it opens or fails; the list isn't faded meanwhile. */
+.row.mc-net-opening .n b::after {
+  content: ''; display: inline-block; width: 9px; height: 9px; margin-left: 8px; vertical-align: -1px;
+  border-radius: 50%; border: 2px solid currentColor; border-right-color: transparent; opacity: 0.75;
+  animation: mc-net-spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) { .row.mc-net-opening .n b::after { animation: none; border-right-color: currentColor; opacity: 0.5; } }

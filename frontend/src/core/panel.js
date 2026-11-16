@@ -147,7 +147,8 @@ export class Panel {
   async _go(path, { focus = null, history = true, keepSelection = false, restore = false } = {}) {
     const seq = ++this.seq;
     this.loading = true;
-    this.el.classList.add('loading');
+    // a hook that shows progress its own way (a network folder being opened gets a spinner on its row) asks for no fade
+    if (!Panel.quietLoadHooks.some((h) => h(this, path))) this.el.classList.add('loading');
     let l;
     try {
       l = await go.FS.List(this.side, path);
@@ -529,6 +530,10 @@ export class Panel {
 
 // Features with virtual folders (Feed to listbox) map a name to the real file: hook(panel, name) → full path or ''.
 Panel.pathHooks = [];
+
+// Features that show the progress of a slow folder their own way return true from hook(panel, path) when go starts
+// for such a folder: the list then isn't faded while it loads (features/network.js).
+Panel.quietLoadHooks = [];
 
 // Features that mark rows (cut files are dimmed until pasted) add a class: hook(panel, entry) → class name or ''.
 // extraRowClass joins what the hooks return, with a leading space, for the row renderers (here and views.js).

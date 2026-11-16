@@ -19,9 +19,18 @@ import { command } from '../core/registry.js';
 import { showList } from '../core/popup.js';
 import { formDialog, inputDialog, esc } from '../core/dialogs.js';
 import { go, on, errText } from '../core/go.js';
-import { networkVolumes, typedAddress, hasShare, typedPath, isNetworkRoot, bannerText } from './network-lib.js';
+import { networkVolumes, typedAddress, hasShare, typedPath, isNetworkRoot, bannerText, netKey, isNetFolder, netParent } from './network-lib.js';
+import { Panel } from '../core/panel.js';
 
-let status = { searching: false, count: 0, note: '' };
+let status = { searching: false, count: 0, note: '', opening: [] };
+
+// ---- servers and shares being opened ----
+// Go opens a server or share in the background, also when the panel has gone elsewhere meanwhile
+// (feature_network_open.go), and says which ones are being opened ("network-opening"). Their rows get a spinner in every
+// panel that shows them. pending remembers, per panel, the network folder it was asked to open last: when that one
+// opens while the panel shows its parent again (the user went away and came back), the panel goes into it.
+let opening = new Set();
+const pending = new Map();
 
 // askCreds asks for the user name and password of a server; null when cancelled.
 function askCreds(server, prev = {}) {
@@ -47,6 +56,31 @@ async function withAuth(label, req, fn) {
     const c = await askCreds(label, { user: req.user });
     if (!c) return null;
     req = { ...req, ...c };
+  }
+}
+
+function setOpening(list) {
+  opening = new Set((list || []).map(netKey));
+}
+
+function repaintNet(app) {
+  for (const p of app.panels) if (p.path && /^(network|smb|nfs|afp):\/\//i.test(p.path)) p.renderRows();
+}
+
+// openingEvent handles "network-opening": new spinners, and a panel back at the parent of a folder that just opened
+// goes into it (one that failed says why, when the panel's own reading of it isn't waiting any more).
+function openingEvent(app, ev) {
+  if (!ev) return;
+  setOpening(ev.opening);
+  repaintNet(app);
+  if (!ev.ended) return;
+  const ended = netKey(ev.ended);
+  for (const p of app.panels) {
+    if (pending.get(p) !== ended) continue;
+    pending.delete(p);
+    if (p.loading || netKey(p.path) !== netParent(ended)) continue; // still reading it itself, or somewhere else
+    if (ev.ok) p.go(ended);
+    else if (ev.error) app.flash(ev.error, 'err');
   }
 }
 
@@ -143,9 +177,21 @@ command({ name: 'cm_OpenNetwork', label: 'Network neighbourhood', run: (app) => 
 command({ name: 'cm_NetConnect', label: 'Connect network drive…', run: (app) => netConnect(app) });
 command({ name: 'cm_NetDisconnect', label: 'Disconnect network drive…', run: (app) => netDisconnect(app) });
 
+// a network folder being opened shows a spinner on its row instead of fading the list
+Panel.quietLoadHooks.push((p, path) => {
+  if (!isNetFolder(path)) return false;
+  pending.set(p, netKey(path));
+  return true;
+});
+Panel.rowClassHooks.push((p, e) => (!e.up && opening.size && p.path && opening.has(netKey(p.fullPath(e.name))) ? 'mc-net-opening' : ''));
+
 export function init(app) {
   app.openNetwork = (panel) => openNetwork(app, panel); // the drive bar's Network button (core/panel.js)
-  app.on('panel', (p) => banner(p));
+  app.on('panel', (p) => {
+    banner(p);
+    if (pending.get(p) === netKey(p.path)) pending.delete(p); // it opened in this panel: nothing left to wait for
+  });
+  on('network-opening', (ev) => openingEvent(app, ev));
   // servers came or went: a panel showing the network folder reads it again (the cursor stays where it was)
   on('network-servers', (s) => {
     if (s) status = s;
@@ -170,5 +216,5 @@ export function init(app) {
       asking = false;
     }
   });
-  go.Network.Status().then((s) => { if (s) status = s; }).catch(() => {});
+  go.Network.Status().then((s) => { if (s) { status = s; setOpening(s.opening); repaintNet(app); } }).catch(() => {});
 }

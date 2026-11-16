@@ -83,6 +83,11 @@ func darwinMount(p string) (*Volume, error) {
 	if cstr(st.Mntonname[:]) != p {
 		return nil, nil
 	}
+	// A volume mounted "nobrowse" is one the system asks apps to leave out, as Finder does: the Recovery volume that
+	// macOS mounts at /Volumes/Recovery while it prepares an update, for example. It can't be ejected from here either.
+	if st.Flags&unix.MNT_DONTBROWSE != 0 {
+		return nil, nil
+	}
 	bs := uint64(st.Bsize)
 	kind := darwinKind(cstr(st.Fstypename[:]), st.Flags)
 	v := &Volume{Path: p, Kind: kind, Total: st.Blocks * bs, Free: st.Bavail * bs}

@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { networkVolumes, typedAddress, hasShare, isNetworkRoot, typedPath, bannerText } from '../src/features/network-lib.js';
+import { networkVolumes, typedAddress, hasShare, isNetworkRoot, typedPath, bannerText, netKey, isNetFolder, netParent } from '../src/features/network-lib.js';
 
 test('network volumes for Disconnect (#148)', () => {
   expect(networkVolumes([{ kind: 'fixed' }, { kind: 'network', name: 'media' }, { kind: 'map' }])).toEqual([{ kind: 'network', name: 'media' }]);
@@ -27,4 +27,19 @@ test('the network folder and its banner', () => {
   expect(bannerText({ searching: false }, 2)).toMatch(/^Still listening/);
   expect(bannerText({ searching: false }, 0)).toMatch(/^No servers found yet/);
   expect(bannerText({ note: 'avahi-browse is missing' }, 0)).toBe('avahi-browse is missing');
+});
+
+test('network folders being opened: keys, which folders open, and their parents', () => {
+  expect(netKey('network://DiskStation/')).toBe('network://DiskStation');
+  expect(netKey('network://')).toBe('network://');
+  expect(netKey('network:')).toBe('network://');
+  expect(isNetFolder('network://')).toBe(false);
+  expect(isNetFolder('network://DiskStation')).toBe(true);
+  expect(isNetFolder('network://DiskStation/video')).toBe(true);
+  expect(isNetFolder('smb://nas/media')).toBe(true);
+  expect(isNetFolder('/Volumes/video')).toBe(false);
+  expect(netParent('network://DiskStation/video')).toBe('network://DiskStation');
+  expect(netParent('network://DiskStation')).toBe('network://');
+  expect(netParent('smb://nas/media')).toBe('smb://nas');
+  expect(netParent('smb://nas')).toBe('network://');
 });

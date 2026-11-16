@@ -43,6 +43,7 @@ type Network struct {
 	mu    sync.Mutex
 	temps []string  // shares Open mounted, disconnected at the end
 	w     *netPanel // the Network panel's background search (feature_network_fs.go)
+	op    *netOpens // servers and shares being opened, and the cached share lists (feature_network_open.go)
 }
 
 var networkFeature *Network
@@ -101,6 +102,18 @@ type NetShares struct {
 type NetMounted struct {
 	Path     string `json:"path"`
 	NeedAuth bool   `json:"needAuth"`
+}
+
+// mountShare mounts t with n.mount and gives the app the focus back afterwards when it had it before: on macOS the
+// system's sign-in window or its "There was a problem connecting" alert takes the focus while the share is mounted, and
+// macOS doesn't return it when they close, so a key press after Enter on a share would go nowhere.
+func (n *Network) mountShare(ctx context.Context, t netbrowse.Target, c netbrowse.Creds, o netbrowse.MountOptions) (netbrowse.Mounted, error) {
+	front := appActive()
+	m, err := n.mount(ctx, t, c, o)
+	if front && !appActive() && n.app != nil && n.app.wapp != nil {
+		n.app.Activate(context.Background())
+	}
+	return m, err
 }
 
 // Discover searches the local network for file servers (a few seconds) and lists them after the remembered ones.
@@ -200,7 +213,7 @@ func (n *Network) connect(ctx context.Context, r NetRequest, keep bool) (NetMoun
 	if keep {
 		o = netbrowse.MountOptions{Letter: r.Letter, Persistent: r.Persistent}
 	}
-	m, err := n.mount(ctx, t, n.creds(t, r), o)
+	m, err := n.mountShare(ctx, t, n.creds(t, r), o)
 	if errors.Is(err, netbrowse.ErrAuth) {
 		return NetMounted{NeedAuth: true}, nil
 	}
