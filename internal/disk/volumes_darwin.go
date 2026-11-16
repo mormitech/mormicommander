@@ -93,6 +93,7 @@ func darwinMount(p string) (*Volume, error) {
 	v := &Volume{Path: p, Kind: kind, Total: st.Blocks * bs, Free: st.Bavail * bs}
 	if kind == "network" {
 		v.Name = shareLabel(filepath.Base(p), cstr(st.Mntfromname[:]))
+		v.Host, v.Share = shareOf(cstr(st.Mntfromname[:]))
 	}
 	return v, nil
 }
@@ -102,11 +103,25 @@ func darwinMount(p string) (*Volume, error) {
 // DiskStation.local mounts at /Volumes/DiskStation.local), so a folder named like the server shows the share's name;
 // any other folder keeps its own name ("" means the folder name).
 func shareLabel(folder, source string) string {
-	rest, ok := strings.CutPrefix(source, "//")
-	if !ok {
+	host, share := shareOf(source)
+	if share == "" {
 		return ""
 	}
-	host, share, _ := strings.Cut(rest, "/")
+	short, _, _ := strings.Cut(host, ".")
+	if strings.EqualFold(folder, host) || strings.EqualFold(folder, short) {
+		return share
+	}
+	return ""
+}
+
+// shareOf splits a network mount's source ("//user@host:port/share") into its server and share, without the user and
+// port; "" for both when the source is not of that form or names a folder inside a share.
+func shareOf(source string) (host, share string) {
+	rest, ok := strings.CutPrefix(source, "//")
+	if !ok {
+		return "", ""
+	}
+	host, share, _ = strings.Cut(rest, "/")
 	if i := strings.LastIndex(host, "@"); i >= 0 {
 		host = host[i+1:]
 	}
@@ -115,16 +130,12 @@ func shareLabel(folder, source string) string {
 	}
 	share = strings.Trim(share, "/")
 	if share == "" || strings.Contains(share, "/") {
-		return ""
+		return "", ""
 	}
 	if dec, err := url.PathUnescape(share); err == nil {
 		share = dec
 	}
-	short, _, _ := strings.Cut(host, ".")
-	if strings.EqualFold(folder, host) || strings.EqualFold(folder, short) {
-		return share
-	}
-	return ""
+	return host, share
 }
 
 // darwinKind classifies a volume by its file system type name and statfs flags (see the file comment).

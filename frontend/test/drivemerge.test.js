@@ -1,0 +1,32 @@
+// core/drivemerge.js: a share mapped to the drive bar as a network:// button stands for its mounted volume, so the
+// share shows one button, not two.
+import { expect, test } from 'vitest';
+import { mergeMaps, shareOfPath, sameServer } from '../src/core/drivemerge.js';
+
+test('network paths name their server and share', () => {
+  expect(shareOfPath('network://DiskStation.local/z')).toEqual({ host: 'DiskStation.local', share: 'z' });
+  expect(shareOfPath('smb://pat@nas:445/media/')).toEqual({ host: 'nas', share: 'media' });
+  expect(shareOfPath('network://DiskStation')).toBe(null);
+  expect(shareOfPath('network://DiskStation/z/sub')).toBe(null);
+  expect(shareOfPath('/Users/pat/Code')).toBe(null);
+  expect(sameServer('DiskStation', 'diskstation.local')).toBe(true);
+  expect(sameServer('DiskStation', 'Other')).toBe(false);
+});
+
+test('a mapped share hides its mounted volume and takes over its folder', () => {
+  const vols = [
+    { name: 'Macintosh HD', path: '/', kind: 'fixed' },
+    { name: 'z', path: '/Volumes/DiskStation.local', kind: 'network', host: 'DiskStation.local', share: 'z' },
+    { name: 'video', path: '/Volumes/video', kind: 'network', host: 'DiskStation.local', share: 'video' },
+  ];
+  const maps = [{ name: 'Code', path: '/Users/pat/Code' }, { name: 'z', path: 'network://DiskStation/z' }];
+  const out = mergeMaps(vols, maps);
+  expect(out.filter((v) => !v.hidden).map((v) => `${v.kind}:${v.name}`)).toEqual(['fixed:Macintosh HD', 'network:video', 'map:Code', 'map:z']);
+  expect(out[1]).toMatchObject({ path: '/Volumes/DiskStation.local', hidden: true }); // (still known, for disconnecting)
+  expect(out[4].mount).toBe('/Volumes/DiskStation.local');
+  expect(out[3].mount).toBeUndefined();
+  // a share of another server with the same name stays
+  expect(mergeMaps([{ ...vols[1], host: 'other.local' }], maps).map((v) => `${v.kind}${v.hidden ? '-hidden' : ''}`)).toEqual(['network', 'map', 'map']);
+  // without maps nothing changes
+  expect(mergeMaps(vols, [])).toEqual(vols);
+});

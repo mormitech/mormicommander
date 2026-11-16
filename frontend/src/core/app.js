@@ -10,6 +10,7 @@
 import { go, errText } from './go.js';
 import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js';
 import { getSetting, setSetting } from './settings.js';
+import { mergeMaps } from './drivemerge.js';
 import { label as keyLabel } from './keys.js';
 import { fitText } from './fitpath.js';
 import { sessionSaver } from './session.js';
@@ -139,14 +140,15 @@ export const app = {
   // driveFor is the drive bar button to highlight for a path: the most specific of Home and your mapped folders that
   // contains it (so inside a mapped folder its button lights up), else the volume it is on.
   driveFor(p) {
-    let best = null;
+    let best = null, bestLen = -1;
     const win = this.platform === 'windows';
     for (const v of this.volumes) {
       if (v.kind !== 'home' && v.kind !== 'map') continue;
-      const root = v.path;
-      const a = win ? p.toLowerCase() : p, r = win ? root.toLowerCase() : root;
-      const inside = a === r || a.startsWith(r.endsWith('/') || r.endsWith('\\') ? r : r + this.sepFor(root));
-      if (inside && (!best || root.length > best.path.length)) best = v;
+      for (const root of v.mount ? [v.path, v.mount] : [v.path]) { // (a mapped share also covers where it is mounted)
+        const a = win ? p.toLowerCase() : p, r = win ? root.toLowerCase() : root;
+        const inside = a === r || a.startsWith(r.endsWith('/') || r.endsWith('\\') ? r : r + this.sepFor(root));
+        if (inside && root.length > bestLen) { best = v; bestLen = root.length; }
+      }
     }
     return best || this.volumeFor(p);
   },
@@ -171,8 +173,8 @@ export const app = {
   async loadVolumes() {
     let vols;
     try { vols = (await go.FS.Volumes()) || []; } catch { vols = []; }
-    const maps = (getSetting('driveMaps', []) || []).filter((m) => m && m.path).map((m) => ({ name: m.name || m.path, path: m.path, kind: 'map' }));
-    this.volumes = [...vols, ...maps];
+    // (a mapped network share stands for its mounted volume: core/drivemerge.js)
+    this.volumes = mergeMaps(vols, (getSetting('driveMaps', []) || []).filter((m) => m && m.path));
     for (const p of this.panels) p.renderDrives(this.volumes);
   },
 

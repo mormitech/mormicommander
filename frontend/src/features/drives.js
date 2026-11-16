@@ -7,7 +7,7 @@ import { size } from '../core/format.js';
 
 async function openDrives(app, panel) {
   await app.loadVolumes();
-  const vols = app.volumes;
+  const vols = app.volumes.filter((v) => !v.hidden); // (a mounted share a mapped button stands for: core/drivemerge.js)
   if (!vols.length) { app.flash('No drives found.'); return false; }
   const on = app.driveFor(panel.path);
   const items = vols.map((v) => ({

@@ -508,6 +508,7 @@ export class Panel {
     const inNet = /^(network|smb|nfs|afp):\/\//i.test(currentPath ?? this.path ?? '');
     const net = this.app.openNetwork ? `<button type="button" class="mc-drive-net mc-drive-icon${inNet ? ' on' : ''}" data-net="1" title="Network: servers and shared folders on the local network" aria-label="Network">${driveIcon('lan')}</button>` : '';
     this.$.drives.innerHTML = volumes.map((v, i) => {
+      if (v.hidden) return ''; // (a mounted share a mapped button stands for: core/drivemerge.js)
       const iconOnly = v.kind === 'home';
       const name = esc(shortName(v, this.app.platform));
       return `${i === firstMap && i > 0 ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.kind)}${iconOnly ? '' : name}</button>`;

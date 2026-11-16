@@ -22,6 +22,10 @@ type Volume struct {
 	Total uint64 `json:"total"`           // bytes
 	Free  uint64 `json:"free"`            // bytes the user can still write
 	Stale bool   `json:"stale,omitempty"` // the volume did not answer in time (a share whose server is gone): no sizes
+	// Host and Share name the server and share a network volume is mounted from (macOS), so the drive bar can tell
+	// that a share you put on it as a network:// button is the same one: "" when not known.
+	Host  string `json:"host,omitempty"`
+	Share string `json:"share,omitempty"`
 }
 
 // Usage is the size and free space of the volume a path lives on.

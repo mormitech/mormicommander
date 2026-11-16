@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.13 – 2026-11-16
+
+### Fixed
+
+- **A network share mapped to the drive bar shows one button, not two.** Opening a mapped share (such as
+  network://DiskStation/z) mounts it, and the mounted volume added a second button for the same share. While a mapped
+  button stands for a share, its mounted volume is left out of the drive bar and the drive list, and the mapped button
+  lights up while a panel is inside the share. Disconnecting and ejecting still know the volume (macOS).
+
 ## 0.14.12 – 2026-11-16
 
 ### Fixed
