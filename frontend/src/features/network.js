@@ -189,7 +189,7 @@ export function init(app) {
   app.openNetwork = (panel) => openNetwork(app, panel); // the drive bar's Network button (core/panel.js)
   app.on('panel', (p) => {
     banner(p);
-    if (pending.get(p) === netKey(p.path)) pending.delete(p); // it opened in this panel: nothing left to wait for
+    if (!p.waiting && pending.get(p) === netKey(p.path)) pending.delete(p); // it opened in this panel: nothing left to wait for
   });
   on('network-opening', (ev) => openingEvent(app, ev));
   // servers came or went: a panel showing the network folder reads it again (the cursor stays where it was)

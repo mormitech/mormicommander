@@ -104,6 +104,11 @@ html.mc-panning, html.mc-panning * { cursor: grab !important; } /* middle-button
 .broken .n b { text-decoration: line-through; }
 .list .msg { position: absolute; left: 0; right: 0; top: 40px; padding: 0 20px; text-align: center; color: var(--muted); white-space: normal; -webkit-user-select: text; user-select: text; }
 .list .msg.err { color: var(--danger); }
+/* a network folder opened at once, still connecting or being read (core/panel.js _go) */
+.list .msg.waiting::before { content: ''; display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -2px;
+    border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: mc-msg-spin .8s linear infinite; }
+@keyframes mc-msg-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .list .msg.waiting::before { animation-duration: 2.4s; } }
 .list .msg[hidden] { display: none; }
 .panel.loading .list .rows { opacity: .55; transition: opacity .15s .15s; }
 

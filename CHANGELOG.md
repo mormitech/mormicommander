@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.20 – 2026-11-16
+
+### Changed
+
+- **A network folder opens in the panel at once.** Choosing a server, a share or a mapped network drive no longer
+  leaves the panel on the folder it was in until the share is connected and read: the panel goes there right away,
+  empty, with "Connecting…" and a spinner inside, and fills when the folder is read. If it can't be opened, the
+  panel says why in the same place. Going elsewhere meanwhile still lets the opening go on in the background, as in
+  0.14.6.
+
 ## 0.14.19 – 2026-11-16
 
 ### Fixed

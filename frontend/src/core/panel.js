@@ -70,6 +70,7 @@ export class Panel {
     this.dirSizes = new Map(); // folder name → calculated size (Space, Alt+Shift+Enter)
     this.loading = false;
     this.error = '';
+    this.waiting = ''; // "Connecting…" while a network folder opened at once is read (_go)
     this.anchor = -1;          // where a Shift range selection starts
     this.seq = 0;
     this.rowH = 20;
@@ -147,8 +148,33 @@ export class Panel {
   async _go(path, { focus = null, history = true, keepSelection = false, restore = false } = {}) {
     const seq = ++this.seq;
     this.loading = true;
-    // a hook that shows progress its own way (a network folder being opened gets a spinner on its row) asks for no fade
+    // A folder a hook says is slow to open (a network folder: features/network.js) is opened in the panel at once,
+    // empty, with "Connecting…" and a spinner in it, and fills when it is read; a failure is told there too. Any other
+    // folder keeps the panel as it is (faded) until it is read.
+    let early = false;
     if (!Panel.quietLoadHooks.some((h) => h(this, path))) this.el.classList.add('loading');
+    else if (path !== this.path) {
+      let parent = '';
+      try { parent = (await go.FS.Parent(path)) || ''; } catch { /* no ".." until it is read */ }
+      if (seq !== this.seq) return false;
+      const from = this.path;
+      if (from) {
+        if (this.cur) this.lastCursor.set(from, this.cur.name);
+        if (history) { this.back.push(from); if (this.back.length > 200) this.back.shift(); this.fwd = []; }
+      }
+      early = true;
+      this.path = path;
+      this.parent = parent;
+      this.error = '';
+      this.all = [];
+      this.selected = new Set();
+      this.dirSizes = new Map();
+      this.filter = null;
+      this.filterLabel = '';
+      this.waiting = 'Connecting…';
+      this.rebuild(null, 0);
+      this.app.panelChanged(this, { moved: true });
+    }
     let l;
     try {
       l = await go.FS.List(this.side, path);
@@ -157,14 +183,17 @@ export class Panel {
       this.loading = false;
       this.el.classList.remove('loading');
       const msg = errText(e);
-      if (!msg.startsWith('Stopped reading')) this.app.flash(msg, 'err');
-      if (!this.path) { this.error = msg; this.render(); }
+      const shown = early && this.path === path; // (the panel stands at the folder: it says why there)
+      this.waiting = '';
+      if (!msg.startsWith('Stopped reading') && !shown) this.app.flash(msg, 'err');
+      if (!this.path || shown) { this.error = msg; this.render(); }
       return false;
     }
     if (seq !== this.seq) return false; // a newer request won
+    this.waiting = '';
     const prev = this.path;
-    const same = prev === l.path;
-    if (prev && !same) {
+    const same = prev === l.path && !early;
+    if (prev && !same && !early) {
       if (this.cur) this.lastCursor.set(prev, this.cur.name);
       if (history) {
         this.back.push(prev);
@@ -193,7 +222,7 @@ export class Panel {
     this.rebuild(want, same ? oldCursor : 0);
     this.loading = false;
     this.el.classList.remove('loading');
-    this.app.panelChanged(this, { moved: !same });
+    this.app.panelChanged(this, { moved: !same || early });
     return true;
   }
 
@@ -435,6 +464,7 @@ export class Panel {
     filter.hidden = !this.filterLabel;
     filter.textContent = this.filterLabel;
     if (this.error) { msg.hidden = false; msg.className = 'msg err'; msg.textContent = this.error; }
+    else if (this.waiting) { msg.hidden = false; msg.className = 'msg waiting'; msg.textContent = this.waiting; }
     else if (this.path && this.entries.filter((e) => !e.up).length === 0) { msg.hidden = false; msg.className = 'msg'; msg.textContent = this.filter ? 'No files match the filter.' : 'This folder is empty.'; }
     else msg.hidden = true;
     this.renderRows();
@@ -537,8 +567,9 @@ export class Panel {
 // Features with virtual folders (Feed to listbox) map a name to the real file: hook(panel, name) → full path or ''.
 Panel.pathHooks = [];
 
-// Features that show the progress of a slow folder their own way return true from hook(panel, path) when go starts
-// for such a folder: the list then isn't faded while it loads (features/network.js).
+// Features with folders that are slow to open (a network folder: it may have to connect first) return true from
+// hook(panel, path) when go starts for such a folder: the panel then goes there at once and shows "Connecting…" inside
+// until it is read (features/network.js), instead of fading the folder it was in.
 Panel.quietLoadHooks = [];
 
 // Features that mark rows (cut files are dimmed until pasted) add a class: hook(panel, entry) → class name or ''.
