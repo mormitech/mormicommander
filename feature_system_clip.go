@@ -344,6 +344,17 @@ func (f *SystemFiles) Eject(path string) error {
 		return strings.TrimSpace(string(out)), err
 	}
 	out, err := run(name, args)
+	if err != nil && runtime.GOOS == "darwin" {
+		// "diskutil eject" wants a disk; a network share has none ("Failed to find disk"), and is unmounted instead, as
+		// Finder's eject button does (umount when diskutil can't either).
+		if o2, e2 := run("diskutil", []string{"unmount", path}); e2 == nil {
+			out, err = o2, nil
+		} else if o3, e3 := run("umount", []string{path}); e3 == nil {
+			out, err = o3, nil
+		} else if o2 != "" {
+			out = o2
+		}
+	}
 	if err != nil && runtime.GOOS == "linux" {
 		// gio is GNOME's; umount works for any mount the user may unmount (fstab "user" mounts).
 		out, err = run("umount", []string{path})

@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.14 – 2026-11-16
+
+### Fixed
+
+- **A network share can be ejected from the drive bar** (macOS). Eject asked diskutil to eject a disk, and a share has
+  none ("Failed to find disk"); it is now unmounted instead, as Finder's eject button does, and the message says it
+  was disconnected. A mapped share's button has Eject too while the share is connected.
+
 ## 0.14.13 – 2026-11-16
 
 ### Fixed

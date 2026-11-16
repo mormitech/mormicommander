@@ -150,7 +150,7 @@ async function eject(app, v) {
     app.flash(errText(e), 'err');
     return false;
   }
-  app.flash(`Ejected ${v.name}. It can be removed now.`);
+  app.flash(v.kind === 'network' ? `Disconnected ${v.name}.` : `Ejected ${v.name}. It can be removed now.`);
   await app.loadVolumes();
   return true;
 }
@@ -185,6 +185,8 @@ function driveMenu(app, p, v, anchor) {
       fn('Move left', () => moveMap(app, v.path, -1), i <= 0),
       fn('Move right', () => moveMap(app, v.path, 1), i < 0 || i >= n - 1),
       SEP,
+      // a mapped network share that is connected stands for its mounted volume (core/drivemerge.js): it can be ejected
+      ...(v.mount ? [fn('Eject', () => eject(app, app.volumes.find((x) => x.path === v.mount)), !ejectable(app, app.volumes.find((x) => x.path === v.mount)))] : []),
       fn('Remove from the drive bar', () => unmapFolder(app, v.path)),
     ], anchor, 'context-drive');
   }
