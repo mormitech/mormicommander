@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.16 – 2026-11-16
+
+### Changed
+
+- **A network share mapped to the drive bar is a network drive there.** Its button stands with the drives, before
+  the divider, with the network drive icon; the folders you mapped stay after the divider. Its menu has Eject instead
+  of Move left/right and "Remove from the drive bar": Eject disconnects the share and takes the button off (a share
+  that is not connected is just taken off). Ejecting the share any other way takes its button off too. Move left and
+  right move a mapped folder among the mapped folders only.
+
 ## 0.14.15 – 2026-11-16
 
 ### Added

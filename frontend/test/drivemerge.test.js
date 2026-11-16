@@ -21,12 +21,15 @@ test('a mapped share hides its mounted volume and takes over its folder', () => 
   ];
   const maps = [{ name: 'Code', path: '/Users/pat/Code' }, { name: 'z', path: 'network://DiskStation/z' }];
   const out = mergeMaps(vols, maps);
-  expect(out.filter((v) => !v.hidden).map((v) => `${v.kind}:${v.name}`)).toEqual(['fixed:Macintosh HD', 'network:video', 'map:Code', 'map:z']);
+  // the mapped share stands with the network drives, before the local bookmark
+  expect(out.filter((v) => !v.hidden).map((v) => `${v.kind}:${v.name}${v.net ? ':net' : ''}`)).toEqual(['fixed:Macintosh HD', 'network:video', 'map:z:net', 'map:Code']);
   expect(out[1]).toMatchObject({ path: '/Volumes/DiskStation.local', hidden: true }); // (still known, for disconnecting)
-  expect(out[4].mount).toBe('/Volumes/DiskStation.local');
-  expect(out[3].mount).toBeUndefined();
+  expect(out[3].mount).toBe('/Volumes/DiskStation.local');
+  expect(out[4].mount).toBeUndefined();
   // a share of another server with the same name stays
   expect(mergeMaps([{ ...vols[1], host: 'other.local' }], maps).map((v) => `${v.kind}${v.hidden ? '-hidden' : ''}`)).toEqual(['network', 'map', 'map']);
+  // a mapped share that is not connected is still a network drive button
+  expect(mergeMaps([], maps).map((v) => `${v.name}${v.net ? ':net' : ''}${v.mount ? ':mounted' : ''}`)).toEqual(['z:net', 'Code']);
   // without maps nothing changes
   expect(mergeMaps(vols, [])).toEqual(vols);
 });

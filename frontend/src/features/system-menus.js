@@ -151,6 +151,8 @@ async function eject(app, v) {
     return false;
   }
   app.flash(v.kind === 'network' ? `Disconnected ${v.name}.` : `Ejected ${v.name}. It can be removed now.`);
+  // a mapped network share's button goes with its volume (ejecting is how such a button is removed)
+  for (const m of app.volumes.filter((x) => x.kind === 'map' && x.net && x.mount === v.path)) await unmapFolder(app, m.path);
   await app.loadVolumes();
   return true;
 }
@@ -174,7 +176,27 @@ async function volumeProps(app, v, note = '') {
   return true;
 }
 
+// ejectShare disconnects a mapped network share (when it is connected) and takes its button off the drive bar: for such
+// a button Eject is the way to remove it.
+async function ejectShare(app, v) {
+  const vol = v.mount ? app.volumes.find((x) => x.path === v.mount) : null;
+  if (vol && !(await eject(app, vol))) return false; // (eject takes the button off too)
+  if (!vol) { await unmapFolder(app, v.path); app.flash(`Removed ${v.name}.`); }
+  return true;
+}
+
 function driveMenu(app, p, v, anchor) {
+  if (v.kind === 'map' && v.net) {
+    // a mapped network share is a network drive: it is ejected, not removed (core/drivemerge.js)
+    return menu(app, `${v.name} – ${v.path}`, [
+      fn('Open', () => { app.setActive(p); return p.go(v.path); }),
+      fn('Open in the other panel', () => p.other.go(v.path)),
+      SEP,
+      fn('Rename…', () => mapFolder(app, v.path)),
+      SEP,
+      fn('Eject', () => ejectShare(app, v)),
+    ], anchor, 'context-drive');
+  }
   if (v.kind === 'map') {
     const i = mapIndex(app, v.path), n = mapCount();
     return menu(app, `${v.name} – ${v.path}`, [
@@ -185,8 +207,6 @@ function driveMenu(app, p, v, anchor) {
       fn('Move left', () => moveMap(app, v.path, -1), i <= 0),
       fn('Move right', () => moveMap(app, v.path, 1), i < 0 || i >= n - 1),
       SEP,
-      // a mapped network share that is connected stands for its mounted volume (core/drivemerge.js): it can be ejected
-      ...(v.mount ? [fn('Eject', () => eject(app, app.volumes.find((x) => x.path === v.mount)), !ejectable(app, app.volumes.find((x) => x.path === v.mount)))] : []),
       fn('Remove from the drive bar', () => unmapFolder(app, v.path)),
     ], anchor, 'context-drive');
   }

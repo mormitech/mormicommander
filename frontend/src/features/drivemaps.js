@@ -10,6 +10,7 @@
 import { command } from '../core/registry.js';
 import { inputDialog } from '../core/dialogs.js';
 import { getSetting, setSetting } from '../core/settings.js';
+import { shareOfPath } from '../core/drivemerge.js';
 
 const maps = () => (getSetting('driveMaps', []) || []).filter((m) => m && m.path);
 const same = (app, a, b) => (app.platform === 'windows' ? a.toLowerCase() === b.toLowerCase() : a === b);
@@ -46,20 +47,26 @@ export async function unmapFolder(app, path) {
   return true;
 }
 
-// moveMap moves a mapped button one place left (-1) or right (+1) among the mapped buttons.
+// moveMap moves a mapped button one place left (-1) or right (+1) among the mapped buttons of its own group (the
+// folders you mapped, or the mapped network shares, which stand with the drives: core/drivemerge.js).
 export async function moveMap(app, path, by) {
   const list = maps();
   const i = list.findIndex((m) => same(app, m.path, path));
-  const j = i + by;
-  if (i < 0 || j < 0 || j >= list.length) return false;
+  if (i < 0) return false;
+  const net = !!shareOfPath(list[i].path);
+  let j = i + by;
+  while (j >= 0 && j < list.length && !!shareOfPath(list[j].path) !== net) j += by;
+  if (j < 0 || j >= list.length) return false;
   [list[i], list[j]] = [list[j], list[i]];
   await save(app, list);
   return true;
 }
 
 export const isMapped = (app, path) => maps().some((m) => same(app, m.path, path));
-export const mapIndex = (app, path) => maps().findIndex((m) => same(app, m.path, path));
-export const mapCount = () => maps().length;
+// mapIndex and mapCount count the folders you mapped only (not the mapped network shares), for Move left/right.
+const localMaps = () => maps().filter((m) => !shareOfPath(m.path));
+export const mapIndex = (app, path) => localMaps().findIndex((m) => same(app, m.path, path));
+export const mapCount = () => localMaps().length;
 
 command({
   // args.path, else the folder under the cursor, else the panel's folder.
