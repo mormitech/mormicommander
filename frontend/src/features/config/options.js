@@ -206,7 +206,7 @@ async function showDialog(app, startPage, opts = {}) {
       <div class="mc-config">
         <div class="mc-config-side"><input type="text" id="cfg-search" placeholder="Search options" spellcheck="false" aria-label="Search options">
           <label class="mc-check mc-config-whole-words"><input type="checkbox" id="cfg-whole"${wholeWords ? ' checked' : ''}> Whole words</label>
-          <select id="cfg-page" size="20" aria-label="Pages">${pages.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('')}</select></div>
+          <div id="cfg-page" class="mc-config-pages" role="listbox" tabindex="0" aria-label="Pages">${pageItems(pages)}</div></div>
         <div class="mc-config-main">${sections}</div>
       </div>
       <p class="mc-err" hidden></p>
@@ -218,7 +218,7 @@ async function showDialog(app, startPage, opts = {}) {
     const hideNoEffect = () => box.classList.toggle('mc-config-hide-noeffect', hideBox ? hideBox.checked : initial[HIDE_NO_EFFECT] === '1');
     hideBox?.addEventListener('change', hideNoEffect);
     hideNoEffect();
-    const pageSel = $('#cfg-page');
+    const pageSel = pageList($('#cfg-page'));
     const show = (id) => {
       if (!pages.some((p) => p.id === id)) id = pages[0].id;
       pageSel.value = id;
@@ -286,7 +286,7 @@ async function showDialog(app, startPage, opts = {}) {
         sec.classList.toggle('mc-config-whole', titleHits.has(id));
       });
       const shown = pages.filter((p) => hitPages.has(p.id));
-      pageSel.innerHTML = shown.map((p) => `<option value="${esc(p.id)}">${esc(p.title)}</option>`).join('');
+      pageSel.innerHTML = pageItems(shown);
       if (shown.length) pageSel.value = shown[0].id;
       none.hidden = shown.length > 0;
       main.scrollTop = 0;
@@ -567,7 +567,7 @@ async function showDialog(app, startPage, opts = {}) {
     box.addEventListener('click', (ev) => { if (ev.target.closest('button') && !ev.target.closest('.mc-btns')) live(60); }); // (list editors: hotkeys, colours, user commands)
     $('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => { ev.preventDefault(); clearTimeout(timer); track(save().then((ok) => { if (ok) done('ok'); })); };
-  }, null, { kind: 'config' });
+  }, null, { kind: 'config', onKey: (ev) => !!ev.target?.mcListKey?.(ev) });
   if (result === null) await revertOptions(app, opened, touched);
   return result === 'ok' ? null : result;
 }
@@ -598,6 +598,51 @@ async function revertOptions(app, opened, touched) {
 }
 
 // ---- commands ----
+// The page list is a list of our own, not a <select size>: WebKit's native list box, stretched to the dialog's height and
+// scrolled, drew its rows apart from where it took the clicks, so a click on its empty part chose some page.
+function pageItems(list) {
+  return list.map((p) => `<div role="option" class="mc-config-pageitem" data-value="${esc(p.id)}">${esc(p.title)}</div>`).join('');
+}
+
+// pageList gives the list the value property and "change" event a <select> has, chosen with a click or the arrow keys.
+function pageList(el) {
+  const items = () => [...el.querySelectorAll('[role=option]')];
+  let cur = '';
+  const mark = () => {
+    for (const it of items()) {
+      const on = it.dataset.value === cur;
+      it.setAttribute('aria-selected', on ? 'true' : 'false');
+      if (on) it.scrollIntoView({ block: 'nearest' });
+    }
+  };
+  Object.defineProperty(el, 'value', {
+    get: () => (items().some((it) => it.dataset.value === cur) ? cur : ''),
+    set: (v) => { cur = String(v); mark(); },
+  });
+  const choose = (v) => {
+    if (v === undefined || v === cur) return;
+    el.value = v;
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+  };
+  el.addEventListener('mousedown', (ev) => {
+    el.focus({ preventScroll: true }); // (so the arrow keys move in the list next)
+    const it = ev.target.closest('[role=option]');
+    if (it) choose(it.dataset.value); // (a click below the last page chooses nothing)
+  });
+  // (modal() keeps keydown away from the dialog's own elements, so the keys come through its onKey: see showDialog)
+  el.mcListKey = (ev) => {
+    const list = items();
+    if (!list.length) return false;
+    const i = list.findIndex((it) => it.dataset.value === cur);
+    const page = Math.max(1, Math.floor(el.clientHeight / (list[0].offsetHeight || 18)) - 1);
+    const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: list.length - 1, PageDown: i + page, PageUp: i - page }[ev.key];
+    if (to === undefined || ev.metaKey || ev.ctrlKey || ev.altKey) return false;
+    choose(list[Math.max(0, Math.min(list.length - 1, to))].dataset.value);
+    return true;
+  };
+  return el;
+}
+
 command({ name: 'cm_Config', label: 'Options…', run: (app, args) => openOptions(app, args?.page || '') });
 command({ name: 'cm_ConfigHotkeys', label: 'Keyboard shortcuts…', run: (app, args) => openOptions(app, 'Hotkeys', { command: args?.command || '' }) });
 command({

@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.10 – 2026-11-16
+
+### Fixed
+
+- **Clicking the empty part of the Options page list no longer chooses a random page.** The list was the web view's
+  native list box, which drew its rows apart from where it took the clicks once scrolled; it is now a list of
+  mormiCommander's own (click, arrow keys, Page Up/Down, Home and End), and a click below the last page does nothing.
+
 ## 0.14.9 – 2026-11-16
 
 ### Fixed
