@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.8 – 2026-11-16
+
+### Changed
+
+- **The Lister (F3) starts playing a film or sound at once.** Quick View doesn't, so moving the cursor over a folder of
+  songs stays quiet. A film or sound stops when the Lister closes, goes to another file or switches to another view.
+
 ## 0.14.7 – 2026-11-16
 
 ### Changed

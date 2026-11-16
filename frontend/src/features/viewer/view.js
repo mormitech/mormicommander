@@ -286,6 +286,7 @@ export class ListerView {
       }
     }
     if (m === 'html' && !['html', 'markdown'].includes(this.info.suggest)) { this.asText = 'html'; m = 'text'; } // HTML as text (TC's key 5)
+    if (m !== 'media') this.pauseMedia(); // (a film playing on behind the text view would go on being heard)
     this.mode = m;
     this.showPane();
     if (m === 'media') { await track(this.showMedia()); this.status(); return; }
@@ -442,7 +443,13 @@ export class ListerView {
 
   // ---- media and documents ----
 
+  // pauseMedia stops a film or sound that is playing (a removed element is not stopped by the web view by itself).
+  pauseMedia() {
+    for (const v of this.$.media.querySelectorAll('video, audio')) v.pause();
+  }
+
   dropMedia() {
+    this.pauseMedia();
     if (this.blobURL) URL.revokeObjectURL(this.blobURL);
     this.blobURL = '';
     this.mediaFor = 0;
@@ -477,6 +484,7 @@ export class ListerView {
     const id = this.id;
     const m = this.info.media;
     if (this.mediaFor === id) { this.transform(); return; }
+    this.pauseMedia();
     this.$.media.textContent = '';
     if (this.info.size > MEDIA_LIMIT) {
       this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(this.info.name)} is too large to show here (${esc(fmtSize(this.info.size))}).<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
@@ -513,6 +521,9 @@ export class ListerView {
       el.addEventListener('load', () => this.transform());
     } else if (tag === 'video' || tag === 'audio') {
       el.controls = true;
+      // the Lister (F3) starts a film or sound at once, as a player does; Quick View doesn't, or moving the cursor over
+      // a folder of songs would play each one
+      el.autoplay = !this.quick;
     } else {
       el.type = m.mime;
     }
@@ -1221,7 +1232,7 @@ export class ListerView {
       top: this.top, percent: p?.percent ?? 0, atEnd: p?.atEnd ?? false, line: p?.line ?? 0, rows: p ? p.rows.map((r) => (this.mode === 'hex' ? `${hexOffset(r.o, this.info.offsetDigits || 8)}: ${r.h} ${r.t}` : r.t)) : [],
       selection: sr ? { start: sr[0], end: sr[1] } : null, match: this.match ? { offset: this.match.o, length: this.match.l } : null,
       size: this.info?.size ?? 0, suggest: this.info?.suggest ?? '', media: this.info?.media ? { kind: this.info.media.kind, format: this.info.media.format, width: this.info.media.width, height: this.info.media.height } : null,
-      mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
+      mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, playing: !!this.$.media.querySelector('video, audio') && !this.$.media.querySelector('video, audio').paused, docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
       follow: this.follow, searching: this.searching, status: this.$.stl.textContent, statusRight: this.$.str.textContent, folder: this.folder?.path ?? null,
       note: this.$.note.hidden ? '' : this.$.note.textContent.trim(), table: this.info?.table ?? '', grid: this.mode === 'table' ? this.grid.state() : null,
     };
