@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.18 – 2026-11-16
+
+### Fixed
+
+- **Later parts of a split TV recording play in the Lister** (name_003.mpg and the like). Such a part starts in the
+  middle of the stream; it showed as hex, and ffmpeg took its pictures for MP3 sound. It is now recognised as a film,
+  and ffmpeg starts reading where the stream really begins.
+- **Films show at their real shape.** TV recordings store their pictures with non-square pixels (720×576 shown as 4:3
+  or 16:9); converted films are now scaled to square pixels, and a film fills the Lister window at its own shape, with
+  black bars where the window's shape differs, as a player does.
+
 ## 0.14.17 – 2026-11-16
 
 ### Changed

@@ -35,11 +35,17 @@ func TestHLSPlaylist(t *testing.T) {
 		t.Fatalf("playlist:\n%s", pl)
 	}
 	// each segment keeps its place in the whole film, so the player joins them without gaps
-	a := strings.Join(segmentArgs("/f.mpg", 12, 6, true, []string{"-c:v", "libx264"}), " ")
+	a := strings.Join(segmentArgs("/f.mpg", 0, 12, 6, true, []string{"-c:v", "libx264"}), " ")
+	if !strings.Contains(a, "setsar=1") {
+		t.Fatalf("pictures are not made square: %s", a)
+	}
+	if b := strings.Join(segmentArgs("/f.mpg", 2034, 0, 6, true, nil), " "); !strings.Contains(b, "-skip_initial_bytes 2034 -i /f.mpg") {
+		t.Fatalf("skip: %s", b)
+	}
 	if !strings.Contains(a, "-ss 12.000 -i /f.mpg -t 6.000") || !strings.Contains(a, "-output_ts_offset 12.000") || !strings.Contains(a, "-c:v libx264") {
 		t.Fatalf("args: %s", a)
 	}
-	if a := strings.Join(segmentArgs("/f.ogg", 0, 6, false, nil), " "); strings.Contains(a, "-ss") || !strings.Contains(a, "-vn") {
+	if a := strings.Join(segmentArgs("/f.ogg", 0, 0, 6, false, nil), " "); strings.Contains(a, "-ss") || !strings.Contains(a, "-vn") {
 		t.Fatalf("sound args: %s", a)
 	}
 }

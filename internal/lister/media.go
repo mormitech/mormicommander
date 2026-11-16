@@ -116,7 +116,8 @@ func sniffMedia(b []byte) (mediaFormat, bool) {
 		return mediaFormat{"WAV", "audio/wav", "audio"}, true
 	case has(0, "RIFF") && has(8, "AVI "):
 		return mediaFormat{"AVI", "video/x-msvideo", "video"}, true
-	case has(0, "\x00\x00\x01\xba"), has(0, "\x00\x00\x01\xb3"):
+	case has(0, "\x00\x00\x01\xba"), has(0, "\x00\x00\x01\xb3"), has(0, "\x00\x00\x01") && len(b) > 3 && b[3]&0xF0 == 0xE0:
+		// (the last: a later part of a recording split into pieces, which starts in the middle of a video packet)
 		// an MPEG-1/2 program stream (.mpg, .vob) or a bare MPEG video stream (.m1v, .m2v)
 		return mediaFormat{"MPEG", "video/mpeg", "video"}, true
 	case tsPackets(b, 0, 188):

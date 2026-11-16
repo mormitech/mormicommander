@@ -499,6 +499,7 @@ func TestSniffVideoContainers(t *testing.T) {
 	}{
 		"program stream": {[]byte("\x00\x00\x01\xba\x44\x00\x04\x00"), "MPEG"},
 		"mpeg video":     {[]byte("\x00\x00\x01\xb3\x16\x00\xf0\x15"), "MPEG"},
+		"split piece":    {[]byte("\x00\x00\x01\xe0\x07\xec\x80\x00"), "MPEG"},
 		"transport":      {ts, "MPEG-TS"},
 		"m2ts":           {m2ts, "M2TS"},
 		"asf":            {[]byte("\x30\x26\xb2\x75\x8e\x66\xcf\x11\xa6\xd9"), "ASF"},

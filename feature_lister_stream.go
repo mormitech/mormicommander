@@ -18,12 +18,14 @@ package main
 // ffprobe tells which of the two a file needs; without ffmpeg only the first way is there.
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"net"
 	"net/http"
@@ -55,6 +57,7 @@ type mediaStream struct {
 	hls      bool
 	video    bool // (an HLS stream of a sound file has no picture)
 	duration float64
+	skip     int64           // bytes ffmpeg skips at the start (see mpegSkip)
 	ctx      context.Context // cancelled when the Lister lets the file go: running ffmpegs end
 	cancel   context.CancelFunc
 	slots    chan struct{} // at most a few ffmpegs at a time per stream
@@ -197,7 +200,7 @@ func (st *mediaStream) segment(w http.ResponseWriter, r *http.Request, n int) {
 		}
 	}()
 	start := float64(n) * streamSegment
-	cmd := exec.CommandContext(ctx, ffmpegPath("ffmpeg"), segmentArgs(st.path, start, streamSegment, st.video, videoEncoder())...)
+	cmd := exec.CommandContext(ctx, ffmpegPath("ffmpeg"), segmentArgs(st.path, st.skip, start, streamSegment, st.video, videoEncoder())...)
 	hideWindow(cmd)
 	out, err := cmd.StdoutPipe()
 	if err != nil {
@@ -235,15 +238,19 @@ func (st *mediaStream) segment(w http.ResponseWriter, r *http.Request, n int) {
 
 // segmentArgs are ffmpeg's arguments for one segment: secs seconds from start, as MPEG-TS with H.264 and AAC, with the
 // timestamps of their place in the whole film (so the player joins the segments without gaps). Interlaced TV pictures
-// are deinterlaced (only the interlaced frames).
-func segmentArgs(path string, start, secs float64, video bool, enc []string) []string {
+// are deinterlaced (only the interlaced frames), and pictures stored with non-square pixels (most TV: 720x576 shown as
+// 4:3 or 16:9) are scaled to square ones, so the film shows at its real shape. skip: bytes to leave out at the start.
+func segmentArgs(path string, skip int64, start, secs float64, video bool, enc []string) []string {
 	a := []string{"-hide_banner", "-loglevel", "error", "-nostdin"}
+	if skip > 0 {
+		a = append(a, "-skip_initial_bytes", strconv.FormatInt(skip, 10))
+	}
 	if start > 0 {
 		a = append(a, "-ss", fmt.Sprintf("%.3f", start))
 	}
 	a = append(a, "-i", path, "-t", fmt.Sprintf("%.3f", secs), "-map", "0:a:0?")
 	if video {
-		a = append(a, "-map", "0:v:0", "-vf", "yadif=mode=0:parity=-1:deint=1,format=yuv420p")
+		a = append(a, "-map", "0:v:0", "-vf", "yadif=mode=0:parity=-1:deint=1,scale='if(gt(sar,0),trunc(iw*sar/2)*2,iw)':ih,setsar=1,format=yuv420p")
 		a = append(a, enc...)
 		a = append(a, "-force_key_frames", "expr:eq(n,0)")
 	} else {
@@ -330,14 +337,41 @@ type probeInfo struct {
 	} `json:"streams"`
 }
 
-func ffprobe(ctx context.Context, path string) (*probeInfo, error) {
+// mpegSkip finds where an MPEG program stream really starts. A later part of a recording split into pieces (name_003.mpg)
+// starts in the middle of the stream, and ffmpeg then takes the picture data for MP3 sound and finds no film at all;
+// from the pack before the first sequence header on, it reads it right. 0 for a file that starts properly.
+func mpegSkip(path string) int64 {
+	f, err := os.Open(path)
+	if err != nil {
+		return 0
+	}
+	defer f.Close()
+	b := make([]byte, 8<<20)
+	n, _ := io.ReadFull(f, b)
+	b = b[:n]
+	seq := bytes.Index(b, []byte("\x00\x00\x01\xb3"))
+	if seq < 0 {
+		return 0
+	}
+	pack := bytes.LastIndex(b[:seq], []byte("\x00\x00\x01\xba"))
+	if pack <= 0 {
+		return 0
+	}
+	return int64(pack)
+}
+
+func ffprobe(ctx context.Context, path string, skip int64) (*probeInfo, error) {
 	bin := ffmpegPath("ffprobe")
 	if bin == "" {
 		return nil, errors.New("ffprobe is not installed")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, bin, "-v", "error", "-show_entries", "format=format_name,duration:stream=codec_type,codec_name:stream_disposition=attached_pic", "-of", "json", path)
+	args := []string{"-v", "error"}
+	if skip > 0 {
+		args = append(args, "-skip_initial_bytes", strconv.FormatInt(skip, 10))
+	}
+	cmd := exec.CommandContext(ctx, bin, append(args, "-show_entries", "format=format_name,duration:stream=codec_type,codec_name:stream_disposition=attached_pic", "-of", "json", path)...)
 	hideWindow(cmd)
 	out, err := cmd.Output()
 	if err != nil {
@@ -399,7 +433,10 @@ func (l *Lister) Stream(id int) (ListerStream, error) {
 		return ListerStream{Error: "Can't start the player: " + err.Error()}, nil
 	}
 	st := &mediaStream{sid: id, path: path, mime: info.Media.MIME, video: info.Media.Kind == "video", slots: make(chan struct{}, 3)}
-	if p, err := ffprobe(context.Background(), path); err == nil {
+	if info.Media.Format == "MPEG" {
+		st.skip = mpegSkip(path)
+	}
+	if p, err := ffprobe(context.Background(), path, st.skip); err == nil {
 		direct, video := p.plan()
 		st.video = video
 		st.duration, _ = strconv.ParseFloat(p.Format.Duration, 64)

@@ -32,7 +32,9 @@
 .mc-viewer-media { position: absolute; inset: 0; overflow: auto; display: flex; align-items: safe center; justify-content: safe center; padding: 4px;
   background: repeating-conic-gradient(color-mix(in srgb, var(--line) 50%, transparent) 0 25%, transparent 0 50%) 0 0 / 16px 16px; }
 .mc-viewer-media img { flex: none; image-rendering: auto; }
-.mc-viewer-media video, .mc-viewer-media embed { max-width: 100%; max-height: 100%; }
+/* a film fills the window at its own shape, as a player does (black bars where the shapes differ) */
+.mc-viewer-media video { width: 100%; height: 100%; object-fit: contain; background: #000; }
+.mc-viewer-media embed { max-width: 100%; max-height: 100%; }
 .mc-viewer-media embed { width: 100%; height: 100%; }
 .mc-viewer-big { color: var(--muted); text-align: center; line-height: 1.6; }
 
