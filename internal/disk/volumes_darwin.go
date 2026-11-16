@@ -156,3 +156,20 @@ func cstr(b []byte) string {
 	}
 	return string(b)
 }
+
+// VolumeRootOf is the mount folder of the /Volumes volume p is on ("/Volumes/music" for "/Volumes/music/flac"), or ""
+// when p is not on one (the startup disk, a plain folder in /Volumes). A panel treats that folder as the top of a
+// drive of its own, as the drive bar shows it: there is no ".." above it. A volume that does not answer in time counts
+// as none.
+func VolumeRootOf(p string) string {
+	rest, ok := strings.CutPrefix(filepath.Clean(p), "/Volumes/")
+	if !ok || rest == "" {
+		return ""
+	}
+	root := "/Volumes/" + strings.SplitN(rest, "/", 2)[0]
+	vols, errs := probeEach([]string{root}, darwinMount)
+	if errs[0] != nil || vols[0] == nil {
+		return ""
+	}
+	return root
+}

@@ -34,6 +34,8 @@ type FS struct {
 	gen    map[string]listing // the listing in progress per panel ("left", "right", or any key)
 	seq    int
 	stuck  hang.Guard // listings still running per folder, so a dead share can't pile up blocked reads
+	// rootOf finds the mounted volume a path is on (disk.VolumeRootOf when nil); tests replace it.
+	rootOf func(string) string
 }
 
 type listing struct {
@@ -121,8 +123,22 @@ func (f *FS) List(key, path string) (vfs.Listing, error) {
 	if err != nil {
 		return vfs.Listing{}, errors.New(listError(fsys.Clean(path), err))
 	}
+	if f.volumeRoot(l.Path) == l.Path {
+		l.Parent = "" // the top of a mounted volume is the top of a drive: no ".." out of it
+	}
 	l.Rows = vfs.Rows(l.Entries)
 	return l, nil
+}
+
+// volumeRoot is the mount folder of the /Volumes volume a local path is on (see disk.VolumeRootOf), "" for any other.
+func (f *FS) volumeRoot(p string) string {
+	if f.app.mock != nil || (f.router != nil && f.router.Kind(p) != vfs.KindLocal) || strings.Contains(p, "://") {
+		return ""
+	}
+	if f.rootOf != nil {
+		return f.rootOf(p)
+	}
+	return disk.VolumeRootOf(p)
 }
 
 // CancelList stops the listing in progress for a panel (Esc while a slow folder is read).
@@ -214,7 +230,12 @@ func (f *FS) Clean(path string) string { return f.fsFor(path).Clean(path) }
 func (f *FS) Parent(path string) string { return f.fsFor(path).Parent(path) }
 
 // Root is the top of the volume path is on.
-func (f *FS) Root(path string) string { return f.fsFor(path).Root(path) }
+func (f *FS) Root(path string) string {
+	if r := f.volumeRoot(f.Clean(path)); r != "" {
+		return r // a mounted volume's top, as the drive bar has it, not "/" above it
+	}
+	return f.fsFor(path).Root(path)
+}
 
 // Join puts a name under a folder, with the system's separator.
 func (f *FS) Join(dir, name string) string { return f.fsFor(dir).Join(dir, name) }

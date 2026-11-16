@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.7 – 2026-11-16
+
+### Changed
+
+- **A mounted volume is a drive of its own in the panels** (macOS): the top folder of a share in the drive bar, such as
+  /Volumes/music, or of a USB disk has no ".." row, and Backspace doesn't step out to /Volumes; "Go to root folder"
+  goes to the volume's top instead of "/". Folders inside the volume keep their "..". The startup disk and the home
+  folder are as before.
+
 ## 0.14.6 – 2026-11-16
 
 ### Changed
