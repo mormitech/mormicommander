@@ -69,6 +69,10 @@ What the app does **not** do, even though it could look like it:
   and cached in the app's settings folder.
 - **Control mode** (`--control`, off unless you start the app with it) and the hand-over that lets a second start
   open a window in the running app listen on 127.0.0.1 only, so nothing outside your computer can reach them.
+- **Sound and films in the Lister (F3)** are played from a small player server on 127.0.0.1, started the first time
+  you play one. It serves only the file the Lister has open, at an address with a random token that is dropped when
+  the Lister closes the file. Formats the web view can't play are converted on your machine by ffmpeg, if you have
+  it installed; nothing is sent anywhere.
 
 ## Saved passwords
 

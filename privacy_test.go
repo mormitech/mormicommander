@@ -6,10 +6,11 @@
 //   - the FTP, SFTP and WebDAV clients (internal/ftp, internal/sftp, internal/webdav), which only run when the user
 //     connects to a server they typed in (Net > FTP connect and friends), and which only the network feature and the
 //     remote file system adapters may import;
-//   - three loopback-only listeners: control mode (control.go, off unless started with --control), the "one app,
-//     several windows" hand-over (feature_config_start.go) and the AI layer's MCP endpoint (feature_ai_mcp.go, only
-//     from the first AI run the user starts, for the Claude CLI that run starts). Their address must be 127.0.0.1,
-//     written in the source;
+//   - four loopback-only listeners: control mode (control.go, off unless started with --control), the "one app,
+//     several windows" hand-over (feature_config_start.go), the AI layer's MCP endpoint (feature_ai_mcp.go, only
+//     from the first AI run the user starts, for the Claude CLI that run starts) and the Lister's media player
+//     (feature_lister_stream.go, only from the first sound or film the user plays in F3, for the app's own web view).
+//     Their address must be 127.0.0.1, written in the source;
 //   - one outbound HTTPS client: the AI layer's chat completions client (the function send in internal/ai/chat_http.go,
 //     issue #146 step 2), which talks to the API address the user set in the AI settings (OpenRouter by default). It is
 //     allowed as that one function, not as the file or the package, and TestZeroNetworkAIClient checks the only ways
@@ -58,7 +59,7 @@ func set(names ...string) map[string]bool {
 var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/webdav/"}
 
 // loopbackFiles may listen or dial, but only on 127.0.0.1.
-var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true}
+var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true, "feature_lister_stream.go": true}
 
 // outboundFuncs are the functions (by file) that may make a request to an address the user configured: the AI chat
 // completions client's send, and the SMB login that lists a server's shares when the user picks or types a server in

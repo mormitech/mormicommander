@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.19 – 2026-11-16
+
+### Fixed
+
+- The zero-network test failed on every system after 0.14.15: the Lister's media player listens on 127.0.0.1, and it
+  is now one of the allowed loopback listeners. docs/privacy.md says what the player serves.
+
 ## 0.14.18 – 2026-11-16
 
 ### Fixed
