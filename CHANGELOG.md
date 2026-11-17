@@ -6,6 +6,24 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.29 – 2026-11-17
+
+### Added
+
+- **Colour labels and notes for files and folders** (board issue #147). Right-click > Colour label… gives the
+  selection a colour (seven presets, a custom colour, or none), shown as the name's colour; it wins over Colour by file
+  type. Right-click > Note… adds a short note, shown as a marker with the note as its tooltip and in the status line.
+  Both are in the Files menu and in Properties too. They are kept in mormiCommander's own notes.json in the settings
+  folder, so they work on any disk and on servers, and they follow renames and moves made in mormiCommander. Files >
+  Clean up notes and colour labels… removes the entries of files that are gone. (Total Commander's descript.ion
+  comments, Ctrl+Z, stay as they were.)
+- **A second sort key** (F-114): Ctrl+click (Cmd+click on macOS) on a column title sorts by it within the first
+  column; the header shows ▲2 or ▼2. A plain click on another column drops it.
+- **Left-drag selection** (F-135) in Options > Operation > Mouse selection mode "Commander": dragging up or down from a
+  row selects the rows passed; a sideways drag still drags the files.
+- **F1 in a dialog** opens the help on a page about that dialog (F-145).
+- Show > View with the built-in viewer only (cm_ListInternalOnly) is in the menu (F-177).
+
 ## 0.14.28 – 2026-11-17
 
 ### Added
