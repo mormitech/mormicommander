@@ -28,7 +28,8 @@ func init() {
 		j := &Jobs{app: a}
 		j.q = fileops.NewQueue(func(event string, data any) { a.emit(event, data) })
 		// what the jobs do also feeds the undo journal (feature_undo.go); a.undo is set before any job can start
-		j.q.Log = func(e fileops.Entry) { a.undo.observe(e) }
+		// and the notes and colour labels follow what move jobs move (feature_notes.go)
+		j.q.Log = func(e fileops.Entry) { a.undo.observe(e); notesInstance.observe(e) }
 		a.jobs = j
 		return []exposed{expose(j)}
 	})

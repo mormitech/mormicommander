@@ -581,6 +581,14 @@ Panel.extraRowClass = (panel, e) => {
   return cls;
 };
 
+// Features that colour names (the colour labels of features/notes.js) return a CSS colour: hook(panel, entry) → colour
+// or ''. The first one that answers wins, and it wins over Colour by file type (features/config/layout.js paints both).
+Panel.nameColorHooks = [];
+Panel.nameColor = (panel, e) => {
+  for (const h of Panel.nameColorHooks) { const c = h(panel, e); if (c) return c; }
+  return '';
+};
+
 Panel.STATE_KEYS = ['path', 'parent', 'all', 'entries', 'index', 'cursor', 'selected', 'sort', 'back', 'fwd', 'lastCursor', 'filter', 'filterLabel', 'dirSizes', 'error'];
 
 function shortName(v, platform) {

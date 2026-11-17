@@ -1,0 +1,15 @@
+/* Notes and colour labels (notes.js, board issue #147). A file with a note gets a small marker after its name; the
+   marker's tooltip is the note. The colour label is the name's colour (painted by config/layout.js). */
+.row .mc-notes-mark {
+  flex: none; width: 13px; height: 13px; display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted); opacity: 0.9;
+}
+.row .mc-notes-mark svg { width: 13px; height: 13px; }
+.mc-notes-status { margin-left: 12px; color: var(--muted); }
+.mc-notes-status b { font-weight: 600; }
+.mc-notes-text { width: 100%; min-height: 90px; resize: vertical; font: inherit; box-sizing: border-box; }
+.mc-notes-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.mc-notes-swatches label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+.mc-notes-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 1px solid rgba(127, 127, 127, 0.5); }
+.mc-notes-dot.none { background: linear-gradient(135deg, transparent 45%, var(--muted) 45%, var(--muted) 55%, transparent 55%); }
+.mc-notes-swatches input[type="color"] { width: 28px; height: 20px; padding: 0; border: none; background: none; }

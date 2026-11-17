@@ -1,7 +1,7 @@
 // Context menus (FEATURES.md section 37, docs/spec/area-8.md section 7) as the page's own popup lists, so they work
 // the same on every system and control mode can read and choose them ("popup" / "popup_choose"):
 //   - files (right-click, Shift+F10, the Menu key; F-703, F-708): Open, Open with…, View, Edit, Cut, Copy, Paste, Copy
-//     path, Copy name, Rename, Delete, Pack…, Show in Finder, Open terminal here, Properties;
+//     path, Copy name, Rename, Delete, Note…, Colour label…, Pack…, Show in Finder, Open terminal here, Properties;
 //   - the empty part of the list or ".." (F-704): New folder, New file, Paste, Reread, Sort by…, Open terminal here,
 //     Show the folder in Finder, Copy path, Folder properties…;
 //   - a drive button (F-059, F-705, F-710): Open, Open in the other panel, Eject (removable and network volumes),
@@ -77,6 +77,10 @@ function fileMenu(app, p, args) {
     SEP,
     item(app, 'Rename', 'cm_RenameOnly'),
     item(app, 'Delete', 'cm_Delete'),
+    SEP,
+    // notes and colour labels kept by mormiCommander (features/notes.js, #147); the colour list opens where this menu was
+    item(app, 'Note…', 'cm_EditNote'),
+    item(app, 'Colour label…', 'cm_ColorLabel', args.x != null ? { x: args.x, y: args.y } : undefined),
     SEP,
     item(app, 'Pack…', 'cm_PackFiles'),
     one && !one.dir ? item(app, 'Split…', 'cm_FileSplit') : null,
