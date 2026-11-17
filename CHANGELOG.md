@@ -6,6 +6,33 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.21 – 2026-11-17
+
+### Added
+
+- **Panel sizes by command:** cm_20Percent to cm_80Percent give the left (or top) panel that share of the window;
+  cm_100Percent shows the active panel alone, and running it again (or Tab) brings both panels back.
+- **Commands for a named panel:** left, right and other-panel versions of All files, Programs, Custom filter, Define
+  custom filter, Quick view and Quick view with the built-in viewer only, plus cm_TrgOpenDrives. cm_SrcBrief and
+  cm_SrcFull (and their left, right and other-panel versions) are other names of the Brief and Full views.
+- **cm_GoToDir:** the other panel shows the file under the cursor; for a link, the place it points to, with the cursor
+  on the target.
+- **cm_VisTwoDriveButtons and cm_VisBreadCrumbs** toggle the two new Layout options below.
+
+### Changed
+
+- Options that were kept but had no effect now work (board issue #94). Each keeps today's behaviour at its default:
+  - Layout > Two drive button bars: off shows only the active panel's drive bar.
+  - Layout > Breadcrumb path bar: off makes the path plain text; a click anywhere on it edits it.
+  - Layout > Show drive combo box: the volume name above each panel opens the drive list when clicked.
+  - Layout > Show main menu bar: off hides the menu bar on Windows and Linux (macOS keeps its menu bar).
+  - Layout > Separate folder tree: changing it does what the Show > Separate tree commands do.
+  - Display > Show system files: off hides files with the Windows system attribute like hidden files.
+  - Display > Size format in status bar: the unit of the sizes in the status line.
+  - Display > Show .. in root folders: a ".." in a drive's root that opens the drive list.
+  - Display > Cursor bar across all columns: off marks only the name under the cursor.
+  - Display > Show long names: off shows names the 8.3 way (PROGRA~1.TXT).
+
 ## 0.14.20 – 2026-11-16
 
 ### Changed

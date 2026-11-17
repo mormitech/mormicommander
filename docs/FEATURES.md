@@ -57,7 +57,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-006 Target = source (cm_MatchSrc) — — (Commands menu) — other panel shows the same directory as the active one
 - [~] F-007 Make other panel show folder under cursor (cm_TransferLeft / cm_TransferRight) — Ctrl+Left / Ctrl+Right — when cursor is on a folder in the left panel, Ctrl+Right opens it in the right panel (and vice versa); on a file it opens the current folder there
 - [~] F-008 Resizable splitter between panels — — — dragging the splitter changes panel widths; double-click resets to 50/50; context menu offers 50/50, 60/40, 70/30 ... splits — #37: drag, double-click and a right-click list of shares (50/50 to 80/20 and back) on the bar; kept in the session
-- [ ] F-009 Panel size presets (cm_50Percent, cm_100Percent etc.) — — — commands set the splitter position; cm_100Percent maximizes active panel (other panel hidden until toggled back)
+- [~] F-009 Panel size presets (cm_50Percent, cm_100Percent etc.) — — — commands set the splitter position; cm_100Percent maximizes active panel (other panel hidden until toggled back) — 0.14.21: cm_20Percent … cm_80Percent set the share; cm_100Percent shows the active panel alone, again (or Tab) brings both back
 - [ ] F-010 Menu bar — — — menu bar with Files, Mark, Commands, Net, Show, Configuration, Start, Help; on macOS the native app menu bar carries the same menus
 - [ ] F-011 Path bar per panel (current directory line) — — — shows full path; clicking it allows editing the path; Enter navigates; Esc cancels
 - [ ] F-012 Path bar click on part of path — — — clicking a path segment jumps to that parent folder
@@ -76,7 +76,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-025 Separate tree panel (cm_SeparateTreeOff/1/2) — — — Show > Separate tree: none, one shared tree, or one tree per panel; tree follows panel path; clicking a tree node navigates — #38: no pane of its own; mapped onto the panels' tree view (Ctrl+F8): Off = no panel in the tree view, One for both panels = one panel (the active one), One per panel = both; leaving puts each panel back in its earlier view and folder
 - [ ] F-026 Two-panel visual feedback when other panel is target — — — inactive panel is dimmed slightly; target panel is the one copy/move goes to
 - [ ] F-766 Focus left / right / source panel directly (cm_FocusLeft / cm_FocusRight / cm_FocusSrc) — — — each command puts keyboard focus in the named panel
-- [ ] F-767 Show/hide each layout element by command (cm_VisButtonbar, cm_VisButtonbar2, cm_VisDriveButtons, cm_VisTwoDriveButtons, cm_VisFlatDriveButtons, cm_VisDriveCombo, cm_VisCurDir, cm_VisBreadCrumbs, cm_VisTabHeader, cm_VisStatusbar, cm_VisCmdLine, cm_VisKeyButtons, cm_VisDirTabs, cm_VisHistHotButtons, cm_VisFlatInterface) — — — each command toggles its element, its menu entry shows a check mark, and the state is saved
+- [~] F-767 Show/hide each layout element by command (cm_VisButtonbar, cm_VisButtonbar2, cm_VisDriveButtons, cm_VisTwoDriveButtons, cm_VisFlatDriveButtons, cm_VisDriveCombo, cm_VisCurDir, cm_VisBreadCrumbs, cm_VisTabHeader, cm_VisStatusbar, cm_VisCmdLine, cm_VisKeyButtons, cm_VisDirTabs, cm_VisHistHotButtons, cm_VisFlatInterface) — — — each command toggles its element, its menu entry shows a check mark, and the state is saved — 0.14.21: cm_VisTwoDriveButtons and cm_VisBreadCrumbs added; every listed cm_Vis* command now exists
 - [ ] F-768 Focus the button bar for keyboard use (cm_FocusButtonBar) — Alt+Shift+F11 — first button gets focus; Left/Right move, Enter runs, Esc goes back to the file list
 - [ ] F-769 Switch between file list and separate tree — Shift+Tab — with the separate tree on, Shift+Tab focuses the tree of the active side; pressing it again goes back to the file list
 - [ ] F-770 Minimize / maximize / restore window (cm_Minimize, cm_Maximize, cm_Restore) — Shift+Esc (minimize) — each command changes the window state
@@ -126,7 +126,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-057 Target = source (cm_MatchSrc) from navigation — — — other panel shows the active panel's folder
 - [~] F-058 Open drive/volume list (cm_SrcOpenDrives / drive combobox) — Alt+F1 / Alt+F2 — popup for left/right panel lists drives/volumes with labels and free space; choose one to switch
 - [~] F-059 Drive bar buttons — — — one button per drive/volume; click switches active panel; right-click shows context menu
-- [ ] F-060 Two drive bars (one per panel) option — — — Configuration allows separate drive bar per panel
+- [~] F-060 Two drive bars (one per panel) option — — — Configuration allows separate drive bar per panel — 0.14.21: Options > Layout > Two drive button bars (cm_VisTwoDriveButtons); off shows only the active panel's bar
 - [ ] F-061 Edit path bar (cm_EditPath) — — (assignable; Cmd+L on macOS) — path bar enters edit mode with text selected; Enter navigates. Note: TC's Alt+F11 / Alt+F12 open the left/right current directory bar (breadcrumb) for keyboard use, see F-772
 - [~] F-062 Change folder from command line with cd — — — typing "cd <path>" in the command line and Enter changes the active panel folder; "cd .." and "cd \" work
 - [ ] F-063 Go to home folder — — — "~" in command line or a hotlist entry jumps to the user's home folder
@@ -141,7 +141,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-072 Double-click on empty area goes to parent (option) — — — when enabled, double-click below the list goes up one level
 - [ ] F-073 Mouse back/forward buttons navigate history — — — mouse buttons 4/5 trigger Alt+Left/Alt+Right
 - [ ] F-074 Cursor follows on folder up (remember last file per folder) — — — going into a folder and back puts cursor on that folder; returning into a recently visited folder restores its last cursor
-- [ ] F-075 Go to file under cursor in other panel's folder (cm_GoToDir) — — — command opens the target of a shortcut/symlink and focuses the file
+- [~] F-075 Go to file under cursor in other panel's folder (cm_GoToDir) — — — command opens the target of a shortcut/symlink and focuses the file — 0.14.21: cm_GoToDir: the other panel goes to the file under the cursor, for a link to where it points
 - [~] F-076 Follow symlink / alias target (cm_GoToDir on link) — Ctrl+PgDn on link — for a symlink, the panel jumps to the target folder with cursor on the target
 - [ ] F-077 Open parent folder of file in path line — Ctrl+PgUp — Ctrl+PgUp goes to parent folder (same as Backspace)
 - [~] F-078 Open folder under cursor — Ctrl+PgDn — Ctrl+PgDn opens folder or archive under cursor
@@ -154,8 +154,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 4. Views and display modes
 
-- [ ] F-079 Brief view (cm_SrcShort / cm_SrcBrief) — Ctrl+F1 — names only in multiple columns
-- [ ] F-080 Full view (cm_SrcLong / cm_SrcFull) — Ctrl+F2 — one line per file with name, ext, size, date, attributes
+- [~] F-079 Brief view (cm_SrcShort / cm_SrcBrief) — Ctrl+F1 — names only in multiple columns — 0.14.21: cm_SrcBrief / cm_LeftBrief … are other names of cm_SrcShort
+- [~] F-080 Full view (cm_SrcLong / cm_SrcFull) — Ctrl+F2 — one line per file with name, ext, size, date, attributes — 0.14.21: cm_SrcFull / cm_LeftFull … are other names of cm_SrcLong
 - [ ] F-081 Tree view in panel (cm_SrcTree) — Ctrl+F8 — panel shows folder tree of the drive; Enter switches back to the folder in Full view
 - [ ] F-082 Quick view panel (cm_SrcQuickView) — Ctrl+Q — other panel shows preview of the file under cursor (text, image, media, hex) and updates as cursor moves; Ctrl+Q again restores
 - [ ] F-083 Thumbnails view (cm_SrcThumbs) — Ctrl+Shift+F1 — panel shows image previews as tiles with names; sizes configurable; cached thumbnails
@@ -177,14 +177,14 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-099 Inverse selection marking styles (selected = red text TC default) — — — selected files shown in a distinct color and counted in status bar
 - [ ] F-100 Show path in tab / window title options — — — options alter labels
 - [~] F-101 Zoom panel font larger/smaller — Ctrl++ / Ctrl+- (ours, Cmd on macOS) — font size of panels changes and is saved — #37: Ctrl+= and Ctrl+Shift+= (Ctrl++) / Ctrl+-, Cmd variants on macOS; saved as fontSize
-- [ ] F-102 Show ".." entry in every folder (option) — — — ".." line present at top of list unless turned off
+- [~] F-102 Show ".." entry in every folder (option) — — — ".." line present at top of list unless turned off — 0.14.21: Options > Display > Show .. in root folders; that ".." opens the drive list
 - [ ] F-103 Show hidden files greyed / with ghost icon — — — hidden files are visually dimmed when shown
 - [ ] F-104 Horizontal scrolling in Full view when columns exceed width — — — horizontal scrollbar appears; no layout break
 - [ ] F-105 Long file name ellipsis and tooltip with full name — — — truncated names end with "..."; hover tooltip shows full name (data-tip tooltip style)
 - [ ] F-106 Hint tooltip with file info on hover (option) — — — hovering a file shows size, dates, type after a delay
 - [ ] F-784 Quick view with the built-in viewer only (cm_SrcQuickInternalOnly) — — — quick view shows text/hex with the built-in viewer, skipping image/media viewers
 - [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them — audit #103: not built: no view modes (column set + icons + colors + font); column sets can switch by folder (F-668), and the ViewModes options have no effect yet
-- [ ] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser
+- [~] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser — 0.14.21: Left / Right / Trg variants of All files, Programs, Custom filter, Define custom filter, Quick view and Quick view built-in only, and cm_TrgOpenDrives
 - [ ] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state
 - [ ] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle
 - [ ] F-789 Custom tooltips per file type (Configuration > Display > Tooltips) — — — hovering e.g. an image shows the fields set for images (size, date, image size)

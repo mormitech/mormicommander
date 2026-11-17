@@ -4,7 +4,7 @@
 import { command } from '../core/registry.js';
 import { go } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
-import { syncSplitter } from '../core/splitter.js';
+import { syncSplitter, applySplit } from '../core/splitter.js';
 
 const SITE = 'https://github.com/mormitech/mormicommander';
 
@@ -58,7 +58,38 @@ command({
   },
 });
 
+// Panel sizes by command (F-009): cm_50Percent … cm_80Percent give the left (or top) panel that share, cm_20Percent …
+// cm_40Percent the other way round. cm_100Percent shows the active panel alone, the whole width; again (or making the
+// hidden panel active, with Tab) brings both back at the share they had.
+function setShare(app, r) {
+  endSolo(app);
+  applySplit(r);
+  app.saveSession();
+  return true;
+}
+for (const n of [20, 30, 40, 50, 60, 70, 80]) {
+  command({ name: `cm_${n}Percent`, label: `Panel sizes ${n}/${100 - n}`, checked: (app) => !solo && Math.abs((app.split ?? 0.5) - n / 100) < 0.005, run: (app) => setShare(app, n / 100) });
+}
+let solo = null; // the panel shown alone by cm_100Percent
+function endSolo(app) {
+  if (!solo) return;
+  solo = null;
+  document.getElementById('panels').classList.remove('mc-solo-left', 'mc-solo-right');
+  for (const p of app.panels) p.renderRows();
+}
+command({
+  name: 'cm_100Percent', label: 'Active panel alone', checked: () => !!solo,
+  run: (app) => {
+    if (solo) { endSolo(app); return true; }
+    solo = app.cur;
+    document.getElementById('panels').classList.add(`mc-solo-${solo.side}`);
+    solo.renderRows();
+    return true;
+  },
+});
+
 export function init(app) {
+  app.on('active', (p) => { if (solo && p !== solo) endSolo(app); });
   const px = app.setting('fontSize', 13);
   if (px !== 13) applyFont(app, px);
   if (app.setting('horizontal', false)) document.getElementById('panels').classList.add('horizontal');

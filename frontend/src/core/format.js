@@ -22,7 +22,7 @@ const pad = (n) => String(n).padStart(2, '0');
 // display holds the Configuration > Display options the file lists follow (F-414); features/config/layout.js sets
 // them with setDisplay. sizeStyle: 0 bytes, 1 kB, 2 MB, 3 GB, 4 dynamic. dateFormat: "" for yyyy-MM-dd, else a pattern
 // with yyyy yy MM M dd d.
-export const display = { brackets: false, separateExt: true, sizeStyle: 0, thousands: true, dateFormat: '', time24: true, seconds: false };
+export const display = { brackets: false, separateExt: true, sizeStyle: 0, footerStyle: 4, thousands: true, dateFormat: '', time24: true, seconds: false, longNames: true };
 export function setDisplay(o) { Object.assign(display, o); }
 
 const plain = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0, useGrouping: false });
@@ -42,6 +42,31 @@ export function cellSize(n) {
     case 4: return size(n);
     default: return whole.format(n);
   }
+}
+
+// footerSize is a size as the status line shows it, in the unit of Options > Display > Size format in status bar
+// (dynamic, "12.3 MB", by default).
+export function footerSize(n) {
+  n = Number(n) || 0;
+  const st = Number(display.footerStyle ?? 4);
+  if (st === 4) return size(n);
+  const whole = display.thousands ? group : plain;
+  if (st === 0) return `${whole.format(n)} B`;
+  const div = [1, 1024, 1048576, 1073741824][st];
+  return `${(display.thousands ? tenthSep : tenthPlain).format(n > 0 ? Math.max(0.1, Math.round((n / div) * 10) / 10) : 0)} ${['B', 'KB', 'MB', 'GB'][st]}`;
+}
+
+// dosName is a name the way an 8.3 list shows it (Options > Display > Show long names off): at most eight letters
+// before the dot, "~1" where it was cut, and three after it, in capitals. Names that already fit are left as they are.
+export function dosName(name, dir = false) {
+  if (!name || name === '..') return name;
+  const i = dir ? -1 : name.lastIndexOf('.');
+  let base = i > 0 ? name.slice(0, i) : name, ext = i > 0 ? name.slice(i + 1) : '';
+  if (base.length <= 8 && ext.length <= 3 && !/\s/.test(name)) return name;
+  base = base.replace(/[\s.]/g, '');
+  base = (base.length > 8 ? `${base.slice(0, 6)}~1` : base).toUpperCase();
+  ext = ext.replace(/\s/g, '').slice(0, 3).toUpperCase();
+  return ext ? `${base}.${ext}` : base;
 }
 
 // date is a modification time (Unix ms), in the computer's time zone: "2026-10-14 09:30" by default, else in the date

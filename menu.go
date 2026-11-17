@@ -54,6 +54,21 @@ func (a *App) applyMenu(m *application.Menu) {
 	}
 }
 
+// SetMenuBar shows or hides the main window's menu bar (Options > Layout > Show main menu bar). On macOS the menu bar
+// belongs to the system and always stays; there it does nothing.
+func (a *App) SetMenuBar(show bool) {
+	if runtime.GOOS == "darwin" || a.wapp == nil {
+		return
+	}
+	if w := a.mainWindow(); w != nil {
+		if show {
+			w.ShowMenuBar()
+		} else {
+			w.HideMenuBar()
+		}
+	}
+}
+
 // menuItems is the items of a menu, for the control mode's "menus" and the tests.
 func menuItems(m *application.Menu) []*application.MenuItem {
 	var out []*application.MenuItem

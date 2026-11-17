@@ -8,7 +8,7 @@
 // ('panel', 'cursor', 'selection'), never by poking the DOM. See docs/ARCHITECTURE.md for the list.
 
 import { go, errText } from './go.js';
-import { F, splitExt, date, attr, size, plural, cellSize, display } from './format.js';
+import { F, splitExt, date, attr, size, plural, cellSize, display, footerSize, dosName } from './format.js';
 import { sortEntries } from './sort.js';
 import { fitCrumbs } from './fitpath.js';
 import { track } from './busy.js';
@@ -30,6 +30,8 @@ export function toEntry(row) {
 }
 
 const UP = { name: '..', base: '..', ext: '', size: 0, mtime: 0, flags: F.DIR, mode: 0, dir: true, up: true };
+// ".." in a root folder (Options > Display > Show .. in root folders): it opens the drive list instead of a parent
+const UP_ROOT = { ...UP, root: true };
 
 // splitPath cuts a path into the parts the path bar shows, each with the path it stands for.
 export function splitPath(p) {
@@ -122,6 +124,11 @@ export class Panel {
       this.editPath();
     });
     hist.addEventListener('click', (ev) => { ev.stopPropagation(); this.app.setActive(this); this.app.run('cm_DirectoryHistory'); });
+    this.$.driveinfo.addEventListener('click', (ev) => {
+      if (!ev.target.closest('.mc-drivecombo') || document.body.classList.contains('mc-config-no-drivecombo')) return;
+      this.app.setActive(this);
+      this.app.run(this.side === 'left' ? 'cm_LeftOpenDrives' : 'cm_RightOpenDrives');
+    });
   }
 
   // measure reads the row height from the CSS (it changes with the font size).
@@ -252,9 +259,12 @@ export class Panel {
   // fallbackIndex when that name is not shown).
   rebuild(focusName = this.cur?.name, fallbackIndex = this.cursor) {
     const show = this.app.showHidden;
-    const list = this.all.filter((e) => (show || !e.hidden) && (!this.filter || this.filter(e)));
+    // system files (Windows) count as hidden, unless Options > Display > Show system files is on
+    const sys = this.app.config?.values?.['Display.ShowSystem'] === '1';
+    const list = this.all.filter((e) => (show || !(e.hidden || (!sys && e.flags & F.SYSTEM))) && (!this.filter || this.filter(e)));
     for (const e of list) e.dirSize = e.dir ? this.dirSizes.get(e.name) : undefined;
     if (this.parent) list.push(UP);
+    else if (this.path && !/^[a-z][a-z0-9+.-]*:\/\//i.test(this.path) && this.app.config?.values?.['Display.ShowParentInRoot'] === '1') list.push(UP_ROOT);
     this.entries = sortEntries(list, this.sort, {
       natural: this.app.setting('naturalSort', true), dirsLikeFiles: this.app.setting('dirsLikeFiles', false),
       method: this.app.setting('sortMethod', ''), locale: this.app.setting('sortLocale', ''),
@@ -494,11 +504,13 @@ export class Panel {
         cls += Panel.extraRowClass(this, e);
       }
       const sep = display.separateExt;
-      const name = e.dir || !sep ? e.name : e.base;
+      let name = e.dir || !sep ? e.name : e.base;
+      const dos = display.longNames === false && !e.up; // Options > Display > Show long names off: 8.3 names
+      if (dos) { const d = dosName(e.name, e.dir); const k = d.lastIndexOf('.'); name = e.dir || !sep || k < 0 ? d : d.slice(0, k); }
       const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
       const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
-      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;
@@ -520,7 +532,7 @@ export class Panel {
 
   renderStatus() {
     const s = this.stats();
-    let t = `${size(s.selBytes)} of ${size(s.total)} in ${s.selFiles} of ${plural(s.files, 'file')} selected`;
+    let t = `${footerSize(s.selBytes)} of ${footerSize(s.total)} in ${s.selFiles} of ${plural(s.files, 'file')} selected`;
     if (s.dirs) t += `, ${s.selDirs} of ${plural(s.dirs, 'folder')}`;
     this.$.status.textContent = t;
     // while hidden files are shown the line ends with a "Hidden: shown" marker (Layout > "Show the hidden files
@@ -560,7 +572,8 @@ export class Panel {
   renderDriveInfo(v) {
     if (!v) { this.$.driveinfo.textContent = ''; return; }
     const name = v.name || v.path;
-    this.$.driveinfo.textContent = v.total ? `[${name}]  ${size(v.free)} free of ${size(v.total)}` : `[${name}]`;
+    // the volume's name is the drive combo box (Options > Layout > Show drive combo box): a click lists the drives
+    this.$.driveinfo.innerHTML = `<button type="button" class="mc-drivecombo" title="Drives (${this.side === 'left' ? 'Alt+F1' : 'Alt+F2'})">[${esc(name)}]</button>${v.total ? `<span>  ${esc(size(v.free))} free of ${esc(size(v.total))}</span>` : ''}`;
   }
 }
 

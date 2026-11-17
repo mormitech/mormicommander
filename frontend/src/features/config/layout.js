@@ -15,7 +15,9 @@ const HIDE = {
   'Layout.CmdLine': 'mc-config-no-cmdline', 'Layout.KeyButtons': 'mc-config-no-fkeys', 'Layout.StatusBar': 'mc-config-no-status',
   'Layout.DriveBar1': 'mc-config-no-drives', 'Layout.CurDir': 'mc-config-no-pathbar', 'Layout.TabHeader': 'mc-config-no-header',
   'Layout.HistoryHotlist': 'mc-config-no-pbtns', 'Layout.FreeSpace': 'mc-config-no-driveinfo',
-  'Layout.HiddenMarker': 'mc-config-no-hiddenmark',
+  'Layout.HiddenMarker': 'mc-config-no-hiddenmark', 'Layout.DriveCombo': 'mc-config-no-drivecombo',
+  'Layout.DriveBar2': 'mc-config-one-drivebar', 'Layout.BreadCrumbBar': 'mc-config-no-crumbs',
+  'Display.FullRowSelect': 'mc-config-name-cursor',
 };
 
 let app = null;
@@ -30,6 +32,8 @@ export function applyLayout() {
   const b = document.body.classList;
   for (const [name, cls] of Object.entries(HIDE)) b.toggle(cls, !on(name));
   b.toggle('mc-config-flat', on('Layout.InterfaceFlat'));
+  go.App.SetMenuBar(on('Layout.MenuBar')).catch(() => {}); // (Windows and Linux; the macOS menu bar always stays)
+  syncSeparateTree();
   b.toggle('mc-config-flat-drives', on('Layout.DriveBarFlat'));
   const tb = document.getElementById('toolbar'), vb = document.getElementById('vbar');
   if (tb) tb.hidden = !on('Layout.ButtonBar') || !tb.childElementCount;
@@ -41,6 +45,16 @@ export function applyLayout() {
     app.setSetting('horizontal', horiz);
   }
   relayout();
+}
+
+// Layout > Separate folder tree: 0 off, 1 one tree for both panels, 2 one per panel, as the cm_SeparateTree* commands
+// do (features/reserved-more.js). Only a change of the option runs the command, so a tree opened by hand stays.
+let treeApplied = 0;
+function syncSeparateTree() {
+  const want = Math.max(0, Math.min(2, num('Layout.SeparateTree', 0)));
+  if (want === treeApplied || !app?.panels?.every((p) => p.path)) return;
+  treeApplied = want;
+  app.run(['cm_SeparateTreeOff', 'cm_SeparateTree1', 'cm_SeparateTree2'][want], {}, { quiet: true });
 }
 
 export function applyFonts() {
@@ -149,10 +163,12 @@ export function applyDisplay() {
   setDisplay({
     brackets: on('Display.DirBrackets'), separateExt: on('Display.SeparateExt'), sizeStyle: num('Display.SizeStyle', 0),
     thousands: on('Display.ThousandsSeparator'), dateFormat: opt('Display.DateFormat').trim(), time24: on('Display.Time24'),
-    seconds: on('Display.ShowSeconds'),
+    seconds: on('Display.ShowSeconds'), footerStyle: num('Display.SizeFooter', 4), longNames: on('Display.LongNames'),
   });
   document.body.classList.toggle('mc-config-no-ext', !on('Display.SeparateExt'));
   document.body.classList.toggle('mc-hover-rows', on('Display.HoverHighlight'));
+  // system files and ".." in root folders change what the list holds, so the panels are built again
+  for (const p of app?.panels || []) { try { if (p.path) p.rebuild(); } catch { /* not ready yet */ } }
   relayout();
 }
 
@@ -198,6 +214,7 @@ const VIS = [
   ['cm_VisCmdLine', 'Layout.CmdLine', 'Command line'], ['cm_VisKeyButtons', 'Layout.KeyButtons', 'Function key buttons'],
   ['cm_VisHistHotButtons', 'Layout.HistoryHotlist', 'History and hotlist buttons'], ['cm_VisDriveCombo', 'Layout.FreeSpace', 'Free space line'],
   ['cm_VisFlatInterface', 'Layout.InterfaceFlat', 'Flat interface'], ['cm_VisFlatDriveButtons', 'Layout.DriveBarFlat', 'Flat drive buttons'],
+  ['cm_VisTwoDriveButtons', 'Layout.DriveBar2', 'Two drive button bars'], ['cm_VisBreadCrumbs', 'Layout.BreadCrumbBar', 'Breadcrumb path bar'],
 ];
 for (const [name, field, label] of VIS) {
   command({
@@ -218,6 +235,7 @@ export function initLayout(a) {
   };
   for (const p of app.panels) mo(p);
   app.on('panel', () => { for (const p of app.panels) paintRows(p); title(); });
+  app.on('ready', syncSeparateTree);
   app.on('active', title);
   window.matchMedia?.('(prefers-color-scheme: light)').addEventListener?.('change', applyColors);
   return state;

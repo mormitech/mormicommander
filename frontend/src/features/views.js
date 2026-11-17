@@ -1075,6 +1075,8 @@ for (const [pre, pick] of Object.entries(PANELS)) {
   });
   view('Short', 'brief', 'Brief');
   view('Long', 'full', 'Full');
+  view('Brief', 'brief', 'Brief'); // (other names of Short and Long, F-079 / F-080)
+  view('Full', 'full', 'Full');
   view('Comments', 'comments', 'Comments');
   view('Thumbs', 'thumbs', 'Thumbnails');
   view('Tree', 'tree', 'Tree');

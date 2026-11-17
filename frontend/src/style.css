@@ -43,6 +43,10 @@ html[data-platform="darwin"]:not(.mc-fullscreen) #app { box-sizing: border-box; 
 .panel[hidden] { display: none; }
 #splitter { flex: 0 0 5px; cursor: col-resize; background: var(--line); }
 #panels.horizontal #splitter { cursor: row-resize; }
+/* cm_100Percent: the active panel alone (features/window.js) */
+#panels.mc-solo-left > #splitter, #panels.mc-solo-left > #vbar, #panels.mc-solo-left > [data-side="right"],
+#panels.mc-solo-right > #splitter, #panels.mc-solo-right > #vbar, #panels.mc-solo-right > [data-side="left"] { display: none !important; }
+#panels.mc-solo-left > [data-side="left"], #panels.mc-solo-right > [data-side="right"] { flex: 1 1 0 !important; }
 #splitter:hover, #splitter.drag { background: var(--accent); }
 #vbar { flex-direction: column; border-bottom: 0; border-left: 1px solid var(--line); border-right: 1px solid var(--line); }
 
@@ -53,6 +57,12 @@ html[data-platform="darwin"]:not(.mc-fullscreen) #app { box-sizing: border-box; 
 .drivebar button.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 18%, var(--bg)); }
 .drivebar svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .driveinfo { padding: 0 8px 3px; font-size: 12px; color: var(--muted); background: var(--panel); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.driveinfo .mc-drivecombo { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+.driveinfo .mc-drivecombo::after { content: " ▾"; }
+.driveinfo .mc-drivecombo:hover { color: var(--text); }
+body.mc-config-no-drivecombo .driveinfo .mc-drivecombo { cursor: default; }
+body.mc-config-no-drivecombo .driveinfo .mc-drivecombo::after { content: none; }
+body.mc-config-no-drivecombo .driveinfo .mc-drivecombo:hover { color: inherit; }
 .tabbar { display: flex; gap: 2px; padding: 2px 4px 0; background: var(--panel); }
 .tabbar[hidden] { display: none; }
 

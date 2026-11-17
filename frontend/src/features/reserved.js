@@ -45,6 +45,12 @@ function applyUserMask(app, mask) {
 
 // defineUserMask asks for the custom filter's mask (args.mask skips the question), keeps it and applies it.
 async function defineUserMask(app, args = {}) {
+  const mask = await askUserMask(app, args);
+  return mask === null ? false : applyUserMask(app, mask);
+}
+
+// askUserMask asks for the custom filter's mask (args.mask skips the question) and keeps it; null when cancelled.
+async function askUserMask(app, args = {}) {
   let mask = typeof args.mask === 'string' ? args.mask : null;
   if (mask === null) {
     mask = await inputDialog({
@@ -52,12 +58,12 @@ async function defineUserMask(app, args = {}) {
       note: 'For example *.txt *.md, or *.* | *.bak *.tmp to leave files out. Folders always stay.',
       validate: (v) => (v.trim() ? '' : 'Type a file mask, for example *.txt.'), kind: 'srcuserdef',
     });
-    if (mask === null) return false;
+    if (mask === null) return null;
   }
   mask = mask.trim();
-  if (!mask) return false;
+  if (!mask) return null;
   app.setSetting(USER_MASK, mask);
-  return applyUserMask(app, mask);
+  return mask;
 }
 
 command({
@@ -69,6 +75,32 @@ command({
   },
 });
 command({ name: 'cm_SrcUserDef', label: 'Define custom filter…', run: (app, args) => defineUserMask(app, args) });
+
+// The Show menu filters for a named panel (F-786): Left, Right and Trg (the other panel) variants of All files,
+// Programs, Custom filter and Define custom filter. Each acts on that panel only and leaves the active panel as it is.
+for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Right', (app) => app.right, ' (right panel)'], ['Trg', (app) => app.other, ' (other panel)']]) {
+  const kind = (app) => pick(app).filter?.mcSrc || '';
+  command({ name: `cm_${pre}AllFiles`, label: `All files${w}`, checked: (app) => !pick(app).filter, run: (app) => { const p = pick(app); if (p.filter) p.setFilter(null); return true; } });
+  command({ name: `cm_${pre}Execs`, label: `Programs${w}`, checked: (app) => kind(app) === 'execs', run: (app) => { pick(app).setFilter(execFilter(), 'Programs'); return true; } });
+  command({
+    name: `cm_${pre}UserSpec`, label: `Custom filter${w}`, checked: (app) => kind(app) === 'user',
+    run: async (app, args) => {
+      let mask = app.setting(USER_MASK, '');
+      if (!mask) { mask = await askUserMask(app, args); if (mask === null) return false; }
+      pick(app).setFilter(maskFilter(mask), mask);
+      return true;
+    },
+  });
+  command({
+    name: `cm_${pre}UserDef`, label: `Define custom filter…${w}`,
+    run: async (app, args) => {
+      const mask = await askUserMask(app, args);
+      if (mask === null) return false;
+      pick(app).setFilter(maskFilter(mask), mask);
+      return true;
+    },
+  });
+}
 
 // ---- current folder bars (Alt+F11, Alt+F12) ----
 

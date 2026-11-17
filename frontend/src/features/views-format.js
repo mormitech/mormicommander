@@ -6,6 +6,8 @@
 // before, so nothing changes for anyone who has not set them. These helpers are pure (no DOM, no app) so the tests run
 // them in Node.
 
+import { dosName } from '../core/format.js';
+
 // The internal/listing size unit names for Display's sizeStyle 0..4 (bytes, kB, MB, GB, dynamic).
 const SIZE_UNITS = ['bytes', 'k', 'M', 'G', 'dynamic'];
 
@@ -47,6 +49,7 @@ export function cellFormat(cfg = {}, display = {}) {
 
 // shownName is a name as a view row shows it: a folder in [brackets] when Display asks for them (never "..").
 export function shownName(e, name, display = {}) {
+  if (display.longNames === false && !e.up) name = dosName(name, e.dir);
   return e.dir && !e.up && display.brackets ? `[${name}]` : name;
 }
 

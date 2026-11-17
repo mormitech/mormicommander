@@ -50,7 +50,11 @@ async function enter(app, opts = {}) {
 }
 
 function goParent(p) {
-  if (!p.parent) return Promise.resolve(false);
+  if (!p.parent) {
+    // the ".." of a root folder (Options > Display > Show .. in root folders) opens the drive list
+    if (p.cur?.root) return p.app.run(p === p.app.left ? 'cm_LeftOpenDrives' : 'cm_RightOpenDrives');
+    return Promise.resolve(false);
+  }
   return p.go(p.parent, { focus: base(p.path) });
 }
 
@@ -73,6 +77,21 @@ command({
       }
     }
     return e.dir ? p.go(p.fullPath(e.name)) : enter(app, { intoArchive: true });
+  },
+});
+command({
+  // F-075: the other panel goes to the file under the cursor with the cursor on it; for a link (symlink, alias) that is
+  // where the link points, so the target is shown next to the link.
+  name: 'cm_GoToDir', label: 'Show link target in other panel',
+  run: async (app) => {
+    const p = app.cur, e = p.cur, o = app.other;
+    if (!e || e.up) return false;
+    let target = '';
+    if (e.link) { try { target = (await go.FS.Stat(p.fullPath(e.name))).target || ''; } catch { /* not a link we can read */ } }
+    if (!target) return o.go(p.path, { focus: e.name });
+    const sep = app.sepFor(target);
+    const i = target.lastIndexOf(sep);
+    return o.go(i > 0 ? target.slice(0, i) : sep, { focus: target.slice(i + 1) });
   },
 });
 command({

@@ -12,6 +12,15 @@ body.mc-config-no-driveinfo .panel .driveinfo,
 body.mc-config-no-hiddenmark .panel .status .mc-hidden-mark { display: none !important; }
 /* the command line is off, but the user typed: shown until Esc (core/cmdline.js) */
 body.mc-config-no-cmdline.mc-cmdline-temp #cmdline { display: flex !important; }
+/* Two drive button bars off (Layout.DriveBar2): one bar, the active panel's; the other keeps its room, empty */
+body.mc-config-one-drivebar .panel:not(.active) .drivebar { visibility: hidden; }
+/* Breadcrumb path bar off (Layout.BreadCrumbBar): the path is plain text, a click anywhere on it edits it */
+body.mc-config-no-crumbs .panel .crumbs [data-p] { pointer-events: none; }
+body.mc-config-no-crumbs .panel .crumbs [data-p]:hover { text-decoration: none; background: none; }
+/* Cursor bar across all columns off (Display.FullRowSelect): the cursor marks the name only */
+body.mc-config-name-cursor .panel .row.cur { background: transparent !important; box-shadow: none !important; }
+body.mc-config-name-cursor .panel .row.cur .n b { background: var(--cur); border-radius: 2px; padding: 0 3px; margin: 0 -3px; }
+body.mc-config-name-cursor .panel:not(.active) .row.cur .n b { background: var(--cur-off, transparent); }
 body:not(.mc-config-flat-drives) .drivebar button { box-shadow: inset 0 -1px 0 var(--line); }
 /* Flat interface off (Layout.InterfaceFlat; on by default, which is the look above): a raised, bevelled look for the
    bars, the function key buttons, the button bar buttons (unless the bar asks for flat buttons), the sort headers and

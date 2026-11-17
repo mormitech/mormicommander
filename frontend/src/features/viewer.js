@@ -288,12 +288,15 @@ function qvUpdate(app, now = false) {
   }, now ? 0 : 150); // a short pause, so fast scrolling does not load every file (spec area 4, section 2)
 }
 
-function quickView(app, internalOnly) {
+// quickView shows the file under the cursor of the active panel in the other panel. into: the panel that shows it
+// (cm_LeftQuickView and the like name it; the active panel then becomes the other one first).
+function quickView(app, internalOnly, into = null) {
   if (qv) {
-    const same = qv.internalOnly === internalOnly;
+    const same = qv.internalOnly === internalOnly && (!into || into === qv.panel);
     endQuickView(app);
     if (same) return;
   }
+  if (into && into === app.cur) app.setActive(into.other);
   const panel = app.other;
   const el = document.createElement('div');
   el.className = 'mc-viewer-qv';
@@ -328,6 +331,11 @@ function endQuickView(app) {
 
 command({ name: 'cm_SrcQuickView', label: 'Quick view', run: (app) => quickView(app, false), checked: () => !!qv && !qv.internalOnly });
 command({ name: 'cm_SrcQuickInternalOnly', label: 'Quick view, built-in viewer only', run: (app) => quickView(app, true), checked: () => !!qv?.internalOnly, menu: 'Show', menuAfter: 'cm_SrcQuickView' });
+// the same with the panel that shows the file named (F-786): Left / Right, or Trg (the other panel, as Ctrl+Q)
+for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Right', (app) => app.right, ' (right panel)'], ['Trg', (app) => app.other, ' (other panel)']]) {
+  command({ name: `cm_${pre}QuickView`, label: `Quick view${w}`, run: (app) => quickView(app, false, pick(app)), checked: (app) => !!qv && !qv.internalOnly && qv.panel === pick(app) });
+  command({ name: `cm_${pre}QuickInternalOnly`, label: `Quick view, built-in viewer only${w}`, run: (app) => quickView(app, true, pick(app)), checked: (app) => !!qv?.internalOnly && qv.panel === pick(app) });
+}
 
 // ---- the editor ----
 

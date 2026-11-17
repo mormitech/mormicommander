@@ -11,18 +11,6 @@ package config
 
 // noEffect holds the "Page.Field" names of the options with no effect yet.
 var noEffect = map[string]bool{
-	"Layout.DriveBar2":     true,
-	"Layout.DriveCombo":    true,
-	"Layout.BreadCrumbBar": true,
-	"Layout.MenuBar":       true,
-	"Layout.SeparateTree":  true,
-
-	"Display.ShowSystem":       true,
-	"Display.SizeFooter":       true,
-	"Display.ShowParentInRoot": true,
-	"Display.FullRowSelect":    true,
-	"Display.LongNames":        true,
-
 	"Icons.ShowIcons":           true,
 	"Icons.IconOverlays":        true,
 	"Icons.IconSize":            true,

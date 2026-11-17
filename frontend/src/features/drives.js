@@ -25,3 +25,4 @@ async function openDrives(app, panel) {
 command({ name: 'cm_LeftOpenDrives', label: 'Drive list, left panel', run: (app) => openDrives(app, app.left) });
 command({ name: 'cm_RightOpenDrives', label: 'Drive list, right panel', run: (app) => openDrives(app, app.right) });
 command({ name: 'cm_SrcOpenDrives', label: 'Drive list', run: (app) => openDrives(app, app.cur) });
+command({ name: 'cm_TrgOpenDrives', label: 'Drive list, other panel', run: (app) => openDrives(app, app.other) });
