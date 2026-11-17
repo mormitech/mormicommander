@@ -90,6 +90,10 @@ type Request struct {
 	// first, so the old file is trashed only once they are complete; a folder in the way is never trashed.
 	TrashReplaced bool `json:"trashReplaced"`
 	Verify        bool `json:"verify"` // re-read every copy and compare its SHA-256 with the source's
+	// DeleteAfterAll (move across volumes): the sources are removed only once every file of the job has been copied
+	// without a problem, instead of each one right after its own copy. A cancel, an error or a skip keeps every
+	// source, so the files are then in both places (never in neither).
+	DeleteAfterAll bool `json:"deleteAfterAll"`
 
 	SpeedLimit int64 `json:"speedLimit"` // bytes per second, 0 = no limit; can be changed while running (SetSpeedLimit)
 	BufferSize int   `json:"bufferSize"` // copy buffer in bytes; 0 = 1 MiB. Large values plus NoCache are TC's "big file" mode

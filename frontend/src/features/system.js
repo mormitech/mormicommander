@@ -242,7 +242,12 @@ function watchOptions(app) {
 const pending = new Map(); // panel → timer
 // refreshPanel rereads a panel after a change on disk, unless the user is typing in it (inline rename) or it is busy;
 // then it tries again a little later. The cursor stays on its file and the selection is kept (Panel.reload).
+// Options > Refresh: "Delay before refreshing" is the pause after a change (120 ms by default) and "Refresh removable
+// drives" off leaves panels on USB sticks and memory cards to Ctrl+R.
 function refreshPanel(app, p) {
+  const cv = (k, d) => app.config?.values?.[k] ?? d;
+  if (cv('Refresh.RefreshRemovabl', '1') === '0' && app.volumeFor(p.path)?.kind === 'removable') return;
+  const delay = Math.max(100, Math.min(60000, Number(cv('Refresh.IntervalMs', '120')) || 120));
   clearTimeout(pending.get(p));
   pending.set(p, setTimeout(async () => {
     pending.delete(p);
@@ -251,7 +256,7 @@ function refreshPanel(app, p) {
     const path = p.path;
     await p.reload();
     if (p.path === path) go.FS.VolumeOf(path).then((v) => p.renderDriveInfo(v), () => {});
-  }, 120));
+  }, delay));
 }
 
 // leaveGone moves a panel whose folder was deleted, renamed or unmounted to the nearest folder that is still there.

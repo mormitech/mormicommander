@@ -64,11 +64,14 @@ async function start() {
   document.getElementById('app').hidden = false;
   await app.loadVolumes();
   const demoRight = app.demo ? `${home}/Pictures` : '';
+  // Options > Operation > Remember folders on exit / Remember panel layout and views (features/config/sessionopts.js)
+  const keep = (k) => app.config?.values?.[k] !== '0';
+  const last = keep('Operation.SavePath') ? session : {};
   await Promise.all([
-    open(app.left, info.left, session.left?.path, home, '/'),
-    open(app.right, info.right, session.right?.path, demoRight, home, '/'),
+    open(app.left, info.left, last.left?.path, home, '/'),
+    open(app.right, info.right, last.right?.path, demoRight, home, '/'),
   ]);
-  const active = info.active === 'R' ? 1 : info.active === 'L' ? 0 : session.active === 1 ? 1 : 0;
+  const active = info.active === 'R' ? 1 : info.active === 'L' ? 0 : last.active === 1 ? 1 : 0;
   app.active = -1; // so setActive sees a change and updates the title
   app.setActive(active);
   app.emit('ready');

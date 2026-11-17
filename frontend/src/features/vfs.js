@@ -112,8 +112,9 @@ export function init(app) {
 
 // ---- F4 on a file inside an archive: the editor saved the temporary copy ----
 async function askArchiveUpdate(app, c) {
-  const b = await messageDialog(updateQuestion(c));
-  const update = b === UPDATE;
+  // Options > Viewer/Editor > Ask before uploading an edited remote file off: each save goes into the archive at once
+  const ask = app.config?.values?.['ViewerEditor.EditTempUpload'] !== '0';
+  const update = ask ? (await messageDialog(updateQuestion(c))) === UPDATE : true;
   try {
     await go.ListerEdit.AnswerArchiveEdit(c.id, update);
   } catch (e) {

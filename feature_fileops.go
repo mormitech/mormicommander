@@ -210,6 +210,14 @@ func (j *Jobs) TrashSupported() bool { return fileops.TrashSupported() }
 // hold several levels ("a/b/c") and date placeholders: [Y] year, [M] month, [D] day, [h] hour, [m] minute, [s]
 // second. An absolute name is made where it says.
 func (j *Jobs) MkDir(parent, name string) (string, error) {
+	p, err := j.mkDir(parent, name)
+	if err == nil {
+		opLog(j.app, "mkdir", "New folder: "+p)
+	}
+	return p, err
+}
+
+func (j *Jobs) mkDir(parent, name string) (string, error) {
 	if j.app.mock != nil {
 		return "", errors.New("This is the demo: its files are not real, so no folder can be made.")
 	}
@@ -333,6 +341,14 @@ func fileopsCheckName(name string) error {
 // Rename renames the file or folder at path to newName in the same folder (Shift+F6) and returns the new path. A
 // change of case only ("a.txt" to "A.txt") works on case-insensitive disks too.
 func (j *Jobs) Rename(path, newName string) (string, error) {
+	p, err := j.rename(path, newName)
+	if err == nil {
+		opLog(j.app, "rename", "Rename: "+path+" -> "+p)
+	}
+	return p, err
+}
+
+func (j *Jobs) rename(path, newName string) (string, error) {
 	if j.app.mock != nil {
 		return "", errors.New("This is the demo: its files are not real, so they can't be renamed.")
 	}

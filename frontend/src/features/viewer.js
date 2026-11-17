@@ -15,6 +15,7 @@
 // "lister" (see LISTER_DEFAULTS in viewer/view.js), "editor" (the F4 line; "" = the system's text editor) and
 // "viewerInWindow".
 
+import { compileMask } from './config/util.js';
 import './viewer.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
@@ -187,7 +188,17 @@ async function view(app, args = {}) {
   const sel = args.current ? [] : p.selectedEntries().filter((x) => !x.dir);
   const s = listerSettings(app);
   const first = sel.length ? sel[0] : e;
-  if (s.viewer && !args.internal) return external(app, p.fullPath(first.name), s.viewer);
+  // Options > Viewer/Editor: "Use external viewer for F3" (on: the named viewer, when there is one) and "Choose viewer
+  // by file type" with Options > Lister > "Open these types in the external viewer" (a mask: those types go to the
+  // external viewer, or to their own program when none is named)
+  const cv = (k, d) => app.config?.values?.[k] ?? d;
+  if (s.viewer && !args.internal && cv('ViewerEditor.UseExtViewer', '1') !== '0') return external(app, p.fullPath(first.name), s.viewer);
+  const byType = cv('ViewerEditor.ViewerByType', '0') === '1' ? String(cv('Lister.ExtViewerFor', '')).trim() : '';
+  if (byType && !args.internal && compileMask(byType)(first.name, false)) {
+    if (s.viewer) return external(app, p.fullPath(first.name), s.viewer);
+    await go.FS.OpenFile(p.fullPath(first.name));
+    return;
+  }
   if (viewsFromCopy(p.vfs, p.path)) return viewCopy(app, p, e, sel, first, args);
   const names = sel.length ? sel.map((x) => x.name) : p.entries.filter((x) => !x.dir && !x.up).map((x) => x.name);
   if (sel.length && first !== e) p.focusName(first.name);
@@ -451,6 +462,13 @@ addControlCommand('lister_menu', async (m) => {
 });
 
 export function init(app) {
+  // Options > Viewer/Editor > Wait for the editor before reloading: the panels showing the edited file's folder are
+  // read again when the editor has quit (feature_lister_edit.go)
+  on('editor-closed', (path) => {
+    const sep = app.sepFor(path || '');
+    const dir = (path || '').slice(0, (path || '').lastIndexOf(sep)) || sep;
+    for (const p of app.panels) if (p.path === dir) p.reload();
+  });
   // Quick view's keys: Tab moves into the view (so 1-7, W, the cursor keys... work there) and back out.
   addKeyHandler((ev, combo) => {
     if (!qv) return false;

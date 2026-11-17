@@ -177,7 +177,7 @@ async function restoreTab(p, t, opts = {}) {
     for (const k of Panel.STATE_KEYS) if (k in st && !skip.has(k)) p[k] = st[k];
   } else {
     // (a tab read back after a restart gets the folder history it was saved with, board issue #112)
-    p.back = backFromHistory(t.saved?.history, target, samePath); p.fwd = []; p.lastCursor = new Map();
+    p.back = theApp.config?.values?.['Operation.SaveHistory'] === '0' ? [] : backFromHistory(t.saved?.history, target, samePath); p.fwd = []; p.lastCursor = new Map();
     if (t.saved) for (const [k, h] of tabStates) { const v = h.load(t.saved); if (v != null) p[k] = v; }
   }
   p.selected = new Set();
@@ -860,7 +860,9 @@ export function init(app) {
     for (const side of ['left', 'right']) {
       const p = panelOf(side);
       const set = saved?.[side];
-      const hist = saved?.[`${side}History`] || [];
+      // Options > Operation > Remember folder history off: the folders visited last time are not brought back
+      const keepHist = app.config?.values?.['Operation.SaveHistory'] !== '0';
+      const hist = keepHist ? saved?.[`${side}History`] || [] : [];
       if (set?.tabs?.length) {
         let tabs = set.tabs.map((x) => makeTab(tabFields(x)));
         let active = Math.max(0, Math.min(set.active || 0, tabs.length - 1));

@@ -218,11 +218,11 @@ func configForwardWanted(args []string) bool {
 	if err != nil {
 		return false
 	}
-	f, err := config.LoadFile(loc.Ini)
+	cfg, err := config.Open(loc)
 	if err != nil {
 		return false
 	}
-	return f.GetBool("Configuration", "onlyonce", false)
+	return cfg.Settings.Operation.OnlyOnce // (Options > Operation > Allow only one copy of the program)
 }
 
 // configForwardToRunning sends the arguments to the running window; false when there is none (or it does not answer).

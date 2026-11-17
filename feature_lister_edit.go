@@ -53,6 +53,13 @@ func (e *ListerEdit) Edit(path, tool string, ctx launch.ParamContext) (ListerEdi
 	if r := vfsRouter(e.app); r != nil && vfsPathKind(r, path) == "archive" && !vfsIsLocal(r, path) {
 		return e.editInArchive(r, path, tool, ctx)
 	}
+	// Options > Viewer/Editor > Wait for the editor before reloading: the page rereads the folder when the editor quits
+	if s, ok := currentSettings(); ok && s.ViewerEditor.EditorWait {
+		if _, err := e.launch.OpenInToolWait(launch.ParseTool(tool), path, ctx, func() { e.app.emit("editor-closed", path) }); err != nil {
+			return ListerEditResult{}, listerLaunchError("the editor", filepath.Base(path), err)
+		}
+		return ListerEditResult{}, nil
+	}
 	if err := e.launch.OpenInTool(launch.ParseTool(tool), path, ctx); err != nil {
 		return ListerEditResult{}, listerLaunchError("the editor", filepath.Base(path), err)
 	}

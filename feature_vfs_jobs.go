@@ -280,6 +280,7 @@ func (job *vfsJob) run() {
 		job.p.Summary = vfsSummary(&job.p)
 	}
 	job.p.Ask, job.p.Current, job.p.ETA = nil, "", 0
+	vfsLog(job.js.app, job.req, string(job.p.State))
 	job.mu.Unlock()
 	job.emit(fileops.EventDone)
 	job.js.mu.Lock()

@@ -93,6 +93,34 @@ func (l *Launcher) OpenInTool(t Tool, file string, ctx ParamContext) error {
 	return l.start(c)
 }
 
+// OpenInToolWait is OpenInTool, and done is called once the program has quit (macOS's "open" is told to wait for the
+// app with -W). A start that gives no process to wait for (Windows' ShellExecute) answers waited false and never calls
+// done.
+func (l *Launcher) OpenInToolWait(t Tool, file string, ctx ParamContext, done func()) (waited bool, err error) {
+	c, err := l.ToolCommand(t, file, ctx)
+	if err != nil {
+		return false, err
+	}
+	if l.darwin() && c.Path == "open" {
+		c.Args = append([]string{"-W"}, c.Args...)
+	}
+	if handled, err := shellExecute(c); handled {
+		return false, err
+	}
+	cmd := buildExec(nil, c)
+	applyPlatform(cmd, c, true)
+	if err := cmd.Start(); err != nil {
+		removeAll(c.Cleanup)
+		return false, err
+	}
+	go func() {
+		_ = cmd.Wait()
+		removeAll(c.Cleanup)
+		done()
+	}()
+	return true, nil
+}
+
 // DefaultEditorCommand returns the command that opens file in the system's text editor.
 func (l *Launcher) DefaultEditorCommand(file string) (Command, error) {
 	switch {

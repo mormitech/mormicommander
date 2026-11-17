@@ -183,7 +183,7 @@ type OperationPage struct {
 // ViewerEditorPage (F-420).
 type ViewerEditorPage struct {
 	Viewer         string `ini:"Configuration:Viewer" def:"" label:"External viewer (empty = Lister)"`
-	UseExtViewer   bool   `ini:"Configuration:UseExternalViewer" def:"0" label:"Use external viewer for F3"`
+	UseExtViewer   bool   `ini:"Configuration:UseExternalViewer" def:"1" label:"Use external viewer for F3"`
 	Editor         string `ini:"Configuration:Editor" def:"" label:"Editor for F4 (empty = system default)"`
 	EditorWait     bool   `ini:"Configuration:EditorWait" def:"0" label:"Wait for the editor before reloading"`
 	ViewerByType   bool   `ini:"Configuration:ViewerByType" def:"0" label:"Choose viewer by file type"`
@@ -213,7 +213,7 @@ type CopyDeletePage struct {
 	BigFileThresholdMB  int  `ini:"Configuration:BigFileThreshold" def:"1024" min:"1" max:"1048576" label:"Big file threshold (MB)"`
 	FollowLinks         bool `ini:"Configuration:CopyFollowLinks" def:"0" label:"Copy link targets instead of links"`
 	CheckFreeSpace      bool `ini:"Configuration:CheckFreeSpace" def:"1" label:"Check free space before copying"`
-	MoveDeleteAfterCopy bool `ini:"Configuration:MoveSafe" def:"1" label:"Move across drives: delete only after a full copy"`
+	MoveDeleteAfterCopy bool `ini:"Configuration:MoveSafe" def:"0" label:"Move across drives: delete only after a full copy"`
 
 	// SkipErrorsBackground (board issue #15): background jobs note failed files and go on, and list them at the end.
 	SkipErrorsBackground bool `ini:"Configuration:SkipErrorsInBackground" def:"0" label:"Skip errors in background jobs (list them at the end)"`
@@ -226,7 +226,7 @@ type RefreshPage struct {
 	RefreshNetwork  bool   `ini:"Configuration:RefreshNetwork" def:"1" label:"Refresh network folders"`
 	RefreshRemovabl bool   `ini:"Configuration:RefreshRemovable" def:"1" label:"Refresh removable drives"`
 	ExcludeFolders  string `ini:"Configuration:WatchDirsExclude" def:"" label:"Folders not refreshed automatically"`
-	IntervalMs      int    `ini:"Configuration:RefreshInterval" def:"500" min:"100" max:"60000" label:"Delay before refreshing (ms)"`
+	IntervalMs      int    `ini:"Configuration:RefreshInterval" def:"120" min:"100" max:"60000" label:"Delay before refreshing (ms)"`
 }
 
 // QuickSearchPage (F-423).

@@ -36,10 +36,11 @@ type job struct {
 	policy      Policy
 	roPolicy    Policy
 	errPolicy   ErrorPolicy
-	delDirsAll  bool // AskDeleteDir answered All
-	delROAll    int  // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip
-	delDirSkip  bool // AskDeleteDir answered Skip all
-	trashDirect bool // a trash error was answered "… all without Finder": later items skip Finder (macOS)
+	delDirsAll  bool   // AskDeleteDir answered All
+	delROAll    int    // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip
+	delDirSkip  bool   // AskDeleteDir answered Skip all
+	trashDirect bool   // a trash error was answered "… all without Finder": later items skip Finder (macOS)
+	deferred    []item // move with DeleteAfterAll: the copied sources still to remove at the end
 
 	// skipErrs is set by Queue.SkipErrors (a job sent to the background with "Skip errors in background" on): from
 	// the next error on, a job that would ask Retry / Skip notes the error and goes on instead.

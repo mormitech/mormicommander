@@ -6,6 +6,26 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.25 – 2026-11-17
+
+### Changed
+
+- More options that were kept but had no effect now work (board issue #94). Each keeps today's behaviour at its default:
+  - Operation: remember folders, folder history, the command line history and the panel layout and views on exit,
+    save settings on exit (off keeps the session that was saved last), allow only one copy of the program (now read
+    from the Options value), and minimise to the menu bar or notification area: the window hides and a click on the
+    icon brings it back.
+  - Viewer/Editor: use the external viewer for F3 (on: when one is named, as before), choose the viewer by file type
+    with Lister > Open these types in the external viewer, wait for the editor and then reread the folder, and ask
+    before an edited copy goes back into its archive.
+  - Lister: detect the text encoding (off: UTF-8), show images, show PDF files, and open text files bigger than the
+    set size in hex.
+  - Copy/Delete: copy the file comments (descript.ion) along, big file mode by itself above the size set, and a move
+    between drives that deletes the originals only after every file was copied (off by default).
+  - Refresh: the delay before a changed folder is read again, and whether removable drives refresh by themselves.
+  - Log file: copy and move, delete, rename, new folders, pack and unpack, and network transfers are written to the log
+    (when the log is on), or errors only.
+
 ## 0.14.24 – 2026-11-17
 
 ### Added

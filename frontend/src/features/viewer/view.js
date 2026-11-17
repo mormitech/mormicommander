@@ -232,7 +232,8 @@ export class ListerView {
   async open(path, mode = 'auto') {
     const s = listerSettings(this.app);
     const charset = s.defaultCharset === 'auto' ? '' : s.defaultCharset;
-    const enc = charset;
+    // Options > Lister > Detect text encoding off: a file with no encoding of its own chosen is read as UTF-8
+    const enc = charset || (this.app.config?.values?.['Lister.AutoDetect'] === '0' ? 'utf-8' : '');
     const info = await track(go.Lister.Open(path, { mode: 'text', encoding: enc, wrap: this.wrap, width: this.cols, tabWidth: +s.tabWidth || 8, asText: '' }));
     const old = this.id;
     if (old) { views.delete(old); go.Lister.Close(old).catch(() => {}); }
@@ -259,9 +260,17 @@ export class ListerView {
 
   autoMode(info, s) {
     const forced = s.defaultMode !== 'auto' ? s.defaultMode : '';
+    const o = (k) => this.app.config?.values?.[k] !== '0';
     if (info.table && s.openTables && !this.internalOnly && !forced) return 'table';
+    // Options > Lister > Show images / Show PDF files off: those files open as their bytes, like any other binary file
+    const kind = info.media?.kind;
+    const pdf = kind === 'document' && /pdf/i.test(info.media?.format || '');
+    const mediaOK = !(kind === 'image' && !o('Lister.UseImages')) && !(pdf && !o('Lister.UsePDF'));
+    // Options > Lister > Load text files up to (MB): a bigger text file opens in hex, which reads it page by page
+    const maxMB = Number(this.app.config?.values?.['Lister.MaxTextMB'] ?? 64) || 64;
+    if (!forced && info.size > maxMB * 1048576 && !info.media && info.suggest !== 'binary') return 'hex';
     switch (info.suggest) {
-      case 'media': if (!this.internalOnly && s.showMedia) return 'media'; break;
+      case 'media': if (!this.internalOnly && s.showMedia && mediaOK) return 'media'; break;
       case 'html': case 'markdown': if (!this.internalOnly && s.renderHTML && !forced) return 'html'; break;
       case 'rtf': if (!forced) { this.asText = 'rtf'; return 'text'; } break;
     }

@@ -28,7 +28,7 @@ func init() {
 		j := &Jobs{app: a}
 		j.q = fileops.NewQueue(func(event string, data any) { a.emit(event, data) })
 		// what the jobs do also feeds the undo journal (feature_undo.go); a.undo is set before any job can start
-		j.q.Log = func(e fileops.Entry) { a.undo.observe(e) }
+		j.q.Log = func(e fileops.Entry) { a.undo.observe(e); jobLog(a, e) }
 		a.jobs = j
 		return []exposed{expose(j)}
 	})
@@ -53,6 +53,9 @@ func (j *Jobs) Start(r fileops.Request) (int, error) {
 	id, err := j.app.undo.startTracked(r, j.q.Start)
 	if err != nil {
 		return 0, errors.New(fileopsSentence(err.Error()))
+	}
+	if r.Kind == fileops.Copy || r.Kind == fileops.Move {
+		go func() { copyJobComments(r, j.q.Wait(id)) }()
 	}
 	return id, nil
 }

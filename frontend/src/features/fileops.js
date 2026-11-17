@@ -329,6 +329,11 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     overwrite = 'rename';
   }
   const background = a.queued || !!opt(app, 'background');
+  // Options > Copy/Delete > Big file threshold: a file at least that big switches the job to big file mode by itself;
+  // Move across drives: delete only after a full copy (the engine's deleteAfterAll)
+  const cfgv = (k, d) => app.config?.values?.[k] ?? d;
+  const bigMB = Number(cfgv('CopyDelete.BigFileThresholdMB', '1024')) || 1024;
+  const bigfile = !!a.bigfile || items.some((e) => !e.dir && e.size >= bigMB * 1048576);
   const req = {
     kind: move ? 'move' : 'copy',
     sources: items.map((e) => src.fullPath(e.name)),
@@ -337,10 +342,11 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     filter: normFilter(a.filter),
     links: a.links ? '' : 'follow',
     noDates: !a.dates, noPerms: !a.perms, noAttrs: !a.attrs, owner: !!a.owner, verify: !!a.verify, trashReplaced: !!a.trashReplaced,
-    bufferSize: a.bigfile ? 16 << 20 : Math.max(16, Number(opt(app, 'bufferKB')) || 1024) * 1024, noCache: !!a.bigfile,
+    bufferSize: bigfile ? 16 << 20 : Math.max(16, Number(opt(app, 'bufferKB')) || 1024) * 1024, noCache: bigfile,
     onError: onErrorFor({ ignoreErrors: !!a.ignoreErrors, background, skipErrorsBackground: !!opt(app, 'skipErrorsBackground') }),
     ignoreSpace: !opt(app, 'checkFreeSpace'),
     queued: !!a.queued,
+    deleteAfterAll: move && cfgv('CopyDelete.MoveDeleteAfterCopy', '0') === '1',
     speedLimit: background ? backgroundSpeedLimit() : 0,
   };
   src.saveSelection();

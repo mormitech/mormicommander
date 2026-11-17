@@ -14,26 +14,6 @@ var noEffect = map[string]bool{
 	"Language.LanguageFile": true,
 	"Language.UILanguage":   true,
 
-	"Operation.OnlyOnce":       true,
-	"Operation.SavePath":       true,
-	"Operation.SaveHistory":    true,
-	"Operation.SaveCommands":   true,
-	"Operation.SavePanels":     true,
-	"Operation.SaveOnExit":     true,
-	"Operation.MinimizeToTray": true,
-
-	"ViewerEditor.UseExtViewer":   true,
-	"ViewerEditor.EditorWait":     true,
-	"ViewerEditor.ViewerByType":   true,
-	"ViewerEditor.EditTempUpload": true,
-
-	"CopyDelete.CopyComments":        true,
-	"CopyDelete.BigFileThresholdMB":  true,
-	"CopyDelete.MoveDeleteAfterCopy": true,
-
-	"Refresh.RefreshRemovabl": true,
-	"Refresh.IntervalMs":      true,
-
 	"FTP.Passive":        true,
 	"FTP.ShowHidden":     true,
 	"FTP.TimeoutSec":     true,
@@ -66,14 +46,6 @@ var noEffect = map[string]bool{
 	"Thumbnails.ShowOnNet":   true,
 	"Thumbnails.FolderThumb": true,
 
-	"Log.Copy":       true,
-	"Log.Delete":     true,
-	"Log.Rename":     true,
-	"Log.MkDir":      true,
-	"Log.Pack":       true,
-	"Log.FTP":        true,
-	"Log.ErrorsOnly": true,
-
 	"Packer.InternalZip":    true,
 	"Packer.ExternalZip":    true,
 	"Packer.TarOwner":       true,
@@ -96,12 +68,6 @@ var noEffect = map[string]bool{
 	"BackgroundQueue.AutoStart":    true,
 	"BackgroundQueue.ShowWindow":   true,
 	"BackgroundQueue.KeepFinished": true,
-
-	"Lister.AutoDetect":   true,
-	"Lister.UseImages":    true,
-	"Lister.UsePDF":       true,
-	"Lister.MaxTextMB":    true,
-	"Lister.ExtViewerFor": true,
 
 	"FindFiles.UseIndex": true,
 	"FindFiles.Encoding": true,

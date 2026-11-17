@@ -211,6 +211,7 @@ export const app = {
   // moment later, staged on the Go side at once: core/session.js).
   saveSession() {
     if (this.demo || !this.panels.length) return;
+    if (this.config?.values?.['Operation.SaveOnExit'] === '0') return; // (Options > Operation > Save settings on exit off)
     const s = (p) => ({ path: p.path, sort: p.sort });
     session.schedule(() => ({ left: s(this.left), right: s(this.right), active: this.active, showHidden: this.showHidden, split: this.split ?? 0.5 }));
   },

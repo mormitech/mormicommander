@@ -27,6 +27,7 @@ import { initLayout, applyAll, loadColors } from './config/layout.js';
 import { initListOpts } from './config/listopts.js';
 import { initFileIcons } from './config/fileicons.js';
 import { initSounds } from './config/sounds.js';
+import { initSessionOpts } from './config/sessionopts.js';
 import { initButtonBar, loadBars } from './config/buttonbar.js';
 import { initStartMenu, loadStartMenu } from './config/startmenu.js';
 import { registerUserCommands } from './config/usercmds.js';
@@ -63,6 +64,7 @@ export async function init(app) {
   initListOpts(app);
   await initFileIcons(app);
   initSounds(app);
+  initSessionOpts(app);
   initLayout(app);
   await mergeKeymap(app);
   applyAll(app.startTheme);

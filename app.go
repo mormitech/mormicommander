@@ -170,6 +170,9 @@ func (a *App) Quit() {
 
 // Minimize puts the window in the Dock / taskbar (cm_Minimize, Shift+Esc).
 func (a *App) Minimize() {
+	if a.toTray() { // (Options > Operation > Minimise to tray / menu bar)
+		return
+	}
 	if w := a.mainWindow(); w != nil {
 		w.Minimise()
 	}

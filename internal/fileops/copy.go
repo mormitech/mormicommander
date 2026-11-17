@@ -219,6 +219,7 @@ func (j *job) copyAll(move bool) {
 	if !move {
 		return
 	}
+	j.removeDeferred()
 	// the source folders that are empty now go, deepest first; one that still holds something just stays
 	for i := len(srcDirs) - 1; i >= 0; i-- {
 		if remove(srcDirs[i].src) == nil {
@@ -379,8 +380,29 @@ func replaceWithLink(target, dst string) error {
 	return nil
 }
 
-// removeSource removes the source of a file that was copied for a move.
+// removeSource removes the source of a file that was copied for a move (with Request.DeleteAfterAll, later: see
+// removeDeferred).
 func (j *job) removeSource(it item) bool {
+	if j.req.DeleteAfterAll {
+		j.deferred = append(j.deferred, it)
+		return true
+	}
+	return j.removeNow(it)
+}
+
+// removeDeferred removes the sources DeleteAfterAll kept back, when the whole job got across without a problem.
+func (j *job) removeDeferred() {
+	its := j.deferred
+	j.deferred = nil
+	if len(its) == 0 || j.ctx.Err() != nil || j.problemCount() > 0 {
+		return
+	}
+	for _, it := range its {
+		j.removeNow(it)
+	}
+}
+
+func (j *job) removeNow(it item) bool {
 	err, _ := j.try("Copied "+filepath.Base(it.src)+", but can't remove the original", it.src, "", nil, func() error {
 		err := remove(it.src)
 		if isPerm(err) && !isLink(it.info) {

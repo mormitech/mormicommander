@@ -226,7 +226,9 @@ func (x *netXfer) run() {
 		}
 		x.p.Ask = nil
 		x.p.Current = ""
+		state := x.p.State
 		x.mu.Unlock()
+		opLog(n.app, "ftp", fmt.Sprintf("%s (network): %s -> %s (%s)", x.req.Kind, strings.Join(x.req.Sources, ", "), x.req.Target, state))
 		x.emit("net-job-done", true)
 		final := x.snapshot()
 		n.mu.Lock()
