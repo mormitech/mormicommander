@@ -247,7 +247,7 @@ function renderHeader(p) {
   el.style.setProperty('--cols', tpl.join(' '));
   let html = `<span data-vcol="name" title="Sort by name">Name</span>`;
   if (def.ext) html += `<span data-vcol="ext" title="Sort by extension">Ext</span>`;
-  def.cols.forEach((c, k) => { html += `<span data-vcol="${k}" class="${c.align === 'right' ? 'r' : ''}" title="Sort by ${esc(c.title.toLowerCase() || `column ${k + 1}`)}">${esc(c.title)}</span>`; });
+  def.cols.forEach((c, k) => { html += `<span data-vcol="${k}" class="${c.align === 'right' ? 'r' : ''}" title="Sort by ${esc(c.title.toLowerCase() || `column ${k + 1}`)}${c.sort ? ' (Ctrl/Cmd+click: as the second sort key)' : ''}">${esc(c.title)}</span>`; });
   header.innerHTML = html;
   header.dataset.views = '1';
   const s = p.sort;
@@ -255,16 +255,21 @@ function renderHeader(p) {
     const v = sp.dataset.vcol;
     const col = def.cols[+v];
     const on = v === s.key || (col && (col.sort ? col.sort === s.key : s.key === `col${+v + 1}`));
+    const k2 = s.then?.key;
+    const on2 = !on && !!k2 && (v === k2 || (col && col.sort === k2));
     sp.classList.toggle('sorted', !!on);
-    sp.classList.toggle('desc', !!on && s.desc);
+    sp.classList.toggle('sorted2', on2);
+    sp.classList.toggle('desc', (!!on && s.desc) || (on2 && !!s.then.desc));
   });
 }
 
 function markCoreHeader(p) {
   p.$.header.querySelectorAll('[data-col]').forEach((s) => {
     const on = s.dataset.col === p.sort.key;
+    const on2 = !on && s.dataset.col === p.sort.then?.key;
     s.classList.toggle('sorted', on);
-    s.classList.toggle('desc', on && p.sort.desc);
+    s.classList.toggle('sorted2', on2);
+    s.classList.toggle('desc', (on && p.sort.desc) || (on2 && !!p.sort.then.desc));
   });
 }
 
@@ -342,7 +347,7 @@ function install(p) {
     const c = ev.target.closest('[data-vcol]')?.dataset.vcol;
     if (c === undefined) return;
     p.app.setActive(p);
-    sortByHeader(p, c);
+    sortByHeader(p, c, ev.ctrlKey || ev.metaKey);
   });
   p.$.header.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
@@ -364,12 +369,15 @@ function install(p) {
   p.$.list.addEventListener('dblclick', (ev) => { if (modeOf(p) === 'tree' && ev.target.closest('.mc-views-node')) treeEnter(p); });
 }
 
-function sortByHeader(p, c) {
+// sortByHeader sorts by a column title; add (Ctrl/Cmd+click, F-114) makes it the second sort key where it can be one.
+function sortByHeader(p, c, add = false) {
   const def = columns(p);
+  if (add && (c === 'name' || c === 'ext')) return p.addSortKey(c);
   if (c === 'name') return p.app.run('cm_SrcByName');
   if (c === 'ext') return p.app.run('cm_SrcByExt');
   const col = def.cols[+c];
   if (!col) return;
+  if (add && col.sort) return p.addSortKey(col.sort);
   if (col.sort) return p.sortBy(col.sort);
   return p.sortBy(`col${+c + 1}`);
 }

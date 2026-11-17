@@ -3,7 +3,9 @@
 //
 // Mouse selection mode "Commander" (Total Commander's right-button mode): the right button selects. A right press
 // toggles the row under it, dragging with it held selects (or unselects) every row it passes, and holding it still for
-// a moment opens the right-click menu. "Standard" (the default) is the left-button selection the panels always had.
+// a moment opens the right-click menu. In the same mode a left drag that starts on a row that is not selected and
+// goes up or down selects the rows it passes (F-135, TC style); a left drag that goes sideways, or starts on a
+// selected row, still drags the files. "Standard" (the default) is the left-button selection the panels always had.
 //
 // Middle click on a folder (without moving: a middle drag still pans the list): open it in a new tab (the default), or
 // in the other panel, or nothing.
@@ -14,6 +16,7 @@ const opt = (app, k, d) => app.config?.values?.[k] ?? d;
 const HOLD_MS = 600;
 
 let rsel = null; // {p, on, last, timer, x, y, menuShown}
+let lsel = null; // the left drag of Commander mode: {p, start, last, x, y, dx, dy, active}
 
 export function init(app) {
   const commander = () => opt(app, 'Operation.MouseMode', '1') === '0';
@@ -41,7 +44,51 @@ export function init(app) {
     return prevGate ? prevGate(p, ev, args) : false;
   };
 
+  // left drag (Commander mode only): a press on a row that is not selected may become a drag selection
+  for (const p of app.panels) {
+    p.$.list.addEventListener('mousedown', (ev) => {
+      lsel = null;
+      if (ev.button !== 0 || ev.detail > 1 || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey || !commander()) return;
+      const row = ev.target.closest?.('.row');
+      if (!row) return;
+      const i = +row.dataset.i, e = p.entries[i];
+      if (!e || e.up || p.isSelected(e)) return;
+      lsel = { p, start: i, last: i, x: ev.clientX, y: ev.clientY, dx: 0, dy: 0, active: false };
+    });
+    // the drag of the files starts first: up or down it becomes the selection instead (sideways it stays a drag)
+    p.el.addEventListener('dragstart', (ev) => {
+      if (!lsel || lsel.p !== p) return;
+      if (Math.abs(lsel.dy) > Math.abs(lsel.dx)) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+        lsel.active = true;
+        dragSelect(lsel.start);
+      } else lsel = null;
+    }, true);
+  }
+  // dragSelect selects the rows from the start row to row i; rows the drag passed before and has left lose it again
+  const dragSelect = (i) => {
+    const { p, start, last } = lsel;
+    const [a, b] = i > start ? [start, i] : [i, start];
+    for (let k = Math.min(a, last); k <= Math.max(b, last); k++) {
+      const e = p.entries[k];
+      if (e && !e.up) p.select(e, k >= a && k <= b);
+    }
+    lsel.last = i;
+    p.setCursor(i);
+    p.selectionChanged();
+  };
+
   document.addEventListener('pointermove', (ev) => {
+    if (lsel) {
+      if (!(ev.buttons & 1)) lsel = null;
+      else {
+        lsel.dx = ev.clientX - lsel.x;
+        lsel.dy = ev.clientY - lsel.y;
+        const row = lsel.active && document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('.row');
+        if (row && lsel.p.el.contains(row) && +row.dataset.i !== lsel.last) dragSelect(+row.dataset.i);
+      }
+    }
     if (!rsel) return;
     if (!(ev.buttons & 2)) { clearTimeout(rsel.timer); rsel = null; return; }
     if (Math.hypot(ev.clientX - rsel.x, ev.clientY - rsel.y) > 4) clearTimeout(rsel.timer);
@@ -57,6 +104,7 @@ export function init(app) {
   });
   document.addEventListener('pointerup', (ev) => {
     if (rsel && ev.button === 2) { clearTimeout(rsel.timer); rsel = null; }
+    if (lsel && ev.button === 0) lsel = null;
   });
 
   Panel.middleClick = (p, ev) => {

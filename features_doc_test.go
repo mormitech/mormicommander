@@ -49,7 +49,7 @@ func TestFeaturesFormat(t *testing.T) {
 // TestFeaturesAudit103 pins the marks the hand audit of board issue #103 gave.
 func TestFeaturesAudit103(t *testing.T) {
 	want := map[string]string{
-		"F-135": "~", "F-136": " ", "F-352": "~", "F-353": " ", "F-555": "~", "F-466": "~", "F-114": " ",
+		"F-135": "~", "F-136": "~", "F-352": "~", "F-353": " ", "F-555": "~", "F-466": "~", "F-114": "~",
 		"F-672": "~", "F-673": " ", "F-785": "~", "F-819": " ", "F-040": "~", "F-775": "~", "F-700": " ",
 		"F-698": "~", "F-828": " ", "F-852": "~", "F-543": "~", "F-545": "~", "F-564": "~", "F-846": "~",
 		"F-797": "~",

@@ -2,8 +2,9 @@
 // always sorted by name (docs/spec area 2, 5.3/5.4); equal sizes and dates fall back to the name, ascending, whatever the
 // direction. Pure, unit-tested (test/sort.test.js).
 //
-// sort = {key: 'name' | 'ext' | 'size' | 'date' | 'none', desc: bool}. The keys that start newest/largest first (date,
-// size) are handled by the commands that pick them (desc: true), not here.
+// sort = {key: 'name' | 'ext' | 'size' | 'date' | 'none', desc: bool, then?: {key, desc}}. The keys that start
+// newest/largest first (date, size) are handled by the commands that pick them (desc: true), not here. "then" is the
+// second sort key (F-114, Ctrl+click on a column title): files equal by the first key are sorted by it, then by name.
 
 // opts.method picks how names are compared (settings key "sortMethod", F-116; the default is the order the app always had):
 //   ''     alphabetical by the language rules (Intl.Collator), upper and lower case alike: "Ágnes" sits with "Agota";
@@ -111,7 +112,13 @@ export function sortEntries(entries, sort = { key: 'name', desc: false }, opts =
     case 'date': cmp = (a, b) => (a.mtime - b.mtime) || sign * byName(a, b); break;
     default: cmp = byName;
   }
-  const fileCmp = (a, b) => sign * cmp(a, b);
+  let fileCmp = (a, b) => sign * cmp(a, b);
+  const raw = { name: byName, ext: (a, b) => col.compare(a.ext, b.ext), size: (a, b) => a.size - b.size, date: (a, b) => a.mtime - b.mtime };
+  const then = sort.then;
+  if (then && raw[sort.key] && raw[then.key] && then.key !== sort.key) {
+    const tsign = then.desc ? -1 : 1;
+    fileCmp = (a, b) => sign * raw[sort.key](a, b) || tsign * raw[then.key](a, b) || byName(a, b);
+  }
   // folders: always by name (TC's default "SortDirsByName"), reversed with a reversed name sort; dirsLikeFiles sorts
   // them by date like files (sizes of folders are unknown until calculated)
   const dirCmp = sort.key === 'name' || (opts.dirsLikeFiles && sort.key === 'date') ? fileCmp : byName;

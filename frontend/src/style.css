@@ -85,6 +85,10 @@ body.mc-config-no-drivecombo .driveinfo .mc-drivecombo:hover { color: inherit; }
 .header > span.sorted { color: var(--text); font-weight: 600; }
 .header > span.sorted::after { content: " ▲"; font-size: 9px; }
 .header > span.sorted.desc::after { content: " ▼"; }
+/* the second sort key (Ctrl/Cmd+click on a column title, F-114) */
+.header > span.sorted2 { color: var(--text); }
+.header > span.sorted2::after { content: " ▲2"; font-size: 9px; opacity: .7; }
+.header > span.sorted2.desc::after { content: " ▼2"; }
 .header .r, .row .r { text-align: right; }
 
 .list { flex: 1; min-height: 0; overflow: auto; position: relative; outline: none; contain: strict; }

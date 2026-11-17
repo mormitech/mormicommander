@@ -85,7 +85,7 @@ export class Panel {
   get cur() { return this.entries[this.cursor]; }
 
   build() {
-    const cols = COLUMNS.map(([id, t, c]) => `<span data-col="${id}" class="${c || ''}" title="Sort by ${t.toLowerCase()}">${t}</span>`).join('');
+    const cols = COLUMNS.map(([id, t, c]) => `<span data-col="${id}" class="${c || ''}" title="Sort by ${t.toLowerCase()} (Ctrl/Cmd+click: as the second sort key)">${t}</span>`).join('');
     this.el.innerHTML = `<div class="drivebar" role="toolbar" aria-label="Drives"></div><div class="driveinfo"></div><div class="tabbar" hidden></div>
       <div class="pathbar"><span class="crumbs"></span><span class="filter" hidden></span><span class="pbtns"></span><button class="hist" title="Folders you visited (Alt+Down)" aria-label="Folder history">▾</button></div>
       <div class="header">${cols}</div>
@@ -117,7 +117,8 @@ export class Panel {
       const c = ev.target.closest('[data-col]')?.dataset.col;
       if (!c || !SORT_CMD[c]) return;
       this.app.setActive(this);
-      this.app.run(SORT_CMD[c]);
+      if (ev.ctrlKey || ev.metaKey) this.addSortKey(c); // F-114: Ctrl/Cmd+click adds a second sort key
+      else this.app.run(SORT_CMD[c]);
     });
     crumbs.addEventListener('click', (ev) => {
       const s = ev.target.closest('[data-p]');
@@ -287,9 +288,24 @@ export class Panel {
   }
 
   // sortBy sorts by a column; the same column again reverses. Size and date start largest/newest first (TC).
+  // The second sort key (sort.then, F-114) stays when only the direction changes, and goes with a new column.
   sortBy(key, desc) {
     if (desc === undefined) desc = this.sort.key === key ? !this.sort.desc : key === 'size' || key === 'date';
-    this.sort = { key, desc };
+    const then = this.sort.key === key && this.sort.then?.key !== key ? this.sort.then : undefined;
+    this.sort = then ? { key, desc, then } : { key, desc };
+    this.rebuild();
+    this.app.panelChanged(this, { moved: false });
+  }
+
+  // addSortKey (F-114, Ctrl/Cmd+click on a column title) sorts by key as well, after the first sort key: files equal
+  // by the first key are ordered by this one. Again on the same column reverses it. Only name, extension, size and
+  // date can be combined; with the first column, or when it cannot be combined, it works like a plain click.
+  addSortKey(key) {
+    const can = (k) => ['name', 'ext', 'size', 'date'].includes(k);
+    if (key === this.sort.key || !can(key) || !can(this.sort.key)) return this.sortBy(key);
+    const t = this.sort.then;
+    const desc = t?.key === key ? !t.desc : key === 'size' || key === 'date';
+    this.sort = { key: this.sort.key, desc: this.sort.desc, then: { key, desc } };
     this.rebuild();
     this.app.panelChanged(this, { moved: false });
   }
@@ -474,8 +490,10 @@ export class Panel {
     spacer.style.height = `${this.entries.length * this.rowH}px`;
     header.querySelectorAll('[data-col]').forEach((s) => {
       const on = s.dataset.col === this.sort.key;
+      const on2 = !on && s.dataset.col === this.sort.then?.key;
       s.classList.toggle('sorted', on);
-      s.classList.toggle('desc', on && this.sort.desc);
+      s.classList.toggle('sorted2', on2);
+      s.classList.toggle('desc', (on && this.sort.desc) || (on2 && !!this.sort.then.desc));
     });
     crumbs.innerHTML = splitPath(this.path).map((p) => `<span data-p="${esc(p.path)}">${esc(p.label)}</span>`).join('');
     crumbs.title = this.path;

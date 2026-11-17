@@ -198,7 +198,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-111 Unsorted (cm_SrcUnsorted) — Ctrl+F7 — file system order
 - [ ] F-112 Reverse sort order (cm_SrcNegOrder) — — — order is reversed
 - [ ] F-113 Sort by clicking column headers incl. custom columns — — — header shows arrow for direction
-- [ ] F-114 Multi-column sort with Ctrl+click header — — — Ctrl+click adds secondary sort key — audit #103: not built in the UI: a header click sorts by one column only; internal/listing can sort by several keys
+- [~] F-114 Multi-column sort with Ctrl+click header — — — Ctrl+click adds secondary sort key — audit #103: built in 0.14.29: Ctrl/Cmd+click on a column title (name, extension, size, date; also in custom column views) adds a second sort key, shown with "2" by its arrow; again on it reverses it; a plain click goes back to one key. Each tab keeps it while the app runs, but it is not saved on exit
 - [ ] F-115 Natural sorting (numbers as numbers: file2 before file10) option — — — "file2" sorts before "file10" when option set
 - [x] F-116 Case-sensitive / Unicode / locale-aware sorting option — — — options change order per spec
 - [~] F-117 Sort settings per tab remembered — — — each tab keeps its sort
@@ -223,8 +223,8 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-132 Save / load selection to file (cm_SaveSelection / cm_LoadSelection / cm_SaveSelectionToFile / cm_LoadSelectionFromFile) — — — names saved to text file, can be reloaded; also from clipboard (cm_LoadSelectionFromClip)
 - [~] F-133 Compare directories: select newer / missing (cm_CompareDirs) — Shift+F2 — files that are newer or missing on the other side are selected in both panels
 - [~] F-134 Compare directories including subdirectories (cm_CompareDirsWithSubdirs) — — — also marks subfolders that differ
-- [~] F-135 Select by mouse: left-click+drag selects (TC style) or Windows-style Ctrl+click — — — both mouse modes available (Configuration > Operation); Ctrl/Cmd+click toggles, Shift+click range — audit #103: Ctrl/Cmd+click toggles and Shift+click selects a range (core/panel.js); there is no TC-style left-drag selection and no mouse-mode choice in Configuration > Operation
-- [ ] F-136 Right mouse button selection mode (TC classic) — — — option: right button selects, long press opens context menu — audit #103: not built: right-click only moves the cursor and opens the context menu; no right-button selection mode (UseRightButton)
+- [~] F-135 Select by mouse: left-click+drag selects (TC style) or Windows-style Ctrl+click — — — both mouse modes available (Configuration > Operation); Ctrl/Cmd+click toggles, Shift+click range — audit #103: built in 0.14.29: in Options > Operation > Mouse selection mode "Commander" a left drag up or down from a row that is not selected selects the rows it passes (sideways, or from a selected row, it still drags the files); "Standard" (the default) is unchanged: Ctrl/Cmd+click toggles and Shift+click selects a range
+- [~] F-136 Right mouse button selection mode (TC classic) — — — option: right button selects, long press opens context menu — audit #103: built in 0.14.24: Options > Operation > Mouse selection mode "Commander": a right press toggles the row, a right drag selects the rows it passes, holding the button opens the context menu (features/mouseopts.js)
 - [ ] F-137 Selection count/size shown in status bar — — — status bar shows count and total size of selected files
 - [ ] F-138 Copy names to clipboard (cm_CopyNamesToClip) — — — selected file names (one per line) copied to clipboard
 - [x] F-139 Copy full names with path (cm_CopyFullNamesToClip) — — (assignable; Cmd+Alt+C on macOS) — full paths copied, one per line
