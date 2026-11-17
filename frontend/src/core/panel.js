@@ -510,7 +510,7 @@ export class Panel {
       const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
       const tip = Panel.tipAttr(this, e, name.length > 28);
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
-      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.iconHTML(this, e)}<b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;
@@ -588,6 +588,9 @@ Panel.quietLoadHooks = [];
 // Features that leave entries out of every list (the ignore list: features/config/listopts.js) add hook(panel, entry)
 // → true to hide it. Unlike the panel's filter, they stay through folder changes and filters.
 Panel.hideHooks = [];
+
+// iconHTML is a row's icon: the page's own by default; features/config/fileicons.js gives the system's (Options > Icons).
+Panel.iconHTML = () => '<i class="ic"></i>';
 
 // tipAttr is the tooltip attribute of a row's name: by default the whole name when it may be cut off (cut: a hint
 // from the renderer). features/config/listopts.js replaces it to follow Options > Tooltips.

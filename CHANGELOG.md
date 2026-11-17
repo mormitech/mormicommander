@@ -6,6 +6,20 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.23 – 2026-11-17
+
+### Added
+
+- **System file icons.** Options > Icons > Show icons can now be set to "All, including file icons": every file and
+  folder shows the icon the system gives it (Finder's on macOS, Explorer's on Windows; Linux keeps mormiCommander's
+  own icons). Programs and folders with icons of their own show those (Program-specific icons, Folder-specific icons),
+  and Load icons from network folders decides about network volumes. Icons are fetched for the rows on screen only and
+  kept. The default stays the standard icons, and "None" hides them.
+- **Icon size** (Options > Icons): 16, 24, 32 or 48 pixels; the rows grow to fit.
+- **Overlay icons:** Options > Icons > Show overlay icons and the new Show > Overlay icons (cm_SwitchOverlayIcons)
+  turn the arrow after links on and off.
+- **Icons in menus** (Options > Icons, off by default): the right-click menus show the icons of their commands.
+
 ## 0.14.22 – 2026-11-17
 
 ### Added

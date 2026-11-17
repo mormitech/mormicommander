@@ -170,7 +170,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-092 Long names vs 8.3: show file extension in separate column option — — — option to show ext in separate column or with name
 - [~] F-093 Display size in bytes / KB / MB / dynamic — — — size format option changes column output
 - [~] F-094 Date/time format option — — — date column follows chosen format (system or custom)
-- [ ] F-095 Icons: show all associated icons / standard / none; overlay icons — — — each mode shows appropriate icons; system file icons loaded from OS
+- [~] F-095 Icons: show all associated icons / standard / none; overlay icons — — — each mode shows appropriate icons; system file icons loaded from OS — 0.14.23: Options > Icons: none, standard, or the system's own icons (Finder on macOS, Explorer on Windows; Linux keeps the standard ones), with icon size, folder- and program-specific icons and network folders as options
 - [ ] F-096 Selection colours, cursor bar style (filled / frame), alternating row colors — — — each display option applied immediately
 - [ ] F-097 Colour by file type (Configuration > Colors > Define colors by file type) — — — files matching a pattern or attribute filter are shown in the chosen colour
 - [ ] F-098 Sort folders first, by name always option — — — folders listed before files and sorted by name regardless of file sort (configurable)
@@ -185,7 +185,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-784 Quick view with the built-in viewer only (cm_SrcQuickInternalOnly) — — — quick view shows text/hex with the built-in viewer, skipping image/media viewers
 - [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them — audit #103: not built: no view modes (column set + icons + colors + font); column sets can switch by folder (F-668), and the ViewModes options have no effect yet
 - [~] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser — 0.14.21: Left / Right / Trg variants of All files, Programs, Custom filter, Define custom filter, Quick view and Quick view built-in only, and cm_TrgOpenDrives
-- [ ] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state
+- [~] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state — 0.14.23: cm_SwitchOverlayIcons turns the link arrow on and off (Options > Icons > Show overlay icons); cm_SwitchDirSort already existed
 - [~] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle — 0.14.22: cm_SwitchIgnoreList and Options > Ignore list hide the masks of the ignore file in every panel
 - [~] F-789 Custom tooltips per file type (Configuration > Display > Tooltips) — — — hovering e.g. an image shows the fields set for images (size, date, image size) — 0.14.22: per-type fields add the kind of entry, and for images the picture size
 

@@ -9,6 +9,7 @@
 //   - the path bar: Copy path, Edit path, Show in Finder, Open terminal here.
 // Items whose command no feature has yet are greyed out, not hidden.
 
+import { commandIcon } from './config/icons.js';
 import { command, hasCommand, getCommand } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { showList } from '../core/popup.js';
@@ -26,7 +27,8 @@ const SEP = { sep: true };
 function item(app, label, cmd, args) {
   const c = getCommand(cmd);
   const off = !hasCommand(cmd) || (c?.enabled ? !c.enabled(app) : false);
-  return { label, detail: app.keyLabel(cmd), value: { cmd, args }, disabled: off };
+  const icon = app.config?.values?.['Icons.IconsInMenus'] === '1' ? commandIcon(cmd) : '';
+  return { label, detail: app.keyLabel(cmd), value: { cmd, args }, disabled: off, ...(icon ? { icon } : {}) };
 }
 const fn = (label, run, disabled = false, detail = '') => ({ label, detail, value: { run }, disabled });
 

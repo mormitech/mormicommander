@@ -47,8 +47,10 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
     const el = document.createElement('div');
     el.className = 'mc-popup';
     el.setAttribute('role', 'listbox');
+    // items may bring an icon (an SVG, Options > Icons > Icons in menus); then every line gets the room for one
+    const icons = items.some((it) => it.icon);
     el.innerHTML = (title ? `<div class="t">${esc(title)}</div>` : '') + (filter ? '<div class="q" hidden></div>' : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
-      : `<div class="it${it.disabled ? ' off' : ''}${it.path ? ' p' : ''}" data-i="${i}" role="option"${it.path ? ` title="${esc(it.label)}"` : ''}>${labelHTML(it)}${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
+      : `<div class="it${it.disabled ? ' off' : ''}${it.path ? ' p' : ''}" data-i="${i}" role="option"${it.path ? ` title="${esc(it.label)}"` : ''}>${icons ? `<i class="mi" aria-hidden="true">${it.icon || ''}</i>` : ''}${labelHTML(it)}${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
     document.body.append(el);
     let query = filter ? String(startQuery || '') : '';
     const test = match ? (it, q) => (!it || it.sep ? false : String(q).trim() ? !!match(it, q) : !it.only) : popupMatch;

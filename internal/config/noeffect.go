@@ -11,14 +11,6 @@ package config
 
 // noEffect holds the "Page.Field" names of the options with no effect yet.
 var noEffect = map[string]bool{
-	"Icons.ShowIcons":           true,
-	"Icons.IconOverlays":        true,
-	"Icons.IconSize":            true,
-	"Icons.IconsSpecialFolders": true,
-	"Icons.IconsInMenus":        true,
-	"Icons.IconsOnNet":          true,
-	"Icons.ExeIcons":            true,
-
 	"Font.WindowFont":  true,
 	"Font.WindowSize":  true,
 	"Font.ListerFont":  true,

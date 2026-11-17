@@ -111,11 +111,11 @@ type DisplayPage struct {
 
 // IconsPage: file icons (F-415).
 type IconsPage struct {
-	ShowIcons           int  `ini:"Configuration:Showicons" def:"2" min:"0" max:"2" opts:"0=None|1=Standard only|2=All, including file icons" label:"Show icons"`
+	ShowIcons           int  `ini:"Configuration:Showicons" def:"1" min:"0" max:"2" opts:"0=None|1=Standard only|2=All, including file icons" label:"Show icons"`
 	IconOverlays        bool `ini:"Configuration:IconOverlays" def:"1" label:"Show overlay icons (links, cloud state)"`
 	IconSize            int  `ini:"Configuration:IconSize" def:"16" min:"16" max:"48" opts:"16=16|24=24|32=32|48=48" label:"Icon size in file lists"`
 	IconsSpecialFolders int  `ini:"Configuration:IconsSpecialFolders" def:"1" min:"0" max:"3" opts:"0=Never|1=Local only|2=Local and network|3=Always" label:"Folder-specific icons"`
-	IconsInMenus        bool `ini:"Configuration:IconsInMenus" def:"1" label:"Icons in menus"`
+	IconsInMenus        bool `ini:"Configuration:IconsInMenus" def:"0" label:"Icons in menus"`
 	IconsOnNet          bool `ini:"Configuration:IconsOnNet" def:"0" label:"Load icons from network folders"`
 	ExeIcons            bool `ini:"Configuration:ShowExeLnkIcons" def:"1" label:"Program-specific icons"`
 }

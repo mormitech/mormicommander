@@ -10,6 +10,7 @@ import { addMenuItems } from '../../core/menus.js';
 import { setDisplay } from '../../core/format.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 import { applyIgnoreList } from './listopts.js';
+import { applyIcons, rowHeight } from './fileicons.js';
 
 // Layout option → body class that hides an element (see config.css).
 const HIDE = {
@@ -65,7 +66,7 @@ export function applyFonts() {
   const fam = family ? `"${family.replace(/"/g, '')}", ` : '';
   root.setProperty('--font', `${on('Font.PanelBold') ? '600 ' : ''}${px}px ${fam}-apple-system, "Segoe UI", system-ui, sans-serif`);
   root.setProperty('--mono', `${px - 1}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`);
-  root.setProperty('--row-h', `${Math.round(px * 1.55)}px`);
+  root.setProperty('--row-h', `${rowHeight(Math.round(px * 1.55))}px`); // (taller for large icons: Options > Icons)
   const dlg = opt('Font.DialogFont').trim();
   root.setProperty('--mc-config-dialog-font', `${num('Font.DialogSize', 13)}px ${dlg ? `"${dlg.replace(/"/g, '')}", ` : ''}-apple-system, "Segoe UI", system-ui, sans-serif`);
   if (app && app.setting('fontSize', 13) !== px) app.setSetting('fontSize', px); // window.js reads it at start (Ctrl+= / Ctrl+-)
@@ -198,6 +199,7 @@ function wrapHidden() {
 
 // applyAll puts every option on screen (at start, after a reload of the settings file).
 export function applyAll(startTheme) {
+  applyIcons();
   applyLayout();
   applyFonts();
   applyTheme(startTheme);

@@ -52,6 +52,11 @@ export function svg(name) {
   return `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${P[name] || P.program}</svg>`;
 }
 
+// commandIcon is the built-in icon of a cm_* command ('' when it has none), for the icons in menus.
+export function commandIcon(cmd) {
+  return BY_COMMAND[cmd] ? svg(BY_COMMAND[cmd]) : '';
+}
+
 // iconName is the built-in icon a button shows ('' when it should use its own image file).
 export function iconName(btn) {
   const icon = String(btn.icon || '');
