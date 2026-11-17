@@ -29,6 +29,17 @@ func init() {
 		j.q = fileops.NewQueue(func(event string, data any) { a.emit(event, data) })
 		// what the jobs do also feeds the undo journal (feature_undo.go); a.undo is set before any job can start
 		j.q.Log = func(e fileops.Entry) { a.undo.observe(e); jobLog(a, e) }
+		// Options > Background queue: jobs running at the same time, and whether queued jobs start by themselves
+		j.q.Lanes = func() int {
+			if s, ok := currentSettings(); ok {
+				return s.BackgroundQueue.MaxParallel
+			}
+			return 1
+		}
+		j.q.AutoStart = func() bool {
+			s, ok := currentSettings()
+			return !ok || s.BackgroundQueue.AutoStart
+		}
 		a.jobs = j
 		return []exposed{expose(j)}
 	})

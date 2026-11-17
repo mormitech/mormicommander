@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -373,6 +374,9 @@ func (v *Views) SetComment(dir, name, text string) error {
 // viewsThumbDir is where thumbnails are cached: in the settings folder (so a test run with its own settings folder
 // never touches the user's cache), else the system's cache folder.
 func viewsThumbDir() string {
+	if s, ok := currentSettings(); ok && strings.TrimSpace(s.Thumbnails.CacheDir) != "" {
+		return strings.TrimSpace(s.Thumbnails.CacheDir) // (Options > Thumbnails > Cache folder)
+	}
 	if d := configDir(); d != "" {
 		return filepath.Join(d, "thumbs")
 	}
@@ -384,8 +388,13 @@ func viewsThumbDir() string {
 func (v *Views) thumbnailer() (*thumbs.Thumbnailer, *thumbs.Pool) {
 	if v.tn == nil {
 		var cache *thumbs.Cache
-		if d := viewsThumbDir(); d != "" && v.app.mock == nil {
-			cache, _ = thumbs.OpenCache(d, 0) // no cache only means thumbnails are made again next time
+		// Options > Thumbnails > Keep thumbnails in a cache, its folder and its maximum size
+		keep, maxMB := true, 0
+		if s, ok := currentSettings(); ok {
+			keep, maxMB = s.Thumbnails.Cache, s.Thumbnails.CacheMaxMB
+		}
+		if d := viewsThumbDir(); d != "" && v.app.mock == nil && keep {
+			cache, _ = thumbs.OpenCache(d, int64(maxMB)<<20) // no cache only means thumbnails are made again next time
 		}
 		v.tn = thumbs.New(thumbs.DefaultOptions(), cache)
 		v.pool = thumbs.NewPool(v.tn, 0)
@@ -422,12 +431,31 @@ func (v *Views) Thumbs(key, dir string, names []string, size int) int {
 	}
 	tn, pool := v.thumbnailer()
 	size = thumbs.ClampSize(size)
-	if o := tn.Options(); o.Width != size || o.Height != size {
-		tn.SetSize(size, size)
+	// Options > Thumbnails > Thumbnail height: the box keeps the width the page asks for and the height's share of it
+	h := size
+	folderThumb := false
+	if s, ok := currentSettings(); ok {
+		if s.Thumbnails.Width > 0 && s.Thumbnails.Height > 0 && s.Thumbnails.Height != s.Thumbnails.Width {
+			h = thumbs.ClampSize(size * s.Thumbnails.Height / s.Thumbnails.Width)
+		}
+		folderThumb = s.Thumbnails.FolderThumb // Preview images inside folders
+	}
+	if o := tn.Options(); o.Width != size || o.Height != h {
+		tn.SetSize(size, h)
 	}
 	var paths []string
+	shownAs := map[string]string{} // a picture inside a folder → the folder's name
 	for _, n := range names {
-		if n == "" || n == ".." || strings.ContainsAny(n, `/\`) || !viewsThumbKinds[thumbs.KindOf(n)] {
+		if n == "" || n == ".." || strings.ContainsAny(n, `/\`) {
+			continue
+		}
+		if !viewsThumbKinds[thumbs.KindOf(n)] {
+			if folderThumb {
+				if pic := viewsFolderPicture(filepath.Join(dir, n)); pic != "" {
+					shownAs[pic] = n
+					paths = append(paths, pic)
+				}
+			}
 			continue
 		}
 		paths = append(paths, filepath.Join(dir, n))
@@ -437,6 +465,9 @@ func (v *Views) Thumbs(key, dir string, names []string, size int) int {
 	}
 	b := pool.Submit(context.Background(), paths, func(r thumbs.Result) {
 		t := ViewsThumb{Key: key, Gen: gen, Name: filepath.Base(r.Path)}
+		if n, ok := shownAs[r.Path]; ok {
+			t.Name = n
+		}
 		if r.Err == nil && r.Thumb != nil {
 			t.URL = r.Thumb.DataURL()
 			t.Width, t.Height = r.Thumb.Meta.Width, r.Thumb.Meta.Height
@@ -445,6 +476,24 @@ func (v *Views) Thumbs(key, dir string, names []string, size int) int {
 	})
 	v.batches[key] = &viewsBatch{gen: gen, b: b, dir: dir}
 	return gen
+}
+
+// viewsFolderPicture is the first picture in a folder (by name, among its first 500 entries), for a folder's thumbnail;
+// "" when it has none or is not a folder.
+func viewsFolderPicture(dir string) string {
+	f, err := os.Open(dir)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	names, _ := f.Readdirnames(500)
+	sort.Strings(names)
+	for _, n := range names {
+		if !strings.HasPrefix(n, ".") && thumbs.KindOf(n) == thumbs.KindImage {
+			return filepath.Join(dir, n)
+		}
+	}
+	return ""
 }
 
 // ThumbsFirst moves the named files (the ones on screen) to the front of a panel's thumbnail queue.

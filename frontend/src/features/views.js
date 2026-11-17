@@ -14,6 +14,7 @@
 // (issue #128, registered with features/tabs.js; the pure helpers are in views-tab.js), saved with the tab as
 // "view"/"set".
 
+import { compileMask } from './config/util.js';
 import { addMenuItems } from '../core/menus.js';
 import './views.css';
 import { command } from '../core/registry.js';
@@ -551,7 +552,16 @@ async function startThumbs(p) {
   stopThumbs(p, false);
   const t = { key, gen: 0, urls: new Map(), dims: new Map(), icons: null };
   vs.thumbs = t;
-  const names = p.entries.filter((e) => !e.up && !e.dir).map((e) => e.name);
+  // Options > Thumbnails: which file types get one (empty: every type that can), files above the size limit keep their
+  // icon, network folders only when allowed, and folders show a picture from inside them when asked
+  const ov = (k, d) => theApp.config?.values?.[k] ?? d;
+  const types = String(ov('Thumbnails.FileTypes', '')).trim();
+  const typeOK = types ? compileMask(types) : () => true;
+  const maxB = (Number(ov('Thumbnails.MaxFileMB', '200')) || 200) * 1048576;
+  const vol = theApp.volumeFor(p.path);
+  const netOK = ov('Thumbnails.ShowOnNet', '1') !== '0' || !(vol && (vol.kind === 'network' || vol.net));
+  const folders = ov('Thumbnails.FolderThumb', '0') === '1';
+  const names = !netOK ? [] : p.entries.filter((e) => !e.up && (e.dir ? folders : typeOK(e.name, false) && e.size <= maxB)).map((e) => e.name);
   try {
     const [icons, gen] = await Promise.all([
       go.Views.Icons(p.entries.map((e) => e.name), p.entries.map((e) => !!e.dir), Math.min(s, 128)),

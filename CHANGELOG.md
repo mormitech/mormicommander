@@ -6,6 +6,21 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.26 – 2026-11-17
+
+### Changed
+
+- More options that were kept but had no effect now work (board issue #94). Each keeps today's behaviour at its default:
+  - Thumbnails: the height of the box, the cache (on or off, its folder and its maximum size), file names below the
+    thumbnails, which file types get one (empty: every type that can), the largest file that gets one, network
+    folders, and a picture from inside each folder.
+  - Background queue: how many queued jobs run at the same time, whether queued jobs start by themselves (off: they
+    wait for Start now), the transfer window opening when a job goes to the background, and finished jobs leaving the
+    list.
+  - Find files: Use the system index (Spotlight on macOS, locate on Linux) finds names through the index and then
+    applies the rest of the search; Text encoding for content search sets the encoding new searches start with.
+  - Misc > Custom main menu file: a Total Commander .mnu file replaces the menu bar.
+
 ## 0.14.25 – 2026-11-17
 
 ### Changed

@@ -36,16 +36,6 @@ var noEffect = map[string]bool{
 	"Plugins.ExifToolPath":     true,
 	"Plugins.FFprobePath":      true,
 
-	"Thumbnails.Height":      true,
-	"Thumbnails.Cache":       true,
-	"Thumbnails.CacheDir":    true,
-	"Thumbnails.CacheMaxMB":  true,
-	"Thumbnails.ShowName":    true,
-	"Thumbnails.FileTypes":   true,
-	"Thumbnails.MaxFileMB":   true,
-	"Thumbnails.ShowOnNet":   true,
-	"Thumbnails.FolderThumb": true,
-
 	"Packer.InternalZip":    true,
 	"Packer.ExternalZip":    true,
 	"Packer.TarOwner":       true,
@@ -61,16 +51,6 @@ var noEffect = map[string]bool{
 	"Zip.TempDir":   true,
 	"Zip.AES":       true,
 	"Zip.Zip64":     true,
-
-	"Misc.MainMenuFile": true,
-
-	"BackgroundQueue.MaxParallel":  true,
-	"BackgroundQueue.AutoStart":    true,
-	"BackgroundQueue.ShowWindow":   true,
-	"BackgroundQueue.KeepFinished": true,
-
-	"FindFiles.UseIndex": true,
-	"FindFiles.Encoding": true,
 }
 
 // HasNoEffect says whether the program does not act on the option yet.

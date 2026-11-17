@@ -4,6 +4,7 @@ package main
 // Options > Ignore list). frontend/src/features/config/listopts.js is the page's side.
 
 import (
+	"fmt"
 	"image"
 	"os"
 	"strings"
@@ -62,4 +63,55 @@ func currentSettings() (config.Settings, bool) {
 	}
 	defer configFeature.mu.Unlock()
 	return cfg.Settings, true
+}
+
+// configMenuItem is one entry of a custom main menu file for the page: a submenu (items), a line (sep) or a command.
+type configMenuItem struct {
+	Label string           `json:"label,omitempty"`
+	Cmd   string           `json:"cmd,omitempty"`
+	Sep   bool             `json:"sep,omitempty"`
+	Items []configMenuItem `json:"items,omitempty"`
+}
+
+// MainMenu is the menu bar of Options > Misc > Custom main menu file (a Total Commander .mnu file): its menus with
+// their entries, "&" taken out of the titles. Empty when no file is set; an error when the file can't be read.
+func (c *Configuration) MainMenu() ([]configMenuItem, error) {
+	cfg, err := c.get()
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(cfg.Settings.Misc.MainMenuFile)
+	path := ""
+	if name != "" {
+		path = cfg.Path(name)
+	}
+	c.mu.Unlock()
+	if path == "" {
+		return nil, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("The main menu file %s can't be read: %v", path, err)
+	}
+	text, _ := config.Decode(data, config.EncCP1252)
+	items, err := config.ParseMenuFile(text)
+	if err != nil {
+		return nil, fmt.Errorf("The main menu file %s: %s", path, strings.TrimPrefix(err.Error(), "config: "))
+	}
+	var conv func([]*config.MenuItem) []configMenuItem
+	conv = func(in []*config.MenuItem) []configMenuItem {
+		out := []configMenuItem{}
+		for _, it := range in {
+			switch it.Kind {
+			case config.MenuSeparator:
+				out = append(out, configMenuItem{Sep: true})
+			case config.MenuSubmenu:
+				out = append(out, configMenuItem{Label: strings.ReplaceAll(it.Title, "&", ""), Items: conv(it.Children)})
+			default:
+				out = append(out, configMenuItem{Label: strings.ReplaceAll(it.Title, "&", ""), Cmd: it.Field("cmd")})
+			}
+		}
+		return out
+	}
+	return conv(items), nil
 }

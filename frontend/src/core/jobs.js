@@ -72,6 +72,10 @@ function listen() {
     if (resolve) resolve(p);
     else setTimeout(() => { if (!r.claimed) finishedInBackground(r); }, 300); // (runJob may not have heard of it yet)
     notify();
+    // Options > Background queue > Keep finished jobs in the list off: a finished job leaves the list a moment later
+    if (cfgOpt('BackgroundQueue.KeepFinished', '1') === '0') {
+      setTimeout(() => { if (jobs.get(p.id)?.done) { jobs.delete(p.id); go.Jobs.Forget().catch(() => {}); notify(); } }, 3000);
+    }
   });
 }
 
@@ -132,6 +136,8 @@ export function runJob(req, { title, background = false } = {}) {
     if (r.done) { r.resolve = null; return { r, result: Promise.resolve(r.p) }; } // (it ended before we got here)
     if (!background) foreground(r);
     notify();
+    // Options > Background queue > Show the transfer queue window: a job sent to the background or the queue opens it
+    if (background && cfgOpt('BackgroundQueue.ShowWindow', '0') === '1' && !transfersOpen) showTransfers();
     return { r, result };
   })();
   const finish = async ({ r, result }) => {
@@ -378,7 +384,16 @@ function speedSetting() { const s = app.setting('fileops', {}) || {}; return { o
 export function backgroundSpeedLimit() { const s = speedSetting(); return s.on && s.kb > 0 ? s.kb * 1024 : 0; }
 
 // showTransfers opens the background transfer window: every job with its state, progress and speed.
+let transfersOpen = false;
+const cfgOpt = (k, d) => app.config?.values?.[k] ?? d;
+
 export async function showTransfers() {
+  if (transfersOpen) return;
+  transfersOpen = true;
+  try { await transfersWindow(); } finally { transfersOpen = false; }
+}
+
+async function transfersWindow() {
   await refreshJobs();
   let selected = null;
   let unsub = () => {};

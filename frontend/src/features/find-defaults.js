@@ -18,5 +18,14 @@ export function findDefaults(opt) {
     textRegex: on('FindFiles.RegEx', false),
     skipHidden: !on('FindFiles.Hidden', true),
     followLinks: on('FindFiles.FollowLinks', false),
+    // Options > Find files > Text encoding for content search: "auto" (or empty) keeps the dialog's own choice (ANSI,
+    // UTF-8 and UTF-16 LE); a named one (utf-8, ansi, oem, utf-16le, utf-16be) is the only one searched
+    ...encodingsOf(opt('FindFiles.Encoding')),
   };
+}
+
+const ENCODINGS = { utf8: 'utf8', ansi: 'ansi', oem: 'oem', utf16le: 'utf16le', utf16be: 'utf16be', utf16: 'utf16le', unicode: 'utf16le' };
+function encodingsOf(v) {
+  const k = String(v ?? '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  return ENCODINGS[k] ? { encodings: [ENCODINGS[k]] } : {};
 }

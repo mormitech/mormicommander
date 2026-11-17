@@ -6,7 +6,7 @@
 import { command, getCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { messageDialog } from '../../core/dialogs.js';
-import { addMenuItems } from '../../core/menus.js';
+import { addMenuItems, setCustomMenus } from '../../core/menus.js';
 import { setDisplay } from '../../core/format.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 import { applyIgnoreList } from './listopts.js';
@@ -19,7 +19,7 @@ const HIDE = {
   'Layout.HistoryHotlist': 'mc-config-no-pbtns', 'Layout.FreeSpace': 'mc-config-no-driveinfo',
   'Layout.HiddenMarker': 'mc-config-no-hiddenmark', 'Layout.DriveCombo': 'mc-config-no-drivecombo',
   'Layout.DriveBar2': 'mc-config-one-drivebar', 'Layout.BreadCrumbBar': 'mc-config-no-crumbs',
-  'Display.FullRowSelect': 'mc-config-name-cursor',
+  'Display.FullRowSelect': 'mc-config-name-cursor', 'Thumbnails.ShowName': 'mc-config-no-thumbname',
 };
 
 let app = null;
@@ -225,7 +225,26 @@ function wrapHidden() {
 }
 
 // applyAll puts every option on screen (at start, after a reload of the settings file).
+// loadMainMenu reads Options > Misc > Custom main menu file (a .mnu file) and puts it in place of the menu bar; no file
+// gives the built-in menus back. A file that can't be read is told once and the built-in menus stay.
+let menuFile = null;
+async function loadMainMenu() {
+  const file = opt('Misc.MainMenuFile').trim();
+  if (file === menuFile) return;
+  menuFile = file;
+  if (!file) { setCustomMenus(null); return; }
+  try {
+    const tree = (await go.Configuration.MainMenu()) || [];
+    const conv = (items) => items.map((it) => (it.sep ? '-' : it.items ? [it.label, conv(it.items)] : [it.label, it.cmd]));
+    setCustomMenus(tree.filter((m) => m.items).map((m) => [m.label, conv(m.items)]));
+  } catch (e) {
+    setCustomMenus(null);
+    app?.flash(String(e?.message ?? e), 'err');
+  }
+}
+
 export function applyAll(startTheme) {
+  loadMainMenu();
   applyIcons();
   applyLayout();
   applyFonts();

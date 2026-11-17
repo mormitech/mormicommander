@@ -281,9 +281,9 @@ type ThumbnailsPage struct {
 	CacheDir    string `ini:"Thumbnails:CacheDir" def:"" label:"Cache folder (empty = default)"`
 	CacheMaxMB  int    `ini:"Thumbnails:CacheMaxMB" def:"500" min:"1" max:"100000" label:"Maximum cache size (MB)"`
 	ShowName    bool   `ini:"Thumbnails:ShowName" def:"1" label:"Show file names below thumbnails"`
-	FileTypes   string `ini:"Thumbnails:FileTypes" def:"*.jpg *.jpeg *.png *.gif *.bmp *.webp *.heic *.tif *.tiff *.svg *.pdf *.mp4 *.mov" label:"File types with thumbnails"`
+	FileTypes   string `ini:"Thumbnails:FileTypes" def:"" label:"File types with thumbnails (empty = every type that can have one)"`
 	MaxFileMB   int    `ini:"Thumbnails:MaxFileSize" def:"200" min:"1" max:"100000" label:"Skip files larger than (MB)"`
-	ShowOnNet   bool   `ini:"Thumbnails:ShowOnNetwork" def:"0" label:"Thumbnails for network folders"`
+	ShowOnNet   bool   `ini:"Thumbnails:ShowOnNetwork" def:"1" label:"Thumbnails for network folders"`
 	FolderThumb bool   `ini:"Thumbnails:FolderPreview" def:"0" label:"Preview images inside folders"`
 }
 
@@ -381,8 +381,8 @@ type BackgroundQueuePage struct {
 	MaxParallel  int  `ini:"Configuration:QueueParallel" def:"1" min:"1" max:"16" label:"Jobs running at the same time"`
 	SpeedLimitKB int  `ini:"Configuration:QueueSpeedLimit" def:"0" min:"0" max:"10485760" label:"Speed limit (kB/s, 0 = none)"`
 	AutoStart    bool `ini:"Configuration:QueueAutoStart" def:"1" label:"Start queued jobs automatically"`
-	ShowWindow   bool `ini:"Configuration:QueueShowWindow" def:"1" label:"Show the transfer queue window"`
-	KeepFinished bool `ini:"Configuration:QueueKeepFinished" def:"0" label:"Keep finished jobs in the list"`
+	ShowWindow   bool `ini:"Configuration:QueueShowWindow" def:"0" label:"Show the transfer queue window"`
+	KeepFinished bool `ini:"Configuration:QueueKeepFinished" def:"1" label:"Keep finished jobs in the list"`
 }
 
 // HotlistPage (F-438, F-662).

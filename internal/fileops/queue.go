@@ -24,6 +24,10 @@ type Queue struct {
 	AskFunc func(p Progress) Answer
 	// Log, when set, receives one Entry per thing done or failed (see FileLogger for TC's log file).
 	Log func(e Entry)
+	// Lanes, when set, is how many queued jobs may run at the same time (1 when nil or below 1); AutoStart, when set
+	// and false, leaves queued jobs waiting until RunNow starts them. Both are asked whenever a queued job could start.
+	Lanes     func() int
+	AutoStart func() bool
 
 	mu   sync.Mutex
 	next int
@@ -60,7 +64,7 @@ func (q *Queue) Start(r Request) (int, error) {
 	run := true
 	if r.Queued {
 		q.lane = append(q.lane, j)
-		if len(q.lane) > 1 {
+		if !q.laneFree() {
 			run = false
 			j.p.State = StateQueued
 		}
@@ -147,20 +151,44 @@ func (q *Queue) get(id int) *job {
 // while the lock is held, so Cancel and RunNow never race with it.
 func (q *Queue) laneDone(j *job) {
 	q.mu.Lock()
-	var next *job
+	var next []*job
 	for i, x := range q.lane {
 		if x == j {
 			q.lane = append(q.lane[:i], q.lane[i+1:]...)
 			break
 		}
 	}
-	if len(q.lane) > 0 && q.lane[0].started.CompareAndSwap(false, true) {
-		next = q.lane[0]
+	for _, x := range q.lane {
+		if !q.laneFree() {
+			break
+		}
+		if x.started.CompareAndSwap(false, true) {
+			next = append(next, x)
+		}
 	}
 	q.mu.Unlock()
-	if next != nil {
-		go next.run()
+	for _, x := range next {
+		go x.run()
 	}
+}
+
+// laneFree says whether one more queued job may start now (q.mu held): fewer lane jobs are running than Lanes allows,
+// and AutoStart does not hold them back. The job being added is already in the lane, not yet started.
+func (q *Queue) laneFree() bool {
+	if q.AutoStart != nil && !q.AutoStart() {
+		return false
+	}
+	lanes := 1
+	if q.Lanes != nil {
+		lanes = max(1, q.Lanes())
+	}
+	running := 0
+	for _, x := range q.lane {
+		if x.started.Load() {
+			running++
+		}
+	}
+	return running < lanes
 }
 
 // Cancel stops a job; files done so far stay done, and a half-written file is removed. It returns false for an

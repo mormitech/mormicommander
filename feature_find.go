@@ -307,6 +307,7 @@ func (f *Find) findOptions(r FindRequest) (find.Options, error) {
 	if o.SearchArchives && f.app.mock == nil {
 		o.Archives = findArchives{arc: f.arc}
 	}
+	findUseIndex(&o)
 	return o, nil
 }
 

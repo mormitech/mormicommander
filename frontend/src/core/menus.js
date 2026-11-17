@@ -103,12 +103,18 @@ function toSpec(items) {
 const providers = [];
 export function addMenuItems(menu, fn) { providers.push({ menu, fn }); refreshMenu(); }
 
+// A custom main menu (Options > Misc > Custom main menu file, features/config/layout.js) replaces MENUS: the menus of
+// the file, in the MENUS format; null for the built-in menu bar. The menus that features add to stay where they are.
+let custom = null;
+export function setCustomMenus(menus) { custom = menus && menus.length ? menus : null; refreshMenu(); }
+
 // menuSpec is the whole tree, with the commands that put themselves in a menu (command({menu: 'Show'})) added.
 export function menuSpec() {
+  const base = custom || MENUS;
   const listed = new Set();
   const walk = (items) => items.forEach((it) => Array.isArray(it) && (Array.isArray(it[1]) ? walk(it[1]) : listed.add(it[1])));
-  walk(MENUS);
-  const menus = MENUS.map(([label, items]) => [label, [...items]]);
+  walk(base);
+  const menus = base.map(([label, items]) => [label, [...items]]);
   for (const c of commandList()) {
     if (!c.menu || listed.has(c.name)) continue;
     const m = menus.find(([l]) => l === c.menu);

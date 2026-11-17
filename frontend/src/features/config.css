@@ -12,6 +12,8 @@ body.mc-config-no-driveinfo .panel .driveinfo,
 body.mc-config-no-hiddenmark .panel .status .mc-hidden-mark { display: none !important; }
 /* the command line is off, but the user typed: shown until Esc (core/cmdline.js) */
 body.mc-config-no-cmdline.mc-cmdline-temp #cmdline { display: flex !important; }
+/* Show file names below thumbnails off (Thumbnails.ShowName) */
+body.mc-config-no-thumbname .mc-views-cap { visibility: hidden; }
 /* Two drive button bars off (Layout.DriveBar2): one bar, the active panel's; the other keeps its room, empty */
 body.mc-config-one-drivebar .panel:not(.active) .drivebar { visibility: hidden; }
 /* Breadcrumb path bar off (Layout.BreadCrumbBar): the path is plain text, a click anywhere on it edits it */
