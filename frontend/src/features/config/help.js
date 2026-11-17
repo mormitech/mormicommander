@@ -4,7 +4,7 @@
 // the menus with their keys; the start-up page lists the command-line parameters. About is the About window (F-453).
 
 import { command, allKeys, getCommand } from '../../core/registry.js';
-import { infoDialog, esc } from '../../core/dialogs.js';
+import { infoDialog, esc, setDialogHelp } from '../../core/dialogs.js';
 import { LABELS } from '../../core/app.js';
 import { menuSpec } from '../../core/menus.js';
 import { go } from '../../core/go.js';
@@ -100,8 +100,41 @@ const INTRO = `<h3>Welcome</h3>
 
 const TOPICS = [['intro', 'Welcome'], ['keys', 'Keyboard shortcuts'], ['menus', 'Menus'], ['start', 'Start-up parameters'], ['settings', 'Settings']];
 
-export async function openHelp(topic = 'intro') {
+// The help on a dialog (F1 in a dialog, F-145): [dialog kinds, heading, text]. The first match wins; a dialog with no
+// entry gets its own title and the keys every dialog has.
+const DIALOG_HELP = [
+  [/^(copy|move)$/, 'Copy and move (F5, F6)', 'The target field holds the folder to copy or move to. It may end in a new name or a pattern such as *.bak. F4 or Alt+Down lists recent targets, F10 shows a folder tree, F2 puts the job in the background queue. The options below say what to do with files that are already there.'],
+  [/^mkdir$/, 'New folder (F7)', 'Type the name of the new folder; a/b/c makes folders inside folders. F4 or Alt+Down lists the names used before and date templates: [Y] [M] [D] [h] [m] [s] put in the date and time.'],
+  [/^(delete|del|trash|wipe)/, 'Delete (F8, Shift+F8)', 'F8 moves the files to the trash when that is on in Configuration; Shift+F8 deletes them for good. Wipe overwrites the files before it deletes them.'],
+  [/^pack/, 'Pack (Alt+F5)', 'Choose the archive name and the packer. "Move to archive" deletes the files after packing and testing; Alt+Shift+F5 opens this dialog with it turned on.'],
+  [/^unpack/, 'Unpack (Alt+F9)', 'Unpacks the selected archives into the folder given (the other panel by default). A file mask unpacks only the files that match it.'],
+  [/^test/, 'Test archives (Alt+Shift+F9)', 'Each selected archive is tested; the result is shown for every archive.'],
+  [/^find/, 'Find files (Alt+F7)', 'Search in the folders given for names that match, and optionally for text inside the files. "Feed to listbox" shows the results in the panel, where file commands work on them.'],
+  [/^multirename/, 'Multi-rename tool (Ctrl+M)', 'The rename mask builds the new names: [N] is the old name, [E] the extension, [C] a counter, [Y] [M] [D] the date. Search and replace works on the new names. The list shows the new names before anything is renamed.'],
+  [/^syncdirs/, 'Synchronize folders', 'Compares two folders and shows which files differ. Choose the files to copy in each direction, then press Synchronize.'],
+  [/^(overwrite|rename-target)$|-overwrite$/, 'File already there', 'A file of the same name is already in the target. Replace it, skip it, or keep both under another name; the choice can apply to all the files that follow.'],
+  [/^hotlist/, 'Folder hotlist (Ctrl+D)', 'Your favourite folders. Choose one to go there, or add the current folder.'],
+  [/^lister/, 'Lister (F3)', 'The built-in viewer. N and P show the next and previous file; Esc closes it.'],
+  [/^net-/, 'Servers (Ctrl+F, Ctrl+N)', 'Connections to FTP, SFTP and WebDAV servers. Ctrl+F lists the saved connections, Ctrl+N connects to an address, Ctrl+Shift+F disconnects.'],
+  [/^properties$/, 'Properties (Alt+Enter)', 'Size, dates, permissions and owner of the file or folder.'],
+  [/^(create-link|symlink)$/, 'Links', 'Makes a symbolic link (or a hard link) to the file under the cursor, with the name given.'],
+  [/^config$/, 'Options', 'Every page of Options changes how mormiCommander looks and works. The settings are saved when you press OK.'],
+];
+
+function dialogPage({ kind = '', title = '' } = {}) {
+  const hit = DIALOG_HELP.find(([re]) => re.test(kind));
+  const head = hit ? hit[1] : title || 'This dialog';
+  return `<h3>${esc(head)}</h3>${hit ? `<p>${esc(hit[2])}</p>` : ''}
+    <p>In every dialog Enter presses the main button, Esc cancels, Tab goes to the next field and F1 shows this help.</p>
+    <p>The other pages list all keys and menus.</p>`;
+}
+
+// dialog: {kind, title} of the dialog F1 was pressed in; the help then opens on a page about it.
+export async function openHelp(topic = 'intro', dialog = null) {
+  const topics = dialog ? [['dialog', 'This dialog'], ...TOPICS] : TOPICS;
+  if (dialog) topic = 'dialog';
   const pages = {
+    dialog: dialog ? dialogPage(dialog) : '',
     intro: INTRO,
     keys: `<div class="mc-config-doc">${md(keyboardDoc)}</div><h3>All keys as they are set now</h3>${keysTable()}`,
     menus: menusPage(),
@@ -109,8 +142,8 @@ export async function openHelp(topic = 'intro') {
     settings: await settingsPage(),
   };
   return infoDialog(`<h2>mormiCommander help</h2>
-    <div class="mc-config-help"><nav>${TOPICS.map(([id, t]) => `<button type="button" data-topic="${id}"${id === topic ? ' class="on"' : ''}>${esc(t)}</button>`).join('')}</nav>
-    <div class="mc-config-helpbody">${TOPICS.map(([id]) => `<section data-topic="${id}"${id === topic ? '' : ' hidden'}>${pages[id]}</section>`).join('')}</div></div>`, 'mc-config-helpbox', 'help')
+    <div class="mc-config-help"><nav>${topics.map(([id, t]) => `<button type="button" data-topic="${id}"${id === topic ? ' class="on"' : ''}>${esc(t)}</button>`).join('')}</nav>
+    <div class="mc-config-helpbody">${topics.map(([id]) => `<section data-topic="${id}"${id === topic ? '' : ' hidden'}>${pages[id]}</section>`).join('')}</div></div>`, 'mc-config-helpbox', 'help')
     .then(() => true);
 }
 
@@ -125,5 +158,6 @@ document.addEventListener('click', (ev) => {
 });
 
 command({ name: 'cm_HelpIndex', label: 'Help', run: (app, args) => openHelp(args?.topic || 'intro') });
+setDialogHelp((d) => { openHelp('intro', d).catch((e) => console.error(e)); });
 command({ name: 'cm_Keyboard', label: 'Keyboard shortcuts', run: () => openHelp('keys') });
 command({ name: 'cm_Register', label: 'License', run: () => go.App.ShowAbout() });

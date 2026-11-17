@@ -32,6 +32,11 @@ export { esc };
 
 const open = []; // the dialogs on screen, last = top
 
+// F1 in a dialog opens the help on that dialog (F-145). The help registers itself here (features/config/help.js), so
+// this file needs nothing from it: fn({kind, title}).
+let dialogHelp = null;
+export function setDialogHelp(fn) { dialogHelp = fn; }
+
 // Dialogs in the page (dialogsInWindows off, or a kind that stays in the page) can be moved like windows: drag the
 // title (or any empty part of the box). The box is shifted with a transform and kept inside the app window. Where a kind of dialog was left is remembered for the
 // session, so Options or the copy dialog open where you put them last; double-clicking the title puts it back in the
@@ -174,6 +179,12 @@ export function modal(build, cancelValue, meta = {}) {
       if (keyOwner(open, ev.target) !== entry) return;
       // meta.onKey(ev) → true: the dialog used the key itself (F2 Queue in the copy dialog, a dropdown's Esc)
       if (meta.onKey?.(ev)) { ev.preventDefault(); ev.stopImmediatePropagation(); return; }
+      // F1: the help on this dialog (F-145), when a help is hooked in and this is not the help itself
+      if (ev.key === 'F1' && !ev.ctrlKey && !ev.altKey && !ev.metaKey && !ev.shiftKey && dialogHelp && meta.kind !== 'help') {
+        ev.preventDefault(); ev.stopImmediatePropagation();
+        dialogHelp({ kind: meta.kind || '', title: box.querySelector('h2')?.textContent?.trim() || '' });
+        return;
+      }
       if (ev.key === 'Escape') { ev.preventDefault(); ev.stopImmediatePropagation(); done(cancelValue); return; }
       ev.stopImmediatePropagation(); // the panels' keys are not for it while a dialog is open
     };

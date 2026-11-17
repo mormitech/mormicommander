@@ -246,7 +246,11 @@ async function external(app, path, tool = listerSettings(app).viewer) {
 
 command({ name: 'cm_List', label: 'View', short: 'View', run: (app, args) => view(app, args) });
 command({ name: 'cm_ListCurrent', label: 'View the file under the cursor', run: (app, args) => view(app, { ...args, current: true }) });
-command({ name: 'cm_ListInternalOnly', label: 'View with the built-in viewer only', run: (app, args) => view(app, { ...args, current: true, internal: true, internalOnly: true }) });
+// (also in the Show menu, under Quick view: F-177)
+command({
+  name: 'cm_ListInternalOnly', label: 'View with the built-in viewer only', menu: 'Show', menuAfter: 'cm_SrcQuickView',
+  run: (app, args) => view(app, { ...args, current: true, internal: true, internalOnly: true }),
+});
 command({
   // Alt+F3: the other viewer. With an external viewer set for F3 that is the Lister; without one, the file's default app.
   name: 'cm_ListExternal', label: 'View with the other viewer',

@@ -243,7 +243,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 ## 7. Function keys and F-key commands
 
 - [ ] F-144 Help (cm_HelpIndex) — F1 — opens help (offline HTML help page) for the current context
-- [ ] F-145 Context help in dialogs — F1 — F1 in a dialog opens that dialog's help section
+- [~] F-145 Context help in dialogs — F1 — F1 in a dialog opens that dialog's help section — 0.14.29: F1 in any dialog opens the help on a "This dialog" page: what the dialog does (copy, move, new folder, delete, pack, unpack, find, multi-rename, sync, servers...) or its title, and the keys every dialog has
 - [ ] F-146 Rename file under cursor in place (cm_RenameOnly / inline rename) — Shift+F6 — name becomes editable in the list; Enter commits, Esc cancels; extension not selected by default (option)
 - [ ] F-147 Reread / refresh (cm_RereadSource) — F2 (TC classic) / Ctrl+R — panel refreshed
 - [ ] F-148 View file with Lister (cm_List) — F3 — internal viewer opens the file under cursor
@@ -275,7 +275,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-174 Left drive list — Alt+F1 — drive popup for left panel
 - [~] F-175 Right drive list — Alt+F2 — drive popup for right panel
 - [ ] F-176 Alternative viewer (cm_ListExternal) — Alt+F3 — file opens with the other viewer (external if internal is default and vice versa)
-- [ ] F-177 Lister with the built-in viewer only, no image/media viewers (cm_ListInternalOnly) — Alt+Shift+F3 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-177 Lister with the built-in viewer only, no image/media viewers (cm_ListInternalOnly) — Alt+Shift+F3 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — 0.14.29: Show > View with the built-in viewer only (under Quick view) runs cm_ListInternalOnly, as Alt+Shift+F3 does
 - [~] F-178 Create shortcut / symlink (cm_CreateShortcut) — Ctrl+Shift+F5 — creates a symbolic link (macOS/Linux) or .lnk/symlink (Windows) in the target folder
 - [~] F-179 Hard link / symbolic link dialog (cm_CreateHardLink / cm_CreateSymbolicLink) — — — dialog lets user choose hard link or symlink and the name; works in temp dir test
 - [ ] F-180 Move to other panel without confirmation (cm_RenMov with confirmation off, ours) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
