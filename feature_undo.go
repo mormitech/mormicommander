@@ -311,6 +311,7 @@ func (u *Undo) Run(id int64) (UndoResult, error) {
 	}
 	plan := undo.PlanUndo(e, fileops.SameVolume)
 	jobs, done, problems := undo.Apply(plan.Steps)
+	notesInstance.afterUndo(plan.Steps) // notes and colour labels go back with the renames (feature_notes.go)
 	u.j.Remove(e.ID)
 	res := UndoResult{What: undo.Describe(e), Done: done, Jobs: undoJobs(jobs), Problems: append(plan.Problems, problems...)}
 	return res, nil

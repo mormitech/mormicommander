@@ -497,6 +497,7 @@ func (m *MultiRename) Execute() (mrExecResult, error) {
 			moved[e.Item.Path()] = e.NewPath()
 		}
 	}
+	notesInstance.movedMany(moved) // notes and colour labels go along (feature_notes.go)
 	for i, it := range m.real {
 		np := mrMapPath(it.Path(), moved)
 		m.real[i].Dir, m.real[i].Name = filepath.Dir(np), filepath.Base(np)

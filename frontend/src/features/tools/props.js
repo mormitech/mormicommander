@@ -12,6 +12,7 @@ import { bytes, size, date, plural } from '../../core/format.js';
 import { esc, needLocal, targets, showError, newId, onProgress, dirName, copyText } from './common.js';
 import { xattrLines, hasQuarantine } from './xattr-lib.js';
 import { removeQuarantine } from './xattr.js';
+import { noteFor, saveNote, pickerHTML, pickerSetup, pickerValue } from '../notes.js';
 
 const SYS_LABEL = { darwin: 'Get Info in Finder', windows: 'Windows properties…', linux: 'File manager properties…' };
 const LINK_WORDS = { symlink: 'Symbolic link', junction: 'Junction', hardlink: 'Hard link', url: 'Shortcut file', webloc: 'Web location file', desktop: 'Desktop link file', lnk: 'Windows shortcut', alias: 'Finder alias' };
@@ -95,22 +96,37 @@ function countInto(box, paths, selCount) {
   return () => go.Tools.Cancel(id).catch(() => {});
 }
 
+// notePart is the note and colour label that mormiCommander keeps for the item (features/notes.js, #147); they are
+// saved when the dialog closes.
+function notePart(n) {
+  return `<fieldset class="mc-tools-group"><legend>Note and colour label</legend>
+    <div class="mc-row"><textarea id="tp-note" class="mc-notes-text" spellcheck="true" aria-label="Note">${esc(n.note || '')}</textarea></div>
+    <div class="mc-row"><label>Colour label</label>${pickerHTML(n.color || '', 'tp')}</div>
+    <p class="mc-note">Kept by mormiCommander, not in the file.</p></fieldset>`;
+}
+
 async function showProps(app, path, entry) {
   let pr;
   try { pr = await go.Tools.Properties(path); } catch (e) { await showError(String(e?.message ?? e)); return; }
   const algs = pr.isDir ? [] : await go.Tools.ChecksumAlgorithms().catch(() => []);
   let stopCount = () => {}, stopSum = () => {};
   const quarantined = app.platform === 'darwin' && hasQuarantine(pr.xattrs);
+  const noteBefore = await noteFor(path);
+  let readNote = () => null;
   const after = await modal((box, done) => {
     box.classList.add('mc-info', 'mc-tools-propsbox');
     box.innerHTML = `<button type="button" class="mc-close" aria-label="Close" title="Close (Esc)">×</button>
-      <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${algs.length ? checksumPart(algs) : ''}
+      <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${notePart(noteBefore)}${algs.length ? checksumPart(algs) : ''}
       <div class="mc-btns"><button type="button" class="mc-tools-sys">${esc(SYS_LABEL[app.platform] || SYS_LABEL.linux)}</button>
       ${quarantined ? '<button type="button" class="mc-tools-unq">Remove quarantine flag</button>' : ''}
       <button type="button" class="mc-tools-attr">Change attributes…</button><button type="submit" class="primary">Close</button></div>`;
     box.querySelector('.mc-close').onclick = () => done();
     box.onsubmit = (ev) => { ev.preventDefault(); done(); };
     box.querySelector('.mc-tools-attr').onclick = () => done('attrs');
+    pickerSetup(box, 'tp');
+    const ta = box.querySelector('#tp-note');
+    ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.ctrlKey && !ev.metaKey) ev.stopPropagation(); });
+    readNote = () => ({ note: ta.value, color: pickerValue(box, 'tp') });
     const unq = box.querySelector('.mc-tools-unq');
     if (unq) {
       unq.onclick = async () => {
@@ -166,6 +182,8 @@ async function showProps(app, path, entry) {
   }, undefined, { kind: 'properties' });
   stopCount();
   stopSum();
+  const n = readNote();
+  if (n) await saveNote(path, noteBefore, n.note, n.color);
   if (after === 'attrs') {
     const p = app.cur;
     if (entry && !p.selectedEntries().length) p.focusName(entry.name);

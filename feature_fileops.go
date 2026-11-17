@@ -380,6 +380,7 @@ func (j *Jobs) rename(path, newName string) (string, error) {
 			}
 			return "", fmt.Errorf("Can't rename %s: %s", fileopsLastPart(path), vfsErrText(err))
 		}
+		notesInstance.moved(path, dst, true) // the note and colour label go along (feature_notes.go)
 		return dst, nil
 	}
 	if err := fileopsCheckName(newName); err != nil {
@@ -394,6 +395,7 @@ func (j *Jobs) rename(path, newName string) (string, error) {
 	}
 	if src := filepath.Clean(path); dst != src {
 		j.app.undo.record(undo.Rename, undo.Item{From: src, To: dst})
+		notesInstance.moved(src, dst, true) // the note and colour label go along (feature_notes.go)
 	}
 	return dst, nil
 }

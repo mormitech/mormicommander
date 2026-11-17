@@ -10,6 +10,7 @@ import { addMenuItems, setCustomMenus, refreshMenu } from '../../core/menus.js';
 import { setTranslations } from '../../core/i18n.js';
 import { renderFkeys } from '../../core/fkeys.js';
 import { setDisplay } from '../../core/format.js';
+import { Panel } from '../../core/panel.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 import { applyIgnoreList } from './listopts.js';
 import { applyIcons, rowHeight } from './fileicons.js';
@@ -153,15 +154,16 @@ export function applyColors() {
 }
 
 function paintRows(p) {
-  if (!filters.length && !alternate && !p.mcConfigPainted) return;
-  p.mcConfigPainted = filters.length > 0 || alternate;
+  const hooked = Panel.nameColorHooks.length > 0; // colour labels (features/notes.js) win over the file type colours
+  if (!filters.length && !alternate && !hooked && !p.mcConfigPainted) return;
+  p.mcConfigPainted = filters.length > 0 || alternate || hooked;
   for (const row of p.$.rows.children) {
     const i = +row.dataset.i;
     const e = p.entries[i];
     row.classList.toggle('mc-config-alt', alternate && i % 2 === 1);
     const name = row.querySelector('.n b') || row;
-    let color = '';
-    if (e && !e.up && filters.length) for (const f of filters) if (f.test(e.name, !!e.dir)) { color = f.color; break; }
+    let color = e && !e.up && hooked ? Panel.nameColor(p, e) : '';
+    if (!color && e && !e.up && filters.length) for (const f of filters) if (f.test(e.name, !!e.dir)) { color = f.color; break; }
     if (color) name.style.color = color; else if (name.style.color) name.style.color = '';
   }
 }

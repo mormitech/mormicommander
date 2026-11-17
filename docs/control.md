@@ -411,6 +411,17 @@ macOS) and `cm_UndoList` take an operation back after a confirm dialog of kind `
 | `{"cmd": "undo-list"}` | `{ok, entries: [{id, time, kind, items: [{from, to, dir}], lost, unknown}]}` (`unknown`: trashed items whose place in the trash was not found), oldest first (handled in Go) |
 | `{"cmd": "undo"}` / `{"cmd": "undo", "id": n}` | undoes the newest (or the given) operation without asking; `{ok}` |
 
+## Notes and colour labels (feature_notes.go, features/notes.js; board issue #147)
+
+Notes and colour labels are kept in `notes.json` in the settings folder, keyed by full path (servers by URL). Commands
+`cm_EditNote` (dialog of kind `notes-edit`; `{"note": "…"}` sets it without asking, `""` removes it),
+`cm_ColorLabel` (popup of kind `notes-color-menu`; `{"color": "#rrggbb"}` sets it without asking, `""` removes it) and
+`cm_CleanNotes` (dialog of kind `notes-clean`) work on the selection or the item under the cursor.
+
+| command | answer |
+|---|---|
+| `{"cmd": "notes", "side": "left"}` | `{notes: {name: {note, color}}}`: the rows of that panel looked up so far that have a note or a colour |
+
 ## Command palette
 
 The palette (Ctrl+Shift+P, Cmd+Shift+P on macOS) and "All commands…" are page dialogs of kind `palette`: fill field
