@@ -101,10 +101,17 @@ export class Panel {
     // a long path is shortened at the start to fit the path bar, again whenever the bar's width changes (issue #129)
     new ResizeObserver(() => fitCrumbs(crumbs)).observe(crumbs);
     list.addEventListener('mousedown', (ev) => this.onMouseDown(ev));
-    attachMiddlePan(list); // middle button held: drag the list up and down with a grab cursor
+    // middle button held: drag the list up and down with a grab cursor; a middle click without moving goes to
+    // Panel.middleClick (Options > Drag & drop > Middle click on a folder: features/mouseopts.js)
+    attachMiddlePan(list, undefined, (ev) => Panel.middleClick?.(this, ev));
     // onRow: whether the click was on a row; taken from the event's own target, which is what lies under the pointer
     // for a real click and stays right for control mode's clicks in a window that is hidden or covered (issue #42)
-    list.addEventListener('contextmenu', (ev) => { ev.preventDefault(); this.app.run('cm_ContextMenu', { x: ev.clientX, y: ev.clientY, mouse: true, onRow: !!ev.target?.closest?.('.row') }, { quiet: true }); });
+    list.addEventListener('contextmenu', (ev) => {
+      ev.preventDefault();
+      const args = { x: ev.clientX, y: ev.clientY, mouse: true, onRow: !!ev.target?.closest?.('.row') };
+      if (Panel.contextGate?.(this, ev, args)) return; // (the right button selects, or drags: features/mouseopts.js)
+      this.app.run('cm_ContextMenu', args, { quiet: true });
+    });
     header.addEventListener('click', (ev) => {
       const c = ev.target.closest('[data-col]')?.dataset.col;
       if (!c || !SORT_CMD[c]) return;
@@ -383,7 +390,7 @@ export class Panel {
     if (!row) { this.onEmptyPress(ev); return; }
     const i = +row.dataset.i;
     const e = this.entries[i];
-    if (ev.button === 2) { this.setCursor(i); return; }
+    if (ev.button === 2) { if (!Panel.rightPress?.(this, ev, i)) this.setCursor(i); return; }
     if (ev.button !== 0) return;
     // A double-click opens the entry like Enter (Ctrl/Cmd: the folder in a new tab). It is taken from the second
     // press (ev.detail 2) on the same row, not from a 'dblclick' event: the first press redraws the rows, so the
@@ -588,6 +595,12 @@ Panel.quietLoadHooks = [];
 // Features that leave entries out of every list (the ignore list: features/config/listopts.js) add hook(panel, entry)
 // → true to hide it. Unlike the panel's filter, they stay through folder changes and filters.
 Panel.hideHooks = [];
+
+// Mouse hooks of features/mouseopts.js: rightPress(panel, ev, rowIndex) → true when it took the right press;
+// contextGate(panel, ev, args) → true when the right-click menu must not open now; middleClick(panel, ev).
+Panel.rightPress = null;
+Panel.contextGate = null;
+Panel.middleClick = null;
 
 // iconHTML is a row's icon: the page's own by default; features/config/fileicons.js gives the system's (Options > Icons).
 Panel.iconHTML = () => '<i class="ic"></i>';

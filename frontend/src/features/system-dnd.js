@@ -25,6 +25,8 @@ import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal, quoteArg, transferFiles } from './system-lib.js';
 import { ownNativeDrop, useNativeDrag } from './system-dragout.js';
+import { showList } from '../core/popup.js';
+import { Panel } from '../core/panel.js';
 
 const MIME = 'application/x-mormicommander';
 let drag = null;        // {from: panel, paths, native?}: the drag that started in a panel
@@ -152,7 +154,11 @@ export function init(app) {
   for (const p of app.panels) {
     const rows = p.$.rows;
     rows.setAttribute('draggable', 'true');
+    rows.addEventListener('pointerdown', (ev) => { if (ev.button === 0) press = { x: ev.clientX, y: ev.clientY }; });
     rows.addEventListener('dragstart', (ev) => {
+      // Options > Drag & drop > Drag start distance: a drag that has not gone that far from the press yet is no drag
+      const min = dragThreshold(app);
+      if (press && min > 4 && Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < min) { ev.preventDefault(); return; }
       // the press put the cursor on the row (Panel.onMouseDown); the selection goes when that row is selected
       const e = p.cur;
       const onRow = ev.target?.closest?.('.row') || document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('.row');
@@ -207,12 +213,71 @@ export function init(app) {
     performDrop(app, d.paths, t, op, d.from);
   });
 
+  initRightDrag(app);
+
   // native drags (#108): whether the system can make them, and their end
   try { Promise.resolve(go.SystemDrag.Supported()).then((ok) => { nativeOK = ok === true; }, () => {}); } catch { /* no Go */ }
   on('native-drag-end', () => { if (drag?.native) finish(); });
 
   // files from Finder / Explorer / other apps, with their real paths (Wails, window.go EnableFileDrop)
   onFileDrop((x, y, paths) => fileDropAt(app, x, y, paths));
+}
+
+// ---- right-button drag (Options > Drag & drop > Right-drag shows a menu) ----
+
+let press = null; // where the left button went down on a row, for the drag start distance
+const cfgOpt = (app, k, d) => app.config?.values?.[k] ?? d;
+const dragThreshold = (app) => Math.max(1, Math.min(100, Number(cfgOpt(app, 'DragDrop.ThresholdPx', '4')) || 4));
+
+// A right-button drag from a row to a folder, a panel or a drive button asks what to do there (copy, move, link) when
+// it is let go; a right click that does not move opens the right-click menu as before. The right-click menu waits for
+// the button to come up while this is on, since macOS opens it on the press.
+let rdrag = null; // {p, x, y, paths, moved, args}
+function initRightDrag(app) {
+  const enabled = () => cfgOpt(app, 'DragDrop.RightDragMenu', '1') === '1' && cfgOpt(app, 'Operation.MouseMode', '1') !== '0';
+  for (const p of app.panels) {
+    p.$.rows.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 2 || !enabled() || !isLocal(p.path) || app.demo) return;
+      const row = ev.target.closest('.row');
+      const e = row && p.entries[+row.dataset.i];
+      if (!e || e.up) return;
+      const list = p.isSelected(e) ? p.selectedEntries() : [e];
+      rdrag = { p, x: ev.clientX, y: ev.clientY, paths: list.map((x) => p.fullPath(x.name)), moved: false, args: null };
+    });
+  }
+  const prevGate = Panel.contextGate;
+  Panel.contextGate = (p, ev, args) => {
+    if (rdrag && !rdrag.ended) { rdrag.args = args; return true; } // (shown when the button comes up without a move)
+    if (rdrag?.ended && rdrag.moved && Date.now() - rdrag.ended < 400) return true; // (Windows sends it after the drop)
+    return prevGate ? prevGate(p, ev, args) : false;
+  };
+  document.addEventListener('pointermove', (ev) => {
+    if (!rdrag || rdrag.ended) return;
+    if (!(ev.buttons & 2)) { rdrag = null; light(null); return; }
+    if (!rdrag.moved && Math.hypot(ev.clientX - rdrag.x, ev.clientY - rdrag.y) < dragThreshold(app)) return;
+    rdrag.moved = true;
+    const t = targetAt(app, document.elementFromPoint(ev.clientX, ev.clientY));
+    light(t && allowed({ from: rdrag.p, paths: rdrag.paths }, t) ? t.el : null);
+  });
+  document.addEventListener('pointerup', async (ev) => {
+    if (!rdrag || ev.button !== 2 || rdrag.ended) return;
+    const d = rdrag;
+    d.ended = Date.now();
+    light(null);
+    if (!d.moved) {
+      setTimeout(() => { if (rdrag === d) rdrag = null; }, 0);
+      if (d.args) app.run('cm_ContextMenu', d.args, { quiet: true });
+      return;
+    }
+    const t = targetAt(app, document.elementFromPoint(ev.clientX, ev.clientY));
+    if (!allowed({ from: d.p, paths: d.paths }, t)) return;
+    if (t.kind !== 'folder') { performDrop(app, d.paths, t, 'copy', d.p); return; }
+    const r = await showList({
+      title: `${plural(d.paths.length, 'file')} to ${t.path}`, anchor: { x: ev.clientX, y: ev.clientY }, kind: 'right-drag',
+      items: [{ label: 'Copy here', value: 'copy' }, { label: 'Move here', value: 'move' }, { label: 'Link here', value: 'link' }, { sep: true }, { label: 'Cancel', value: '' }],
+    });
+    if (r?.item?.value) performDrop(app, d.paths, t, r.item.value, d.p);
+  });
 }
 
 // fileDropAt handles files dropped from Finder / Explorer at a point of the page (also control mode's "filedrop" with

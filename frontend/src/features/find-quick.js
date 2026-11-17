@@ -13,6 +13,7 @@
 //   {mode: 'ctrlalt' | 'alt' | 'letter' | 'off' (or TC's 0..3), beginning: true, matchEnd: false, wildcards: true,
 //    ignoreAccents: true, kind: '' | 'dirs' | 'files', filterDirs: true, autoFilter: false}
 
+import { esc } from '../core/dialogs.js';
 import { command, commandForKey } from '../core/registry.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { go } from '../core/go.js';
@@ -148,6 +149,7 @@ function typeChar(p, c, opening) {
     QS.text = text;
     draw();
     p.setCursor(idx[0]);
+    dropDown(p, idx);
   });
 }
 
@@ -157,10 +159,38 @@ function backspace(p) {
     QS.text = [...QS.text].slice(0, -1).join('');
     draw();
     if (QS.filter) { await applyFilter(p, QS.text); return; }
-    if (!QS.text) return;
+    if (!QS.text) { dropDown(p, []); return; }
     const { idx } = await match(p, QS.text, false);
     if (idx.length) p.setCursor(idx[0]);
+    dropDown(p, idx);
   });
+}
+
+// dropDown lists the matching names above the search box (Options > Quick search > Show matching names in a list):
+// the first ten, the one under the cursor marked; a click puts the cursor there.
+const DROP_MAX = 10;
+function dropDown(p, idx) {
+  if (!QS.el) return;
+  let box = QS.el.querySelector('.mc-find-qs-drop');
+  const want = theApp.config?.values?.['QuickSearch.ShowDropDown'] === '1' && !QS.filter && idx.length > 0;
+  if (!want) { box?.remove(); return; }
+  if (!box) {
+    box = document.createElement('div');
+    box.className = 'mc-find-qs-drop';
+    box.setAttribute('role', 'listbox');
+    box.addEventListener('mousedown', (ev) => {
+      const it = ev.target.closest('[data-i]');
+      if (!it || !QS.panel) return;
+      ev.preventDefault();
+      QS.panel.setCursor(+it.dataset.i);
+      box.querySelectorAll('.on').forEach((x) => x.classList.remove('on'));
+      it.classList.add('on');
+    });
+    QS.el.append(box);
+  }
+  const shown = idx.slice(0, DROP_MAX);
+  box.innerHTML = shown.map((i) => `<div data-i="${i}" class="${i === p.cursor ? 'on' : ''}">${esc(p.entries[i]?.name ?? '')}</div>`).join('')
+    + (idx.length > DROP_MAX ? `<div class="more">and ${idx.length - DROP_MAX} more</div>` : '');
 }
 
 // step goes to the next (d = 1) or previous (d = -1) match from the cursor; no wrap.
@@ -170,6 +200,7 @@ function step(p, d) {
     const { idx } = await match(p, QS.text, false);
     const next = d > 0 ? idx.find((i) => i > p.cursor) : [...idx].reverse().find((i) => i < p.cursor);
     if (next !== undefined) p.setCursor(next);
+    dropDown(p, idx);
   });
 }
 

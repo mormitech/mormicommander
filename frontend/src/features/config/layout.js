@@ -70,6 +70,21 @@ export function applyFonts() {
   const dlg = opt('Font.DialogFont').trim();
   root.setProperty('--mc-config-dialog-font', `${num('Font.DialogSize', 13)}px ${dlg ? `"${dlg.replace(/"/g, '')}", ` : ''}-apple-system, "Segoe UI", system-ui, sans-serif`);
   if (app && app.setting('fontSize', 13) !== px) app.setSetting('fontSize', px); // window.js reads it at start (Ctrl+= / Ctrl+-)
+  // the main window font (bars, function keys, status lines, menus) and the Lister's font, only once they are set;
+  // the interface zoom scales the whole window
+  const quote = (f) => `"${f.replace(/"/g, '')}"`;
+  const wf = opt('Font.WindowFont').trim(), ws = Math.max(6, Math.min(72, num('Font.WindowSize', 13)));
+  const lf = opt('Font.ListerFont').trim();
+  const rules = [];
+  if (wf || ws !== 13) {
+    rules.push(`#fkeys button, .drivebar button, .driveinfo, .tabbar, .header, .status, .mc-popup, .mc-popup .t, .mc-popup .it .d, #toolbar, #vbar, #prompt { ${wf ? `font-family: ${quote(wf)}, -apple-system, "Segoe UI", system-ui, sans-serif;` : ''} font-size: ${ws}px; }`);
+  }
+  if (lf) rules.push(`.mc-viewer:not(.mc-viewer-variable) .mc-viewer-rows, .mc-viewer:not(.mc-viewer-variable) .mc-tbl-scroll { font-family: ${quote(lf)}, ui-monospace, Menlo, Consolas, monospace; }`);
+  let st = document.getElementById('mc-config-fonts');
+  if (!st) { st = document.createElement('style'); st.id = 'mc-config-fonts'; document.head.append(st); }
+  st.textContent = rules.join('\n');
+  const zoom = Math.max(50, Math.min(300, num('Font.ZoomPercent', 100)));
+  document.documentElement.style.zoom = zoom === 100 ? '' : String(zoom / 100);
   relayout();
 }
 
@@ -84,8 +99,20 @@ export function applyTheme(startTheme) {
 let filters = []; // [{test, color}] for colouring by file type
 let alternate = false; // every second line on another background
 
+// Colors > Colour scheme: a built-in scheme by its name stands in for the colours of the settings file ("Default", or
+// a name that is not a built-in one, keeps them).
+function activeScheme() {
+  if (!colors) return null;
+  const name = opt('Colors.Scheme').trim();
+  if (name && name.toLowerCase() !== 'default') {
+    const b = (colors.builtin || []).find((x) => (x.name || '').toLowerCase() === name.toLowerCase());
+    if (b) return { ...b, filters: (isDark() ? colors.dark : colors.light)?.filters || b.filters };
+  }
+  return isDark() ? colors.dark : colors.light;
+}
+
 function schemeCSS() {
-  const s = colors ? (isDark() ? colors.dark : colors.light) : null;
+  const s = activeScheme();
   const c = s?.colors || {};
   const vars = [];
   const rules = [];

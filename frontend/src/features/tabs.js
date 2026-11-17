@@ -19,7 +19,8 @@
 // Options live in the settings key "folderTabs" (the Folder tabs settings dialog, cm_DirTabsConfig).
 
 import './tabs-hotlist.css';
-import { command } from '../core/registry.js';
+import { command, commandForKey } from '../core/registry.js';
+import { addKeyHandler } from '../core/keyboard.js';
 import { go, errText } from '../core/go.js';
 import { showList } from '../core/popup.js';
 import { messageDialog, inputDialog, formDialog, modal, esc } from '../core/dialogs.js';
@@ -143,6 +144,20 @@ export function tabList(side) {
 // start, from a file, a new tab of another folder) reads it fresh, falling back to the nearest parent that can be read
 // and then to the home folder.
 async function restore(p, t, opts = {}) {
+  // Options > Hotlist > Separate folder history per tab off: the side keeps one history for all its tabs, so Alt+Left
+  // after a tab switch goes back to the folder of the tab that was shown before
+  if (theApp.config?.values?.['Hotlist.HistoryPerTab'] === '0') {
+    const back = [...p.back], fwd = [...p.fwd], from = p.path;
+    const r = await restoreTab(p, t, opts);
+    if (from && from !== p.path) back.push(from);
+    if (back.length > 200) back.splice(0, back.length - 200);
+    p.back = back; p.fwd = fwd;
+    return r;
+  }
+  return restoreTab(p, t, opts);
+}
+
+async function restoreTab(p, t, opts = {}) {
   let target = t.path;
   if (t.lock === LOCK_DIRS && tabOpt('resetLocked') && t.lockPath) target = t.lockPath;
   const st = t.state;
@@ -815,6 +830,15 @@ addControlCommand('tab_menu', async (m) => { const side = m.side || theApp.cur.s
 // ---- start-up ----
 
 export function init(app) {
+  // Options > Folder tabs > Ctrl+Up opens folder under cursor in a new tab: off, the key opens it in the current tab
+  // (the command itself, from a menu or a button, still makes a tab)
+  addKeyHandler((ev, combo) => {
+    if (combo !== 'Ctrl+Up' || app.config?.values?.['FolderTabs.CtrlUpNewTab'] !== '0' || commandForKey(combo) !== 'cm_OpenDirInNewTab') return false;
+    const p = app.cur, e = p?.cur;
+    if (!e || e.up || !e.dir) return false;
+    p.go(p.fullPath(e.name));
+    return true;
+  });
   for (const p of app.panels) {
     origGo.set(p, p.go.bind(p));
     p.go = (path, opts) => guardedGo(p, path, opts);

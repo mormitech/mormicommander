@@ -8,8 +8,10 @@
 export const PAN_CLASS = 'mc-panning'; // on <html> while a pan is going on (the cursor rule in style.css)
 
 // attachMiddlePan makes el pannable with the middle button. Returns a function that removes the handlers.
-export function attachMiddlePan(el, doc = el.ownerDocument) {
+// onClick(ev), when given, gets a middle click that did not move (less than 4 pixels): a click, not a pan.
+export function attachMiddlePan(el, doc = el.ownerDocument, onClick = null) {
   let pan = null; // { id, x, y, left, top } while the middle button is down
+  let moved = false;
 
   const end = () => {
     if (!pan) return;
@@ -21,16 +23,23 @@ export function attachMiddlePan(el, doc = el.ownerDocument) {
     if (ev.button !== 1 || ev.pointerType === 'touch') return;
     ev.preventDefault(); // no autoscroll, no paste of the selection (Linux)
     pan = { id: ev.pointerId, x: ev.clientX, y: ev.clientY, left: el.scrollLeft, top: el.scrollTop };
+    moved = false;
     try { el.setPointerCapture?.(ev.pointerId); } catch { /* the pointer is gone already */ }
     doc.documentElement.classList.add(PAN_CLASS);
   };
   const move = (ev) => {
     if (!pan || ev.pointerId !== pan.id) return;
     if (!(ev.buttons & 4)) { end(); return; } // the button was let go where no pointerup reached us
+    if (Math.abs(ev.clientX - pan.x) + Math.abs(ev.clientY - pan.y) >= 4) moved = true;
     el.scrollTop = pan.top - (ev.clientY - pan.y);
     el.scrollLeft = pan.left - (ev.clientX - pan.x);
   };
-  const up = (ev) => { if (pan && ev.pointerId === pan.id && ev.button === 1) end(); };
+  const up = (ev) => {
+    if (!pan || ev.pointerId !== pan.id || ev.button !== 1) return;
+    const click = !moved;
+    end();
+    if (click && onClick) onClick(ev);
+  };
   const cancel = (ev) => { if (pan && ev.pointerId === pan.id) end(); };
   // Chromium (WebView2) and WebKitGTK start autoscroll on the mousedown, so that is cancelled too
   const mdown = (ev) => { if (ev.button === 1) ev.preventDefault(); };

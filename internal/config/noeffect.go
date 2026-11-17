@@ -11,18 +11,10 @@ package config
 
 // noEffect holds the "Page.Field" names of the options with no effect yet.
 var noEffect = map[string]bool{
-	"Font.WindowFont":  true,
-	"Font.WindowSize":  true,
-	"Font.ListerFont":  true,
-	"Font.ZoomPercent": true,
-
-	"Colors.Scheme": true,
-
 	"Language.LanguageFile": true,
 	"Language.UILanguage":   true,
 
 	"Operation.OnlyOnce":       true,
-	"Operation.MouseMode":      true,
 	"Operation.SavePath":       true,
 	"Operation.SaveHistory":    true,
 	"Operation.SaveCommands":   true,
@@ -41,8 +33,6 @@ var noEffect = map[string]bool{
 
 	"Refresh.RefreshRemovabl": true,
 	"Refresh.IntervalMs":      true,
-
-	"QuickSearch.ShowDropDown": true,
 
 	"FTP.Passive":        true,
 	"FTP.ShowHidden":     true,
@@ -101,40 +91,17 @@ var noEffect = map[string]bool{
 	"Zip.Zip64":     true,
 
 	"Misc.MainMenuFile": true,
-	"Misc.SoundOnDone":  true,
-	"Misc.CheckUpdates": true,
-	"Misc.BeepOnError":  true,
-
-	"FolderTabs.CtrlUpNewTab": true,
-
-	"CustomColumns.ShowInShowMenu":   true,
-	"CustomColumns.EqualWidthOnOpen": true,
 
 	"BackgroundQueue.MaxParallel":  true,
 	"BackgroundQueue.AutoStart":    true,
 	"BackgroundQueue.ShowWindow":   true,
 	"BackgroundQueue.KeepFinished": true,
 
-	"Hotlist.AddAtTop":      true,
-	"Hotlist.HistoryPerTab": true,
-
-	"ViewModes.AutoSwitch": true,
-
 	"Lister.AutoDetect":   true,
 	"Lister.UseImages":    true,
 	"Lister.UsePDF":       true,
 	"Lister.MaxTextMB":    true,
 	"Lister.ExtViewerFor": true,
-
-	"DragDrop.RightDragMenu": true,
-	"DragDrop.MiddleClick":   true,
-	"DragDrop.ThresholdPx":   true,
-
-	"Tree.FollowFolder": true,
-	"Tree.ShowHidden":   true,
-	"Tree.ShowFiles":    true,
-	"Tree.AutoExpand":   true,
-	"Tree.ShowNetwork":  true,
 
 	"FindFiles.UseIndex": true,
 	"FindFiles.Encoding": true,

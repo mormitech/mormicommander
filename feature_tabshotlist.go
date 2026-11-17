@@ -256,9 +256,26 @@ func (t *TabsHotlist) AddFolder(title, folder, target string) error {
 	if strings.TrimSpace(folder) == "" {
 		return errors.New("There is no folder to add.")
 	}
+	top := false
+	if s, ok := currentSettings(); ok {
+		top = s.Hotlist.AddAtTop // Options > Hotlist > Add new entries at the top
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.hot.AddFolder(thOneLine(title), thOneLine(folder), thOneLine(target))
+	if top {
+		title = thOneLine(title)
+		if title == "" {
+			title = filepath.Base(strings.TrimRight(folder, `/\`))
+			if title == "." || title == "" || title == "/" || title == `\` {
+				title = folder
+			}
+		}
+		if _, err := config.MenuInsert(&t.hot.Items, nil, 0, config.NewHotlistEntry(title, thOneLine(folder), thOneLine(target))); err != nil {
+			return err
+		}
+	} else {
+		t.hot.AddFolder(thOneLine(title), thOneLine(folder), thOneLine(target))
+	}
 	t.hot.Save(t.file)
 	return t.save()
 }

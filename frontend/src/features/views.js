@@ -14,11 +14,12 @@
 // (issue #128, registered with features/tabs.js; the pure helpers are in views-tab.js), saved with the tab as
 // "view"/"set".
 
+import { addMenuItems } from '../core/menus.js';
 import './views.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { Panel, splitPath } from '../core/panel.js';
-import { esc, modal, formDialog, messageDialog } from '../core/dialogs.js';
+import { esc, modal, formDialog, messageDialog, inputDialog } from '../core/dialogs.js';
 import { showList } from '../core/popup.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
@@ -239,7 +240,9 @@ function renderHeader(p) {
   const def = columns(p);
   const tpl = [def.nameW];
   if (def.ext) tpl.push('56px');
-  for (const c of def.cols) tpl.push(c.width ? `${c.width}px` : 'minmax(60px, 1fr)');
+  // Options > Custom columns > Fit columns to the panel width: the set's own widths give way, every column shares the room
+  const fit = treeOpt('CustomColumns.EqualWidthOnOpen', '0') === '1';
+  for (const c of def.cols) tpl.push(c.width && !fit ? `${c.width}px` : 'minmax(60px, 1fr)');
   el.style.setProperty('--cols', tpl.join(' '));
   let html = `<span data-vcol="name" title="Sort by name">Name</span>`;
   if (def.ext) html += `<span data-vcol="ext" title="Sort by extension">Ext</span>`;
@@ -467,6 +470,7 @@ function setMode(p, mode, set = '') {
   vs.set = mode === 'custom' ? set : '';
   vs.manual = { mode, set: vs.set };
   vs.auto = false;
+  vs.viewMode = ''; vs.modeAuto = null; // (chosen by hand: no view mode any more)
   applyView(p);
   save();
   return true;
@@ -609,10 +613,18 @@ async function readFolders(p, path) {
   const cmp = nameComparer({ natural: !!theApp.setting('naturalSort', true), method: theApp.setting('sortMethod', ''), locale: theApp.setting('sortLocale', '') });
   // hidden folders stay out unless shown, except the ones on the way to the folder the panel was in (macOS hides
   // /private, which holds every temp folder), so the tree can always reach and select that folder
+  // Options > Tree: "Show hidden folders in the tree" shows them whatever the panels do; "Show files in the tree" adds
+  // the files of each folder after its subfolders
   const keep = vsOf(p).tree?.keep;
-  return (l.entries || []).filter((r) => (r[3] & 1) && (theApp.showHidden || !(r[3] & 4) || keep?.has(join(r[0]).toLowerCase())))
-    .map((r) => r[0]).sort(cmp).map((n) => ({ name: n, path: join(n) }));
+  const hidden = theApp.showHidden || treeOpt('Tree.ShowHidden', '0') === '1';
+  const ok = (r) => hidden || !(r[3] & 4) || keep?.has(join(r[0]).toLowerCase());
+  const dirs = (l.entries || []).filter((r) => (r[3] & 1) && ok(r)).map((r) => r[0]).sort(cmp).map((n) => ({ name: n, path: join(n) }));
+  if (treeOpt('Tree.ShowFiles', '0') !== '1') return dirs;
+  const files = (l.entries || []).filter((r) => !(r[3] & 1) && ok(r)).map((r) => r[0]).sort(cmp).map((n) => ({ name: n, path: join(n), file: true }));
+  return dirs.concat(files);
 }
+
+const treeOpt = (k, d) => theApp.config?.values?.[k] ?? d;
 
 function flatten(tree) {
   const out = [];
@@ -626,7 +638,7 @@ async function expand(p, n) {
     n.loading = true;
     try {
       const kids = await readFolders(p, n.path);
-      n.kids = kids.map((k) => ({ ...k, depth: n.depth + 1, parentNode: n, open: false, kids: null }));
+      n.kids = kids.map((k) => ({ ...k, depth: n.depth + 1, parentNode: n, open: false, kids: k.file ? [] : null }));
     } catch (e) {
       n.kids = [];
       p.app.flash(errText(e), 'err');
@@ -683,7 +695,8 @@ async function leaveTree(p, { mode, set = '', toNode = false } = {}) {
   clearTimeout(tree.syncTimer);
   p.$.rows.innerHTML = '';
   renderHeader(p);
-  if (toNode && n) await p.go(n.path);
+  if (toNode && n?.file) await p.go(treeParent(n)?.path || tree.back.path, { focus: n.name });
+  else if (toNode && n) await p.go(n.path);
   else await p.go(tree.back.path, { focus: tree.back.focus, history: false });
   applyView(p);
   save();
@@ -701,7 +714,7 @@ function treeSync(p, now = false) {
     if (!n || vsOf(p).tree !== tree) return;
     const par = treeParent(n);
     if (!par) p.go(n.path, { history: false });
-    else p.go(par.path, { focus: n.name, history: false });
+    else p.go(par.path, { focus: n.name, history: false }); // (a file in the tree: its folder, with the cursor on it)
   };
   if (now) run(); else tree.syncTimer = setTimeout(run, 150);
 }
@@ -719,7 +732,7 @@ function renderTree(p) {
   for (let i = first; i < last; i++) {
     const n = tree.nodes[i];
     const tw = n.loading ? '…' : n.kids && n.kids.length === 0 ? '' : n.open ? '▾' : '▸';
-    html += `<div class="mc-views-node dir${i === tree.at ? ' cur' : ''}" data-t="${i}" style="padding-left:${8 + n.depth * 16}px"${i === tree.at && p.isActive ? ' aria-selected="true"' : ''}><span class="mc-views-tw" data-tw="${i}">${tw}</span><i class="ic"></i><b>${esc(n.depth === 0 ? n.path : n.name)}</b></div>`;
+    html += `<div class="mc-views-node${n.file ? '' : ' dir'}${i === tree.at ? ' cur' : ''}" data-t="${i}" style="padding-left:${8 + n.depth * 16}px"${i === tree.at && p.isActive ? ' aria-selected="true"' : ''}><span class="mc-views-tw" data-tw="${i}">${tw}</span><i class="ic"></i><b>${esc(n.depth === 0 ? n.path : n.name)}</b></div>`;
   }
   rows.style.transform = `translateY(${first * h}px)`;
   rows.style.width = '';
@@ -819,6 +832,37 @@ function treeMouse(p, ev) {
   const i = +el.dataset.t;
   if (ev.target.closest('[data-tw]')) { const n = tree.nodes[i]; treeToggle(p, n, !n.open); return; }
   treeMove(p, i);
+  // Options > Tree > Expand folders on single click
+  const n = tree.nodes[i];
+  if (n && !n.file && !n.open && treeOpt('Tree.AutoExpand', '0') === '1') treeToggle(p, n, true);
+}
+
+// treeFollow moves the tree of panel p to a folder the other panel went to (Options > Tree > Tree follows the current
+// folder), opening the way down to it; folders on a network volume or a server only with "Read network folders in the
+// tree" on, as that reads every folder on the way.
+async function treeFollow(p, path) {
+  const tree = vsOf(p).tree;
+  if (!tree || !path || treeOpt('Tree.FollowFolder', '1') !== '1') return;
+  const v = theApp.volumeFor?.(path);
+  const net = /^[a-z][a-z0-9+.-]*:\/\//i.test(path) || (v && (v.kind === 'network' || v.net));
+  if (net && treeOpt('Tree.ShowNetwork', '0') !== '1') return;
+  const root = tree.root.path;
+  const low = (s) => (theApp.platform === 'windows' ? s.toLowerCase() : s);
+  if (low(path) !== low(root) && !low(path).startsWith(low(root.endsWith(theApp.sepFor(root)) || root.endsWith('/') ? root : root + theApp.sepFor(root)))) return;
+  const chain = splitPath(path).map((x) => x.path).filter((x) => x.length > root.length);
+  let node = tree.root;
+  if (!node.open) await expand(p, node);
+  for (const want of chain) {
+    const k = node.kids?.find((c) => !c.file && low(c.path) === low(want));
+    if (!k) break;
+    node = k;
+    if (want !== chain[chain.length - 1] && !node.open) await expand(p, node);
+  }
+  if (vsOf(p).tree !== tree) return;
+  flatten(tree);
+  tree.at = Math.max(0, tree.nodes.indexOf(node));
+  treeEnsureVisible(p, true);
+  renderTreeStatus(p);
 }
 
 // ---- comments (Ctrl+Z) ----
@@ -1103,6 +1147,95 @@ for (const [pre, pick] of Object.entries(PANELS)) {
   }
 }
 
+// ---- view modes (F-785, Show > View modes, cm_SrcViewModeList) ----
+//
+// A view mode is a named bundle of a panel's look: its view (Brief, Full, Comments, Thumbnails or a column set) and its
+// sort, kept in the setting "viewModes" as [{name, mode, set, sort, folders}]. Choosing one puts the panel in it.
+// With a folder mask ("folders", TC's syntax, as column sets have) and Options > View modes > Switch view modes
+// automatically on, a panel takes the mode by itself in matching folders and goes back to its own view after them.
+
+const viewModes = () => (theApp.setting('viewModes', []) || []).filter((m) => m && m.name);
+const VIEW_WORD = { brief: 'Brief', full: 'Full', comments: 'Comments', thumbs: 'Thumbnails' };
+const describeMode = (m) => `${m.mode === 'custom' ? `columns "${m.set}"` : VIEW_WORD[m.mode] || m.mode}${m.sort?.key ? `, by ${m.sort.key}${m.sort.desc ? ' (reversed)' : ''}` : ''}${m.folders ? `; on its own in ${m.folders}` : ''}`;
+
+async function applyViewMode(p, m, { auto = false } = {}) {
+  const vs = vsOf(p);
+  if (vs.mode === 'tree') await leaveTree(p, {});
+  let mode = m.mode, set = m.mode === 'custom' ? m.set : '';
+  if (mode === 'custom' && !findSet(set)) { mode = 'full'; set = ''; }
+  if (!auto) { vs.manual = { mode, set }; vs.modeAuto = null; }
+  else if (!vs.modeAuto) vs.modeAuto = { name: m.name, back: { mode: vs.mode, set: vs.set, sort: { ...p.sort } } };
+  else vs.modeAuto.name = m.name;
+  vs.mode = mode;
+  vs.set = set;
+  vs.auto = false;
+  vs.viewMode = m.name;
+  applyView(p);
+  if (m.sort?.key) p.sortBy(m.sort.key, !!m.sort.desc);
+  if (!auto) save();
+  return true;
+}
+
+async function viewModeList(app, p) {
+  const vs = vsOf(p);
+  const modes = viewModes();
+  const items = modes.map((m, i) => ({ label: m.name, detail: `${vs.viewMode === m.name ? '✓ ' : ''}${describeMode(m)}`, value: { use: m }, key: i < 9 ? String(i + 1) : '' }));
+  if (items.length) items.push({ sep: true });
+  items.push({ label: 'Save the current view as a view mode…', value: { add: true } });
+  if (modes.length) items.push({ label: 'Remove a view mode…', value: { remove: true } });
+  const r = await showList({ title: `View modes (${p.side} panel)`, items, anchor: p.$.header, kind: 'view-modes' });
+  if (!r) return false;
+  const v = r.item.value;
+  if (v.use) { app.setActive(p); return applyViewMode(p, v.use); }
+  if (v.remove) {
+    const r2 = await showList({ title: 'Remove which view mode?', items: modes.map((m) => ({ label: m.name, detail: describeMode(m), value: m.name })), anchor: p.$.header, kind: 'view-modes-remove' });
+    if (!r2) return false;
+    await app.setSetting('viewModes', modes.filter((m) => m.name !== r2.item.value));
+    app.flash(`View mode "${r2.item.value}" removed.`);
+    return true;
+  }
+  const cur = vs.mode === 'tree' ? (vs.prev || { mode: 'full', set: '' }) : vs;
+  const name = await inputDialog({ title: 'New view mode', label: 'Name', value: '', kind: 'view-mode-name', validate: (x) => (x.trim() ? '' : 'Please give the view mode a name.'),
+    note: `Keeps: ${describeMode({ mode: cur.mode, set: cur.set, sort: p.sort })}.` });
+  if (name === null) return false;
+  const folders = await inputDialog({ title: 'New view mode', label: 'Use it by itself in these folders (optional mask, e.g. *\\Photos* or */Pictures/*)', value: '', kind: 'view-mode-folders' });
+  if (folders === null) return false;
+  const m = { name: name.trim(), mode: cur.mode, set: cur.mode === 'custom' ? cur.set : '', sort: { ...p.sort }, folders: folders.trim() };
+  await app.setSetting('viewModes', [...modes.filter((x) => x.name !== m.name), m]);
+  vs.viewMode = m.name;
+  app.flash(`View mode "${m.name}" saved.`);
+  return true;
+}
+
+// autoViewMode puts a panel in the view mode whose folder mask matches its folder (Options > View modes > Switch view
+// modes automatically), and back in its own view when it leaves such folders.
+let modeSeq = 0;
+async function autoViewMode(p) {
+  const vs = vsOf(p);
+  if (vs.mode === 'tree') return;
+  const on = theApp.config?.values?.['ViewModes.AutoSwitch'] !== '0';
+  const modes = on ? viewModes().filter((m) => (m.folders || '').trim()) : [];
+  if (!modes.length && !vs.modeAuto) return;
+  const seq = ++modeSeq;
+  let i = -1;
+  if (modes.length) { try { i = await go.Views.AutoColumnSet(p.path, modes.map((m) => m.folders)); } catch { i = -1; } }
+  if (seq !== modeSeq || p.vs !== vs) return;
+  if (i >= 0) { if (vs.viewMode !== modes[i].name || !vs.modeAuto) await applyViewMode(p, modes[i], { auto: true }); return; }
+  if (vs.modeAuto) {
+    const back = vs.modeAuto.back;
+    vs.modeAuto = null;
+    vs.viewMode = '';
+    vs.mode = back.mode;
+    vs.set = back.set;
+    applyView(p);
+    if (back.sort?.key) p.sortBy(back.sort.key, !!back.sort.desc);
+  }
+}
+
+for (const [pre, pick] of Object.entries(PANELS)) {
+  command({ name: `cm_${pre}ViewModeList`, label: `View modes…${SIDE_WORD[pre]}`, run: (app) => viewModeList(app, pick(app)), ...(pre === 'Src' ? { menu: 'Show', menuAfter: 'cm_SrcCustomViewMenu' } : {}) });
+}
+
 // sortByColumn sorts by column n of the panel's view (1 = name); again reverses (F-790).
 function sortByColumn(p, n) {
   if (modeOf(p) === 'tree') return false;
@@ -1140,6 +1273,9 @@ command({
   run: async (app) => { await app.setSetting('naturalSort', !app.setting('naturalSort', true)); for (const p of app.panels) { vsOf(p).cellsSig = ''; p.rebuild(); app.panelChanged(p, { moved: false }); } },
 });
 command({ name: 'cm_ViewOptions', label: 'View options…', menu: 'Show', menuAfter: 'cm_ZoomOut', run: viewOptions }); // ours
+// Options > Custom columns > List column sets in the Show menu: the first nine sets by name (cm_SrcCustomView1…9)
+addMenuItems('Show', () => (treeOpt('CustomColumns.ShowInShowMenu', '1') === '1' && sets().length
+  ? ['-', ...sets().slice(0, 9).map((s, k) => [s.name || `Column set ${k + 1}`, `cm_SrcCustomView${k + 1}`])] : []));
 command({ name: 'cm_CustomColumnConfig', label: 'Custom columns…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: customColumnConfig });
 command({ name: 'cm_ThumbnailsConfig', label: 'Thumbnails…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: thumbnailsConfig });
 command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)
@@ -1272,7 +1408,9 @@ export function init(app) {
     const switched = tabSwitched(p);
     const vs = vsOf(p);
     if (vs.mode === 'tree') return;
-    if (info.moved) autoSwitch(p);
+    // the other panel's tree follows this panel's folder (Options > Tree > Tree follows the current folder)
+    if (info.moved && p.other && vsOf(p.other).mode === 'tree') treeFollow(p.other, p.path);
+    if (info.moved) { autoSwitch(p); autoViewMode(p); }
     if (switched) return; // (applyView told the panel again, which asked for the cells and thumbnails)
     if (isColumnMode(p)) requestCells(p);
     if (vs.mode === 'thumbs') startThumbs(p);

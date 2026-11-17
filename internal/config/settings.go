@@ -157,7 +157,7 @@ type LanguagePage struct {
 // OperationPage: general behaviour (F-419).
 type OperationPage struct {
 	OnlyOnce          bool `ini:"Configuration:onlyonce" def:"0" label:"Allow only one copy of the program"`
-	MouseMode         int  `ini:"Configuration:Mouse" def:"0" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
+	MouseMode         int  `ini:"Configuration:Mouse" def:"1" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
 	MarkDirectories   bool `ini:"Configuration:MarkDirectories" def:"0" label:"Num+ also selects folders"`
 	SpaceCalcSize     bool `ini:"Configuration:SpaceCalcSize" def:"1" label:"Space calculates folder size"`
 	AlwaysToRoot      bool `ini:"Configuration:AlwaysToRoot" def:"0" label:"Go to root when changing drive"`
@@ -337,7 +337,7 @@ type MiscPage struct {
 	MainMenuFile   string `ini:"Configuration:Mainmenu" def:"" label:"Custom main menu file (.mnu, empty = default)"`
 	SoundOnDone    bool   `ini:"Configuration:SoundOnFinish" def:"0" label:"Play a sound when long operations finish"`
 	CheckUpdates   bool   `ini:"Configuration:CheckUpdates" def:"0" label:"Check for updates"`
-	BeepOnError    bool   `ini:"Configuration:BeepOnError" def:"1" label:"Beep on errors"`
+	BeepOnError    bool   `ini:"Configuration:BeepOnError" def:"0" label:"Beep on errors"`
 	CmdLineAutoCmp bool   `ini:"Configuration:CmdLineAutoComplete" def:"1" label:"Command line auto-complete"`
 	DialogWindows  bool   `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
 
@@ -429,7 +429,7 @@ type ListerPage struct {
 // DragDropPage (F-823).
 type DragDropPage struct {
 	ConfirmDrop    bool `ini:"Configuration:ConfirmDrop" def:"1" label:"Confirm before dropping"`
-	RightDragMenu  bool `ini:"Configuration:RightDragMenu" def:"1" label:"Right-drag shows a menu"`
+	RightDragMenu  bool `ini:"Configuration:RightDragMenu" def:"0" label:"Right-drag shows a menu"`
 	SpringLoaded   bool `ini:"Configuration:SpringLoaded" def:"1" label:"Spring-loaded folders"`
 	SpringDelayMs  int  `ini:"Configuration:SpringDelay" def:"1000" min:"100" max:"10000" label:"Spring-loaded delay (ms)"`
 	MiddleClick    int  `ini:"Configuration:MiddleClick" def:"1" min:"0" max:"2" opts:"0=Nothing|1=Open folder in new tab|2=Open in the other panel" label:"Middle click on a folder"`
@@ -443,7 +443,7 @@ type TreePage struct {
 	FollowFolder bool `ini:"Configuration:TreeFollow" def:"1" label:"Tree follows the current folder"`
 	ShowHidden   bool `ini:"Configuration:TreeShowHidden" def:"0" label:"Show hidden folders in the tree"`
 	ShowFiles    bool `ini:"Configuration:TreeShowFiles" def:"0" label:"Show files in the tree"`
-	AutoExpand   bool `ini:"Configuration:TreeAutoExpand" def:"1" label:"Expand folders on single click"`
+	AutoExpand   bool `ini:"Configuration:TreeAutoExpand" def:"0" label:"Expand folders on single click"`
 	ShowNetwork  bool `ini:"Configuration:TreeNetwork" def:"0" label:"Read network folders in the tree"`
 }
 

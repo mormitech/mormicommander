@@ -6,6 +6,34 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.24 – 2026-11-17
+
+### Added
+
+- **View modes** (Show > View modes…, cm_SrcViewModeList and its left, right and other-panel versions): save a panel's
+  view, column set and sort under a name, and switch to it from the list. With a folder mask, a view mode is taken by
+  itself in matching folders (Options > View modes > Switch view modes automatically) and the panel goes back to its
+  own view after them.
+
+### Changed
+
+- More options that were kept but had no effect now work (board issue #94). Each keeps today's behaviour at its default:
+  - Font: main window font and size (bars, function keys, status lines, menus), the Lister's font, and the interface zoom.
+  - Colors > Colour scheme: the name of a built-in scheme (Dark, Classic blue…) replaces the colours of the settings
+    file.
+  - Operation > Mouse selection mode "Commander": the right button selects (a press toggles, a drag selects the rows it
+    passes, holding it opens the menu).
+  - Drag & drop: right-drag shows a Copy / Move / Link menu where it is let go (off by default), the drag start
+    distance, and a middle click on a folder opens it in a new tab or the other panel (a middle drag still pans).
+  - Quick search > Show matching names in a list: the matches appear above the search box.
+  - Folder tabs > Ctrl+Up opens folder under cursor in a new tab: off opens it in the current tab.
+  - Custom columns: list the column sets in the Show menu, and fit the columns to the panel width.
+  - Hotlist: add new entries at the top, and one folder history for all tabs of a side instead of one per tab.
+  - Tree: follow the other panel's folder (network folders only with "Read network folders in the tree"), show hidden
+    folders, show files, and expand folders on a single click.
+  - Misc: beep on errors, a sound when a job that ran 10 seconds or more ends, and "Check for updates", which once a
+    week offers to open the releases page in the browser (mormiCommander itself still never goes online).
+
 ## 0.14.23 – 2026-11-17
 
 ### Added

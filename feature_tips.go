@@ -49,3 +49,17 @@ func (c *Configuration) IgnoreList() (map[string]any, error) {
 	}
 	return map[string]any{"file": path, "masks": masks}, nil
 }
+
+// currentSettings is a copy of the Options dialog's values for Go features that follow an option (false when the
+// settings file can't be read: the caller keeps its default then).
+func currentSettings() (config.Settings, bool) {
+	if configFeature == nil {
+		return config.Settings{}, false
+	}
+	cfg, err := configFeature.get()
+	if err != nil {
+		return config.Settings{}, false
+	}
+	defer configFeature.mu.Unlock()
+	return cfg.Settings, true
+}
