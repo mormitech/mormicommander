@@ -92,9 +92,6 @@ var noEffect = map[string]bool{
 	"Log.FTP":        true,
 	"Log.ErrorsOnly": true,
 
-	"IgnoreList.Enabled": true,
-	"IgnoreList.File":    true,
-
 	"Packer.InternalZip":    true,
 	"Packer.ExternalZip":    true,
 	"Packer.TarOwner":       true,
@@ -130,11 +127,6 @@ var noEffect = map[string]bool{
 	"Hotlist.HistoryPerTab": true,
 
 	"ViewModes.AutoSwitch": true,
-
-	"Tooltips.Show":      true,
-	"Tooltips.DelayMs":   true,
-	"Tooltips.ByType":    true,
-	"Tooltips.ShowOnNet": true,
 
 	"Lister.AutoDetect":   true,
 	"Lister.UseImages":    true,

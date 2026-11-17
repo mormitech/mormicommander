@@ -6,6 +6,20 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.22 – 2026-11-17
+
+### Added
+
+- **Tooltips with file facts.** Options > Tooltips now works: the file lists can show the name and the file's size,
+  date and kind on hover (for a picture also its size in pixels), after the delay set there. "Tooltips for network
+  files" keeps them off in network folders. The default is still the tooltip with the whole name, now shown only when
+  the name does not fit.
+- **The ignore list.** Options > Ignore list and the new Show > Hide files from the ignore list (cm_SwitchIgnoreList)
+  hide the files and folders matching the masks of the ignore file (one mask or full path per line, as in Total
+  Commander's ignore.txt) in every panel. Off by default.
+- **Drop files on a folder tab.** Files dragged from a panel onto a tab are copied into that tab's folder (Shift
+  moves), like dropping them on a folder.
+
 ## 0.14.21 – 2026-11-17
 
 ### Added

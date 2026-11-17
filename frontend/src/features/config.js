@@ -24,6 +24,7 @@ import { state, loadValues, loadSchema } from './config/util.js';
 import './config/keys.js';
 import { initOptions } from './config/options.js';
 import { initLayout, applyAll, loadColors } from './config/layout.js';
+import { initListOpts } from './config/listopts.js';
 import { initButtonBar, loadBars } from './config/buttonbar.js';
 import { initStartMenu, loadStartMenu } from './config/startmenu.js';
 import { registerUserCommands } from './config/usercmds.js';
@@ -57,6 +58,7 @@ export async function init(app) {
   await loadValues(app);
   await loadColors();
   initOptions(app);
+  initListOpts(app);
   initLayout(app);
   await mergeKeymap(app);
   applyAll(app.startTheme);

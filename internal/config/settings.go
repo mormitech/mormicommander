@@ -403,7 +403,7 @@ type ViewModesPage struct {
 
 // TooltipsPage (F-821).
 type TooltipsPage struct {
-	Show      int  `ini:"Configuration:Win32TipWindow" def:"2" min:"0" max:"3" opts:"0=Off|1=Only for cut-off names|2=Names and file info|3=File info only" label:"Tooltips in file lists"`
+	Show      int  `ini:"Configuration:Win32TipWindow" def:"1" min:"0" max:"3" opts:"0=Off|1=Only for cut-off names|2=Names and file info|3=File info only" label:"Tooltips in file lists"`
 	DelayMs   int  `ini:"Configuration:TooltipDelay" def:"700" min:"0" max:"10000" label:"Tooltip delay (ms)"`
 	ByType    bool `ini:"Configuration:TooltipsByType" def:"1" label:"Use per-type tooltip fields"`
 	ShowOnNet bool `ini:"Configuration:TooltipsOnNet" def:"0" label:"Tooltips for network files"`

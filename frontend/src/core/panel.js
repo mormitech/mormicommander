@@ -261,7 +261,7 @@ export class Panel {
     const show = this.app.showHidden;
     // system files (Windows) count as hidden, unless Options > Display > Show system files is on
     const sys = this.app.config?.values?.['Display.ShowSystem'] === '1';
-    const list = this.all.filter((e) => (show || !(e.hidden || (!sys && e.flags & F.SYSTEM))) && (!this.filter || this.filter(e)));
+    const list = this.all.filter((e) => (show || !(e.hidden || (!sys && e.flags & F.SYSTEM))) && (!this.filter || this.filter(e)) && !Panel.hideHooks.some((h) => h(this, e)));
     for (const e of list) e.dirSize = e.dir ? this.dirSizes.get(e.name) : undefined;
     if (this.parent) list.push(UP);
     else if (this.path && !/^[a-z][a-z0-9+.-]*:\/\//i.test(this.path) && this.app.config?.values?.['Display.ShowParentInRoot'] === '1') list.push(UP_ROOT);
@@ -508,7 +508,7 @@ export class Panel {
       const dos = display.longNames === false && !e.up; // Options > Display > Show long names off: 8.3 names
       if (dos) { const d = dosName(e.name, e.dir); const k = d.lastIndexOf('.'); name = e.dir || !sep || k < 0 ? d : d.slice(0, k); }
       const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
-      const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
+      const tip = Panel.tipAttr(this, e, name.length > 28);
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
       html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
@@ -584,6 +584,14 @@ Panel.pathHooks = [];
 // hook(panel, path) when go starts for such a folder: the panel then goes there at once and shows "Connecting…" inside
 // until it is read (features/network.js), instead of fading the folder it was in.
 Panel.quietLoadHooks = [];
+
+// Features that leave entries out of every list (the ignore list: features/config/listopts.js) add hook(panel, entry)
+// → true to hide it. Unlike the panel's filter, they stay through folder changes and filters.
+Panel.hideHooks = [];
+
+// tipAttr is the tooltip attribute of a row's name: by default the whole name when it may be cut off (cut: a hint
+// from the renderer). features/config/listopts.js replaces it to follow Options > Tooltips.
+Panel.tipAttr = (panel, e, cut) => (cut ? ` title="${esc(e.name)}"` : '');
 
 // Features that mark rows (cut files are dimmed until pasted) add a class: hook(panel, entry) → class name or ''.
 // extraRowClass joins what the hooks return, with a leading space, for the row renderers (here and views.js).

@@ -342,7 +342,7 @@ function render(side) {
   bar.classList.toggle('mc-tabs-x', !!tabOpt('closeButton'));
   placeBar(p, !!tabOpt('bottom'));
   bar.setAttribute('role', 'tablist');
-  bar.innerHTML = s.tabs.map((t, i) => `<div class="mc-tabs-tab${i === s.active ? ' on' : ''}${t.lock ? ' locked' : ''}" role="tab" aria-selected="${i === s.active}" draggable="true" data-i="${i}" title="${esc(tabPath(p, t))}${t.lock === LOCK_FULL ? ' (locked)' : t.lock === LOCK_DIRS ? ' (locked, folder changes allowed)' : ''}"><span class="mc-tabs-cap">${esc(tabCaption(p, t))}</span>${s.tabs.length > 1 ? '<button type="button" class="mc-tabs-close" tabindex="-1" aria-label="Close tab" title="Close tab">×</button>' : ''}</div>`).join('')
+  bar.innerHTML = s.tabs.map((t, i) => `<div class="mc-tabs-tab${i === s.active ? ' on' : ''}${t.lock ? ' locked' : ''}" role="tab" aria-selected="${i === s.active}" draggable="true" data-i="${i}" data-drop-path="${esc(tabPath(p, t))}" title="${esc(tabPath(p, t))}${t.lock === LOCK_FULL ? ' (locked)' : t.lock === LOCK_DIRS ? ' (locked, folder changes allowed)' : ''}"><span class="mc-tabs-cap">${esc(tabCaption(p, t))}</span>${s.tabs.length > 1 ? '<button type="button" class="mc-tabs-close" tabindex="-1" aria-label="Close tab" title="Close tab">×</button>' : ''}</div>`).join('')
     + '<button type="button" class="mc-tabs-fav" tabindex="-1" title="Favourite tabs" aria-label="Favourite tabs">☆</button>';
   bar.querySelector('.mc-tabs-tab.on')?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' });
 }

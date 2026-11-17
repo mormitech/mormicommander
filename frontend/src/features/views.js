@@ -146,7 +146,7 @@ function renderBrief(p) {
       const i = c * g.rows + r;
       if (i >= p.entries.length) break;
       const e = p.entries[i];
-      const tip = ` title="${esc(e.name)}"`;
+      const tip = Panel.tipAttr(p, e, true);
       html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(shownName(e, e.name, display))}</b></span></div>`;
     }
   }
@@ -202,7 +202,7 @@ function renderColumns(p) {
   for (let i = first; i < last; i++) {
     const e = p.entries[i];
     const name = def.ext ? (e.dir ? e.name : e.base) : e.name;
-    const tip = name.length > 28 ? ` title="${esc(e.name)}"` : '';
+    const tip = Panel.tipAttr(p, e, name.length > 28);
     let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n"><i class="ic"></i><b${tip}>${esc(shownName(e, name, display))}</b></span>`;
     if (def.ext) row += `<span class="e">${esc(e.ext)}</span>`;
     let c = cells?.get(e.name);

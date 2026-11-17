@@ -98,7 +98,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-037 Rename tab — — — user can give a tab a custom caption; caption persists
 - [ ] F-038 Duplicate tab / move tab to other panel — — — tab duplicates or moves; tab state (sort, view) is kept
 - [~] F-039 Reorder tabs by dragging — — — dragging a tab header changes order; dropping on other panel's tab bar moves it
-- [ ] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder — audit #103: not built: tab headers take dragged tabs only (reorder, F-039); files dropped there are not copied into the tab's folder (system-dnd.js would need data-drop-path on tabs)
+- [~] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder — audit #103: not built: tab headers take dragged tabs only (reorder, F-039); files dropped there are not copied into the tab's folder (system-dnd.js would need data-drop-path on tabs) — 0.14.22: files dragged onto a tab header are copied (Shift: moved) into that tab's folder, as onto a folder
 - [~] F-041 Double-click on tab bar empty area opens new tab; double-click on tab closes it (option) — — — behaviour matches Configuration > Folder tabs settings
 - [~] F-042 Middle-click tab closes it — — — middle-click closes the tab
 - [ ] F-043 Save tabs to file / load tabs from file (cm_SaveTabs / cm_LoadTabs) — — — tabs of a panel are written to a .tab-style file and can be restored
@@ -180,14 +180,14 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-102 Show ".." entry in every folder (option) — — — ".." line present at top of list unless turned off — 0.14.21: Options > Display > Show .. in root folders; that ".." opens the drive list
 - [ ] F-103 Show hidden files greyed / with ghost icon — — — hidden files are visually dimmed when shown
 - [ ] F-104 Horizontal scrolling in Full view when columns exceed width — — — horizontal scrollbar appears; no layout break
-- [ ] F-105 Long file name ellipsis and tooltip with full name — — — truncated names end with "..."; hover tooltip shows full name (data-tip tooltip style)
-- [ ] F-106 Hint tooltip with file info on hover (option) — — — hovering a file shows size, dates, type after a delay
+- [~] F-105 Long file name ellipsis and tooltip with full name — — — truncated names end with "..."; hover tooltip shows full name (data-tip tooltip style) — 0.14.22: with Options > Tooltips at "only for cut-off names" a name shows its tooltip only when it does not fit
+- [~] F-106 Hint tooltip with file info on hover (option) — — — hovering a file shows size, dates, type after a delay — 0.14.22: Options > Tooltips: names and file info (size, date, kind) after the option's delay; off by default so the lists look as before
 - [ ] F-784 Quick view with the built-in viewer only (cm_SrcQuickInternalOnly) — — — quick view shows text/hex with the built-in viewer, skipping image/media viewers
 - [ ] F-785 View modes (cm_SrcViewModeList, Configuration > Display > View modes) — — — a view mode bundles column set, icons, colors and font; can switch on its own by folder or file-type rules; Show menu lists them — audit #103: not built: no view modes (column set + icons + colors + font); column sets can switch by folder (F-668), and the ViewModes options have no effect yet
 - [~] F-786 Left / right / target variants of view, sort and filter commands (cm_LeftShort, cm_RightLong, cm_TrgThumbs, cm_LeftByName, cm_RightAllFiles, ...) — — — each variant acts only on the named panel; all appear in the command browser — 0.14.21: Left / Right / Trg variants of All files, Programs, Custom filter, Define custom filter, Quick view and Quick view built-in only, and cm_TrgOpenDrives
 - [ ] F-787 Toggle overlay icons and 'folders always by name' (cm_SwitchOverlayIcons, cm_SwitchDirSort) — — — each command changes the panel at once and the menu shows its state
-- [ ] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle
-- [ ] F-789 Custom tooltips per file type (Configuration > Display > Tooltips) — — — hovering e.g. an image shows the fields set for images (size, date, image size)
+- [~] F-788 Toggle ignore list on/off (cm_SwitchIgnoreList) — — — ignored files show up, and hide again on the next toggle — 0.14.22: cm_SwitchIgnoreList and Options > Ignore list hide the masks of the ignore file in every panel
+- [~] F-789 Custom tooltips per file type (Configuration > Display > Tooltips) — — — hovering e.g. an image shows the fields set for images (size, date, image size) — 0.14.22: per-type fields add the kind of entry, and for images the picture size
 
 ## 5. Sorting
 

@@ -9,6 +9,7 @@ import { messageDialog } from '../../core/dialogs.js';
 import { addMenuItems } from '../../core/menus.js';
 import { setDisplay } from '../../core/format.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
+import { applyIgnoreList } from './listopts.js';
 
 // Layout option → body class that hides an element (see config.css).
 const HIDE = {
@@ -204,6 +205,7 @@ export function applyAll(startTheme) {
   applyDisplay();
   syncHidden();
   title();
+  applyIgnoreList();
 }
 
 // ---- cm_Vis* toggles ----
