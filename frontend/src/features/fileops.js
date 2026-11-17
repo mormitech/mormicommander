@@ -188,6 +188,11 @@ function copyDialog(app, { move, same, items }) {
     select = items.length === 1 && !e.dir && e.ext ? [0, e.base.length] : [0, initial.length];
   } else {
     initial = withSep(app, dst.path);
+    // Options > FTP > Default download folder: copying from a server while the other panel is not a folder on this
+    // computer (another server, an archive) offers that folder instead
+    const dl = String(app.config?.values?.['FTP.DownloadDir'] ?? '').trim();
+    const remote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
+    if (dl && remote(src.path) && remote(dst.path)) initial = withSep(app, dl);
     select = [0, initial.length];
   }
   const ch = (id, label, on, title = '') => `<label class="mc-check"${title ? ` title="${esc(title)}"` : ''}><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${esc(label)}</label>`;

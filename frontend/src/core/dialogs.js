@@ -20,6 +20,7 @@
 //   await formDialog(title, html, read, setup) → what read(box) returns, or null
 //   infoDialog(html) → a box with a close button
 
+import { tr } from './i18n.js';
 import './dialogs.css';
 import { waitForUser } from './busy.js';
 import { getSetting } from './settings.js';
@@ -268,12 +269,12 @@ export function messageDialog(o) {
   const buttons = o.Buttons?.length ? o.Buttons : ['OK'];
   const cancel = o.CancelButton || (buttons.includes('Cancel') ? 'Cancel' : buttons.includes('No') ? 'No' : buttons.at(-1));
   return modal((box, done) => {
-    box.innerHTML = `<h2>${esc(o.Title)}</h2><p class="mc-msg">${esc(o.Message).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
+    box.innerHTML = `<h2>${esc(tr(o.Title))}</h2><p class="mc-msg">${esc(o.Message).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
     const row = box.querySelector('.mc-btns');
     for (const b of buttons) {
       const el = document.createElement('button');
       el.type = 'button';
-      el.textContent = b;
+      el.textContent = tr(b);
       if (b === (o.DefaultButton || buttons[0])) el.className = 'primary';
       if (o.Danger && b === (o.DefaultButton || buttons[0])) el.classList.add('danger');
       el.onclick = () => done(b);

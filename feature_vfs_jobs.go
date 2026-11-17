@@ -252,6 +252,7 @@ func (job *vfsJob) password() vfsPasswordFunc {
 func (job *vfsJob) run() {
 	defer job.cancel()
 	var err error
+	archiveOptions() // (Options > Zip and Packer: levels, names, times, tar owners)
 	switch job.req.Kind {
 	case "copy", "move":
 		err = job.runCopy()
@@ -1241,6 +1242,12 @@ func (job *vfsJob) runTest() error {
 		files, problems, err := vfsTest(job.ctx, file, job.password(), job.progressFn())
 		if job.ctx.Err() != nil {
 			return nil
+		}
+		// a RAR the built-in reader could not read is tested with unrar when there is one (Options > Plugins)
+		if err != nil && strings.EqualFold(filepath.Ext(file), ".rar") {
+			if up, ok := unrarTest(job.ctx, file, job.req.Password); ok {
+				err, problems = nil, up
+			}
 		}
 		if err != nil {
 			problems = append(problems, vfsSentence(err))

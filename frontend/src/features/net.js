@@ -501,7 +501,8 @@ async function askOverwrite(p) {
 async function askOverwriteNow(p, c, name) {
   const buttons = Object.keys(JOB_BUTTONS).filter((b) => c.canResume || !b.startsWith('Resume'));
   const msg = `${name} is already in the target folder.\n\nNew: ${size(c.srcSize)}, ${date(c.srcTime)}\nThere: ${size(c.dstSize)}, ${date(c.dstTime)}${c.canResume ? '\n\nThe file there is shorter: "Resume" copies only the rest.' : ''}`;
-  const b = await messageDialog({ Title: 'Overwrite?', Message: msg, Buttons: buttons, DefaultButton: c.canResume ? 'Resume' : 'Overwrite', CancelButton: 'Cancel', Kind: 'net-overwrite' });
+  // (Options > FTP > Resume interrupted downloads: Resume is the answer Enter gives when the file there is shorter)
+  const b = await messageDialog({ Title: 'Overwrite?', Message: msg, Buttons: buttons, DefaultButton: c.canResume && theApp.config?.values?.['FTP.ResumeDefault'] !== '0' ? 'Resume' : 'Overwrite', CancelButton: 'Cancel', Kind: 'net-overwrite' });
   const a = { choice: JOB_BUTTONS[b] || 'cancel', newName: '' };
   if (a.choice === 'rename') {
     const v = await inputDialog({ title: 'Copy under another name', label: 'New name', value: name, kind: 'rename-target' });

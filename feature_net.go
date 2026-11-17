@@ -257,6 +257,30 @@ func ftpKey(c *ftp.Config) string {
 func (n *Net) configureFTP(c *ftp.Config) error {
 	key := ftpKey(c)
 	o := n.options()
+	// Options > FTP and Options > Proxy (board issue #94): the defaults of every connection; a saved site's own
+	// settings below still win
+	if s, ok := currentSettings(); ok {
+		if !s.FTP.Passive {
+			o.Active = true
+		}
+		o.ShowHidden = o.ShowHidden || s.FTP.ShowHidden
+		if o.Keepalive == 0 && s.FTP.KeepAliveSec > 0 {
+			o.Keepalive = s.FTP.KeepAliveSec
+		}
+		if o.AnonymousPassword == "" && strings.TrimSpace(s.FTP.AnonymousEmail) != "" {
+			o.AnonymousPassword = strings.TrimSpace(s.FTP.AnonymousEmail)
+		}
+		if s.FTP.TimeoutSec > 0 {
+			c.Timeout = time.Duration(s.FTP.TimeoutSec) * time.Second
+		}
+		c.Retries, c.RetryDelay = s.FTP.Retries, time.Duration(s.FTP.RetryDelaySec)*time.Second
+		if m := strings.Fields(strings.ReplaceAll(s.FTP.AsciiMasks, ";", " ")); len(m) > 0 && len(c.ASCIIMasks) == 0 {
+			c.ASCIIMasks = m
+		}
+		if p := netGlobalProxy(s.Proxy.Type, s.Proxy.Host, s.Proxy.Port, s.Proxy.User); p != nil && c.Proxy == nil {
+			c.Proxy = p
+		}
+	}
 	if o.Active {
 		c.DataMode = ftp.Active
 	}
@@ -921,3 +945,18 @@ func (n *Net) Log(p string) []string {
 
 // IsRemote says whether p is a server URL this feature serves (the page asks before treating a path as local).
 func (n *Net) IsRemote(p string) bool { return netIsRemote(p) }
+
+// netGlobalProxy is the proxy of Options > Proxy for FTP connections that have none of their own: 0 none, 1 HTTP
+// CONNECT, 2 SOCKS4, 3 SOCKS5, 4 USER@host. nil when there is none (or no host). The password is asked by the
+// connection when the proxy wants one.
+func netGlobalProxy(kind int, host string, port int, user string) *ftp.Proxy {
+	host = strings.TrimSpace(host)
+	if kind <= 0 || host == "" {
+		return nil
+	}
+	t := map[int]ftp.ProxyType{1: ftp.ProxyHTTP, 2: ftp.ProxySOCKS4, 3: ftp.ProxySOCKS5, 4: ftp.ProxyFTPUserAtHost}[kind]
+	if t == ftp.ProxyNone {
+		return nil
+	}
+	return &ftp.Proxy{Type: t, Host: host, Port: port, User: strings.TrimSpace(user)}
+}

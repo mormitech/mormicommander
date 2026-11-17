@@ -26,7 +26,12 @@ func TestNoEffectMarkOnFields(t *testing.T) {
 	if marked != len(noEffect) {
 		t.Errorf("%d fields marked, %d names listed", marked, len(noEffect))
 	}
-	if !HasNoEffect("Layout.MenuBar") || HasNoEffect("Display.ShowHidden") || HasNoEffect("No.Such") {
+	for name := range noEffect {
+		if !HasNoEffect(name) {
+			t.Errorf("HasNoEffect(%q) = false for a listed option", name)
+		}
+	}
+	if HasNoEffect("Display.ShowHidden") || HasNoEffect("No.Such") {
 		t.Error("HasNoEffect gives the wrong answer")
 	}
 	if HasNoEffect("Misc.HideNoEffect") {
@@ -36,7 +41,7 @@ func TestNoEffectMarkOnFields(t *testing.T) {
 
 func TestNoEffectOptionsStillLoadAndSave(t *testing.T) {
 	f := NewFile()
-	f.Set("Configuration", "ShowSystemFiles", "1") // Display.ShowSystem, marked
+	f.Set("Configuration", "ShowSystemFiles", "1") // Display.ShowSystem (marked until 0.14.21; loading and saving never cared)
 	f.Set("Configuration", "HideOptionsWithoutEffect", "1")
 	s, warn := LoadSettings(f)
 	if len(warn) > 0 {

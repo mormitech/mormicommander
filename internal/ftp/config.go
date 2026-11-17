@@ -215,8 +215,11 @@ type Config struct {
 	ServerLocation *time.Location
 	TimeOffset     time.Duration
 
-	Timeout   time.Duration // connect and per-reply timeout; default 30s
-	Keepalive time.Duration // send NOOP after this much idle time; 0 = off
+	Timeout time.Duration // connect and per-reply timeout; default 30s
+	// Retries is how many more times a connection that could not be made is tried, RetryDelay apart (0: once only).
+	Retries    int
+	RetryDelay time.Duration
+	Keepalive  time.Duration // send NOOP after this much idle time; 0 = off
 
 	Proxy *Proxy // nil means a direct connection
 

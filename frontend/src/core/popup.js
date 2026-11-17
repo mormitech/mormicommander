@@ -22,6 +22,7 @@
 // narrow for it, its start is shortened with "…" and its last name stays whole, and the full path shows as a tooltip,
 // instead of the row being cut at the right edge behind a horizontal scrollbar (issue #95).
 
+import { tr } from './i18n.js';
 import { esc } from './dialogs.js';
 import { waitForUser } from './busy.js';
 import { popupArea } from './overlay.js';
@@ -49,7 +50,7 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
     el.setAttribute('role', 'listbox');
     // items may bring an icon (an SVG, Options > Icons > Icons in menus); then every line gets the room for one
     const icons = items.some((it) => it.icon);
-    el.innerHTML = (title ? `<div class="t">${esc(title)}</div>` : '') + (filter ? '<div class="q" hidden></div>' : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
+    el.innerHTML = (title ? `<div class="t">${esc(tr(title))}</div>` : '') + (filter ? '<div class="q" hidden></div>' : '') + items.map((it, i) => it.sep ? '<div class="sep"></div>'
       : `<div class="it${it.disabled ? ' off' : ''}${it.path ? ' p' : ''}" data-i="${i}" role="option"${it.path ? ` title="${esc(it.label)}"` : ''}>${icons ? `<i class="mi" aria-hidden="true">${it.icon || ''}</i>` : ''}${labelHTML(it)}${it.detail ? `<span class="d">${esc(it.detail)}</span>` : ''}</div>`).join('');
     document.body.append(el);
     let query = filter ? String(startQuery || '') : '';
@@ -149,7 +150,7 @@ export function showList({ title = '', items, anchor = null, index = 0, kind = '
 // labelHTML draws an item's label: a path item as two parts, the start (which CSS may shorten with "…") and the last
 // name (which it never shortens).
 export function labelHTML(it) {
-  if (!it.path) return `<span>${esc(it.label)}</span>`;
+  if (!it.path) return `<span>${esc(tr(it.label))}</span>`;
   const [head, tail] = splitTail(it.label);
   return `<span class="pl"><span class="ph">${esc(head)}</span><span class="pt">${esc(tail)}</span></span>`;
 }

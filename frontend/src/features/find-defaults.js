@@ -12,7 +12,7 @@ export function findDefaults(opt) {
   return {
     searchFor: '*',
     depth: Number.isFinite(depth) ? Math.max(-1, Math.min(99, depth)) : -1,
-    archives: on('FindFiles.Archives', false),
+    archives: on('FindFiles.Archives', false) || on('Packer.SearchInside', false), // (Options > Packer > Find files searches inside archives)
     caseSensitive: on('FindFiles.CaseSensitive', false),
     // "Regular expressions" is for the text search: the name field starts with "*", which is not a regular expression
     textRegex: on('FindFiles.RegEx', false),

@@ -414,13 +414,24 @@ type zipWriter struct {
 	bytes  int64
 }
 
+// DefaultLevel is the compression level of a pack that asks for the default one (Options > Zip > Compression level:
+// 1 fastest … 9 best, 0 stores the files uncompressed). NoZip64 refuses archives that would need ZIP64 (over 4 GB or
+// 65535 entries) instead of writing them (Options > Zip > Allow ZIP64 for big archives off).
+var (
+	DefaultLevel = 6
+	NoZip64      bool
+)
+
 func (w *zipWriter) write(out io.Writer, p *plan, comment *string) error {
 	w.zw = zip.NewWriter(out)
 	w.level = w.opts.Level
 	if w.level <= 0 || w.level > 9 {
-		w.level = 6
+		w.level = DefaultLevel
 	}
-	w.store = w.opts.Method == archive.MethodStore
+	w.store = w.opts.Method == archive.MethodStore || w.level <= 0 || w.level > 9
+	if w.level <= 0 || w.level > 9 {
+		w.level = 6 // (stored: the level is not used)
+	}
 	lvl := w.level
 	w.zw.RegisterCompressor(zip.Deflate, func(o io.Writer) (io.WriteCloser, error) { return flate.NewWriter(o, lvl) })
 
@@ -447,6 +458,17 @@ func (w *zipWriter) write(out io.Writer, p *plan, comment *string) error {
 		case it.kind == planSource && it.src != nil && !it.isDir:
 			total += it.src.Size
 			files++
+		}
+	}
+	if NoZip64 {
+		big := len(p.items) > 0xffff || total > 0xffffffff
+		for _, it := range p.items {
+			if it.kind == planSource && it.src != nil && it.src.Size > 0xffffffff {
+				big = true
+			}
+		}
+		if big {
+			return errors.New("ziparc: this archive would need ZIP64 (more than 4 GB or 65535 entries), which is turned off in Options > Zip")
 		}
 	}
 	w.track = archive.NewTracker("pack", w.opts.Progress, total, files)
@@ -484,7 +506,14 @@ func isASCII(s string) bool {
 	return true
 }
 
+// NoUTF8Names leaves the UTF-8 mark off new names (the program's Options > Zip > Store names as UTF-8 switched off), for
+// old unzip programs that take every name in the system's code page.
+var NoUTF8Names bool
+
 func utf8Flag(flags uint16, texts ...string) uint16 {
+	if NoUTF8Names {
+		return flags &^ flagUTF8
+	}
 	for _, t := range texts {
 		if !isASCII(t) && utf8.ValidString(t) {
 			return flags | flagUTF8

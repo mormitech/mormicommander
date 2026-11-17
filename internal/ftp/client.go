@@ -73,9 +73,20 @@ func Dial(ctx context.Context, cfg Config) (*Client, error) {
 			c.dial = p.DialContext
 		}
 	}
-	dctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
-	conn, err := c.dial(dctx, "tcp", target)
-	cancel()
+	var conn net.Conn
+	var err error
+	for attempt := 0; ; attempt++ {
+		dctx, cancel := context.WithTimeout(ctx, cfg.Timeout)
+		conn, err = c.dial(dctx, "tcp", target)
+		cancel()
+		if err == nil || attempt >= cfg.Retries || ctx.Err() != nil {
+			break
+		}
+		select { // (Config.Retries: the server did not answer; wait, then try again)
+		case <-ctx.Done():
+		case <-time.After(cfg.RetryDelay):
+		}
+	}
 	if err != nil {
 		return nil, fmt.Errorf("ftp: connect to %s: %w", target, err)
 	}

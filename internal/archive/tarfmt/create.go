@@ -86,6 +86,10 @@ type stamp struct {
 }
 
 // collect walks the sources and returns what will be stored, in order.
+// NoOwner leaves the owner, the group and exact permissions out of new tar entries (Options > Packer > Store owner and
+// permissions in tar off): each entry gets plain rights, 755 for folders and programs, 644 for the rest.
+var NoOwner bool
+
 func collect(ctx context.Context, sources []string, opt CreateOptions, skip []fs.FileInfo) ([]item, error) {
 	prefix := cleanName(opt.Prefix)
 	if prefix != "" && !isLocalName(prefix) {
@@ -222,6 +226,16 @@ func (pk *packer) add(it item) error {
 	h, err := tar.FileInfoHeader(it.fi, it.link)
 	if err != nil {
 		return fmt.Errorf("%s: %w", it.src, err)
+	}
+	if NoOwner { // (Options > Packer > Store owner and permissions in tar off)
+		h.Uid, h.Gid, h.Uname, h.Gname = 0, 0, "", ""
+		if h.Typeflag == tar.TypeDir {
+			h.Mode = 0o755
+		} else if h.Mode&0o111 != 0 {
+			h.Mode = 0o755
+		} else {
+			h.Mode = 0o644
+		}
 	}
 	h.Name = it.name
 	h.ModTime = it.fi.ModTime()

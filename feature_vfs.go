@@ -161,7 +161,15 @@ func init() {
 
 // vfsTempDir makes a temporary folder that is removed when the app ends.
 func vfsTempDir(prefix string) (string, error) {
-	d, err := os.MkdirTemp("", "mormicommander-"+prefix+"-")
+	base := ""
+	if s, ok := currentSettings(); ok {
+		if t := strings.TrimSpace(s.Zip.TempDir); t != "" {
+			if fi, err := os.Stat(t); err == nil && fi.IsDir() {
+				base = t // (Options > Zip > Temporary folder)
+			}
+		}
+	}
+	d, err := os.MkdirTemp(base, "mormicommander-"+prefix+"-")
 	if err != nil {
 		return "", fmt.Errorf("Can't make a temporary folder: %v", err)
 	}

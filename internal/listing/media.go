@@ -82,8 +82,35 @@ func LoadImageFacts(it *Item) { loadImage(it) }
 // LoadAudioFacts reads an item's audio tags (ID3, or the Vorbis comments of FLAC and Ogg files) into Item.Extra (keys ExtraTitle ... ExtraGenre), once per item.
 func LoadAudioFacts(it *Item) { loadAudio(it) }
 
+// ExternalImageFacts, when set, is asked for an image's size and date when the built-in readers found neither (camera
+// raw files and other formats they don't know): the program sets it to exiftool when that is configured
+// (Options > Plugins). ok false means it knows nothing either.
+var ExternalImageFacts func(path string) (w, h int, date time.Time, ok bool)
+
 // loadImage reads dimensions and EXIF date once per item.
 func loadImage(it *Item) {
+	done := it.Extra[extraImgDone] != nil
+	loadImageOwn(it)
+	if done || ExternalImageFacts == nil || it.IsDir() || it.Dir == "" {
+		return
+	}
+	_, hasW := it.Extra[ExtraImgWidth]
+	_, hasD := it.Extra[ExtraExifDate]
+	if hasW && hasD {
+		return
+	}
+	if w, h, t, ok := ExternalImageFacts(itemPath(it)); ok {
+		if !hasW && w > 0 && h > 0 {
+			setExtra(it, ExtraImgWidth, int64(w))
+			setExtra(it, ExtraImgHeight, int64(h))
+		}
+		if !hasD && !t.IsZero() {
+			setExtra(it, ExtraExifDate, t)
+		}
+	}
+}
+
+func loadImageOwn(it *Item) {
 	if it.Extra[extraImgDone] != nil || it.IsDir() || it.Dir == "" {
 		return
 	}

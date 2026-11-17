@@ -9,49 +9,9 @@
 
 package config
 
-// noEffect holds the "Page.Field" names of the options with no effect yet.
-var noEffect = map[string]bool{
-	"Language.LanguageFile": true,
-	"Language.UILanguage":   true,
-
-	"FTP.Passive":        true,
-	"FTP.ShowHidden":     true,
-	"FTP.TimeoutSec":     true,
-	"FTP.Retries":        true,
-	"FTP.RetryDelaySec":  true,
-	"FTP.DownloadDir":    true,
-	"FTP.AnonymousEmail": true,
-	"FTP.KeepAliveSec":   true,
-	"FTP.AsciiMasks":     true,
-	"FTP.ResumeDefault":  true,
-
-	"Proxy.Type": true,
-	"Proxy.Host": true,
-	"Proxy.Port": true,
-	"Proxy.User": true,
-
-	"Plugins.UseExternalTools": true,
-	"Plugins.SevenZipPath":     true,
-	"Plugins.UnrarPath":        true,
-	"Plugins.ExifToolPath":     true,
-	"Plugins.FFprobePath":      true,
-
-	"Packer.InternalZip":    true,
-	"Packer.ExternalZip":    true,
-	"Packer.TarOwner":       true,
-	"Packer.MoveToArchive":  true,
-	"Packer.SeparateFiles":  true,
-	"Packer.ArchiveSubdirs": true,
-	"Packer.OpenFolderLike": true,
-	"Packer.SearchInside":   true,
-
-	"Zip.Level":     true,
-	"Zip.UTF8Names": true,
-	"Zip.SetTimes":  true,
-	"Zip.TempDir":   true,
-	"Zip.AES":       true,
-	"Zip.Zip64":     true,
-}
+// noEffect holds the "Page.Field" names of the options with no effect yet. Since 0.14.27 every option has its effect,
+// so the list is empty; an option added before its feature goes here until the feature is there.
+var noEffect = map[string]bool{}
 
 // HasNoEffect says whether the program does not act on the option yet.
 func HasNoEffect(name string) bool {

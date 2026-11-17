@@ -6,7 +6,9 @@
 import { command, getCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { messageDialog } from '../../core/dialogs.js';
-import { addMenuItems, setCustomMenus } from '../../core/menus.js';
+import { addMenuItems, setCustomMenus, refreshMenu } from '../../core/menus.js';
+import { setTranslations } from '../../core/i18n.js';
+import { renderFkeys } from '../../core/fkeys.js';
 import { setDisplay } from '../../core/format.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 import { applyIgnoreList } from './listopts.js';
@@ -243,7 +245,19 @@ async function loadMainMenu() {
   }
 }
 
+// loadLanguage reads Options > Language (the language file and the interface language) and redraws what is translated.
+let langKey = null;
+async function loadLanguage() {
+  const key = `${opt('Language.LanguageFile').trim()}|${opt('Language.UILanguage').trim()}`;
+  if (key === langKey) return;
+  langKey = key;
+  try { setTranslations(await go.Configuration.Language()); } catch (e) { setTranslations(null); app?.flash(String(e?.message ?? e), 'err'); }
+  refreshMenu();
+  renderFkeys();
+}
+
 export function applyAll(startTheme) {
+  loadLanguage();
   loadMainMenu();
   applyIcons();
   applyLayout();

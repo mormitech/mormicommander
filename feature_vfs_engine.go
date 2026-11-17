@@ -324,6 +324,11 @@ func vfsPackers() []vfsPacker {
 
 // vfsSevenZip is the installed 7-Zip program, or "".
 func vfsSevenZip() string {
+	if p, configured, off := pluginTool(func(z, _, _, _ string) string { return z }); off {
+		return "" // (Options > Plugins > Use configured external tools off)
+	} else if configured {
+		return p // (Options > Plugins > 7-Zip program)
+	}
 	for _, n := range []string{"7zz", "7z", "7za"} {
 		if p, err := exec.LookPath(n); err == nil {
 			return p
@@ -390,6 +395,11 @@ func vfsPack(ctx context.Context, target string, sources []string, o vfsPackOpts
 		}
 		if eng != want {
 			return fmt.Errorf("%s is already there and is not a %s archive, so nothing can be added to it.", filepath.Base(target), pk.Label)
+		}
+	}
+	if pk.Name == "zip" && o.Password == "" && o.VolumeSize == 0 {
+		if exe := externalZip(); exe != "" {
+			return packExternalZip(ctx, exe, target, sources, o)
 		}
 	}
 	progress := func(p archive.Progress) {

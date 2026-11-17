@@ -251,7 +251,9 @@ func Extract(ctx context.Context, a Archive, opts ExtractOptions) (ExtractResult
 	// updates its modification time.
 	sort.Slice(dirTimes, func(i, j int) bool { return len(dirTimes[i].path) > len(dirTimes[j].path) })
 	for _, d := range dirTimes {
-		_ = os.Chtimes(d.path, d.t, d.t)
+		if !arcapi.NoFileTimes {
+			_ = os.Chtimes(d.path, d.t, d.t)
+		}
 	}
 	return res, nil
 }
@@ -395,7 +397,7 @@ func applyMeta(target string, e Entry) {
 	}
 	_ = os.Chmod(target, perm)
 	setDOSAttrs(target, e.DOSAttrs)
-	if !e.ModTime.IsZero() {
+	if !e.ModTime.IsZero() && !arcapi.NoFileTimes {
 		_ = os.Chtimes(target, e.ModTime, e.ModTime)
 	}
 }

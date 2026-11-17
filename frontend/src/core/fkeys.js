@@ -2,6 +2,7 @@
 // key runs (so a changed key changes the button too), and while Shift, Alt or Ctrl is held the buttons show the shifted
 // commands, as Total Commander does. A button whose command no feature implements yet is dimmed; clicking it says so.
 
+import { tr } from './i18n.js';
 import { commandForKey, getCommand, onChange } from './registry.js';
 import { onModifiers } from './keyboard.js';
 import { app, LABELS } from './app.js';
@@ -34,7 +35,7 @@ export function renderFkeys() {
   bar.innerHTML = keys.map((combo) => {
     const name = commandForKey(combo);
     const c = name && getCommand(name);
-    const text = c?.short || SHORT[name] || (c?.label || LABELS[name] || '').replace(/…$/, '') || '';
+    const text = tr(c?.short || SHORT[name] || (c?.label || LABELS[name] || '').replace(/…$/, '') || '');
     const keyText = app.platform === 'darwin' ? combo.replace('Alt+', '⌥').replace('Ctrl+', '⌃').replace('Shift+', '⇧').replace('Cmd+', '⌘') : combo;
     return `<button type="button" data-cmd="${esc(name || '')}" data-key="${esc(combo)}" class="${c ? '' : 'missing'}" ${name ? '' : 'disabled'} title="${esc(text)} (${esc(combo)})"><kbd>${esc(keyText)}</kbd>${esc(text)}</button>`;
   }).join('');

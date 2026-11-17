@@ -295,6 +295,11 @@ func (l *limitedWriter) Write(p []byte) (int, error) {
 // ffmpegPath finds ffmpeg or ffprobe: on the PATH, or where Homebrew and the usual installers put it (an app started
 // from the Dock has a short PATH on macOS). "" when it is not installed.
 func ffmpegPath(name string) string {
+	if p, found, off := ffmpegConfigured(name); off {
+		return "" // (Options > Plugins > Use configured external tools off)
+	} else if found {
+		return p
+	}
 	ffOnce.Do(func() { ffFound = map[string]string{} })
 	ffMu.Lock()
 	defer ffMu.Unlock()

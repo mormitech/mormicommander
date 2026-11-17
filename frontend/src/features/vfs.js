@@ -61,6 +61,8 @@ async function updateInfo(p) {
 async function openArchive(panel, entry, path, opts = {}) {
   if (entry.dir) return false;
   if (!opts.intoArchive && optNum('Operation.ArchiveEnter', 0) === 1) return false;
+  // Options > Packer > Treat archives like folders off: Enter gives archives to their program; Ctrl+PgDn still opens them
+  if (!opts.intoArchive && theApp.config?.values?.['Packer.OpenFolderLike'] === '0') return false;
   if (!(await go.FS.IsArchive(entry.name).catch(() => false))) return false;
   await panel.go(path);
   return true;
@@ -182,10 +184,14 @@ async function pack(app, args = {}) {
   const sources = items.map((e) => p.fullPath(e.name));
   const list = await packers();
   const saved = app.setting('packer', {});
+  // Options > Packer and Zip: Move to archive / One archive per file / Include subfolders by default, and AES-256 (off:
+  // ZipCrypto) as the encryption a new archive starts with; what the dialog chose last time still wins
+  const ov = (k, d) => app.config?.values?.[k] ?? d;
   const req = {
     kind: 'pack', sources, format: args.format || saved.format || 'zip', level: args.level ?? saved.level ?? 0,
-    noPaths: args.noPaths ?? saved.noPaths ?? false, noRecurse: args.noRecurse ?? saved.noRecurse ?? false,
-    move: !!(args.move), separate: !!args.separate, password: args.password || '', encryption: args.encryption || saved.encryption || 'aes256',
+    noPaths: args.noPaths ?? saved.noPaths ?? false, noRecurse: args.noRecurse ?? saved.noRecurse ?? ov('Packer.ArchiveSubdirs', '1') === '0',
+    move: args.move ?? ov('Packer.MoveToArchive', '0') === '1', separate: args.separate ?? ov('Packer.SeparateFiles', '0') === '1', password: args.password || '',
+    encryption: args.encryption || saved.encryption || (ov('Zip.AES', '1') === '0' ? 'zipcrypto' : 'aes256'),
     volumeSize: args.volumeSize || 0,
   };
   let pk = list.find((x) => x.name === req.format && x.available) || list[0];

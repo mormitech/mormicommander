@@ -19,6 +19,11 @@ import (
 	"time"
 )
 
+// NoFileTimes leaves unpacked files and folders with the time they were written instead of the times stored in the
+// archive (the program's Options > Zip > Keep original file times when unpacking switched off). Every format's
+// unpacker reads it.
+var NoFileTimes bool
+
 // Entry describes one item stored in an archive. Path always uses forward
 // slashes, has no leading "./" or "/" and no trailing slash, so it can be
 // compared and split the same way on every operating system. Size is the

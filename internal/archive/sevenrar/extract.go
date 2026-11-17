@@ -608,7 +608,7 @@ func (x *extractor) applyMeta(p string, e Entry, dir bool) {
 		}
 		_ = os.Chmod(p, perm)
 	}
-	if !x.opts.NoTimes && !e.ModTime.IsZero() {
+	if !x.opts.NoTimes && !arcapi.NoFileTimes && !e.ModTime.IsZero() {
 		_ = os.Chtimes(p, e.ModTime, e.ModTime)
 	}
 }

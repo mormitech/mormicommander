@@ -420,7 +420,9 @@ func (x *extractor) writeFile(rel string, e archive.Entry, src io.Reader, atime 
 		if atime.IsZero() {
 			atime = e.ModTime
 		}
-		_ = x.root.Chtimes(local(tmp), atime, e.ModTime)
+		if !archive.NoFileTimes {
+			_ = x.root.Chtimes(local(tmp), atime, e.ModTime)
+		}
 	}
 	if err := x.root.Rename(local(tmp), local(rel)); err != nil {
 		// Windows refuses to replace a read-only file; make it writable
@@ -643,7 +645,9 @@ func (x *extractor) finishDirs() {
 			if at.IsZero() {
 				at = m.mtime
 			}
-			_ = x.root.Chtimes(local(rel), at, m.mtime)
+			if !archive.NoFileTimes {
+				_ = x.root.Chtimes(local(rel), at, m.mtime)
+			}
 		}
 	}
 }

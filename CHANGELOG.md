@@ -6,6 +6,28 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.27 – 2026-11-17
+
+### Changed
+
+- **Every option of the Options dialog now works** (board issue #94): the last ones are wired, each keeping today's
+  behaviour at its default, and none is marked "no effect yet" any more.
+  - FTP: passive mode, hidden files, timeout, retries and the delay between them, keep-alive, the anonymous e-mail,
+    the files sent in text mode, the default download folder (offered when copying from a server to another server or
+    an archive) and Resume as the default answer for a shorter file. A saved connection's own settings still win.
+  - Proxy: a proxy (HTTP CONNECT, SOCKS4, SOCKS5 or USER@host) for FTP connections that have none of their own.
+  - Plugins: the 7-Zip, unrar, exiftool and ffprobe programs (ffmpeg is looked for next to ffprobe), and "Use
+    configured external tools" off starts none of them. unrar tests RAR archives the built-in reader can't read;
+    exiftool gives picture sizes and dates for the columns and Multi-rename when the built-in readers know nothing.
+  - Packer: an external zip program instead of the internal packer, owner and permissions in tar, Move to archive, one
+    archive per file and Include subfolders as the Pack dialog's defaults, Treat archives like folders (off: Enter
+    opens them with their program) and searching inside archives in new Find files searches.
+  - Zip: the compression level of "Default" (0 stores), UTF-8 names, file times when unpacking, the temporary folder,
+    AES-256 or ZipCrypto for new encrypted archives, and ZIP64 (off refuses archives over 4 GB or 65535 entries).
+  - Language: a language file of "English text=Translated text" lines (optionally in sections like [hu], chosen by
+    the interface language) translates the menu bar, the function keys, the popup lists and the dialogs' titles and
+    buttons.
+
 ## 0.14.26 – 2026-11-17
 
 ### Changed

@@ -10,6 +10,7 @@ import { go, on } from './go.js';
 import { commandList, getCommand, hasCommand, onChange } from './registry.js';
 import { app, LABELS } from './app.js';
 import { menuLabel } from './hidden.js';
+import { tr } from './i18n.js';
 
 // [label, command] or '-' for a separator or [label, [items]] for a submenu.
 export const MENUS = [
@@ -85,9 +86,9 @@ function toSpec(items) {
   for (const it of items) {
     if (it === '-') { out.push({ sep: true }); continue; }
     const [label, x] = it;
-    if (Array.isArray(x)) { out.push({ label, items: toSpec(x) }); continue; }
+    if (Array.isArray(x)) { out.push({ label: tr(label), items: toSpec(x) }); continue; }
     const c = getCommand(x);
-    let text = label === '__REVEAL__' ? REVEAL[app.platform] || REVEAL.linux : label;
+    let text = tr(label === '__REVEAL__' ? REVEAL[app.platform] || REVEAL.linux : label);
     // a command with menuKey shows its key in the label ("Hidden files (Ctrl+H)"): native menu items carry no
     // shortcuts of their own (menu.go), so this is the only way the menu tells the key.
     if (c?.menuKey) text = menuLabel(text, app.keyLabel(x));
@@ -129,7 +130,7 @@ export function menuSpec() {
     try { items = p.fn() || []; } catch (e) { console.error(e); }
     if (m && items.length) m[1].push(...items);
   }
-  return menus.map(([label, items]) => ({ label, items: toSpec(items) }));
+  return menus.map(([label, items]) => ({ label: tr(label), items: toSpec(items) }));
 }
 
 let timer = 0;

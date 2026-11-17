@@ -115,3 +115,47 @@ func (c *Configuration) MainMenu() ([]configMenuItem, error) {
 	}
 	return conv(items), nil
 }
+
+// Language is the translation table of Options > Language: the lines "English text=Translated text" of the language
+// file, those outside any section and those in the section named like the interface language ("[hu]"). Empty when
+// no file is set; an error when it can't be read.
+func (c *Configuration) Language() (map[string]string, error) {
+	cfg, err := c.get()
+	if err != nil {
+		return nil, err
+	}
+	name := strings.TrimSpace(cfg.Settings.Language.LanguageFile)
+	lang := strings.ToLower(strings.TrimSpace(cfg.Settings.Language.UILanguage))
+	path := ""
+	if name != "" {
+		path = cfg.Path(name)
+	}
+	c.mu.Unlock()
+	out := map[string]string{}
+	if path == "" {
+		return out, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("The language file %s can't be read: %v", path, err)
+	}
+	text, _ := config.Decode(data, config.EncCP1252)
+	section := ""
+	for _, line := range strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line[0] == ';' || line[0] == '#' {
+			continue
+		}
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			section = strings.ToLower(strings.TrimSpace(line[1 : len(line)-1]))
+			continue
+		}
+		if section != "" && section != lang {
+			continue
+		}
+		if k, v, ok := strings.Cut(line, "="); ok && strings.TrimSpace(k) != "" {
+			out[strings.TrimSpace(k)] = strings.TrimSpace(v)
+		}
+	}
+	return out, nil
+}
