@@ -16,6 +16,7 @@ import { esc } from './dialogs.js';
 import { hiddenMarkHTML } from './hidden.js';
 import { historyFocus } from './histfocus.js';
 import { attachMiddlePan } from './midpan.js';
+import { attachPathComplete } from './pathcomplete.js';
 
 // The columns of the Full view: id, title, extra class. Sort commands per column live in the sorting feature.
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
@@ -441,6 +442,7 @@ export class Panel {
     input.setAttribute('aria-label', 'Folder');
     crumbs.hidden = true;
     pathbar.insertBefore(input, crumbs);
+    attachPathComplete(input, () => this.path); // (folder names complete as they are typed, F-782)
     input.focus();
     input.select();
     let closed = false;

@@ -6,6 +6,16 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.28 – 2026-11-17
+
+### Added
+
+- **Folder names complete as they are typed** in the path bar, the copy and move dialog's target and Find files'
+  "Search in": the first matching folder is filled in after the caret, selected, so typing on replaces it; Tab or
+  Right takes it.
+- **Alt+F4 and the close button can minimise** (Options > Operation, off by default); Files > Quit still quits. With
+  "Minimise to tray / menu bar" on, they hide the window to the icon.
+
 ## 0.14.27 – 2026-11-17
 
 ### Changed

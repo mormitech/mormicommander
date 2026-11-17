@@ -19,6 +19,7 @@
 // Other features add tabs after Load/Save with addFindTab (the AI tab, find-ai.js, issue #146) and run searches in
 // the open dialog through findDialog, so their results land in the same list as a search started by hand.
 
+import { attachPathComplete } from '../core/pathcomplete.js';
 import './find.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
@@ -753,6 +754,7 @@ async function openDialog(app, args = {}) {
     S.done = done;
     box.classList.add('mc-find');
     box.innerHTML = html(setup);
+    attachPathComplete(box.querySelector('#ff-in'), () => app.cur?.path || ''); // (folder names complete, F-782)
     // fields
     if (resume) fill(resume, { keepIn: false });
     else {

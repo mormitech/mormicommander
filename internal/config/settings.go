@@ -156,18 +156,21 @@ type LanguagePage struct {
 
 // OperationPage: general behaviour (F-419).
 type OperationPage struct {
-	OnlyOnce          bool `ini:"Configuration:onlyonce" def:"0" label:"Allow only one copy of the program"`
-	MouseMode         int  `ini:"Configuration:Mouse" def:"1" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
-	MarkDirectories   bool `ini:"Configuration:MarkDirectories" def:"0" label:"Num+ also selects folders"`
-	SpaceCalcSize     bool `ini:"Configuration:SpaceCalcSize" def:"1" label:"Space calculates folder size"`
-	AlwaysToRoot      bool `ini:"Configuration:AlwaysToRoot" def:"0" label:"Go to root when changing drive"`
-	ArchiveEnter      int  `ini:"Configuration:ArchiveEnter" def:"0" min:"0" max:"1" opts:"0=Open like a folder|1=Open with associated program" label:"Enter on an archive"`
-	SavePath          bool `ini:"Configuration:Savepath" def:"1" label:"Remember folders on exit"`
-	SaveHistory       bool `ini:"Configuration:SaveHistory" def:"1" label:"Remember folder history"`
-	SaveCommands      bool `ini:"Configuration:SaveCommands" def:"1" label:"Remember command line history"`
-	SavePanels        bool `ini:"Configuration:Savepanels" def:"1" label:"Remember panel layout and views"`
-	SaveOnExit        bool `ini:"Configuration:SaveIniOnExit" def:"1" label:"Save settings on exit"`
-	MinimizeToTray    bool `ini:"Configuration:MinimizeToTray" def:"0" label:"Minimise to tray / menu bar"`
+	OnlyOnce        bool `ini:"Configuration:onlyonce" def:"0" label:"Allow only one copy of the program"`
+	MouseMode       int  `ini:"Configuration:Mouse" def:"1" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
+	MarkDirectories bool `ini:"Configuration:MarkDirectories" def:"0" label:"Num+ also selects folders"`
+	SpaceCalcSize   bool `ini:"Configuration:SpaceCalcSize" def:"1" label:"Space calculates folder size"`
+	AlwaysToRoot    bool `ini:"Configuration:AlwaysToRoot" def:"0" label:"Go to root when changing drive"`
+	ArchiveEnter    int  `ini:"Configuration:ArchiveEnter" def:"0" min:"0" max:"1" opts:"0=Open like a folder|1=Open with associated program" label:"Enter on an archive"`
+	SavePath        bool `ini:"Configuration:Savepath" def:"1" label:"Remember folders on exit"`
+	SaveHistory     bool `ini:"Configuration:SaveHistory" def:"1" label:"Remember folder history"`
+	SaveCommands    bool `ini:"Configuration:SaveCommands" def:"1" label:"Remember command line history"`
+	SavePanels      bool `ini:"Configuration:Savepanels" def:"1" label:"Remember panel layout and views"`
+	SaveOnExit      bool `ini:"Configuration:SaveIniOnExit" def:"1" label:"Save settings on exit"`
+	MinimizeToTray  bool `ini:"Configuration:MinimizeToTray" def:"0" label:"Minimise to tray / menu bar"`
+	// MinimizeOnClose (F-771, TC's MinimizeOnClose): Alt+F4 and the window's close button minimise instead of quitting;
+	// Files > Quit still quits.
+	MinimizeOnClose   bool `ini:"Configuration:MinimizeOnClose" def:"0" label:"Alt+F4 and the close button minimise (Files > Quit still quits)"`
 	DoubleClickParent bool `ini:"Configuration:DblClickParent" def:"0" label:"Double click on empty space goes up"`
 	RenameSelectsName bool `ini:"Configuration:RenameSelectName" def:"1" label:"Shift+F6 selects the name without extension"`
 	// CursorRepeat: held Up/Down (and Page Up/Down) keys repeat at the system's rate (0, the default) or faster, at

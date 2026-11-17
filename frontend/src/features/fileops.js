@@ -22,6 +22,7 @@
 //                              end, with Retry failed, Copy list and Save log (board issue #15, core/joberrors.js)
 // Histories: "copyHistory" (copy/move targets) and "mkdirHistory" (F7 names), newest first.
 
+import { attachPathComplete } from '../core/pathcomplete.js';
 import './fileops.css';
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
@@ -203,6 +204,7 @@ function copyDialog(app, { move, same, items }) {
   const journalOn = app.setting('undoJournal', true) !== false;
   return modal((box, done) => {
     box.classList.add('mc-fileops-copy');
+    queueMicrotask(() => { const t = box.querySelector('#target'); if (t) attachPathComplete(t, () => src.path); }); // (F-782)
     box.innerHTML = `<h2>${verb}</h2>
       <div class="mc-row"><label for="target" class="mc-msg">${esc(`${verb} ${describe(items)} to:`)}</label>
         <div class="mc-fileops-field"><input id="target" type="text" spellcheck="false" autofocus value="${esc(initial)}" data-select="${select.join(',')}">

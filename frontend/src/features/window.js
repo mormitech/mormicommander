@@ -2,6 +2,7 @@
 // text size, panels side by side or on top of each other.
 
 import { command } from '../core/registry.js';
+import { addKeyHandler } from '../core/keyboard.js';
 import { go } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
 import { syncSplitter, applySplit } from '../core/splitter.js';
@@ -90,6 +91,12 @@ command({
 
 export function init(app) {
   app.on('active', (p) => { if (solo && p !== solo) endSolo(app); });
+  // Options > Operation > Alt+F4 and the close button minimise (F-771): the key minimises; Files > Quit still quits
+  addKeyHandler((ev, combo) => {
+    if (combo !== 'Alt+F4' || app.config?.values?.['Operation.MinimizeOnClose'] !== '1') return false;
+    app.run('cm_Minimize');
+    return true;
+  });
   const px = app.setting('fontSize', 13);
   if (px !== 13) applyFont(app, px);
   if (app.setting('horizontal', false)) document.getElementById('panels').classList.add('horizontal');

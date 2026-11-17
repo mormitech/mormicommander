@@ -66,9 +66,19 @@ func (a *App) newMainWindow(width, height int) {
 	})
 	// The hook runs before the window goes: its place is saved while it can still be read, and the whole app ends with
 	// it (an About window left open must not keep the process alive without its file manager).
-	w.RegisterHook(events.Common.WindowClosing, func(*application.WindowEvent) {
+	w.RegisterHook(events.Common.WindowClosing, func(e *application.WindowEvent) {
 		a.mu.Lock()
 		quitting := a.quitting
+		a.mu.Unlock()
+		// Options > Operation > Alt+F4 and the close button minimise (F-771): the close button minimises (or goes to the
+		// tray), and only Quit ends the app
+		if s, ok := currentSettings(); ok && s.Operation.MinimizeOnClose && !quitting {
+			e.Cancel()
+			application.InvokeAsync(func() { a.Minimize() })
+			return
+		}
+		a.mu.Lock()
+		quitting = a.quitting
 		a.quitting = true
 		a.mu.Unlock()
 		if !quitting { // (Quit saved the window already and is ending the app)

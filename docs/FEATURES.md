@@ -80,7 +80,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-768 Focus the button bar for keyboard use (cm_FocusButtonBar) — Alt+Shift+F11 — first button gets focus; Left/Right move, Enter runs, Esc goes back to the file list
 - [ ] F-769 Switch between file list and separate tree — Shift+Tab — with the separate tree on, Shift+Tab focuses the tree of the active side; pressing it again goes back to the file list
 - [ ] F-770 Minimize / maximize / restore window (cm_Minimize, cm_Maximize, cm_Restore) — Shift+Esc (minimize) — each command changes the window state
-- [ ] F-771 Alt+F4 minimizes instead of quitting (option, TC MinimizeOnClose) — Alt+F4 — with the option on, Alt+F4 and the close button minimize; File > Quit still quits
+- [~] F-771 Alt+F4 minimizes instead of quitting (option, TC MinimizeOnClose) — Alt+F4 — with the option on, Alt+F4 and the close button minimize; File > Quit still quits — 0.14.28: Options > Operation > Alt+F4 and the close button minimise; Files > Quit still quits
 - [ ] F-772 Breadcrumb path bar with keyboard (TC current directory bar) — Alt+F11 / Alt+F12 — opens the left/right path bar with focus; Left/Right move between parts, Down lists the subfolders of that part, Enter goes there, Esc returns
 
 ## 2. Folder tabs
@@ -149,7 +149,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [ ] F-779 Go to first / last entry, first file, next / previous selected (cm_GoToFirstEntry, cm_GoToLastEntry, cm_GoToFirstFile, cm_GoToNextSelected, cm_GoToPrevSelected) — — — cursor jumps as named; with no selection the selected-file commands do nothing
 - [~] F-780 Reuse last quick filter — Ctrl+Shift+S — quick filter opens with the last used text already applied
 - [~] F-781 Clear quick filter with Ctrl+F10 — Ctrl+F10 — while a quick filter is on, Ctrl+F10 (all files) removes it
-- [ ] F-782 Auto-complete in path bar and dialog path fields (copy target, Find files 'Search in') — — — typing part of a path offers matching folders; Tab or Right accepts
+- [~] F-782 Auto-complete in path bar and dialog path fields (copy target, Find files 'Search in') — — — typing part of a path offers matching folders; Tab or Right accepts — 0.14.28: the path bar, the copy/move target and Find files' Search in fill in the first matching folder as a name is typed; Tab or Right takes it
 - [~] F-783 Type-to-select in drive popup — Alt+F1 / Alt+F2 then letter — typing a drive letter or the first letter of a volume name picks it
 
 ## 4. Views and display modes
