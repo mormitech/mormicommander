@@ -98,7 +98,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 - [~] F-037 Rename tab — — — user can give a tab a custom caption; caption persists
 - [ ] F-038 Duplicate tab / move tab to other panel — — — tab duplicates or moves; tab state (sort, view) is kept
 - [~] F-039 Reorder tabs by dragging — — — dragging a tab header changes order; dropping on other panel's tab bar moves it
-- [~] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder — audit #103: not built: tab headers take dragged tabs only (reorder, F-039); files dropped there are not copied into the tab's folder (system-dnd.js would need data-drop-path on tabs) — 0.14.22: files dragged onto a tab header are copied (Shift: moved) into that tab's folder, as onto a folder
+- [~] F-040 Drop files onto a tab — — — dropping files on a tab header copies/moves into that tab's folder — audit #103: built in 0.14.22: tab headers carry data-drop-path, so files dragged from a panel onto a tab are copied (Shift: moved) into that tab's folder, as onto a folder; tabs dragged onto tabs still reorder (F-039)
 - [~] F-041 Double-click on tab bar empty area opens new tab; double-click on tab closes it (option) — — — behaviour matches Configuration > Folder tabs settings
 - [~] F-042 Middle-click tab closes it — — — middle-click closes the tab
 - [ ] F-043 Save tabs to file / load tabs from file (cm_SaveTabs / cm_LoadTabs) — — — tabs of a panel are written to a .tab-style file and can be restored
