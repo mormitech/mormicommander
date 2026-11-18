@@ -2,12 +2,15 @@ package vfs
 
 import (
 	"context"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 )
 
 // Local is the real file system of this computer.
@@ -25,7 +28,7 @@ func (Local) List(ctx context.Context, p string) (Listing, error) {
 	if !info.IsDir() {
 		return Listing{}, ErrNotFolder
 	}
-	des, err := os.ReadDir(p)
+	des, err := readDirCounted(p)
 	if err != nil && len(des) == 0 {
 		return Listing{}, err
 	}
@@ -55,6 +58,52 @@ func (Local) List(ctx context.Context, p string) (Listing, error) {
 		return Listing{}, err
 	}
 	return Listing{Path: p, Parent: localParent(p), Entries: es}, nil
+}
+
+// readCounts holds, for each folder being read by List, how many names were read so far (F-743).
+var readCounts sync.Map // clean path → *atomic.Int64
+
+// ReadCount is how many names of folder p the List in progress has read so far, -1 when no List is reading it.
+func ReadCount(p string) int64 {
+	if v, ok := readCounts.Load(Local{}.Clean(p)); ok {
+		return v.(*atomic.Int64).Load()
+	}
+	return -1
+}
+
+// readDirCounted is os.ReadDir (all entries, sorted by name; on an error the entries read before it) that reads in
+// blocks and keeps readCounts up to date while it does, so a slow folder can say how far it got.
+func readDirCounted(p string) ([]fs.DirEntry, error) {
+	f, err := os.Open(p)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	n := new(atomic.Int64)
+	readCounts.Store(p, n)
+	defer readCounts.CompareAndDelete(p, n)
+	var all []fs.DirEntry
+	for {
+		des, err := f.ReadDir(1024)
+		all = append(all, des...)
+		n.Store(int64(len(all)))
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			sortEntries(all)
+			return all, err
+		}
+		if len(des) == 0 { // (no entries and no error: never seen, but do not loop on it)
+			break
+		}
+	}
+	sortEntries(all)
+	return all, nil
+}
+
+func sortEntries(des []fs.DirEntry) {
+	slices.SortFunc(des, func(a, b fs.DirEntry) int { return strings.Compare(a.Name(), b.Name()) })
 }
 
 // localEntry describes one directory entry. A link is shown with the size and type of what it points to (a link to a

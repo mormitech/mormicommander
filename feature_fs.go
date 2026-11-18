@@ -41,6 +41,7 @@ type FS struct {
 type listing struct {
 	id     int
 	cancel context.CancelFunc
+	path   string // the folder being read (for ReadCount)
 }
 
 func init() {
@@ -103,7 +104,7 @@ func (f *FS) List(key, path string) (vfs.Listing, error) {
 	}
 	f.seq++
 	id := f.seq
-	f.gen[key] = listing{id, cancel}
+	f.gen[key] = listing{id, cancel, path}
 	f.mu.Unlock()
 	defer func() {
 		f.mu.Lock()
@@ -142,6 +143,19 @@ func (f *FS) volumeRoot(p string) string {
 		return f.rootOf(p)
 	}
 	return disk.VolumeRootOf(p)
+}
+
+// ReadCount is how many entries of the folder a panel is reading have been found so far, for the "Not responding"
+// notice of a slow folder (F-743); -1 when the panel is reading nothing or the count is not known (only folders on
+// this computer, network shares included, are counted).
+func (f *FS) ReadCount(key string) int64 {
+	f.mu.Lock()
+	l, ok := f.gen[key]
+	f.mu.Unlock()
+	if !ok || (f.router != nil && f.router.Kind(l.path) != vfs.KindLocal) || f.app.mock != nil {
+		return -1
+	}
+	return vfs.ReadCount(l.path)
 }
 
 // CancelList stops the listing in progress for a panel (Esc while a slow folder is read).

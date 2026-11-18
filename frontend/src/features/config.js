@@ -27,6 +27,7 @@ import { initLayout, applyAll, loadColors } from './config/layout.js';
 import { initListOpts } from './config/listopts.js';
 import { initFileIcons } from './config/fileicons.js';
 import { initSounds } from './config/sounds.js';
+import { initWindowOpts } from './config/windowopts.js';
 import { initSessionOpts } from './config/sessionopts.js';
 import { importCmdHistory } from './config/cmdhist.js';
 import { initButtonBar, loadBars } from './config/buttonbar.js';
@@ -65,6 +66,7 @@ export async function init(app) {
   initListOpts(app);
   await initFileIcons(app);
   initSounds(app);
+  initWindowOpts();
   initSessionOpts(app);
   importCmdHistory(app); // (F-295: the lines a TC import brought over join the command line history)
   initLayout(app);

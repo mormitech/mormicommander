@@ -123,10 +123,20 @@ func copyJobComments(r fileops.Request, final fileops.Progress) {
 			continue
 		}
 		srcChanged := false
+		same := samePathCI(dir, r.Target) // a copy or move inside the folder (a new name): one descript.ion (F-745)
 		for _, src := range srcs {
 			name := filepath.Base(src)
 			text := c.Get(name)
 			if text == "" {
+				continue
+			}
+			if same {
+				newName := fileops.ApplyMask(r.Rename, name)
+				if r.Kind == fileops.Move {
+					c.Set(name, "")
+				}
+				c.Set(newName, text)
+				srcChanged = true
 				continue
 			}
 			if dst == nil {
@@ -141,12 +151,67 @@ func copyJobComments(r fileops.Request, final fileops.Progress) {
 				srcChanged = true
 			}
 		}
-		if srcChanged && !samePathCI(dir, r.Target) {
+		if srcChanged {
 			_ = c.Save(dir)
 		}
 	}
 	if changed {
 		_ = dst.Save(r.Target)
+	}
+}
+
+// moveComments carries the file comments (descript.ion) along renames: Shift+F6 in place and the multi-rename tool
+// (F-745, Options > Copy/Delete > Copy file comments). moved maps old paths to new ones.
+func moveComments(moved map[string]string) {
+	if s, ok := currentSettings(); !ok || !s.CopyDelete.CopyComments {
+		return
+	}
+	moveCommentsNow(moved)
+}
+
+// moveCommentsNow moves the comments of moved (old path to new path). All texts are read before any is written, so
+// names that swap ("a" to "b" and "b" to "a") keep their own comments.
+func moveCommentsNow(moved map[string]string) {
+	files := map[string]*lst.Comments{}
+	load := func(dir string) *lst.Comments {
+		if c, ok := files[dir]; ok {
+			return c
+		}
+		c, err := lst.LoadComments(dir)
+		if err != nil {
+			c = nil
+		}
+		files[dir] = c
+		return c
+	}
+	type carry struct{ dir, name, text string }
+	var news []carry
+	for from, to := range moved {
+		if c := load(filepath.Dir(from)); c != nil {
+			if t := c.Get(filepath.Base(from)); t != "" {
+				news = append(news, carry{filepath.Dir(to), filepath.Base(to), t})
+			}
+		}
+	}
+	if len(news) == 0 {
+		return
+	}
+	changed := map[string]bool{}
+	for from := range moved {
+		dir, name := filepath.Dir(from), filepath.Base(from)
+		if c := load(dir); c != nil && c.Get(name) != "" {
+			c.Set(name, "")
+			changed[dir] = true
+		}
+	}
+	for _, n := range news {
+		if c := load(n.dir); c != nil {
+			c.Set(n.name, n.text)
+			changed[n.dir] = true
+		}
+	}
+	for dir := range changed {
+		_ = files[dir].Save(dir)
 	}
 }
 

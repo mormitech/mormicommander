@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strings"
 	"sync"
 
 	"mormicommander/internal/vfs"
@@ -157,6 +158,32 @@ func (a *App) SetTitle(title string) {
 	if w := a.mainWindow(); w != nil {
 		w.SetTitle(title)
 	}
+}
+
+// SetAlwaysOnTop keeps the main window above the windows of other programs, or lets it go back to normal
+// (Options > Misc > Keep the window on top of other windows, F-748).
+func (a *App) SetAlwaysOnTop(on bool) {
+	if w := a.mainWindow(); w != nil {
+		w.SetAlwaysOnTop(on)
+	}
+}
+
+// SetDockBadge puts a short label ("42%") on the Dock icon, or takes it off with "" (Options > Misc > Show job
+// progress on the Dock icon, F-749). Only macOS has a Dock badge; elsewhere it does nothing.
+func (a *App) SetDockBadge(label string) {
+	if a.wapp == nil {
+		return
+	}
+	setDockBadge(dockBadgeText(label))
+}
+
+// dockBadgeText keeps a badge label short and on one line (the page sends "42%"; anything longer is cut).
+func dockBadgeText(s string) string {
+	s = strings.Join(strings.Fields(s), " ")
+	if r := []rune(s); len(r) > 8 {
+		s = string(r[:8])
+	}
+	return s
 }
 
 // Quit ends the app (cm_Exit). The window is saved first.

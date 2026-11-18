@@ -87,6 +87,9 @@ function fileMenu(app, p, args) {
     SEP,
     item(app, 'Pack…', 'cm_PackFiles'),
     one && !one.dir ? item(app, 'Split…', 'cm_FileSplit') : null,
+    // TC's Encode / Decode also from here (F-763), for files only, as the File menu has them
+    list.length && !list.some((e) => e.dir || e.up) ? item(app, 'Encode…', 'cm_UUEncode') : null,
+    one && !one.dir && !one.up ? item(app, 'Decode…', 'cm_UUDecode') : null,
     SEP,
     { ...item(app, revealLabel(app), 'cm_Explorer'), disabled: !local || !hasCommand('cm_Explorer') },
     { ...item(app, 'Open terminal here', 'cm_ExecuteDOS'), disabled: !local },

@@ -374,6 +374,11 @@ type MiscPage struct {
 	// the caret (Tab or Right takes it). Off by default: typing works as before.
 	CmdLineSuggest bool `ini:"Configuration:CmdLineSuggest" def:"0" label:"Suggest folders while typing in the command line"`
 	DialogWindows  bool `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
+	// AlwaysOnTop (F-748): the main window stays above the windows of other programs. Off by default.
+	AlwaysOnTop bool `ini:"Configuration:AlwaysOnTop" def:"0" label:"Keep the window on top of other windows"`
+	// DockProgress (F-749): while copy, move or delete jobs run, the Dock icon (macOS) shows how far they are, as a
+	// badge such as "42%". Off by default; it does nothing on Windows and Linux.
+	DockProgress bool `ini:"Configuration:DockProgress" def:"0" label:"Show job progress on the Dock icon"`
 
 	// HideNoEffect (board issue #94): the Options dialog leaves out the options the program does not act on yet
 	// (noeffect.go). Off by default, so the dialog shows every option as before, with those marked.

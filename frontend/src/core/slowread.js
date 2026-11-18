@@ -21,3 +21,11 @@ export function slowText(prev) {
     hint: prev ? `Esc or Cancel stays in ${prev}.` : 'Esc or Cancel stops waiting.',
   };
 }
+
+// countText is the line under the notice with how many entries of the folder were read so far (F-743), from
+// go.FS.ReadCount; '' while none were, or when the count is not known (-1: an archive, a server).
+export function countText(n) {
+  n = Number(n);
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return `${new Intl.NumberFormat().format(n)} ${n === 1 ? 'entry' : 'entries'} read so far`;
+}

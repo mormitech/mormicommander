@@ -38,6 +38,15 @@ func init() {
 		configFeature = &Configuration{app: a}
 		return []exposed{expose(configFeature), expose(&ConfigBar{app: a}), expose(&ConfigStart{app: a})}
 	})
+	// the settings are opened at start (the page reads them at once anyway), so COMMANDER_PATH and the like are in the
+	// environment before any program is started (F-853)
+	onStartup(func(a *App) {
+		if configFeature != nil {
+			if _, err := configFeature.get(); err == nil {
+				configFeature.mu.Unlock()
+			}
+		}
+	})
 	registerControl("config-info", func(a *App, m map[string]any) (map[string]any, error) {
 		info, err := configFeature.Info()
 		return map[string]any{"ok": err == nil, "info": info}, err
@@ -68,6 +77,18 @@ func configLocate(o startOpts) (config.Locations, error) {
 	return loc, nil
 }
 
+// exportCommanderEnv puts COMMANDER_PATH, COMMANDER_INI and COMMANDER_EXE in the app's own environment, so every
+// program it starts (buttons, the command line, F3/F4 tools, a terminal) sees them, as programs started by Total
+// Commander do (F-853). Programs macOS opens through Finder's way (open, a double click on a document) get the
+// environment of the system instead, not this one.
+func exportCommanderEnv(v config.Vars, setenv func(k, v string) error) {
+	for _, k := range []string{config.VarCommanderPath, config.VarCommanderIni, config.VarCommanderExe} {
+		if val := v[k]; val != "" {
+			_ = setenv(k, val)
+		}
+	}
+}
+
 // get opens the configuration the first time it is needed and returns it locked; call c.mu.Unlock() when done.
 func (c *Configuration) get() (*config.Config, error) {
 	c.mu.Lock()
@@ -77,6 +98,9 @@ func (c *Configuration) get() (*config.Config, error) {
 			c.cfg, err = config.Open(loc)
 		}
 		c.openErr = err
+		if c.cfg != nil && c.app.wapp != nil { // (the real app only: tests keep their environment)
+			exportCommanderEnv(c.cfg.Vars, os.Setenv)
+		}
 	}
 	if c.cfg == nil {
 		c.mu.Unlock()

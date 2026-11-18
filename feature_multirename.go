@@ -498,6 +498,7 @@ func (m *MultiRename) Execute() (mrExecResult, error) {
 		}
 	}
 	notesInstance.movedMany(moved) // notes and colour labels go along (feature_notes.go)
+	moveComments(moved)            // and so do the descript.ion comments (F-745)
 	for i, it := range m.real {
 		np := mrMapPath(it.Path(), moved)
 		m.real[i].Dir, m.real[i].Name = filepath.Dir(np), filepath.Base(np)

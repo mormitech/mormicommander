@@ -13,6 +13,7 @@ import { setDisplay } from '../../core/format.js';
 import { Panel } from '../../core/panel.js';
 import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.js';
 import { applyIgnoreList } from './listopts.js';
+import { applyWindowOpts } from './windowopts.js';
 import { applyIcons, rowHeight } from './fileicons.js';
 
 // Layout option → body class that hides an element (see config.css).
@@ -290,6 +291,7 @@ export function applyAll(startTheme) {
   syncHidden();
   title();
   applyIgnoreList();
+  applyWindowOpts();
 }
 
 // ---- cm_Vis* toggles ----

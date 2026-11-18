@@ -56,6 +56,19 @@ test('the file menu has the items of F-703 (Open, Open with, View, Edit, Copy, C
   expect(disabled('Open with…')).toBe(false); // (F-708: the own menu's Open with on macOS/Linux)
 });
 
+test('the file menu has Split, Encode and Decode for one file, and none of them for a folder (F-763)', async () => {
+  const f = { name: 'a.bin' };
+  await cmds.get('cm_ContextMenu').run(makeApp(panel([f], f)), {});
+  for (const l of ['Split…', 'Encode…', 'Decode…']) expect(labels(), l).toContain(l);
+  const d = { name: 'dir', dir: true };
+  await cmds.get('cm_ContextMenu').run(makeApp(panel([d], d)), {});
+  for (const l of ['Split…', 'Encode…', 'Decode…']) expect(labels(), l).not.toContain(l);
+  const two = [{ name: 'a' }, { name: 'b' }];
+  await cmds.get('cm_ContextMenu').run(makeApp(panel(two, two[0])), {});
+  expect(labels()).toContain('Encode…');
+  expect(labels()).not.toContain('Decode…');
+});
+
 test('the file menu of several files copies their paths', async () => {
   const es = [{ name: 'a' }, { name: 'b' }];
   await cmds.get('cm_ContextMenu').run(makeApp(panel(es, es[0])), {});

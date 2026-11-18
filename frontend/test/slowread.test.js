@@ -27,3 +27,12 @@ test('the words name the folder the panel stays in', () => {
   expect(slowText('/Users/me').hint).toContain('/Users/me');
   expect(slowText('').hint).toBe('Esc or Cancel stops waiting.');
 });
+
+test('the notice counts the entries read so far, and says nothing while the count is unknown (F-743)', async () => {
+  const { countText } = await import('../src/core/slowread.js');
+  expect(countText(-1)).toBe('');
+  expect(countText(0)).toBe('');
+  expect(countText(undefined)).toBe('');
+  expect(countText(1)).toBe('1 entry read so far');
+  expect(countText(12345)).toMatch(/^12.345 entries read so far$/);
+});

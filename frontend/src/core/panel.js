@@ -547,10 +547,15 @@ export class Panel {
       const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
       const tip = Panel.tipAttr(this, e, name.length > 28);
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
-      html += `<div class="${cls}" data-i="${i}"${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(this, e)}<b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      // screen readers (F-764): each row is an option of the "Files" list box, named by the file, its kind and whether
+      // it is selected; the cursor row is the list's active descendant
+      const label = `${e.up ? '.. (parent folder)' : e.name}${e.dir && !e.up ? ', folder' : ''}${!e.up && this.selected.has(e.name) ? ', selected' : ''}`;
+      html += `<div class="${cls}" data-i="${i}" role="option" aria-label="${esc(label)}"${i === this.cursor ? ` id="mc-cur-${this.side}"` : ''}${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(this, e)}<b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;
+    if (this.cursor >= first && this.cursor < last) list.setAttribute?.('aria-activedescendant', `mc-cur-${this.side}`);
+    else list.removeAttribute?.('aria-activedescendant');
   }
 
   // stats counts what is shown and what is selected (for the status line and control mode).

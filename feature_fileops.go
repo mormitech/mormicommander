@@ -395,7 +395,8 @@ func (j *Jobs) rename(path, newName string) (string, error) {
 	}
 	if src := filepath.Clean(path); dst != src {
 		j.app.undo.record(undo.Rename, undo.Item{From: src, To: dst})
-		notesInstance.moved(src, dst, true) // the note and colour label go along (feature_notes.go)
+		notesInstance.moved(src, dst, true)       // the note and colour label go along (feature_notes.go)
+		moveComments(map[string]string{src: dst}) // and so does the descript.ion comment (F-745)
 	}
 	return dst, nil
 }
