@@ -57,3 +57,8 @@ test('the Commands menu lists the command line commands, showing their keys', ()
   }
   for (const n of ['cm_AddPathToCmdline', 'cm_AddFilenameToCmdline', 'cm_AddPathAndNameToCmdline']) expect(cmds[n].menuKey).toBe(true);
 });
+
+test('cm_FocusCmdLine (Commands > Command line, F-372) puts the focus in the command line', () => {
+  cmds.cm_FocusCmdLine.run(app);
+  expect(document.activeElement?.id).toBe('cmd');
+});

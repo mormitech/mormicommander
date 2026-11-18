@@ -74,8 +74,8 @@ async function branchSelected(app) {
   return enter(app, p, path);
 }
 
-command({ name: 'cm_DirBranch', label: 'Branch view (all files in subfolders)', short: 'Branch', checked: (app) => isBranchPath(app.cur?.path) && !isSelectionBranch(app.cur?.path), run: (app) => branchAll(app) });
-command({ name: 'cm_DirBranchSel', label: 'Branch view of selected folders', short: 'Branch sel', checked: (app) => isSelectionBranch(app.cur?.path), run: (app) => branchSelected(app) });
+command({ name: 'cm_DirBranch', menuKey: true, label: 'Branch view (all files in subfolders)', short: 'Branch', checked: (app) => isBranchPath(app.cur?.path) && !isSelectionBranch(app.cur?.path), run: (app) => branchAll(app) });
+command({ name: 'cm_DirBranchSel', menuKey: true, label: 'Branch view of selected folders', short: 'Branch sel', checked: (app) => isSelectionBranch(app.cur?.path), run: (app) => branchSelected(app) });
 
 // ---- the path bar badge and the message after a listing ----
 

@@ -11,6 +11,11 @@ version is changed only when a round of features is merged.
 - Mark > Select search results: selects in the active panel the files and folders the last Find files search found.
 - The Mark menu shows the keys of Select group, Unselect group, Select all, Unselect all, Invert selection, Select and
   unselect all with the same extension, Restore selection and Compare folders.
+- Commands > Refresh folder tree: reads the open folders of the tree in the panel (Ctrl+F8) again, so new folders
+  show up; open folders stay open.
+- The Commands menu shows the keys of Folder hotlist, Folder history, Folder tree, Find files, Swap panels, Swap panels
+  with tabs, Show folder under cursor in left/right panel, Branch view, Open terminal here, Go to root folder and
+  Command line.
 
 ## 0.14.31 – 2026-11-18
 

@@ -95,7 +95,7 @@ command({
   },
 });
 command({
-  name: 'cm_GoToRoot', label: 'Root folder',
+  name: 'cm_GoToRoot', menuKey: true, label: 'Root folder',
   run: async (app) => { const p = app.cur; const root = await go.FS.Root(p.path); return root !== p.path && p.go(root); },
 });
 command({ name: 'cm_GoToHome', label: 'Home folder', run: (app) => app.cur.go(app.home) });
@@ -124,10 +124,10 @@ function transfer(app, side) {
   if (to === from) return false;
   return to.go(from.path, { focus: e.up ? null : e.name });
 }
-command({ name: 'cm_TransferLeft', label: 'Show folder under cursor in left panel', run: (app) => transfer(app, 'left') });
-command({ name: 'cm_TransferRight', label: 'Show folder under cursor in right panel', run: (app) => transfer(app, 'right') });
+command({ name: 'cm_TransferLeft', menuKey: true, label: 'Show folder under cursor in left panel', run: (app) => transfer(app, 'left') });
+command({ name: 'cm_TransferRight', menuKey: true, label: 'Show folder under cursor in right panel', run: (app) => transfer(app, 'right') });
 command({
-  name: 'cm_Exchange', label: 'Swap panels',
+  name: 'cm_Exchange', menuKey: true, label: 'Swap panels',
   run: (app) => {
     app.left.swapWith(app.right);
     app.emit('exchange');

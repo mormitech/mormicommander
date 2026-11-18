@@ -387,7 +387,7 @@ async function historySettings() {
 const panelArg = (app, args) => app.panel(args.panel || 'active');
 
 command({
-  name: 'cm_DirectoryHotlist', label: 'Folder hotlist',
+  name: 'cm_DirectoryHotlist', menuKey: true, label: 'Folder hotlist',
   run: (app, args) => {
     const p = panelArg(app, args);
     if (args.search !== undefined) return searchHotlist(p, String(args.search));
@@ -395,7 +395,7 @@ command({
   },
 });
 command({ name: 'cm_ConfigDirHotlist', label: 'Folder hotlist settings…', run: (app) => configHotlist(app) });
-command({ name: 'cm_DirectoryHistory', label: 'Folder history', run: (app, args) => showHistory(panelArg(app, args), { anchor: args.anchor }) });
+command({ name: 'cm_DirectoryHistory', menuKey: true, label: 'Folder history', run: (app, args) => showHistory(panelArg(app, args), { anchor: args.anchor }) });
 command({
   name: 'cm_FrequentlyUsedDirs', label: 'Frequently used folders', keys: ['Alt+Shift+Down'], menu: 'Commands', menuAfter: 'cm_DirectoryHistory',
   run: (app, args) => showFrequent(panelArg(app, args)),

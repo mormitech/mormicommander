@@ -766,7 +766,7 @@ command({
 });
 command({
   // Ctrl+Shift+U: the whole tab sets of both sides swap (F-005); Ctrl+U (the core) swaps only what the active tabs show.
-  name: 'cm_ExchangeWithTabs', label: 'Swap panels with tabs',
+  name: 'cm_ExchangeWithTabs', menuKey: true, label: 'Swap panels with tabs',
   run: (app) => {
     [sides.left, sides.right] = [sides.right, sides.left];
     app.left.swapWith(app.right);

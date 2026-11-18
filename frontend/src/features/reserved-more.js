@@ -48,7 +48,7 @@ async function cdTree(app) {
     path = v.open;
   }
 }
-command({ name: 'cm_CDtree', label: 'Folder tree…', run: (app) => cdTree(app) });
+command({ name: 'cm_CDtree', menuKey: true, label: 'Folder tree…', run: (app) => cdTree(app) });
 
 // ---- separate tree (Show > Separate tree, Ctrl+Shift+F8, Shift+Tab) ----
 

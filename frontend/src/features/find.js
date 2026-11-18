@@ -862,7 +862,7 @@ export const findDialog = {
 
 // ---- commands ----
 
-command({ name: 'cm_SearchFor', label: 'Find files…', short: 'Find', run: openDialog });
+command({ name: 'cm_SearchFor', menuKey: true, label: 'Find files…', short: 'Find', run: openDialog });
 // cm_SearchStandalone (Commands > Find files in a new window, board issue #38): Total Commander starts Find files as a
 // process of its own, so the main window stays usable while it searches. Here the same dialog opens modeless, in a
 // window of its own, whatever Options > Find files > Modeless says; the search already runs as a background job in Go.

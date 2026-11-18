@@ -30,6 +30,7 @@ import { app as theApp } from '../core/app.js';
 import { addTabState } from './tabs.js';
 import { nameComparer, SORT_METHODS, validLocale } from '../core/sort.js';
 import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
+import { mergeKids, cursorAfter } from './views-tree.js';
 
 // ---- settings ----
 
@@ -883,6 +884,31 @@ async function treeFollow(p, path) {
   renderTreeStatus(p);
 }
 
+// rescanTree reads again every open folder of the tree of panel p (Commands > Refresh folder tree, cm_RescanTree,
+// F-369), so folders made or deleted since they were opened show up or go away; open folders stay open, closed ones are
+// read again when they are opened, and the cursor stays on its folder (or the nearest one above it that is left).
+async function rescanTree(p) {
+  const tree = vsOf(p).tree;
+  if (!tree) return false;
+  const low = (s) => (theApp.platform === 'windows' ? s.toLowerCase() : s);
+  const at = tree.nodes[tree.at]?.path;
+  const walk = async (n) => {
+    if (n.file) return;
+    if (!n.open) { n.kids = null; return; }
+    let fresh;
+    try { fresh = await readFolders(p, n.path); } catch (e) { p.app.flash(errText(e), 'err'); return; }
+    n.kids = mergeKids(n, fresh, low);
+    for (const k of n.kids) await walk(k);
+  };
+  await walk(tree.root);
+  if (vsOf(p).tree !== tree) return false;
+  flatten(tree);
+  tree.at = cursorAfter(tree.nodes, at, low);
+  treeEnsureVisible(p);
+  renderTreeStatus(p);
+  return true;
+}
+
 // ---- comments (Ctrl+Z) ----
 
 async function editComment(app) {
@@ -1280,6 +1306,16 @@ export async function setTreeView(p, on) {
   return toggleTree(p);
 }
 
+command({
+  // ours (F-369): TC rescans its tree cache; here it is the tree in the panel (Ctrl+F8) that is read again
+  name: 'cm_RescanTree', label: 'Refresh folder tree', menu: 'Commands', menuAfter: 'cm_CDtree',
+  run: async (app) => {
+    const ps = app.panels.filter((p) => inTreeView(p));
+    if (!ps.length) { app.flash('No panel shows the folder tree (Ctrl+F8); the folder tree popup (Alt+F10) is always read fresh.'); return false; }
+    for (const p of ps) await rescanTree(p);
+    return true;
+  },
+});
 command({ name: 'cm_EditComment', menuKey: true, label: 'Edit comment…', run: editComment });
 command({
   name: 'cm_SwitchDirSort', label: 'Sort folders always by name', checked: (app) => !app.setting('dirsLikeFiles', false), menu: 'Show', menuAfter: 'cm_SrcNegOrder',

@@ -94,7 +94,7 @@ command({
     if (!await cmdline.submit({ shift })) app.flash(`Running programs from the command line is not ready yet ("${text}").`);
   },
 });
-command({ name: 'cm_FocusCmdLine', label: 'Command line', run: () => cmdline.focus() });
+command({ name: 'cm_FocusCmdLine', menuKey: true, label: 'Command line', run: () => cmdline.focus() });
 command({ name: 'cm_CmdLineHistoryPrev', label: 'Previous command line', run: () => cmdline.historyStep(-1) });
 command({ name: 'cm_CmdLineHistoryNext', label: 'Next command line', run: () => cmdline.historyStep(1) });
 command({
