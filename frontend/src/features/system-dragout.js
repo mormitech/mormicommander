@@ -31,3 +31,41 @@ export function ownNativeDrop(d, paths, now) {
   if (d.endedAt && now - d.endedAt > NATIVE_DROP_WINDOW_MS) return null;
   return d;
 }
+
+// ---- drags out of archives and servers ----
+// Their files have no path other programs could copy, so Go's SystemDrag.StartFrom copies them to a temporary folder
+// first (while the mouse button stays down) and drags the copies. Only drags up to this size go that way (Go checks
+// the folders too, which the panel knows no size of).
+export const VFS_DRAG_LIMIT = 200 * 1024 * 1024;
+
+// VFS_KINDS are the kinds of panel place (FS.PathInfo's kind) whose files are copied out before a native drag.
+const VFS_KINDS = new Set(['archive', 'ftp', 'sftp', 'other']);
+
+// dragPlan says what a drag starting in a panel does:
+//   'native'  the files are local: the system drags them (SystemDrag.Start);
+//   'copy'    inside an archive or on a server: copied out first, then the system drags the copies (StartFrom);
+//   'big'     inside an archive or on a server, but the files the panel knows the size of are over the limit: the drag
+//             goes on as without the option (the page says why);
+//   'html'    no native drag (the option off, or the system can't): the HTML drag as always.
+// kind is the panel's place kind ('local' when unknown), entries the dragged panel entries ({size, dir}).
+export function dragPlan({ setting, supported, kind, entries, limit = VFS_DRAG_LIMIT }) {
+  if (!useNativeDrag(setting, supported)) return 'html';
+  if (!kind || kind === 'local') return 'native';
+  if (!VFS_KINDS.has(kind)) return 'html';
+  const known = (entries || []).reduce((n, e) => n + (Number(e?.size) > 0 ? Number(e.size) : 0), 0);
+  return known > limit ? 'big' : 'copy';
+}
+
+// prepText is the line shown while a drag's files are copied out ({done, total, name} of a "native-drag-prep" event).
+export function prepText(p) {
+  const pct = p?.total > 0 ? Math.min(100, Math.floor((p.done / p.total) * 100)) : 0;
+  return `Preparing ${p?.name || 'files'} for the drag… ${pct}% (keep the mouse button down)`;
+}
+
+// nativeHoverEl is the element to highlight while our own native drag d is over the target t (targetAt's answer):
+// the same as for an HTML drag of ours, so nothing lights up where the drop would not be taken. allowed is
+// system-dnd.js's own check.
+export function nativeHoverEl(d, t, allowed) {
+  if (!d?.native || !t) return null;
+  return allowed(d, t) ? t.el || null : null;
+}

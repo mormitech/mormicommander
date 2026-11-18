@@ -119,3 +119,8 @@ int mcStartFileDrag(void *w, char **paths, int n) {
 unsigned long mcModifierFlags(void) {
 	return (unsigned long)[NSEvent modifierFlags];
 }
+
+// mcLeftButtonDown answers 1 while the left mouse button is held (Quartz event state, readable from any thread).
+int mcLeftButtonDown(void) {
+	return CGEventSourceButtonState(kCGEventSourceStateCombinedSessionState, kCGMouseButtonLeft) ? 1 : 0;
+}

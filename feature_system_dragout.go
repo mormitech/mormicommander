@@ -10,7 +10,8 @@ package main
 //
 // macOS (feature_system_dragout_darwin.go) and Windows (feature_system_dragout_windows.go) have the native drag; on
 // Linux Supported answers false and the page keeps the HTML drag (file URLs as text/uri-list, which file managers
-// there take as files).
+// there take as files). Files inside archives and on servers are copied to a temporary folder first and the copies are
+// dragged (StartFrom, feature_system_dragout_vfs.go).
 
 import (
 	"errors"
@@ -191,4 +192,9 @@ func dragEnded(op int) {
 	if fn != nil {
 		fn(op)
 	}
+}
+
+// mouseLParam packs a point in a window as the lParam of a Windows mouse message (signed 16-bit x and y).
+func mouseLParam(x, y int32) uintptr {
+	return uintptr(uint32(uint16(int16(x))) | uint32(uint16(int16(y)))<<16)
 }

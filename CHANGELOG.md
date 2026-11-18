@@ -8,6 +8,9 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Drag & drop: with "Drag files to other programs as real files" on, files inside archives and on servers can be
+  dragged to Finder or Explorer too (up to 200 MB): they are unpacked or downloaded while you hold the mouse button,
+  then the drag begins. Folders and tabs light up as drop targets during such a drag inside the window.
 - Server transfers: Options > FTP > "List server transfers in the background transfer window" (off by default) lists
   FTP, SFTP and WebDAV copies and moves there with their progress and Stop job, and their progress box gets
   Background (F2); a stopped transfer keeps its partial file for "Resume".
@@ -55,6 +58,7 @@ version is changed only when a round of features is merged.
 
 ### Fixed
 
+- Windows: after dragging files out as real files, the window no longer acts as if the mouse button were still down.
 - Command line: the command line history imported from Total Commander now shows in the history list (Alt+F8)
   and with Ctrl+E, after the commands typed here.
 - The copy dialog's target list (Alt+Down) now also lists the folders of the other panel's tabs.

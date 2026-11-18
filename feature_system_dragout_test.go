@@ -125,3 +125,13 @@ func TestCommonDir(t *testing.T) {
 		t.Error("no files have a common folder")
 	}
 }
+
+func TestMouseLParam(t *testing.T) {
+	if got := mouseLParam(10, 20); got != 20<<16|10 {
+		t.Errorf("mouseLParam(10, 20) = %#x", got)
+	}
+	// a pointer left of or above the window gives negative 16-bit values, as Windows packs them
+	if got := mouseLParam(-1, -2); got != 0xfffeffff {
+		t.Errorf("mouseLParam(-1, -2) = %#x", got)
+	}
+}

@@ -12,6 +12,7 @@ package main
 
 int mcStartFileDrag(void *w, char **paths, int n);
 unsigned long mcModifierFlags(void);
+int mcLeftButtonDown(void);
 */
 import "C"
 
@@ -43,6 +44,9 @@ func nativeFileDrag(w *application.WebviewWindow, paths []string) bool {
 		return C.mcStartFileDrag(w.NativeWindow(), (**C.char)(cpaths), C.int(len(paths))) != 0
 	})
 }
+
+// mouseButtonDown: the left mouse button is held now (safe from any goroutine).
+func mouseButtonDown() bool { return C.mcLeftButtonDown() != 0 }
 
 // heldModifiers reads the modifier keys held now.
 func heldModifiers() DragModifiers { return modifiersFromMacFlags(uint64(C.mcModifierFlags())) }

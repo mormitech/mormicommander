@@ -11,3 +11,5 @@ const nativeDragSupported = false
 func nativeFileDrag(w *application.WebviewWindow, paths []string) bool { return false }
 
 func heldModifiers() DragModifiers { return DragModifiers{} }
+
+func mouseButtonDown() bool { return false }

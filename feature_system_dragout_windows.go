@@ -8,9 +8,17 @@
 //
 // SHDoDragDrop runs a modal loop on the UI thread until the drop, so it is started there without waiting (Start
 // answers at once, as on macOS); the end is passed back through dragEnded. Nothing here goes online or deletes files.
+//
+// The page cancelled WebView2's own drag in dragstart, so WebView2 still thinks the left button is down, and the
+// button's release goes to the shell's drag loop, not to WebView2. As on macOS (where the web view is handed the
+// mouse-up it never saw), WebView2's input window (Chrome_RenderWidgetHostHWND, a child of the main window) is posted
+// a WM_LBUTTONUP at the pointer once the drag ends, so it does not go on selecting or dragging as if the button were
+// held. The button is checked again on the UI thread right before the drag: when it was let go meanwhile, no drag
+// runs (SHDoDragDrop would otherwise drop at once wherever the pointer is).
 package main
 
 import (
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -31,6 +39,12 @@ var (
 	procOleInitialize      = ddOle32.NewProc("OleInitialize")
 	procGetAsyncKeyState   = ddUser32.NewProc("GetAsyncKeyState")
 	procGetSystemMetrics   = ddUser32.NewProc("GetSystemMetrics")
+	procEnumChildWindows   = ddUser32.NewProc("EnumChildWindows")
+	procGetClassNameW      = ddUser32.NewProc("GetClassNameW")
+	procGetCursorPos       = ddUser32.NewProc("GetCursorPos")
+	procScreenToClient     = ddUser32.NewProc("ScreenToClient")
+	procPostMessageW       = ddUser32.NewProc("PostMessageW")
+	procReleaseCapture     = ddUser32.NewProc("ReleaseCapture")
 )
 
 // IID_IDataObject {0000010E-0000-0000-C000-000000000046}
@@ -45,6 +59,7 @@ const (
 	vkLWin       = 0x5B
 	vkRWin       = 0x5C
 	smSwapButton = 23
+	wmLButtonUp  = 0x0202
 )
 
 func keyDown(vk uintptr) bool {
@@ -70,8 +85,53 @@ func nativeFileDrag(w *application.WebviewWindow, paths []string) bool {
 	if hwnd == 0 {
 		return false
 	}
-	application.InvokeAsync(func() { dragEnded(shellDrag(hwnd, paths)) })
+	application.InvokeAsync(func() {
+		if !leftButtonDown() { // let go while the call came over to the UI thread: no drag
+			releaseWebViewButton(hwnd)
+			dragEnded(0)
+			return
+		}
+		procReleaseCapture.Call() // (a capture this thread still holds from the press would keep the drag loop's mouse)
+		op := shellDrag(hwnd, paths)
+		releaseWebViewButton(hwnd)
+		dragEnded(op)
+	})
 	return true
+}
+
+// mouseButtonDown: the left mouse button is held now.
+func mouseButtonDown() bool { return leftButtonDown() }
+
+// webViewInputs collects WebView2's input windows during an EnumChildWindows (on the UI thread only).
+var (
+	webViewInputs  []uintptr
+	enumChildOnce  sync.Once
+	enumChildProcP uintptr
+)
+
+func enumChildProc(h, _ uintptr) uintptr {
+	buf := make([]uint16, 64)
+	n, _, _ := procGetClassNameW.Call(h, uintptr(unsafe.Pointer(&buf[0])), uintptr(len(buf)))
+	if n > 0 && syscall.UTF16ToString(buf[:n]) == "Chrome_RenderWidgetHostHWND" {
+		webViewInputs = append(webViewInputs, h)
+	}
+	return 1 // go on
+}
+
+// releaseWebViewButton posts a left-button-up at the pointer to WebView2's input windows inside hwnd.
+func releaseWebViewButton(hwnd uintptr) {
+	enumChildOnce.Do(func() { enumChildProcP = syscall.NewCallback(enumChildProc) })
+	webViewInputs = webViewInputs[:0]
+	procEnumChildWindows.Call(hwnd, enumChildProcP, 0)
+	var pt struct{ X, Y int32 }
+	if r, _, _ := procGetCursorPos.Call(uintptr(unsafe.Pointer(&pt))); r == 0 {
+		return
+	}
+	for _, h := range webViewInputs {
+		p := pt
+		procScreenToClient.Call(h, uintptr(unsafe.Pointer(&p)))
+		procPostMessageW.Call(h, wmLButtonUp, 0, mouseLParam(p.X, p.Y))
+	}
 }
 
 // shellDrag makes the shell data object of the files and runs the drag; it answers the operation bits of the drop

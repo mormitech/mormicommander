@@ -14,7 +14,11 @@
 //
 // With the setting "nativeDragOut" (off by default, macOS and Windows; board issue #108) a drag from a local panel is
 // handed to the system instead, so Finder, Explorer and other apps get real files (system-dragout.js, SystemDrag in Go); its drop
-// back inside the window arrives as a file drop and is treated like an HTML drop of our own.
+// back inside the window arrives as a file drop and is treated like an HTML drop of our own. A drag inside an archive or
+// on a server first copies its files to a temporary folder while the mouse button stays down ("Preparing…"), then the
+// copies are dragged (SystemDrag.StartFrom; up to 200 MB, larger drags stay HTML drags). While a native drag of ours is
+// over the window, panels, folders and tabs light up as for an HTML drag: from the page's dragover events on Windows,
+// from Wails' drag-over calls on macOS (whose window takes native drags before the page sees them).
 //
 // HTML drag events can't be made by control mode, so it has "drop" and "filedrop" commands that do what a drop does.
 
@@ -24,7 +28,7 @@ import { go, errText, on, onFileDrop } from '../core/go.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal, quoteArg, transferFiles } from './system-lib.js';
-import { ownNativeDrop, useNativeDrag } from './system-dragout.js';
+import { dragPlan, nativeHoverEl, ownNativeDrop, prepText, VFS_DRAG_LIMIT } from './system-dragout.js';
 import { showList } from '../core/popup.js';
 import { Panel } from '../core/panel.js';
 
@@ -162,13 +166,17 @@ export function init(app) {
       // the press put the cursor on the row (Panel.onMouseDown); the selection goes when that row is selected
       const e = p.cur;
       const onRow = ev.target?.closest?.('.row') || document.elementFromPoint(ev.clientX, ev.clientY)?.closest?.('.row');
-      if (!e || e.up || !onRow || !isLocal(p.path) || app.demo) { ev.preventDefault(); return; }
+      if (!e || e.up || !onRow || app.demo) { ev.preventDefault(); return; }
       const list = p.isSelected(e) ? p.selectedEntries() : [e];
       const paths = list.map((x) => p.fullPath(x.name));
       // "dragToOtherApp" (Options > Drag & drop > Allow dragging to other programs, on by default) off: the drag
       // carries only our own data, so it can be dropped inside the window but other programs get nothing from it
       const outside = app.setting('dragToOtherApp', true) !== false;
-      if (outside && useNativeDrag(app.setting('nativeDragOut', false), nativeOK)) { ev.preventDefault(); startNative(app, p, paths); return; }
+      const plan = outside ? dragPlan({ setting: app.setting('nativeDragOut', false), supported: nativeOK, kind: p.vfs?.kind, entries: list }) : 'html';
+      if (plan === 'copy') { ev.preventDefault(); startNativeCopy(app, p, paths); return; }
+      if (plan === 'big') app.flash(`Too big to drag to other programs as real files (over ${VFS_DRAG_LIMIT >> 20} MB). Copy with F5 instead.`);
+      if (!isLocal(p.path)) { ev.preventDefault(); return; }
+      if (plan === 'native') { ev.preventDefault(); startNative(app, p, paths); return; }
       drag = { from: p, paths };
       const dt = ev.dataTransfer;
       dt.effectAllowed = 'all';
@@ -192,6 +200,16 @@ export function init(app) {
     const ours = !!drag && types.includes(MIME);
     if (!ours && !types.includes('Files')) return;
     const t = targetAt(app, ev.target);
+    if (drag?.native && !drag.preparing && !ours) {
+      // our own native drag over the window (Windows: WebView2 passes it on as a drag of files)
+      const el = nativeHoverEl(realDrag(drag), t, allowed);
+      if (!el) { ev.dataTransfer.dropEffect = 'none'; light(null); stopSpring(); return; }
+      ev.preventDefault();
+      ev.dataTransfer.dropEffect = 'copy'; // (the drag offers only a copy; the drop picks the operation from the keys)
+      light(el);
+      hover(app, ev, t);
+      return;
+    }
     if (ours && !allowed(drag, t)) { ev.dataTransfer.dropEffect = 'none'; light(null); stopSpring(); return; }
     if (!t) { light(null); return; }
     ev.preventDefault();
@@ -218,6 +236,7 @@ export function init(app) {
   // native drags (#108): whether the system can make them, and their end
   try { Promise.resolve(go.SystemDrag.Supported()).then((ok) => { nativeOK = ok === true; }, () => {}); } catch { /* no Go */ }
   on('native-drag-end', () => { if (drag?.native) finish(); });
+  on('native-drag-prep', (pr) => { if (drag?.preparing && !pr?.end) app.flash(prepText(pr)); });
 
   // files from Finder / Explorer / other apps, with their real paths (Wails, window.go EnableFileDrop)
   onFileDrop((x, y, paths) => fileDropAt(app, x, y, paths));
@@ -297,6 +316,7 @@ function fileDropAt(app, x, y, paths) {
 // startNative hands a drag from panel p to the system (#108). The HTML drag is already cancelled; when no native drag
 // could start (the button was let go first) nothing happens, as with a drag that never left the row.
 function startNative(app, p, paths) {
+  hookWailsDrag(app);
   drag = { from: p, paths, native: true };
   Promise.resolve()
     .then(() => go.SystemDrag.Start(paths))
@@ -304,14 +324,73 @@ function startNative(app, p, paths) {
     .catch((e) => { if (drag?.native) drag = null; app.flash(errText(e), 'err'); });
 }
 
-// dropNative does what dropping our own native drag on the element el does: as an HTML drop, with the operation from
-// the modifier keys held at the drop (asked of the system: the page sees no key events during a native drag).
-async function dropNative(app, d, el) {
+// startNativeCopy hands a drag inside an archive or on a server to the system (#108): Go copies the files to a
+// temporary folder while the button stays down, then drags the copies. When the button was let go first, nothing is
+// dragged and the page says so. d.src keeps the real paths: a drop back inside the window works on them, as the HTML
+// drag would; d.paths are the copies, which is what the system's drop carries.
+function startNativeCopy(app, p, src) {
+  hookWailsDrag(app);
+  const d = { from: p, paths: [], src, native: true, preparing: true };
+  drag = d;
+  Promise.resolve()
+    .then(() => go.SystemDrag.StartFrom(src))
+    .then((r) => {
+      if (drag !== d) return;
+      if (r?.status === 'started') { d.paths = r.paths || []; d.preparing = false; return; }
+      drag = null;
+      if (r?.status === 'released') app.flash('The mouse button was let go before the files were ready, so nothing was dragged. Keep it down until the drag begins.');
+    })
+    .catch((e) => { if (drag === d) drag = null; app.flash(errText(e), 'err'); });
+}
+
+// realDrag is a native drag with its real files (the archive or server paths of a drag of copies).
+const realDrag = (d) => (d?.src ? { ...d, paths: d.src } : d);
+
+// hookWailsDrag: on macOS Wails' window takes native file drags before the page sees them and only tells its runtime
+// where the pointer is (window._wails.handleDragOver / handleDragLeave). Those calls are passed on as they were and
+// also light up the target under the pointer while a native drag of ours is under way.
+let wailsHooked = false;
+function hookWailsDrag(app) {
+  const w = typeof window !== 'undefined' ? window._wails : null;
+  if (wailsHooked || !w || typeof w.handleDragOver !== 'function') return;
+  wailsHooked = true;
+  const over = w.handleDragOver;
+  const leave = w.handleDragLeave;
+  w.handleDragOver = function (x, y, ...rest) {
+    const r = over.call(this, x, y, ...rest);
+    if (drag?.native && !drag.preparing) nativeOver(app, x, y);
+    return r;
+  };
+  if (typeof leave === 'function') {
+    w.handleDragLeave = function (...args) {
+      const r = leave.apply(this, args);
+      if (drag?.native) { light(null); stopSpring(); }
+      return r;
+    };
+  }
+}
+
+// nativeOver lights the drop target at the point x, y (page pixels) for our own native drag, as dragover does for an
+// HTML drag, with auto-scroll and spring-loaded folders.
+function nativeOver(app, x, y) {
+  const el = document.elementFromPoint(x, y);
   const t = targetAt(app, el);
-  if (!allowed(d, t)) return;
+  const hl = nativeHoverEl(realDrag(drag), t, allowed);
+  light(hl);
+  if (hl) hover(app, { target: el, clientX: x, clientY: y }, t);
+  else stopSpring();
+}
+
+// dropNative does what dropping our own native drag on the element el does: as an HTML drop, with the operation from
+// the modifier keys held at the drop (asked of the system: the page sees no key events during a native drag). A drag
+// of copies (out of an archive or server) drops its real files, as the HTML drag would.
+async function dropNative(app, d, el) {
+  const real = realDrag(d);
+  const t = targetAt(app, el);
+  if (!allowed(real, t)) return;
   let mods = {};
   try { mods = (await go.SystemDrag.Modifiers()) || {}; } catch { /* plain copy */ }
-  performDrop(app, d.paths, t, opFor(mods, app.platform), d.from);
+  performDrop(app, real.paths, t, opFor(mods, app.platform), real.from);
 }
 
 // ---- control mode: drops without a mouse ----
