@@ -362,3 +362,62 @@ func TestNetFirstPasswordPromptHasNoRefusedMessage(t *testing.T) {
 		t.Fatalf("messages %q", messages)
 	}
 }
+
+// TestNetAbortOnServer covers the server bar's Abort (F-817): it stops the transfers of that server only, like Cancel
+// in their progress boxes, and the partial file stays for a later resume. The transfer waits on the overwrite question
+// so it is surely running when Abort comes; the server runs inside the test.
+func TestNetAbortOnServer(t *testing.T) {
+	host, dir := davServer(t, "", "")
+	n, _ := testNet(t, nil)
+	os.MkdirAll(filepath.Join(dir, "pub"), 0o755)
+	big := bytes.Repeat([]byte("0123456789abcdef"), 4096)
+	os.WriteFile(filepath.Join(dir, "pub", "big.bin"), big, 0o644)
+	res, err := n.Connect("webdav://" + host + "/pub")
+	if err != nil {
+		t.Fatal(err)
+	}
+	local := t.TempDir()
+	os.WriteFile(filepath.Join(local, "big.bin"), big[:1000], 0o644) // a partial download from before
+	if got := n.RunningOn(res.Path); got != 0 {
+		t.Fatalf("running before the start: %d", got)
+	}
+	id, err := n.StartJob(NetJobRequest{Kind: "copy", Sources: []string{res.Path + "/big.bin"}, Target: local})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		p, _ := n.JobState(id)
+		if p.State == "asking" {
+			if len(p.Servers) != 1 || p.Target != local {
+				t.Fatalf("progress: %+v", p)
+			}
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("no question: %+v", p)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if got := n.RunningOn(res.Path + "/sub"); got != 1 {
+		t.Fatalf("running on the server: %d", got)
+	}
+	if got := n.AbortOn("webdav://other.example/x"); got != 0 {
+		t.Fatalf("abort on another server stopped %d", got)
+	}
+	if got := n.AbortOn(local); got != 0 {
+		t.Fatalf("abort on a local folder stopped %d", got)
+	}
+	if got := n.AbortOn(res.Path); got != 1 {
+		t.Fatalf("abort stopped %d", got)
+	}
+	if p := waitJob(t, n, id, nil); p.State != "cancelled" {
+		t.Fatalf("after abort: %+v", p)
+	}
+	if got, _ := os.ReadFile(filepath.Join(local, "big.bin")); len(got) != 1000 {
+		t.Fatalf("the partial file is %d bytes, want it kept at 1000", len(got))
+	}
+	if got := n.RunningOn(res.Path); got != 0 {
+		t.Fatalf("running after the end: %d", got)
+	}
+}

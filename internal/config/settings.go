@@ -262,6 +262,8 @@ type FTPPage struct {
 	KeepAliveSec   int    `ini:"FTP:KeepAlive" def:"0" min:"0" max:"3600" label:"Keep-alive interval (seconds, 0 = off)"`
 	AsciiMasks     string `ini:"FTP:AsciiMasks" def:"*.txt *.htm *.html *.css *.js" label:"Files sent in text mode"`
 	ResumeDefault  bool   `ini:"FTP:Resume" def:"1" label:"Resume interrupted downloads"`
+	ListTransfers  bool   `ini:"FTP:ListInTransferManager" def:"0" label:"List server transfers in the background transfer window"`
+	AbortButton    bool   `ini:"FTP:AbortButton" def:"0" label:"Show an Abort button on the server bar"`
 }
 
 // ProxyPage (F-437). Passwords are not kept in the settings file; the UI

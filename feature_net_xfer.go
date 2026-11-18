@@ -66,6 +66,8 @@ type NetJobProgress struct {
 	Current   string     `json:"current"`
 	Errors    []string   `json:"errors"`
 	Ask       *NetJobAsk `json:"ask,omitempty"`
+	Target    string     `json:"target"`  // the destination folder (the background transfer window shows it)
+	Servers   []string   `json:"servers"` // the session keys of the servers it touches (the server bar's Abort, F-817)
 }
 
 type netXfer struct {
@@ -108,7 +110,7 @@ func (n *Net) StartJob(req NetJobRequest) (int, error) {
 	n.mu.Lock()
 	n.xferID++
 	x := &netXfer{n: n, ctx: ctx, cancel: cancel, req: req, answer: make(chan NetJobAnswer, 1), policy: req.Overwrite}
-	x.p = NetJobProgress{ID: n.xferID, Kind: req.Kind, State: "running", Errors: []string{}}
+	x.p = NetJobProgress{ID: n.xferID, Kind: req.Kind, State: "running", Errors: []string{}, Target: req.Target, Servers: netJobServers(req)}
 	n.xfers[x.p.ID] = x
 	n.mu.Unlock()
 	go x.run()
@@ -125,6 +127,58 @@ func (n *Net) CancelJob(id int) bool {
 	}
 	x.cancel()
 	return true
+}
+
+// netJobServers is the session keys of the servers a transfer touches (its sources and its target), each once.
+func netJobServers(req NetJobRequest) []string {
+	out := []string{}
+	for _, p := range append(append([]string{}, req.Sources...), req.Target) {
+		k := netKeyFor(p)
+		if k == "" {
+			continue
+		}
+		seen := false
+		for _, o := range out {
+			seen = seen || o == k
+		}
+		if !seen {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// runningOn is the running transfers that touch the server of path (none when path is no server URL).
+func (n *Net) runningOn(path string) []*netXfer {
+	key := netKeyFor(path)
+	if key == "" {
+		return nil
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	var out []*netXfer
+	for _, x := range n.xfers {
+		for _, k := range x.p.Servers { // (Servers is set once at the start and never changed)
+			if k == key {
+				out = append(out, x)
+				break
+			}
+		}
+	}
+	return out
+}
+
+// RunningOn is how many transfers to or from the server of path are running (the server bar's Abort button, F-817).
+func (n *Net) RunningOn(path string) int { return len(n.runningOn(path)) }
+
+// AbortOn stops every running transfer to or from the server of path, like Cancel in their progress boxes: what is
+// done stays done and a partial file stays for a later resume. It returns how many were stopped (F-817).
+func (n *Net) AbortOn(path string) int {
+	xs := n.runningOn(path)
+	for _, x := range xs {
+		x.cancel()
+	}
+	return len(xs)
 }
 
 // AnswerJob answers the question a transfer asks.
@@ -159,6 +213,7 @@ func (x *netXfer) snapshot() NetJobProgress {
 	defer x.mu.Unlock()
 	p := x.p
 	p.Errors = append([]string{}, x.p.Errors...)
+	p.Servers = append([]string{}, x.p.Servers...)
 	return p
 }
 

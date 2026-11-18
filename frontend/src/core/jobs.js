@@ -35,7 +35,11 @@ import { failuresOf, errorCount, listText, logText, logName, retryRequests, list
 // job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
 export const jobBackends = [];
 const backendOf = new Map(); // job number -> backend
-const cancelJob = (id) => (backendOf.get(id) ? backendOf.get(id).cancel(id) : go.Jobs.Cancel(id));
+const cancelJob = (id) => {
+  const r = jobs.get(id);
+  if (r?.ext) return Promise.resolve(r.ext.cancel());
+  return backendOf.get(id) ? backendOf.get(id).cancel(id) : go.Jobs.Cancel(id);
+};
 
 const jobs = new Map(); // id → record {id, req, title, p, background, done, resolve, ui}
 const subs = new Set();
@@ -111,6 +115,38 @@ export function eta(s) {
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
   const two = (n) => String(n).padStart(2, '0');
   return h ? `${h}:${two(m)}:${two(sec)}` : `${m}:${two(sec)}`;
+}
+
+// ---- jobs another engine runs (server transfers, F-382) ----
+
+// trackJob lists a job that another engine runs and reports (the server transfers of features/net.js) in the
+// background transfer window, next to the file jobs. key must not clash with the numbers of Go's file jobs (net.js uses
+// the negative transfer number); cancel stops the job. It returns {update(p), done(p), background()}: update takes a
+// progress record ({kind, state, files, filesDone, bytes, bytesDone, current, target, errors}), done the final one,
+// background moves the job to the background indicator (its progress box was sent away). Pause and the speed limit
+// are not offered for such jobs.
+export function trackJob(key, { req = null, title = '', cancel = () => {}, background = false } = {}) {
+  listen();
+  const r = record(key);
+  r.ext = { cancel };
+  r.claimed = true;
+  r.req = req;
+  r.title = title;
+  r.background = background;
+  r.p = { id: key, kind: req?.kind || 'copy', state: 'running', files: 0, filesDone: 0, bytes: 0, bytesDone: 0, current: '', target: req?.target || '', server: true };
+  notify();
+  return {
+    update(p) { if (r.done) return; r.p = { ...p, id: key, server: true }; notify(); },
+    done(p) {
+      r.p = { ...(p || r.p), id: key, server: true };
+      r.done = true;
+      notify();
+      if (cfgOpt('BackgroundQueue.KeepFinished', '1') === '0') {
+        setTimeout(() => { if (jobs.get(key) === r) { jobs.delete(key); notify(); } }, 3000);
+      }
+    },
+    background() { if (!r.done) { r.background = true; notify(); } },
+  };
 }
 
 // ---- starting ----
@@ -439,7 +475,7 @@ async function transfersWindow() {
         const src = r.req?.sources?.length ? (r.req.sources.length === 1 ? base(r.req.sources[0]) : plural(r.req.sources.length, 'item')) : plural(p.files || 0, 'file');
         const to = p.target ? ` → ${p.target}` : '';
         return `<div class="mc-jobs-row${r.id === selected ? ' on' : ''} st-${p.state}" data-id="${r.id}" role="option" aria-selected="${r.id === selected}">
-          <span class="k">${esc(KIND[p.kind] || p.kind)}${p.queued ? ' (queue)' : ''}</span><span class="w" title="${esc(src + to)}">${esc(src + to)}</span>
+          <span class="k">${esc(KIND[p.kind] || p.kind)}${p.queued ? ' (queue)' : ''}${r.ext ? ' (server)' : ''}</span><span class="w" title="${esc(src + to)}">${esc(src + to)}</span>
           <span class="s">${esc(STATE[p.state] || p.state)}</span><span class="pc">${Math.round(fraction(p) * 100)}%</span>
           <span class="sp">${p.state === 'running' && p.speed > 0 ? esc(size(p.speed)) + '/s' : ''}</span></div>`;
       }).join('');
@@ -451,17 +487,17 @@ async function transfersWindow() {
           errorCount(p) > 0 ? plural(errorCount(p), 'error') : ''].filter(Boolean).join(' · ');
       const live = p && !r.done;
       $('.pause').textContent = p?.state === 'paused' ? 'Continue' : 'Pause';
-      $('.pause').disabled = !live || p.state === 'queued';
+      $('.pause').disabled = !live || p.state === 'queued' || !!r.ext; // (a server transfer can only be stopped)
       $('.now').disabled = !(live && p.state === 'queued');
       $('.stop').disabled = !live;
       $('.clear').disabled = !all.some((x) => x.done);
-      $('.errs').disabled = !(p && r.done && errorCount(p) > 0);
+      $('.errs').disabled = !(p && r.done && errorCount(p) > 0) || !!r.ext; // (a server transfer's errors were flashed when it ended)
     };
     list.addEventListener('mousedown', (ev) => { const row = ev.target.closest('[data-id]'); if (row) { selected = +row.dataset.id; paint(); } });
-    $('.pause').onclick = () => { const r = cur(); if (r) (r.p.state === 'paused' ? go.Jobs.Resume(r.id) : go.Jobs.Pause(r.id)).catch(() => {}); };
-    $('.now').onclick = () => { const r = cur(); if (r) go.Jobs.RunNow(r.id).catch(() => {}); };
+    $('.pause').onclick = () => { const r = cur(); if (r && !r.ext) (r.p.state === 'paused' ? go.Jobs.Resume(r.id) : go.Jobs.Pause(r.id)).catch(() => {}); };
+    $('.now').onclick = () => { const r = cur(); if (r && !r.ext) go.Jobs.RunNow(r.id).catch(() => {}); };
     $('.stop').onclick = () => { const r = cur(); if (r) cancelJob(r.id).catch(() => {}); };
-    $('.errs').onclick = () => { const r = cur(); if (r?.done && errorCount(r.p) > 0) showErrorList(r, r.p); };
+    $('.errs').onclick = () => { const r = cur(); if (r?.done && !r.ext && errorCount(r.p) > 0) showErrorList(r, r.p); };
     $('.clear').onclick = async () => {
       await go.Jobs.Forget().catch(() => {});
       for (const [id, r] of jobs) if (r.done) jobs.delete(id);
@@ -472,7 +508,7 @@ async function transfersWindow() {
       const on = $('#limitOn').checked, kb = Math.max(0, parseInt($('#limit').value, 10) || 0);
       app.setSetting('fileops', { ...(app.setting('fileops', {}) || {}), speedLimitOn: on, speedLimitKB: kb });
       const bps = on ? kb * 1024 : 0;
-      for (const r of jobs.values()) if (!r.done && r.background) go.Jobs.SetSpeedLimit(r.id, bps).catch(() => {});
+      for (const r of jobs.values()) if (!r.done && r.background && !r.ext) go.Jobs.SetSpeedLimit(r.id, bps).catch(() => {});
     };
     $('#limitOn').addEventListener('change', applyLimit);
     $('#limit').addEventListener('change', applyLimit);

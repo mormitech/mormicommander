@@ -47,6 +47,8 @@
 .mc-net-what { font-size: 11px; opacity: .8; margin-right: 4px; white-space: nowrap; }
 .mc-net-bar button { display: inline-flex; align-items: center; justify-content: center; padding: 1px 3px; line-height: 0; cursor: pointer; }
 .mc-net-bar svg { width: 15px; height: 15px; }
+.mc-net-bar button:disabled { opacity: .4; cursor: default; }
+.mc-net-bar .mc-net-abort:not(:disabled) { color: var(--err, #c33); }
 
 /* protocol log */
 .mc-box.mc-net-logbox { width: min(760px, 94vw); }

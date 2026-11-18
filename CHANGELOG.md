@@ -8,6 +8,11 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Server transfers: Options > FTP > "List server transfers in the background transfer window" (off by default) lists
+  FTP, SFTP and WebDAV copies and moves there with their progress and Stop job, and their progress box gets
+  Background (F2); a stopped transfer keeps its partial file for "Resume".
+- Options > FTP > "Show an Abort button on the server bar" (off by default) adds Abort to the bar above a server
+  panel: it stops the running transfers to or from that server and keeps the partial file for "Resume".
 - Files > Internal associations… is now a list of entries (add, change, remove, move up and down) with files, Open
   (Enter), View (F3) and Edit (F4) commands and an icon (a picture file or a character) shown for matching files;
   the old one-line entries keep working, and "As text" still edits the setting itself.

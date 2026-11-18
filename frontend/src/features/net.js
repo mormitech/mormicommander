@@ -11,7 +11,8 @@
 //
 // A panel shows a server through the vfs router (feature_net*.go puts the connection layer on it), so typing a URL in
 // the path bar works too. While a panel is on a server, a small bar above its path shows the kind of connection, the
-// transfer mode (click to change), the protocol log and a Disconnect button (F-817). Questions only the user can
+// transfer mode (click to change), the protocol log, Abort (only with Options > FTP > "Show an Abort button on the
+// server bar": it stops the transfers of that server) and a Disconnect button (F-817). Questions only the user can
 // answer while connecting (password, key passphrase, master password, SFTP host key) come from Go as "net-ask" events
 // and are page dialogs of kind "net-<kind>", so control mode reads and answers them like any other.
 //
@@ -29,6 +30,7 @@ import { track } from '../core/busy.js';
 import { app as theApp } from '../core/app.js';
 import { holdProgress, showWhenFree } from '../core/progresshold.js';
 import { jobWaiter } from '../core/jobwait.js';
+import { trackJob } from '../core/jobs.js';
 import { savePasswordLabel, passwordStoreNote, sitePasswordNote, keychainTitle, keychainResult } from './net-lib.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
@@ -424,6 +426,7 @@ const MODE_ICON = {
   ascii: I('<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 12h7M9 15h7M9 18h4"/>'),
 };
 const LOG_ICON = I('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>');
+const ABORT_ICON = I('<rect x="6" y="6" width="12" height="12" rx="1.5"/>');
 const OFF_ICON = I('<path d="M12 3v8"/><path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>');
 const keyText = (name) => { const k = theApp.keyLabel?.(name); return k ? ` (${k})` : ''; };
 
@@ -433,12 +436,13 @@ function bar(p) {
   el = document.createElement('span');
   el.className = 'mc-net-bar';
   el.hidden = true;
-  el.innerHTML = `<span class="mc-net-what"></span><button type="button" class="mc-net-mode"></button><button type="button" class="mc-net-log" aria-label="Protocol log">${LOG_ICON}</button><button type="button" class="mc-net-off">${OFF_ICON}</button>`;
+  el.innerHTML = `<span class="mc-net-what"></span><button type="button" class="mc-net-mode"></button><button type="button" class="mc-net-log" aria-label="Protocol log">${LOG_ICON}</button><button type="button" class="mc-net-abort" hidden aria-label="Abort the transfer">${ABORT_ICON}</button><button type="button" class="mc-net-off">${OFF_ICON}</button>`;
   p.$.pbtns.before(el);
   // (a click here must not open the path editor of the path bar)
   el.addEventListener('click', (ev) => ev.stopPropagation());
   el.querySelector('.mc-net-mode').onclick = () => { theApp.setActive(p); theApp.run('cm_FtpTransferMode'); };
   el.querySelector('.mc-net-log').onclick = () => showLog(theApp, p.path);
+  el.querySelector('.mc-net-abort').onclick = () => abortOn(theApp, p);
   el.querySelector('.mc-net-off').onclick = () => { theApp.setActive(p); disconnect(theApp, p.path).catch((e) => theApp.flash(errText(e), 'err')); };
   bars.set(p, el);
   return el;
@@ -464,6 +468,13 @@ async function paintBar(p) {
   const log = el.querySelector('.mc-net-log');
   log.hidden = !st.log;
   log.title = `Show the protocol log of ${server}`;
+  const abort = el.querySelector('.mc-net-abort');
+  abort.hidden = !abortWanted();
+  if (!abort.hidden) {
+    const running = await go.Net.RunningOn(p.path).catch(() => 0);
+    abort.disabled = !running;
+    abort.title = running ? `Abort the ${running > 1 ? `${running} transfers` : 'transfer'} to or from ${server} (a partial file stays for "Resume")` : `No transfer to or from ${server} is running`;
+  }
   const off = el.querySelector('.mc-net-off');
   off.title = `Disconnect from ${server}${keyText('cm_FtpDisconnect')}`;
   off.setAttribute('aria-label', `Disconnect from ${server}`);
@@ -486,9 +497,28 @@ const JOB_BUTTONS = { Overwrite: 'overwrite', Resume: 'resume', Skip: 'skip', 'O
 function listenJobs() {
   if (jobsListening) return;
   jobsListening = true;
-  on('net-job', (p) => jobs.get(p.id)?.update(p));
-  on('net-job-ask', (p) => { jobs.get(p.id)?.update(p); askOverwrite(p); });
-  on('net-job-done', (p) => jobs.done(p));
+  on('net-job', (p) => { jobs.get(p.id)?.update(p); liveJob(p, true); });
+  on('net-job-ask', (p) => { jobs.get(p.id)?.update(p); liveJob(p, true); askOverwrite(p); });
+  on('net-job-done', (p) => { jobs.done(p); liveJob(p, false); });
+}
+
+// ---- the server bar's Abort button (F-817, Options > FTP > Show an Abort button on the server bar, off by default) ----
+// It stops the running transfers to or from the panel's server, like Cancel in their progress boxes (the partial file
+// stays for a later resume). The page keeps the numbers of the running transfers to enable it.
+const live = new Set();
+export const abortWanted = (values = theApp.config?.values) => values?.['FTP.AbortButton'] === '1';
+
+function liveJob(p, running) {
+  const had = live.has(p.id);
+  if (running) live.add(p.id); else live.delete(p.id);
+  if (had !== running) refreshBars(theApp);
+}
+
+// abortOn stops the transfers of the server panel p shows; it resolves with how many were stopped.
+export async function abortOn(app, p) {
+  const n = await go.Net.AbortOn(p.path).catch(() => 0);
+  app.flash(n ? `Stopped ${plural(n, 'transfer')}. Copy again and choose "Resume" to finish a file.` : 'No transfer to or from this server is running.');
+  return n;
 }
 
 async function askOverwrite(p) {
@@ -514,6 +544,11 @@ async function askOverwriteNow(p, c, name) {
 // runNetJob copies or moves to, from or between servers: {kind: 'copy'|'move', sources: [full paths or URLs],
 // target: folder, rename: '', overwrite: ''}. It resolves with the final progress (state done, failed or cancelled);
 // both panels are reread afterwards.
+// With Options > FTP > List server transfers in the background transfer window on (off by default, F-382), the transfer
+// is also listed in the background transfer window (core/jobs.js trackJob) with its progress and Stop job, and its
+// progress box gets Background (F2), which closes the box while the transfer goes on (the job indicator shows it).
+export const listTransfersWanted = (values = theApp.config?.values) => values?.['FTP.ListTransfers'] === '1';
+
 export function runNetJob(req, { title } = {}) {
   listenJobs();
   return track((async () => {
@@ -521,12 +556,15 @@ export function runNetJob(req, { title } = {}) {
     let p = { id, kind: req.kind, state: 'running', files: 0, filesDone: 0, bytes: 0, bytesDone: 0, current: '' };
     let close = () => {};
     let paint = () => {};
-    const result = jobs.wait(id, { update: (np) => { p = np; paint(); }, close: () => close() });
+    const listed = listTransfersWanted() ? trackJob(-id, { req, title: title || (req.kind === 'move' ? 'Moving' : 'Copying'), cancel: () => go.Net.CancelJob(id).catch(() => {}) }) : null;
+    let sentBack = false;
+    let toBack = () => {};
+    const result = jobs.wait(id, { update: (np) => { p = np; paint(); listed?.update(np); }, close: () => close() });
     const cancelShow = showWhenFree(() => { // waits while a question is open, so it stays on top (board issue #123)
       modal((box, done) => {
         close = () => done();
         box.innerHTML = `<h2>${esc(title || (req.kind === 'move' ? 'Moving' : 'Copying'))}</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p>
-          <div class="mc-btns"><button type="button" class="cancel">Cancel</button></div>`;
+          <div class="mc-btns">${listed ? '<button type="button" class="bg" title="Go on in the background (F2)">Background</button>' : ''}<button type="button" class="cancel">Cancel</button></div>`;
         const msg = box.querySelector('.mc-msg'), barEl = box.querySelector('.mc-progress i'), note = box.querySelector('.mc-note');
         paint = () => {
           msg.textContent = p.current ? base(p.current) : '';
@@ -536,10 +574,17 @@ export function runNetJob(req, { title } = {}) {
         };
         paint();
         box.querySelector('.cancel').onclick = () => go.Net.CancelJob(id);
+        toBack = () => { if (!listed) return; sentBack = true; listed.background(); done(); };
+        const bg = box.querySelector('.bg');
+        if (bg) bg.onclick = toBack;
         box.onsubmit = (ev) => ev.preventDefault();
-      }, undefined, { kind: 'net-job' }).then(() => go.Net.CancelJob(id).catch(() => {}));
+      }, undefined, {
+        kind: 'net-job',
+        onKey: listed ? (ev) => { if (ev.key === 'F2') { toBack(); return true; } return false; } : undefined,
+      }).then(() => { if (!sentBack) go.Net.CancelJob(id).catch(() => {}); });
     }, 400);
     const final = await result;
+    listed?.done(final);
     cancelShow();
     close();
     await Promise.all(theApp.panels.map((pn) => pn.reload()));
