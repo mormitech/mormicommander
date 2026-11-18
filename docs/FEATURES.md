@@ -479,18 +479,18 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 13. Mark menu
 
-- [ ] F-342 Select group — Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-343 Unselect group — Num - — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-344 Select all — Ctrl+Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-345 Unselect all — Ctrl+Num - — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-346 Invert selection — Num * — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-347 Select all with same extension — Alt+Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-348 Restore selection — Num / — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-349 Save / load selection, from file / clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-350 Copy selected names / full names / details to clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-351 Compare directories — Shift+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-342 Select group — Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Select group… runs cm_SpreadSelection, the same command as Num +; the menu now shows the key
+- [~] F-343 Unselect group — Num - — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Unselect group… runs cm_ShrinkSelection, the same as Num -; the menu now shows the key
+- [~] F-344 Select all — Ctrl+Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Select all runs cm_SelectAll, the same as Ctrl+Num + (and Ctrl+A); the menu now shows the key
+- [~] F-345 Unselect all — Ctrl+Num - — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Unselect all runs cm_ClearAll, the same as Ctrl+Num -; the menu now shows the key
+- [~] F-346 Invert selection — Num * — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Invert selection runs cm_ExchangeSelection, the same as Num *; the menu now shows the key
+- [~] F-347 Select all with same extension — Alt+Num + — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Select all with the same extension runs cm_SelectCurrentExtension, the same as Alt+Num + (Unselect: Alt+Num -); the menu now shows the keys
+- [~] F-348 Restore selection — Num / — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Restore selection runs cm_RestoreSelection, the same as Num /; the menu now shows the key
+- [~] F-349 Save / load selection, from file / clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark has Save selection, Load selection, Save selection to file…, Load selection from file…, Load selection from clipboard (selection.js, Go side internal/masks); no default keys
+- [~] F-350 Copy selected names / full names / details to clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark has Copy names to clipboard, with full path, with details (plus full details, network, Unix, URL, quoted variants), all through go.Select.CopyNames; no default keys
+- [~] F-351 Compare directories — Shift+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #61: Mark > Compare folders runs cm_CompareDirs, the same as Shift+F2; the menu now shows the key
 - [~] F-352 Mark newer / Hide equal files after compare (cm_CompareDirs + "hide equal") — — — option to show only differing files after compare — audit #103: built: Mark > "Compare folders, hide equal files" (cm_CompareDirsHideEqual); Ctrl+F10 shows all files again; waiting for QA
-- [ ] F-353 Select by search results ("Feed to listbox" back) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: no Mark-menu command of its own; Find files has Go to file and Feed to listbox (F-541) and Mark has Load selection from clipboard, which spec area-3 4.2 counts as the TC way, but the criterion asks for a menu entry
+- [~] F-353 Select by search results ("Feed to listbox" back) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #103: no Mark-menu command of its own; Find files has Go to file and Feed to listbox (F-541) and Mark has Load selection from clipboard, which spec area-3 4.2 counts as the TC way, but the criterion asks for a menu entry; audit #61: built Mark > "Select search results" (cm_SelectSearchResults, find.js + find-select-lib.js): selects in the active panel the entries the last Find files search found (adds to the selection); waiting for QA
 
 ## 14. Commands menu
 

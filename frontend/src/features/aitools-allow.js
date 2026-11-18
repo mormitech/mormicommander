@@ -112,6 +112,7 @@ export const ALLOWED_COMMANDS = {
   cm_UnselectCurrentName: 'unselects the entries with the name under the cursor',
   cm_UnselectCurrentNameExt: 'unselects the entries with the name and extension under the cursor',
   cm_SelectFromOtherPanel: 'selects the names selected in the other panel',
+  cm_SelectSearchResults: 'selects the entries the last Find files search found (no dialog)',
   cm_SelectToggle: 'selects or unselects the entry under the cursor', cm_SelectToggleDown: 'the same, and moves down',
   cm_SelUp: 'selects while moving the cursor', cm_SelDown: 'selects while moving the cursor',
   cm_SelLeft: 'selects while moving the cursor', cm_SelRight: 'selects while moving the cursor',

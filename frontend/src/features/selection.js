@@ -75,11 +75,11 @@ command({ name: 'cm_SelRight', label: 'Select right', run: (app) => selMove(app,
 command({ name: 'cm_SelHome', label: 'Select to the top', run: (app) => selMove(app, 0, true) });
 command({ name: 'cm_SelEnd', label: 'Select to the end', run: (app) => selMove(app, app.cur.entries.length - 1, true) });
 
-command({ name: 'cm_SelectAll', label: 'Select all', run: (app) => app.cur.selectWhere((e) => !e.dir || markDirs(app)) });
+command({ name: 'cm_SelectAll', menuKey: true, label: 'Select all', run: (app) => app.cur.selectWhere((e) => !e.dir || markDirs(app)) });
 command({ name: 'cm_SelectAllBoth', label: 'Select all, folders too', run: (app) => app.cur.selectWhere(() => true) });
 command({ name: 'cm_SelectAllFiles', label: 'Select all files', run: (app) => app.cur.selectWhere((e) => !e.dir) });
 command({ name: 'cm_SelectAllFolders', label: 'Select all folders', run: (app) => app.cur.selectWhere((e) => e.dir) });
-command({ name: 'cm_ClearAll', label: 'Unselect all', run: (app) => app.cur.clearSelection() });
+command({ name: 'cm_ClearAll', menuKey: true, label: 'Unselect all', run: (app) => app.cur.clearSelection() });
 command({ name: 'cm_ClearFiles', label: 'Unselect files', run: (app) => app.cur.selectWhere((e) => !e.dir, false) });
 command({ name: 'cm_ClearFolders', label: 'Unselect folders', run: (app) => app.cur.selectWhere((e) => e.dir, false) });
 
@@ -88,7 +88,7 @@ function invert(app, which) {
   for (const e of p.entries) if (!e.up && which(e)) p.toggle(e);
   p.selectionChanged();
 }
-command({ name: 'cm_ExchangeSelection', label: 'Invert selection', run: (app) => invert(app, (e) => !e.dir || markDirs(app)) });
+command({ name: 'cm_ExchangeSelection', menuKey: true, label: 'Invert selection', run: (app) => invert(app, (e) => !e.dir || markDirs(app)) });
 command({ name: 'cm_ExchangeSelBoth', label: 'Invert selection, folders too', run: (app) => invert(app, () => true) });
 command({ name: 'cm_ExchangeSelFiles', label: 'Invert selection of files', run: (app) => invert(app, (e) => !e.dir) });
 command({ name: 'cm_ExchangeSelFolders', label: 'Invert selection of folders', run: (app) => invert(app, (e) => e.dir) });
@@ -96,7 +96,7 @@ command({ name: 'cm_ExchangeSelFolders', label: 'Invert selection of folders', r
 command({ name: 'cm_SaveSelection', label: 'Save selection', run: (app) => app.cur.saveSelection() });
 command({
   // Num /: selects the saved names in whatever folder is shown (adds to the selection); nothing saved, nothing happens.
-  name: 'cm_RestoreSelection', label: 'Restore selection',
+  name: 'cm_RestoreSelection', menuKey: true, label: 'Restore selection',
   run: (app) => {
     const names = new Set(app.cur.saved);
     if (names.size) app.cur.selectWhere((e) => names.has(e.name));
@@ -268,11 +268,11 @@ async function group(app, args, select, kind) {
   return true;
 }
 
-command({ name: 'cm_SpreadSelection', label: 'Select group…', run: (app, a) => group(app, a, true, groupKind(app, false)) });
+command({ name: 'cm_SpreadSelection', menuKey: true, label: 'Select group…', run: (app, a) => group(app, a, true, groupKind(app, false)) });
 command({ name: 'cm_SelectBoth', label: 'Select group, folders too…', run: (app, a) => group(app, a, true, groupKind(app, true)) });
 command({ name: 'cm_SelectFiles', label: 'Select a group of files…', run: (app, a) => group(app, a, true, 'files') });
 command({ name: 'cm_SelectFolders', label: 'Select a group of folders…', run: (app, a) => group(app, a, true, 'folders') });
-command({ name: 'cm_ShrinkSelection', label: 'Unselect group…', run: (app, a) => group(app, a, false, groupKind(app, false)) });
+command({ name: 'cm_ShrinkSelection', menuKey: true, label: 'Unselect group…', run: (app, a) => group(app, a, false, groupKind(app, false)) });
 command({ name: 'cm_UnselectFiles', label: 'Unselect a group of files…', run: (app, a) => group(app, a, false, 'files') });
 command({ name: 'cm_UnselectFolders', label: 'Unselect a group of folders…', run: (app, a) => group(app, a, false, 'folders') });
 
@@ -285,8 +285,8 @@ async function same(app, mode, on) {
   mark(p, idx, on);
   return true;
 }
-command({ name: 'cm_SelectCurrentExtension', label: 'Select all with the same extension', run: (app) => same(app, 'ext', true) });
-command({ name: 'cm_UnselectCurrentExtension', label: 'Unselect all with the same extension', run: (app) => same(app, 'ext', false) });
+command({ name: 'cm_SelectCurrentExtension', menuKey: true, label: 'Select all with the same extension', run: (app) => same(app, 'ext', true) });
+command({ name: 'cm_UnselectCurrentExtension', menuKey: true, label: 'Unselect all with the same extension', run: (app) => same(app, 'ext', false) });
 command({ name: 'cm_SelectCurrentName', label: 'Select all with the same name', run: (app) => same(app, 'name', true) });
 command({ name: 'cm_UnselectCurrentName', label: 'Unselect all with the same name', run: (app) => same(app, 'name', false), menu: 'Mark', menuAfter: 'cm_SelectCurrentName' });
 command({ name: 'cm_SelectCurrentNameExt', label: 'Select all with the same name and extension', run: (app) => same(app, 'nameext', true), menu: 'Mark', menuAfter: 'cm_UnselectCurrentName' });

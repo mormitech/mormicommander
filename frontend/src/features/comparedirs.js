@@ -50,7 +50,7 @@ export async function compareDirs(app, { subdirs = '', hideEqual = false } = {})
   return { left: res.leftSelect, right: res.rightSelect, counts: res.counts };
 }
 
-command({ name: 'cm_CompareDirs', label: 'Compare folders', run: (app) => compareDirs(app, { subdirs: '' }) });
+command({ name: 'cm_CompareDirs', menuKey: true, label: 'Compare folders', run: (app) => compareDirs(app, { subdirs: '' }) });
 command({ name: 'cm_CompareDirsWithSubdirs', label: 'Compare folders with subfolders', run: (app) => compareDirs(app, { subdirs: 'recursive' }) });
 command({
   name: 'cm_CompareDirsHideEqual', label: 'Compare folders, hide equal files', menu: 'Mark', menuAfter: 'cm_CompareDirsWithSubdirs',

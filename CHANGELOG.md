@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Mark > Select search results: selects in the active panel the files and folders the last Find files search found.
+- The Mark menu shows the keys of Select group, Unselect group, Select all, Unselect all, Invert selection, Select and
+  unselect all with the same extension, Restore selection and Compare folders.
+
 ## 0.14.31 – 2026-11-18
 
 Parity checks of the macOS key rule (#57), the command line (#58), the button bar (#59) and the Files menu (#60)

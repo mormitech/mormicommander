@@ -35,6 +35,7 @@ import { on as optOn, opt as optValue } from './config/util.js';
 import { findDefaults } from './find-defaults.js';
 import { runJob } from '../core/jobs.js';
 import { DUP_RULES, planDuplicates, hasDuplicates, dropGone } from './find-dups-lib.js';
+import { searchMatches } from './find-select-lib.js';
 
 // ---- result lists in panels (Feed to listbox, F-541) ----
 
@@ -868,6 +869,22 @@ command({ name: 'cm_SearchFor', label: 'Find files…', short: 'Find', run: open
 // With dialogs shown inside the main window (Options: dialogs in windows off) there is no window to put it in, and the
 // dialog opens as usual. An open Find files dialog is brought to the front instead of opening a second one.
 command({ name: 'cm_SearchStandalone', label: 'Find files in a new window…', run: (app, args) => openDialog(app, { ...(args || {}), modeless: true }) });
+// cm_SelectSearchResults (Mark > Select search results, F-353; ours, TC goes the long way round through Feed to
+// listbox and the clipboard): selects, in the active panel, the entries that the last Find files search found. Adds to
+// the selection; nothing found here, nothing changes. The results stay after the dialog closes, until the next search.
+command({
+  name: 'cm_SelectSearchResults', label: 'Select search results', menu: 'Mark', menuAfter: 'cm_LoadSelectionFromClip',
+  run: (app) => {
+    const p = app.cur;
+    if (!S.items.length) { app.flash('There are no search results. Find files (Alt+F7) first.'); return false; }
+    const hit = searchMatches(p.entries, (n) => p.fullPath(n), S.items.map((x) => x.p), app.platform === 'windows' || app.platform === 'darwin');
+    if (!hit.length) { app.flash('None of the search results is in this folder.'); return false; }
+    for (const e of hit) p.select(e, true);
+    p.selectionChanged();
+    app.flash(`Selected ${plural(hit.length, 'search result')}.`);
+    return true;
+  },
+});
 
 // ---- control mode ----
 
