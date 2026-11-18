@@ -157,6 +157,8 @@ export const DENIED_COMMANDS = {
   cm_SrcQuickView: 'quick view may use an external viewer program; cm_SrcQuickInternalOnly uses the built-in one',
   cm_QuickLook: 'it hands the file to the system\'s Quick Look', cm_GitStatus: 'it runs the git program',
   cm_RemoveQuarantine: 'it removes macOS\'s quarantine flag, a security check, from files',
+  cm_TerminalPane: 'it starts a shell', cm_TerminalFocus: 'it starts a shell', cm_TerminalFollow: 'it makes the terminal change folder',
+  cm_TerminalInsertNames: 'it types into the terminal', cm_TerminalInsertPaths: 'it types into the terminal',
 };
 
 // Words in a command's name that mean it changes files, runs something or changes settings. A name with one of these

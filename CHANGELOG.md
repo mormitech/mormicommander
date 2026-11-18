@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Embedded terminal pane: Commands > Terminal pane (or Ctrl+`) opens your shell in a pane below the panels, in the
+  active panel's folder. It follows the panel's folder while the shell waits at its prompt (Commands > Terminal follows
+  the panel), and Insert names / Insert full paths in terminal put the selected files at the prompt. Off until you open
+  it; macOS and Linux only for now.
+
 ## 0.14.37 – 2026-11-19
 
 HEIC, AVIF and JPEG XL pictures through programs already on the computer (#25), Parquet and more in the table

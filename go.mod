@@ -5,6 +5,7 @@ go 1.26.0
 require (
 	github.com/andybalholm/brotli v1.2.2
 	github.com/bodgit/sevenzip v1.6.5
+	github.com/creack/pty v1.1.24
 	github.com/dsnet/compress v0.0.1
 	github.com/hirochachacha/go-smb2 v1.1.0
 	github.com/klauspost/compress v1.19.0

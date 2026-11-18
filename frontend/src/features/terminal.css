@@ -1,0 +1,10 @@
+/* The embedded terminal pane (features/terminal.js): below the panels, above the command line. */
+#terminal-pane { display: flex; flex-direction: column; flex: none; height: 240px; min-height: 80px; background: var(--bg); border-top: 1px solid var(--line); }
+#terminal-pane[hidden] { display: none; }
+#terminal-pane .mc-term-grip { flex: none; height: 4px; margin-top: -2px; cursor: ns-resize; }
+#terminal-pane .mc-term-head { flex: none; display: flex; align-items: center; gap: 6px; padding: 1px 6px; background: var(--panel); color: var(--muted); font-size: 11px; }
+#terminal-pane .mc-term-title { flex: 1; }
+#terminal-pane .mc-term-close { border: 0; background: transparent; color: var(--muted); font-size: 14px; line-height: 1; padding: 0 4px; cursor: pointer; }
+#terminal-pane .mc-term-close:hover { color: var(--text); }
+#terminal-pane .mc-term-body { flex: 1; min-height: 0; padding: 2px 0 0 4px; overflow: hidden; }
+#terminal-pane .xterm { height: 100%; }
