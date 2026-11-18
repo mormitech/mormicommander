@@ -42,7 +42,9 @@ export const MENUS = [
     ['Branch view (all files in subfolders)', 'cm_DirBranch'], ['Branch view of selected folders', 'cm_DirBranchSel'], '-',
     ['Open terminal here', 'cm_ExecuteDOS'], ['__REVEAL__', 'cm_Explorer'], ['Go to desktop folder', 'cm_OpenDesktop'], ['Go to home folder', 'cm_GoToHome'],
     ['Go to root folder', 'cm_GoToRoot'], '-',
-    ['Command line', 'cm_FocusCmdLine'], ['All commands…', 'cm_CommandBrowser'],
+    ['Command line', 'cm_FocusCmdLine'], ['Command line history…', 'cm_ShowCmdLineHistory'], ['Path to command line', 'cm_AddPathToCmdline'],
+    ['Name to command line', 'cm_AddFilenameToCmdline'], ['Path and name to command line', 'cm_AddPathAndNameToCmdline'],
+    ['All commands…', 'cm_CommandBrowser'],
   ]],
   ['Net', [
     ['FTP connect…', 'cm_FtpConnect'], ['New FTP connection…', 'cm_FtpNew'], ['Disconnect', 'cm_FtpDisconnect'], '-',

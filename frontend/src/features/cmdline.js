@@ -98,11 +98,11 @@ command({ name: 'cm_FocusCmdLine', label: 'Command line', run: () => cmdline.foc
 command({ name: 'cm_CmdLineHistoryPrev', label: 'Previous command line', run: () => cmdline.historyStep(-1) });
 command({ name: 'cm_CmdLineHistoryNext', label: 'Next command line', run: () => cmdline.historyStep(1) });
 command({
-  name: 'cm_AddFilenameToCmdline', label: 'Name to command line',
+  name: 'cm_AddFilenameToCmdline', menuKey: true, label: 'Name to command line',
   run: (app) => { const e = app.cur.cur; if (e && !e.up) cmdline.add(quote(e.name)); },
 });
 command({
-  name: 'cm_AddPathAndNameToCmdline', label: 'Path and name to command line',
+  name: 'cm_AddPathAndNameToCmdline', menuKey: true, label: 'Path and name to command line',
   run: (app) => { const e = app.cur.cur; if (e && !e.up) cmdline.add(quote(app.cur.fullPath(e.name))); },
 });
-command({ name: 'cm_AddPathToCmdline', label: 'Path to command line', run: (app) => cmdline.add(quote(app.cur.path)) });
+command({ name: 'cm_AddPathToCmdline', menuKey: true, label: 'Path to command line', run: (app) => cmdline.add(quote(app.cur.path)) });

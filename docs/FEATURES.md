@@ -415,20 +415,20 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 10. Command line
 
-- [ ] F-292 Command line below panels showing current path prompt — — — prompt shows active panel path; Enter runs command with that folder as working directory
-- [~] F-293 Run program / shell command — Enter — command runs; console programs run in a terminal window (or captured output, option)
-- [~] F-294 Run and keep terminal open — Shift+Enter — terminal stays open after command
-- [ ] F-295 Command line history dropdown — Alt+F8 / Ctrl+Down / Ctrl+E / Ctrl+X — previous commands shown/cycled; history saved across restarts (cmdlinehistory)
-- [ ] F-296 Auto-complete paths in command line — — — typing a path suggests matching folders/files
-- [~] F-297 cd command handling — — — "cd path" changes active panel folder instead of running a shell
-- [ ] F-298 Insert file name / full path — Ctrl+Enter / Ctrl+Shift+Enter — inserted with quotes if it has spaces
-- [ ] F-299 Insert path — Ctrl+P — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-300 Typing starts command line input (when quick search not on plain letters) — — — first printable key focuses command line
-- [~] F-301 Internal commands typed in command line (cm_* names) — — — typing "cm_Copy" and Enter runs that internal command
-- [~] F-302 Environment variables in command line — — — %HOME% / $HOME expanded
+- [~] F-292 Command line below panels showing current path prompt — — — prompt shows active panel path; Enter runs command with that folder as working directory — audit #58: #prompt shows the active panel's path + '>' (app.updateTitle, long paths cut at the start); RunLine gets app.cur.path as the working folder (features/system.js)
+- [~] F-293 Run program / shell command — Enter — command runs; console programs run in a terminal window (or captured output, option) — audit #58: Enter runs the line via SystemLaunch.RunLine; GUI programs start on their own, console programs and shell commands open in a terminal (internal/launch/run.go, run_test.go); captured-output option not built (launch.CaptureLine exists but is not wired to the page)
+- [~] F-294 Run and keep terminal open — Shift+Enter — terminal stays open after command — audit #58: Shift+Enter passes keepOpen, RunLineCommand forces LineTerminal with a terminal that stays open (core/keyboard.js, internal/launch/run.go)
+- [~] F-295 Command line history dropdown — Alt+F8 / Ctrl+Down / Ctrl+E / Ctrl+X — previous commands shown/cycled; history saved across restarts (cmdlinehistory) — audit #58: Alt+F8 / Ctrl+Down open the history list (cm_ShowCmdLineHistory, features/reserved.js), Ctrl+E / Ctrl+X step through it (core/cmdline.js historyStep); kept in settings.json key cmdHistory, size from Command line history size, cleared when Save commands is off; TC-imported [Command line history] lines are not shown in it
+- [~] F-296 Auto-complete paths in command line — — — typing a path suggests matching folders/files — audit #58: Tab completes the file/folder name at the caret, more Tabs cycle the matches, Shift+Tab back (features/cmdline-complete.js, test/cmdline-complete-lib.test.js; option Misc.CmdLineAutoCmp); no live suggestion list while typing
+- [~] F-297 cd command handling — — — "cd path" changes active panel folder instead of running a shell — audit #58: "cd x", "cd..", "cd\", "cd ~", "cd -" change the active panel's folder (features/cmdline.js cdArg, launch.ParseLine; test/cmdline-cd.test.js, internal/launch/cmdline_test.go)
+- [~] F-298 Insert file name / full path — Ctrl+Enter / Ctrl+Shift+Enter — inserted with quotes if it has spaces — audit #58: Ctrl+Enter / Ctrl+Shift+Enter run cm_AddFilenameToCmdline / cm_AddPathAndNameToCmdline, quoting names with spaces (test/cmdline-insert.test.js)
+- [~] F-299 Insert path — Ctrl+P — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #58: Ctrl+P runs cm_AddPathToCmdline; added it (and the name, path-and-name and history commands) to the Commands menu with their keys shown (core/menus.js, test/cmdline-insert.test.js)
+- [~] F-300 Typing starts command line input (when quick search not on plain letters) — — — first printable key focuses command line — audit #58: a printable key in a panel goes into the command line and focuses it (core/keyboard.js); quick search on plain letters takes the letter instead (features/find-quick.js)
+- [~] F-301 Internal commands typed in command line (cm_* names) — — — typing "cm_Copy" and Enter runs that internal command — audit #58: a cm_* name (any case) runs that command (features/cmdline.js); with arguments Go's ParseLine returns it as internal (features/system.js)
+- [~] F-302 Environment variables in command line — — — %HOME% / $HOME expanded — audit #58: %NAME% everywhere, $NAME / ${NAME} on macOS/Linux, in run lines (launch.ParseLine) and cd (SystemLaunch.ExpandEnv; test/cmdline-cd.test.js, internal/launch/cmdline_test.go)
 - [N/A] F-303 Run as administrator/root from command line — macOS/Linux have no safe GUI elevation for arbitrary commands — Windows: run elevated via UAC prompt; macOS/Linux: clear message, user runs sudo in terminal
-- [ ] F-812 Enter runs the command line when it has text — Enter — with text in the command line, Enter runs it instead of opening the file under cursor
-- [ ] F-813 Ctrl+Enter adds names one after another — Ctrl+Enter — pressing Ctrl+Enter on two files gives both names separated by a space, quoted if needed
+- [~] F-812 Enter runs the command line when it has text — Enter — with text in the command line, Enter runs it instead of opening the file under cursor — audit #58: with text in the command line Enter runs cm_ExecuteCmdLine before any panel key (core/keyboard.js); treemap also defers Enter to it
+- [~] F-813 Ctrl+Enter adds names one after another — Ctrl+Enter — pressing Ctrl+Enter on two files gives both names separated by a space, quoted if needed — audit #58: cmdline.add appends each name after a space, quoted if needed (core/cmdline.js; test/cmdline-insert.test.js)
 - [ ] F-856 Embedded terminal pane that follows the active panel folder — — (assignable) — pane opens below the panels running the user's shell in the current folder; changing folder in the panel sends cd; selected names can be inserted at the prompt
 
 ## 11. Button bar (toolbar)

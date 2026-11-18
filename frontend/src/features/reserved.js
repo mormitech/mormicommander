@@ -25,7 +25,7 @@ async function showCmdLineHistory(app) {
   cmdline.set(r.item.value);
   return true;
 }
-command({ name: 'cm_ShowCmdLineHistory', label: 'Command line history', short: 'History', run: (app) => showCmdLineHistory(app) });
+command({ name: 'cm_ShowCmdLineHistory', menuKey: true, label: 'Command line history', short: 'History', run: (app) => showCmdLineHistory(app) });
 
 // ---- Show > Programs, Custom filter ----
 

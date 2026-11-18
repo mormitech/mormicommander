@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- The Commands menu lists Command line history, Path to command line, Name to command line and Path and name to
+  command line, with their keys (Alt+F8, Ctrl+P, Ctrl+Enter, Ctrl+Shift+Enter).
+
 ## 0.14.30 – 2026-11-18
 
 ### Fixed
