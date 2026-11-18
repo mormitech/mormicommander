@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"time"
 )
 
 // ReadDelimited reads CSV (comma ',') or TSV (comma '\t'). Quotes are taken loosely and rows may have any number of
@@ -60,6 +61,14 @@ func ReadDelimited(r io.Reader, comma rune) (*Table, error) {
 		}
 		if len(t.Rows) == MaxRows {
 			t.Truncated = true
+			t.Total = countRest(func() (bool, error) {
+				_, err := cr.Read()
+				var pe *csv.ParseError
+				if errors.As(err, &pe) {
+					return errors.Is(pe.Err, csv.ErrFieldCount), nil // a row that could not be read is left out
+				}
+				return err == nil, err
+			})
 			break
 		}
 		for len(t.Columns) < len(rec) {
@@ -76,6 +85,32 @@ func ReadDelimited(r io.Reader, comma rune) (*Table, error) {
 	}
 	inferTypes(t)
 	return t, nil
+}
+
+// countBudget is how long countRest goes on counting the rows after the first MaxRows before it gives up.
+var countBudget = 3 * time.Second
+
+// countRest counts the rows of a file past the first MaxRows, after the reader stopped at the row just past them:
+// next reads one more item and says whether it is a row (io.EOF at the end). The total is 0 (not known) when reading
+// fails or takes longer than countBudget.
+func countRest(next func() (bool, error)) int64 {
+	n := int64(MaxRows) + 1
+	end := time.Now().Add(countBudget)
+	for i := 0; ; i++ {
+		if i%4096 == 0 && time.Now().After(end) {
+			return 0
+		}
+		row, err := next()
+		if errors.Is(err, io.EOF) {
+			return n
+		}
+		if err != nil {
+			return 0
+		}
+		if row {
+			n++
+		}
+	}
 }
 
 func trimBOM(s string) string {
@@ -113,6 +148,18 @@ func ReadJSONL(r io.Reader) (*Table, error) {
 		if s := bytes.TrimSpace(line); len(s) > 0 {
 			if len(t.Rows) == MaxRows {
 				t.Truncated = true
+				t.Total = countRest(func() (bool, error) {
+					line, err := br.ReadSlice('\n')
+					row := len(bytes.TrimSpace(line)) > 0
+					for errors.Is(err, bufio.ErrBufferFull) { // a line longer than the buffer: read on to its end
+						line, err = br.ReadSlice('\n')
+						row = row || len(bytes.TrimSpace(line)) > 0
+					}
+					if errors.Is(err, io.EOF) && row {
+						err = nil // the last line has no line break; the next call ends
+					}
+					return row, err
+				})
 				break
 			}
 			row := []*string{}

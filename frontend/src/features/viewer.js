@@ -445,7 +445,7 @@ command({
       ${chk('lo-hex', 'Open binary files in hex mode', s.autoHex)}
       ${chk('lo-media', 'Show images, audio and video', s.showMedia)}
       ${chk('lo-html', 'Show HTML and Markdown rendered', s.renderHTML)}
-      ${chk('lo-table', 'Open CSV, TSV, JSONL and SQLite files as a table', s.openTables)}
+      ${chk('lo-table', 'Open CSV, TSV, JSONL, Parquet and SQLite files as a table', s.openTables)}
       ${chk('lo-wrap', 'Wrap text', s.wrap)}
       ${chk('lo-fit', 'Fit images to the window', s.fitImage)}
       ${!inListerWindow() ? chk('lo-window', 'Open the Lister in a window of its own', inWindowSetting(app)) : ''}

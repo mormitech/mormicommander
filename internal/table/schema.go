@@ -13,6 +13,7 @@ type schemaCol struct {
 	stored    bool // the value is in the record
 	rowid     bool // INTEGER PRIMARY KEY: the value is the rowid
 	real      bool // REAL affinity: whole numbers are stored as integers but are floating point values
+	pk        int  // place in the primary key, from 1 (0 = not part of it); a WITHOUT ROWID record starts with these
 }
 
 // token is one SQL token; quoted is true for a quoted identifier or string, whose text is already unquoted.
@@ -171,12 +172,20 @@ func parseCreateTable(sql string) (cols []schemaCol, withoutRowid, ok bool) {
 			case d[k].is("PRIMARY") && k+1 < len(d) && d[k+1].is("KEY"):
 				desc := k+2 < len(d) && d[k+2].is("DESC")
 				c.rowid = strings.EqualFold(c.typ, "INTEGER") && !desc
+				c.pk = 1
 			}
 		}
 		if generated && !storedGen {
 			c.stored = false
 		}
 		cols = append(cols, c)
+	}
+	for k, name := range tablePK {
+		for i := range cols {
+			if strings.EqualFold(cols[i].name, name) && cols[i].pk == 0 {
+				cols[i].pk = k + 1
+			}
+		}
 	}
 	if len(tablePK) == 1 {
 		for i := range cols {

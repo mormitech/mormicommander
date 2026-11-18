@@ -96,7 +96,7 @@ type ListerInfo struct {
 	OffsetDigits int                `json:"offsetDigits"` // hex digits of offsets in hex mode
 	DataStart    int64              `json:"dataStart"`    // first byte after a byte order mark
 	ViewSize     int64              `json:"viewSize"`     // size of what is shown (differs from Size for HTML/RTF as text)
-	Table        string             `json:"table"`        // the file can be shown as a table: csv, tsv, jsonl or sqlite ("" = no)
+	Table        string             `json:"table"`        // the file can be shown as a table: csv, tsv, jsonl, parquet or sqlite ("" = no)
 	Options      ListerOptionsShown `json:"options"`
 }
 

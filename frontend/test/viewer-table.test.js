@@ -2,14 +2,14 @@
 // Tests of the Lister's table mode (viewer/table.js, board issue #26): the virtual-scrolling arithmetic (which rows to
 // draw, which blocks to fetch), cell text and column widths, the row cursor keys, the status text, and a TableGrid on
 // a happy-dom page fed by a fake Go side: it fetches only the blocks in view, draws NULLs, lists the tables of a
-// database, switches tables, and copies a row as tab-separated text. Nothing here talks to Go or opens a window.
+// database, switches tables, copies a row as tab-separated text, and marks the cell a search found. Nothing here talks to Go or opens a window.
 import { describe, expect, test, vi } from 'vitest';
 
 vi.mock('../src/core/dialogs.js', () => ({
   esc: (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])),
 }));
 
-const { visibleRange, blocksFor, cellText, columnWidths, gridTemplate, moveCursor, rowsLabel, TableGrid, BLOCK } = await import('../src/features/viewer/table.js');
+const { visibleRange, blocksFor, cellText, columnWidths, gridTemplate, moveCursor, rowsLabel, findFrom, FORMAT_NAMES, TableGrid, BLOCK } = await import('../src/features/viewer/table.js');
 
 describe('table helpers', () => {
   test('visibleRange draws the rows in view and a few around them', () => {
@@ -54,6 +54,17 @@ describe('table helpers', () => {
     expect(rowsLabel({ rows: 1, truncated: false })).toBe('1 row');
     expect(rowsLabel({ rows: 3, truncated: false })).toBe('3 rows');
     expect(rowsLabel({ rows: 10000, truncated: true })).toMatch(/^first 10.000 rows$/);
+    expect(rowsLabel({ rows: 10000, truncated: true, total: 0 })).toMatch(/^first 10.000 rows$/);
+    expect(rowsLabel({ rows: 10000, truncated: true, total: 1234567 })).toMatch(/^first 10.000 of 1.234.567 rows$/);
+    expect(FORMAT_NAMES.parquet).toBe('Parquet');
+  });
+
+  test('findFrom goes on after the found cell, or searches the cursor row first', () => {
+    expect(findFrom(null, 5, 3, false)).toEqual({ row: 5, col: -1 });
+    expect(findFrom(null, 5, 3, true)).toEqual({ row: 5, col: 3 });
+    expect(findFrom({ row: 5, col: 1 }, 5, 3, false)).toEqual({ row: 5, col: 1 });
+    expect(findFrom({ row: 5, col: 1 }, 5, 3, true)).toEqual({ row: 5, col: 1 });
+    expect(findFrom({ row: 2, col: 1 }, 5, 3, false)).toEqual({ row: 5, col: -1 }); // the cursor moved since
   });
 });
 
@@ -117,6 +128,23 @@ describe('TableGrid', () => {
     expect(await grid.rowText(0)).toBe('1\t');
     expect(grid.key('Q')).toBe(false);
     expect(grid.state()).toMatchObject({ format: 'sqlite', rows: 1000, current: 'big', cursor: 450, columns: ['n', 'note'] });
+  });
+
+  test('a found cell is marked until the cursor moves', async () => {
+    const host = document.createElement('div');
+    document.body.append(host);
+    const g = fakeGo();
+    const grid = new TableGrid(host, { api: g.api, rowHeight: 17 });
+    await grid.load('');
+    grid.showHit(1, 1);
+    expect(grid.cursor).toBe(1);
+    const hit = host.querySelectorAll('.mc-tbl-hit');
+    expect(hit.length).toBe(1);
+    expect(hit[0].textContent).toBe('row <2>');
+    expect(grid.state().hit).toEqual({ row: 1, col: 1 });
+    grid.key('Down');
+    expect(host.querySelectorAll('.mc-tbl-hit').length).toBe(0);
+    expect(grid.hit).toBe(null);
   });
 
   test('switching tables reads the other one and starts at its top', async () => {

@@ -1,12 +1,15 @@
 // Tests of the Lister's table view (feature_lister_table.go): a CSV, a UTF-16 TSV and a JSONL file in temp folders
 // open with the table kind set and read as grids through Table and TableRows; a SQLite database (copied from
 // internal/table/testdata) lists its tables and switches between them; reading it leaves the file unchanged and
-// creates nothing next to it; a file that is not a table says so; and Reload reads a changed file again.
+// creates nothing next to it; a Parquet file (internal/table/testdata) reads by its magic; a file of more than 10,000
+// rows says how many it has; TableFind finds text in the cells forwards and backwards; a file that is not a table says
+// so; and Reload reads a changed file again.
 
 package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -119,8 +122,8 @@ func TestListerTableSQLite(t *testing.T) {
 		t.Fatalf("last row: %v", rows)
 	}
 	tb, err = l.Table(info.ID, "kv")
-	if err != nil || tb.Rows != 0 || !strings.Contains(tb.Note, "WITHOUT ROWID") {
-		t.Fatalf("kv: %+v %v", tb, err)
+	if err != nil || tb.Rows != 1 || tb.Note != "" {
+		t.Fatalf("kv (WITHOUT ROWID): %+v %v", tb, err)
 	}
 	l.Close(info.ID)
 	after, _ := os.ReadFile(p)
@@ -148,5 +151,97 @@ func TestListerTableNotATable(t *testing.T) {
 	}
 	if _, err := l.TableRows(info.ID, 0, 1); err == nil {
 		t.Fatal("rows of no table")
+	}
+}
+
+func TestListerTableParquetAndCount(t *testing.T) {
+	src, err := os.ReadFile("internal/table/testdata/flat.parquet")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := filepath.Join(t.TempDir(), "data.bin") // known by its magic, not its name
+	os.WriteFile(p, src, 0o444)
+	l := newTestLister()
+	info, err := l.Open(p, ListerOptions{Mode: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close(info.ID)
+	tb, err := l.Table(info.ID, "")
+	if err != nil || info.Table != "parquet" || tb.Format != "parquet" || tb.Rows != 5 || tb.Columns[1].Type != "string" {
+		t.Fatalf("parquet: %q %+v %v", info.Table, tb, err)
+	}
+	if after, _ := os.ReadFile(p); !bytes.Equal(after, src) {
+		t.Fatal("the file changed")
+	}
+
+	var b strings.Builder
+	b.WriteString("n\n")
+	for i := range 12345 {
+		fmt.Fprintf(&b, "%d\n", i)
+	}
+	c := writeTemp(t, "big.csv", b.String())
+	info2, err := l.Open(c, ListerOptions{Mode: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close(info2.ID)
+	tb, err = l.Table(info2.ID, "")
+	if err != nil || tb.Rows != 10000 || !tb.Truncated || tb.Total != 12345 {
+		t.Fatalf("big csv: rows %d truncated %v total %d %v", tb.Rows, tb.Truncated, tb.Total, err)
+	}
+}
+
+func TestListerTableFind(t *testing.T) {
+	p := writeTemp(t, "f.csv", "name,city\nAnna,Pécs\nBéla,Győr\nanna,Budapest\nZoe,\n")
+	l := newTestLister()
+	info, err := l.Open(p, ListerOptions{Mode: "text"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer l.Close(info.ID)
+	if _, err := l.TableFind(info.ID, ListerTableQuery{Pattern: "x"}, -1, 0); err == nil {
+		t.Fatal("a search before the table is read")
+	}
+	l.Table(info.ID, "")
+	find := func(q ListerTableQuery, row, col int) string {
+		t.Helper()
+		m, err := l.TableFind(info.ID, q, row, col)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !m.Found {
+			return "-"
+		}
+		return fmt.Sprintf("%d,%d", m.Row, m.Col)
+	}
+	cases := []struct {
+		q        ListerTableQuery
+		row, col int
+		want     string
+	}{
+		{ListerTableQuery{Pattern: "anna"}, -1, 0, "0,0"},
+		{ListerTableQuery{Pattern: "anna"}, 0, 0, "2,0"},
+		{ListerTableQuery{Pattern: "anna"}, 2, 0, "-"},
+		{ListerTableQuery{Pattern: "anna", CaseSensitive: true}, -1, 0, "2,0"},
+		{ListerTableQuery{Pattern: "anna", Backward: true}, 2, 0, "0,0"},
+		{ListerTableQuery{Pattern: "anna", Backward: true}, -1, 0, "2,0"},
+		{ListerTableQuery{Pattern: "GYŐR"}, 1, -1, "1,1"},
+		{ListerTableQuery{Pattern: "Bud"}, -1, 0, "2,1"},
+		{ListerTableQuery{Pattern: "Bud", WholeCell: true}, -1, 0, "-"},
+		{ListerTableQuery{Pattern: "^b.*a$", Regex: true}, -1, 0, "1,0"},
+		{ListerTableQuery{Pattern: "p.cs", Regex: true, WholeCell: true}, -1, 0, "0,1"},
+		{ListerTableQuery{Pattern: "Zoe", Backward: true}, 3, 2, "3,0"},
+	}
+	for _, c := range cases {
+		if got := find(c.q, c.row, c.col); got != c.want {
+			t.Errorf("%+v from %d,%d: %s, want %s", c.q, c.row, c.col, got, c.want)
+		}
+	}
+	if _, err := l.TableFind(info.ID, ListerTableQuery{Pattern: "(", Regex: true}, -1, 0); err == nil {
+		t.Error("a bad regular expression is an error")
+	}
+	if _, err := l.TableFind(info.ID, ListerTableQuery{}, -1, 0); err == nil {
+		t.Error("an empty search is an error")
 	}
 }

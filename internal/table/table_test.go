@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 )
 
 func cell(t *testing.T, tb *Table, r, c int) string {
@@ -79,8 +80,8 @@ func TestReadTSVAndCap(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(tb.Rows) != MaxRows || !tb.Truncated || tb.Format != "tsv" {
-		t.Fatalf("rows %d truncated %v", len(tb.Rows), tb.Truncated)
+	if len(tb.Rows) != MaxRows || !tb.Truncated || tb.Format != "tsv" || tb.Total != MaxRows+5 {
+		t.Fatalf("rows %d truncated %v total %d", len(tb.Rows), tb.Truncated, tb.Total)
 	}
 	if cell(t, tb, MaxRows-1, 1) != fmt.Sprint((MaxRows-1)*(MaxRows-1)) {
 		t.Errorf("last row: %q", cell(t, tb, MaxRows-1, 1))
@@ -130,7 +131,7 @@ func TestParseCreateTable(t *testing.T) {
 	if !ok || wr {
 		t.Fatalf("ok %v wr %v", ok, wr)
 	}
-	want := []schemaCol{{"id", "integer", true, true, false}, {`na"me`, "varchar(10, 2)", true, false, false}, {"x y", "", true, false, false}, {"g", "INT", false, false, false}, {"s", "INT", true, false, false}}
+	want := []schemaCol{{"id", "integer", true, true, false, 1}, {`na"me`, "varchar(10, 2)", true, false, false, 0}, {"x y", "", true, false, false, 0}, {"g", "INT", false, false, false, 0}, {"s", "INT", true, false, false, 0}}
 	if fmt.Sprint(cols) != fmt.Sprint(want) {
 		t.Errorf("got  %v\nwant %v", cols, want)
 	}
@@ -142,9 +143,12 @@ func TestParseCreateTable(t *testing.T) {
 	if cols[0].rowid {
 		t.Error("INTEGER PRIMARY KEY DESC is not the rowid")
 	}
-	cols, _, _ = parseCreateTable("CREATE TABLE p (a INTEGER, b INT, PRIMARY KEY (a, b))")
+	cols, _, _ = parseCreateTable("CREATE TABLE p (a INTEGER, b INT, PRIMARY KEY (b DESC, a))")
 	if cols[0].rowid {
 		t.Error("a two-column key is not the rowid")
+	}
+	if cols[0].pk != 2 || cols[1].pk != 1 {
+		t.Errorf("primary key order: %v", cols)
 	}
 	if _, wr, _ := parseCreateTable("CREATE TABLE k (a TEXT PRIMARY KEY) WITHOUT ROWID"); !wr {
 		t.Error("WITHOUT ROWID not seen")
@@ -173,14 +177,14 @@ func TestSQLiteTables(t *testing.T) {
 	for _, e := range d.Tables() {
 		got = append(got, fmt.Sprintf("%s:%v", e.Name, e.Readable))
 	}
-	if s := strings.Join(got, ","); s != `auto:true,copy:true,kv:false,odd "name":true,people:true,sqlite_sequence:true` {
+	if s := strings.Join(got, ","); s != `auto:true,copy:true,kv:true,odd "name":true,people:true,sqlite_sequence:true` {
 		t.Errorf("tables: %s", s)
 	}
 	if d.WAL() {
 		t.Error("not a WAL database")
 	}
-	if _, err := d.Read("kv"); err == nil || !strings.Contains(err.Error(), "WITHOUT ROWID") {
-		t.Errorf("kv: %v", err)
+	if tb, err := d.Read("kv"); err != nil || len(tb.Rows) != 1 || cell(t, tb, 0, 0) != "a" || cell(t, tb, 0, 1) != "b" {
+		t.Errorf("kv (WITHOUT ROWID): %v %v", tb, err)
 	}
 	if _, err := d.Read("v_people"); err == nil {
 		t.Error("a view is not a table")
@@ -310,5 +314,84 @@ func TestVarint(t *testing.T) {
 		if v, n := varint(c.b); v != c.v || n != c.n {
 			t.Errorf("varint(%x) = %d, %d", c.b, v, n)
 		}
+	}
+}
+
+// TestSQLiteWithoutRowid reads WITHOUT ROWID tables (index b-trees several levels deep, with rows in the interior pages,
+// an overflowing cell, and a primary key that is not the first columns and sorts one column descending).
+func TestSQLiteWithoutRowid(t *testing.T) {
+	d := openTestDB(t, "wor.sqlite")
+	tb, err := d.Read("pairs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := colNames(tb); got != "label:TEXT,b:INT,note:TEXT,a:INT" {
+		t.Errorf("columns: %s", got)
+	}
+	if len(tb.Rows) != 600 || tb.Truncated || tb.Note != "" {
+		t.Fatalf("rows %d truncated %v note %q", len(tb.Rows), tb.Truncated, tb.Note)
+	}
+	// key order: a ascending, then b descending
+	want := [][]string{{"row 2", "2", "n2", "0"}, {"row 1", "1", "n1", "0"}, {"row 5", "2", "<nil>", "1"}, {"row 4", "1", "n4", "1"}, {"row 3", "0", "n3", "1"}}
+	for r, w := range want {
+		for c, v := range w {
+			if got := cell(t, tb, r, c); got != v {
+				t.Errorf("row %d col %d: %q, want %q", r, c, got, v)
+			}
+		}
+	}
+	for r := range tb.Rows {
+		if cell(t, tb, r, 0) == "row 7" {
+			if n := cell(t, tb, r, 2); n != strings.Repeat("z", 1500) {
+				t.Errorf("overflowing cell: %d characters", len(n))
+			}
+		}
+	}
+}
+
+// TestSQLiteCount reads the first MaxRows rows of bigger tables and counts the rest from the page headers.
+func TestSQLiteCount(t *testing.T) {
+	d := openTestDB(t, "wor.sqlite")
+	for name, total := range map[string]int64{"big": 10050, "wbig": 10007} {
+		tb, err := d.Read(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(tb.Rows) != MaxRows || !tb.Truncated || tb.Total != total {
+			t.Errorf("%s: rows %d truncated %v total %d", name, len(tb.Rows), tb.Truncated, tb.Total)
+		}
+		if cell(t, tb, MaxRows-1, 0) != fmt.Sprint(MaxRows) {
+			t.Errorf("%s: last row %q", name, cell(t, tb, MaxRows-1, 0))
+		}
+	}
+	tb, _ := d.Read("pairs")
+	if tb.Total != 0 {
+		t.Errorf("a table read whole has no total: %d", tb.Total)
+	}
+}
+
+// TestCountRest counts the rows past MaxRows: JSON Lines with blank lines, a very long line and no last line break, a
+// CSV with a quoted line break, and nothing (0) when the time is up.
+func TestCountRest(t *testing.T) {
+	var b strings.Builder
+	for i := 0; i < MaxRows+3; i++ {
+		fmt.Fprintf(&b, "{\"i\":%d}\n\n", i)
+	}
+	b.WriteString(`{"long":"` + strings.Repeat("x", 200<<10) + "\"}\n   \n{\"end\":1}")
+	tb, err := ReadJSONL(strings.NewReader(b.String()))
+	if err != nil || !tb.Truncated || tb.Total != MaxRows+5 {
+		t.Fatalf("jsonl: total %d truncated %v %v", tb.Total, tb.Truncated, err)
+	}
+	csvText := "a,b\n" + strings.Repeat("1,2\n", MaxRows+1) + "\"two\nlines\",3\n"
+	tb, _ = ReadDelimited(strings.NewReader(csvText), ',')
+	if tb.Total != MaxRows+2 {
+		t.Errorf("csv: total %d", tb.Total)
+	}
+	old := countBudget
+	countBudget = -time.Second
+	defer func() { countBudget = old }()
+	tb, _ = ReadDelimited(strings.NewReader(csvText), ',')
+	if !tb.Truncated || tb.Total != 0 {
+		t.Errorf("out of time: truncated %v total %d", tb.Truncated, tb.Total)
 	}
 }

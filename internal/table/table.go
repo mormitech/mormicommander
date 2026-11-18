@@ -1,4 +1,4 @@
-// Package table reads files that hold rows and columns (CSV, TSV, JSON Lines and SQLite databases) into a small grid
+// Package table reads files that hold rows and columns (CSV, TSV, JSON Lines, Parquet and SQLite databases) into a small grid
 // the Lister can show as a table (board issue #26, F-NEW-10). Every reader only reads: files are opened by the caller
 // for reading, and a SQLite database is parsed straight from its bytes, so nothing is ever written, locked or created
 // next to it (no journal, no -shm file). Only the first MaxRows rows are read, so a file of any size opens quickly; the
@@ -29,18 +29,22 @@ type Column struct {
 
 // Table is the grid read from a file. A nil cell is a SQL NULL (or a JSON key a line does not have).
 type Table struct {
-	Format    string      `json:"format"` // "csv", "tsv", "jsonl" or "sqlite"
+	Format    string      `json:"format"` // "csv", "tsv", "jsonl", "sqlite" or "parquet"
 	Columns   []Column    `json:"columns"`
 	Rows      [][]*string `json:"-"`
 	Truncated bool        `json:"truncated"` // there are more rows than were read
+	Total     int64       `json:"total"`     // when Truncated: how many rows the file has (0 = not known)
 	Note      string      `json:"note"`      // something the user should know (rows that could not be read, a -wal file)
 }
 
 // Kind says which table format a file is in, from its name and its first bytes; "" when it is none of them. A SQLite
-// database is known by its header whatever its name.
+// database and a Parquet file are known by their first bytes whatever their name.
 func Kind(name string, sample []byte) string {
 	if IsSQLite(sample) {
 		return "sqlite"
+	}
+	if IsParquet(sample) {
+		return "parquet"
 	}
 	switch strings.ToLower(filepath.Ext(name)) {
 	case ".csv":

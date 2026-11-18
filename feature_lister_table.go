@@ -1,18 +1,20 @@
 package main
 
-// The Lister's table view (board issue #26, F-NEW-10): CSV, TSV, JSON Lines and SQLite files shown as a grid with column
+// The Lister's table view (board issue #26, F-NEW-10): CSV, TSV, JSON Lines, Parquet and SQLite files shown as a grid with column
 // names and types, in the Lister window and in quick view. It is an extra mode (key T, Options > Table); files open in
-// it by themselves only when the Lister option "Open CSV, TSV, JSONL and SQLite files as a table" is on, which it is
+// it by themselves only when the Lister option "Open CSV, TSV, JSONL, Parquet and SQLite files as a table" is on, which it is
 // not by default, so the Lister behaves as before. The page asks for the grid's shape with Table and then for the rows
-// it scrolls to with TableRows, so only what is on screen is drawn. internal/table does the reading: the first 10,000
-// rows, from the file opened read-only by the Lister session; a SQLite database is parsed from its bytes and never
-// opened with SQLite, so nothing is written or locked.
+// it scrolls to with TableRows, so only what is on screen is drawn, and searches the cells with TableFind. internal/table
+// does the reading: the first 10,000 rows, from the file opened read-only by the Lister session (and how many rows
+// there are in all, when that can be found quickly); a SQLite database and a Parquet file are parsed from their bytes,
+// never opened with another library, so nothing is written or locked.
 
 import (
 	"errors"
 	"fmt"
 	"io"
 	"os"
+	"regexp"
 	"strings"
 
 	"mormicommander/internal/lister"
@@ -32,6 +34,7 @@ type ListerTable struct {
 	Columns   []table.Column     `json:"columns"`
 	Rows      int                `json:"rows"`      // rows read
 	Truncated bool               `json:"truncated"` // the file has more rows than were read
+	Total     int64              `json:"total"`     // when truncated: the rows the file has (0 = not known)
 	Limit     int                `json:"limit"`     // the most rows that are read
 	Note      string             `json:"note"`
 	Tables    []table.TableEntry `json:"tables"`  // SQLite: the tables of the database
@@ -71,7 +74,7 @@ func (l *Lister) Table(id int, name string) (ListerTable, error) {
 		s.mu.Unlock()
 	}
 	g := st.grid
-	return ListerTable{Format: g.Format, Columns: g.Columns, Rows: len(g.Rows), Truncated: g.Truncated, Limit: table.MaxRows,
+	return ListerTable{Format: g.Format, Columns: g.Columns, Rows: len(g.Rows), Truncated: g.Truncated, Total: g.Total, Limit: table.MaxRows,
 		Note: g.Note, Tables: st.tables, Current: st.current}, nil
 }
 
@@ -97,12 +100,109 @@ func (l *Lister) TableRows(id, start, count int) ([][]*string, error) {
 	return out, nil
 }
 
+// ListerTableQuery is a search in the grid's cells.
+type ListerTableQuery struct {
+	Pattern       string `json:"pattern"`
+	CaseSensitive bool   `json:"caseSensitive"`
+	WholeCell     bool   `json:"wholeCell"` // the cell must be the text, not just hold it
+	Regex         bool   `json:"regex"`
+	Backward      bool   `json:"backward"`
+}
+
+// ListerTableMatch is where a search found its text (Row and Col from 0).
+type ListerTableMatch struct {
+	Found bool `json:"found"`
+	Row   int  `json:"row"`
+	Col   int  `json:"col"`
+}
+
+// TableFind looks for the text in the cells of the grid, row by row and left to right, from the cell after (row, col)
+// (before it when searching backward; row -1 starts at the top, or at the bottom backward). NULL cells hold no text.
+func (l *Lister) TableFind(id int, q ListerTableQuery, row, col int) (ListerTableMatch, error) {
+	s, err := l.session(id)
+	if err != nil {
+		return ListerTableMatch{}, err
+	}
+	s.mu.Lock()
+	st := s.table
+	s.mu.Unlock()
+	if st == nil {
+		return ListerTableMatch{}, errors.New("The table is not read yet.")
+	}
+	match, err := tableMatcher(q)
+	if err != nil {
+		return ListerTableMatch{}, err
+	}
+	rows := st.grid.Rows
+	width := len(st.grid.Columns)
+	if width == 0 || len(rows) == 0 {
+		return ListerTableMatch{}, nil
+	}
+	pos := row*width + col // cells in reading order
+	step := 1
+	if q.Backward {
+		step = -1
+		if row < 0 {
+			pos = len(rows) * width
+		}
+	} else if row < 0 {
+		pos = -1
+	}
+	for pos += step; pos >= 0 && pos < len(rows)*width; pos += step {
+		r, c := pos/width, pos%width
+		if c < len(rows[r]) && rows[r][c] != nil && match(*rows[r][c]) {
+			return ListerTableMatch{Found: true, Row: r, Col: c}, nil
+		}
+	}
+	return ListerTableMatch{}, nil
+}
+
+// tableMatcher makes the test of one cell for a query.
+func tableMatcher(q ListerTableQuery) (func(string) bool, error) {
+	if q.Pattern == "" {
+		return nil, errors.New("Type the text to search for.")
+	}
+	if q.Regex {
+		expr := q.Pattern
+		if q.WholeCell {
+			expr = `^(?:` + expr + `)$`
+		}
+		if !q.CaseSensitive {
+			expr = `(?i)` + expr
+		}
+		rx, err := regexp.Compile(expr)
+		if err != nil {
+			return nil, fmt.Errorf("The regular expression is not valid: %v.", err)
+		}
+		return rx.MatchString, nil
+	}
+	p := q.Pattern
+	if !q.CaseSensitive {
+		p = strings.ToLower(p)
+	}
+	return func(v string) bool {
+		if !q.CaseSensitive {
+			v = strings.ToLower(v)
+		}
+		if q.WholeCell {
+			return v == p
+		}
+		return strings.Contains(v, p)
+	}, nil
+}
+
 // loadTable reads the grid of the session's file; for SQLite, name is the table ("" = the first one that can be read).
 func (s *listerSession) loadTable(name string) (*listerTableState, error) {
 	kind := s.tableKind()
 	switch kind {
 	case "sqlite":
 		return s.loadSQLite(name)
+	case "parquet":
+		g, err := table.ReadParquet(s.file, s.file.Size())
+		if err != nil {
+			return nil, fmt.Errorf("The file can't be shown as a table: %v.", err)
+		}
+		return &listerTableState{grid: g}, nil
 	case "csv", "tsv", "jsonl":
 		r, cut, err := s.tableText()
 		if err != nil {
@@ -119,12 +219,12 @@ func (s *listerSession) loadTable(name string) (*listerTableState, error) {
 		if err != nil {
 			return nil, fmt.Errorf("The file can't be shown as a table: %v.", err)
 		}
-		if cut && !g.Truncated {
-			g.Truncated = true
+		if cut {
+			g.Truncated, g.Total = true, 0 // only the start of the file was decoded: the count is not known
 		}
 		return &listerTableState{grid: g}, nil
 	}
-	return nil, errors.New("This file is not a table: CSV, TSV, JSON Lines (JSONL) and SQLite files can be shown as one.")
+	return nil, errors.New("This file is not a table: CSV, TSV, JSON Lines (JSONL), Parquet and SQLite files can be shown as one.")
 }
 
 // tableText gives the text of a CSV, TSV or JSONL file as UTF-8: the file itself when it is UTF-8 (or plain ASCII),

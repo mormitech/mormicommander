@@ -8,7 +8,7 @@ export const LISTER_DEFAULTS = {
   autoHex: true, // binary files open in hex mode (TC opens them as text)
   showMedia: true, // images, audio and video open in mode 4 (TC's BmpStartup / Multimedia)
   renderHTML: true, // HTML and Markdown open rendered
-  openTables: false, // CSV, TSV, JSONL and SQLite files open as a table (off: they open as before; T shows the table)
+  openTables: false, // CSV, TSV, JSONL, Parquet and SQLite files open as a table (off: they open as before; T shows the table)
   wrap: true,
   tabWidth: 8,
   binaryWidth: 75,

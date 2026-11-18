@@ -1,5 +1,5 @@
-// The Lister's table mode (key T, board issue #26 / F-NEW-10): CSV, TSV, JSON Lines and SQLite files as a scrollable
-// grid with a header of column names and types, in the Lister window and in quick view. Go (feature_lister_table.go
+// The Lister's table mode (key T, board issue #26 / F-NEW-10): CSV, TSV, JSON Lines, Parquet and SQLite files as a
+// scrollable grid with a header of column names and types, in the Lister window and in quick view. Go (feature_lister_table.go
 // over internal/table) reads the first 10,000 rows of the file, opened read-only; the page asks for the grid's shape
 // (go.Lister.Table) and then fetches rows in blocks as they scroll into view (go.Lister.TableRows), drawing only the
 // rows on screen (virtual scrolling), so a grid of 10,000 rows scrolls as lightly as one of ten. A SQLite database
@@ -68,15 +68,24 @@ export function moveCursor(cursor, key, total, pageRows) {
   return Math.max(0, Math.min(total - 1, to));
 }
 
-// rowsLabel is the row count as the status line says it: "1,234 rows", or "the first 10,000 rows" when there are more.
+// rowsLabel is the row count as the status line says it: "1,234 rows", or "first 10,000 of 25,000 rows" when there are
+// more ("first 10,000 rows" when how many more is not known).
 export function rowsLabel(shape) {
   if (!shape) return '';
-  if (shape.truncated) return `first ${fmtCount(shape.rows)} rows`;
+  if (shape.truncated) return shape.total > shape.rows ? `first ${fmtCount(shape.rows)} of ${fmtCount(shape.total)} rows` : `first ${fmtCount(shape.rows)} rows`;
   return `${fmtCount(shape.rows)} ${shape.rows === 1 ? 'row' : 'rows'}`;
 }
 
 // formatName is the menu text of a table format.
-export const FORMAT_NAMES = { csv: 'CSV', tsv: 'TSV', jsonl: 'JSON Lines', sqlite: 'SQLite' };
+export const FORMAT_NAMES = { csv: 'CSV', tsv: 'TSV', jsonl: 'JSON Lines', sqlite: 'SQLite', parquet: 'Parquet' };
+
+// findFrom is the cell a search in the grid goes on from (go.Lister.TableFind looks from the cell after it, or before
+// it backward): the cell found last when it is in the cursor row, else just before the cursor row's first cell (just
+// after its last one backward), so the cursor row itself is searched first.
+export function findFrom(hit, cursor, width, backward) {
+  if (hit && hit.row === cursor) return { row: hit.row, col: hit.col };
+  return { row: cursor, col: backward ? width : -1 };
+}
 
 // TableGrid draws a table in a host element. api is {table(name), rows(start, count)} (the Go calls of one session);
 // onChange runs when what the status line shows changed (with an error when a call failed); focus gives the keys back
@@ -90,6 +99,7 @@ export class TableGrid {
     this.shape = null;
     this.blocks = new Map(); // block number -> rows, or a Promise while it loads
     this.cursor = 0;
+    this.hit = null; // the cell a search found: { row, col }
     this.gen = 0;
     host.innerHTML = `
       <div class="mc-tbl-bar" hidden><label>Table <select class="mc-tbl-pick"></select></label></div>
@@ -104,7 +114,7 @@ export class TableGrid {
     this.$.pick.addEventListener('change', () => this.load(this.$.pick.value).catch((e) => this.onChange(e)).finally(() => focus()));
     this.$.rows.addEventListener('mousedown', (ev) => {
       const r = ev.target.closest('.mc-tbl-row');
-      if (r) { this.cursor = +r.dataset.r; this.draw(); this.onChange(); }
+      if (r) { this.cursor = +r.dataset.r; this.hit = null; this.draw(); this.onChange(); }
     });
   }
 
@@ -118,6 +128,7 @@ export class TableGrid {
     this.shape = shape;
     this.blocks = new Map();
     this.cursor = 0;
+    this.hit = null;
     const first = shape.rows ? await this.block(0) : [];
     if (gen !== this.gen) return;
     this.widths = columnWidths(shape.columns || [], first);
@@ -174,10 +185,12 @@ export class TableGrid {
     for (let i = first; i < last; i++) {
       const blk = this.blocks.get(Math.floor(i / BLOCK));
       const row = Array.isArray(blk) ? blk[i % BLOCK] : undefined;
+      const hitCol = this.hit && this.hit.row === i ? this.hit.col : -1;
       const cells = (s.columns || []).map((_, c) => {
         if (!row) return '<span></span>';
         const t = cellText(row[c]);
-        return t === null ? '<span class="mc-tbl-null">NULL</span>' : `<span>${esc(t)}</span>`;
+        const hit = c === hitCol ? ' mc-tbl-hit' : '';
+        return t === null ? `<span class="mc-tbl-null${hit}">NULL</span>` : `<span${hit ? ` class="${hit.trim()}"` : ''}>${esc(t)}</span>`;
       }).join('');
       html.push(`<div class="mc-tbl-row${i === this.cursor ? ' mc-tbl-cur' : ''}" data-r="${i}"><span class="mc-tbl-num">${i + 1}</span>${cells}</div>`);
     }
@@ -185,9 +198,21 @@ export class TableGrid {
     this.$.rows.innerHTML = html.join('');
   }
 
-  // goToRow moves the cursor to row i (0-based) and scrolls it into view.
-  goToRow(i) {
+  // showHit marks the cell a search found, moves the cursor to its row and scrolls the cell into view.
+  showHit(row, col) {
+    this.hit = { row, col };
+    this.goToRow(row, true);
+    const el = this.$.rows.querySelector('.mc-tbl-hit');
+    if (!el) return;
+    const sc = this.$.scroll, r = el.getBoundingClientRect(), b = sc.getBoundingClientRect();
+    const num = this.$.rows.querySelector('.mc-tbl-cur .mc-tbl-num')?.getBoundingClientRect().width || 0;
+    if (r.left < b.left + num || r.right > b.right) sc.scrollLeft += r.left - b.left - num - 8;
+  }
+
+  // goToRow moves the cursor to row i (0-based) and scrolls it into view (keepHit: leave the found cell marked).
+  goToRow(i, keepHit = false) {
     if (!this.shape?.rows) return;
+    if (!keepHit) this.hit = null;
     this.cursor = Math.max(0, Math.min(this.shape.rows - 1, i));
     const sc = this.$.scroll;
     const top = this.cursor * this.rowHeight;
@@ -217,13 +242,14 @@ export class TableGrid {
   state() {
     const s = this.shape;
     return s ? { format: s.format, columns: (s.columns || []).map((c) => c.name), types: (s.columns || []).map((c) => c.type), rows: s.rows, truncated: s.truncated,
-      current: s.current || '', tables: (s.tables || []).map((t) => t.name), cursor: this.cursor, note: s.note || '',
+      current: s.current || '', tables: (s.tables || []).map((t) => t.name), cursor: this.cursor, hit: this.hit, total: s.total || 0, note: s.note || '',
       shown: [...this.$.rows.querySelectorAll('.mc-tbl-row')].length } : null;
   }
 
   clear() {
     this.gen++;
     this.shape = null;
+    this.hit = null;
     this.blocks = new Map();
     this.$.head.textContent = '';
     this.$.rows.textContent = '';

@@ -58,6 +58,7 @@
 .mc-tbl-cur, .mc-tbl-row.mc-tbl-cur:nth-child(even) { background: color-mix(in srgb, var(--sel) 45%, transparent); }
 .mc-tbl-num { color: var(--muted); text-align: right; }
 .mc-tbl-null { color: var(--muted); font-style: italic; }
+.mc-tbl-row > .mc-tbl-hit { background: var(--sel); outline: 1px solid var(--accent); outline-offset: -1px; }
 .mc-tbl-h b { font-weight: 600; }
 .mc-tbl-h i { margin-left: 6px; font-style: normal; font-size: 0.85em; color: var(--muted); }
 

@@ -2,8 +2,8 @@
 // (https://www.sqlite.org/fileformat2.html) so no C library or driver is needed. It reads the schema table on page 1,
 // lists the tables, and walks a table's b-tree in rowid order to decode its records. It never writes and never takes a
 // lock, so a database another program has open is read as it is on disk; changes that are still only in a "-wal" file
-// next to it are not seen (the caller can say so). Tables declared WITHOUT ROWID (stored in an index b-tree) and
-// virtual tables are listed but not read. Every page number and length is checked, so a damaged or hostile file gives
+// next to it are not seen (the caller can say so). Tables declared WITHOUT ROWID are stored in an index b-tree, which is
+// walked in key order the same way; virtual tables are listed but not read. Every page number and length is checked, so a damaged or hostile file gives
 // an error instead of a crash or an endless loop.
 
 package table
@@ -123,10 +123,6 @@ func (d *DB) Tables() []TableEntry {
 			e.Readable, e.Why = false, "This is a virtual table; its rows are made by a SQLite module, not stored in the file."
 		case o.root == 0:
 			e.Readable, e.Why = false, "This table has no data in the file."
-		default:
-			if _, wr, ok := parseCreateTable(o.sql); ok && wr {
-				e.Readable, e.Why = false, "Tables declared WITHOUT ROWID can't be shown yet."
-			}
 		}
 		if strings.HasPrefix(strings.ToLower(o.name), "sqlite_") {
 			internal = append(internal, e)
@@ -159,7 +155,24 @@ func (d *DB) Read(name string) (*Table, error) {
 			return nil, errors.New(strings.TrimSuffix(e.Why, "."))
 		}
 	}
-	cols, _, ok := parseCreateTable(obj.sql)
+	cols, withoutRowid, ok := parseCreateTable(obj.sql)
+	// where each column is in the record: in declaration order, except that a WITHOUT ROWID table's record starts with
+	// its primary key columns (in primary key order) and has the others after them
+	order := make([]int, 0, len(cols))
+	if withoutRowid {
+		for k := 1; k <= len(cols); k++ {
+			for i, c := range cols {
+				if c.pk == k {
+					order = append(order, i)
+				}
+			}
+		}
+	}
+	for i, c := range cols {
+		if !withoutRowid || c.pk == 0 {
+			order = append(order, i)
+		}
+	}
 	t := &Table{Format: "sqlite"}
 	for _, c := range cols {
 		t.Columns = append(t.Columns, Column{Name: c.name, Type: c.typ})
@@ -181,7 +194,8 @@ func (d *DB) Read(name string) (*Table, error) {
 		if ok && len(cols) > 0 {
 			row = make([]*string, len(cols))
 			k := 0
-			for i, c := range cols {
+			for _, i := range order {
+				c := cols[i]
 				if !c.stored {
 					continue // a generated VIRTUAL column is computed when read, never stored
 				}
@@ -220,8 +234,16 @@ func (d *DB) Read(name string) (*Table, error) {
 	if cut && t.Note == "" {
 		t.Note = "Some rows are very large; their last columns are shown as NULL."
 	}
+	if t.Truncated {
+		if n, err := d.count(obj.root, countPages); err == nil {
+			t.Total = n
+		}
+	}
 	return t, nil
 }
+
+// countPages caps how many pages count reads to find how many rows a table has (a few seconds at most).
+const countPages = 1 << 20
 
 // page reads page n (1-based).
 func (d *DB) page(n uint32) ([]byte, error) {
@@ -235,65 +257,95 @@ func (d *DB) page(n uint32) ([]byte, error) {
 	return b, nil
 }
 
-// walk calls fn with every row of the table b-tree rooted at page root, in rowid order, until fn says stop.
+// walk calls fn with every row of the b-tree rooted at page root, in key order, until fn says stop. A table b-tree
+// (a rowid table) gives each row's rowid; an index b-tree (a WITHOUT ROWID table) gives 0, its key is the record.
 func (d *DB) walk(root uint32, fn func(rowid int64, payload []byte) (bool, error)) error {
-	_, err := d.walkPage(root, 0, map[uint32]bool{}, fn)
+	_, _, typ, _, err := d.pageHeader(root)
+	if err != nil {
+		return err
+	}
+	_, err = d.walkPage(root, 0, typ == 2 || typ == 10, map[uint32]bool{}, fn)
 	return err
 }
 
-func (d *DB) walkPage(pg uint32, depth int, seen map[uint32]bool, fn func(int64, []byte) (bool, error)) (bool, error) {
-	if depth > maxDepth || seen[pg] {
-		return false, errDamaged
-	}
-	seen[pg] = true
-	buf, err := d.page(pg)
+// pageHeader reads the b-tree header of page pg: its bytes, where the header starts, the page type and the number of
+// cells. Only b-tree pages pass (2 and 10 index, 5 and 13 table).
+func (d *DB) pageHeader(pg uint32) (buf []byte, off int, typ byte, n int, err error) {
+	buf, err = d.page(pg)
 	if err != nil {
-		return false, err
+		return nil, 0, 0, 0, err
 	}
-	off := 0
 	if pg == 1 {
 		off = 100
 	}
 	if off+12 > d.usable {
+		return nil, 0, 0, 0, errDamaged
+	}
+	typ = buf[off]
+	if typ != 2 && typ != 5 && typ != 10 && typ != 13 {
+		return nil, 0, 0, 0, errDamaged
+	}
+	n = int(binary.BigEndian.Uint16(buf[off+3:]))
+	if off+headerLen(typ)+2*n > d.usable {
+		return nil, 0, 0, 0, errDamaged
+	}
+	return buf, off, typ, n, nil
+}
+
+// headerLen is the length of a b-tree page header: interior pages have the right-most child pointer too.
+func headerLen(typ byte) int {
+	if typ == 2 || typ == 5 {
+		return 12
+	}
+	return 8
+}
+
+func (d *DB) walkPage(pg uint32, depth int, index bool, seen map[uint32]bool, fn func(int64, []byte) (bool, error)) (bool, error) {
+	if depth > maxDepth || seen[pg] {
 		return false, errDamaged
 	}
-	typ := buf[off]
-	n := int(binary.BigEndian.Uint16(buf[off+3:]))
-	hl := 8
-	if typ == 5 {
-		hl = 12
-	} else if typ != 13 {
-		return false, errDamaged // not a table b-tree page
+	seen[pg] = true
+	buf, off, typ, n, err := d.pageHeader(pg)
+	if err != nil {
+		return false, err
 	}
-	if off+hl+2*n > d.usable {
-		return false, errDamaged
+	if (typ == 2 || typ == 10) != index {
+		return false, errDamaged // a page of another kind of b-tree than its root
 	}
+	hl := headerLen(typ)
+	interior := hl == 12
 	for i := 0; i < n; i++ {
 		p := int(binary.BigEndian.Uint16(buf[off+hl+2*i:]))
 		if p < off+hl || p >= d.usable {
 			return false, errDamaged
 		}
-		if typ == 5 {
+		if interior {
 			if p+4 > d.usable {
 				return false, errDamaged
 			}
-			more, err := d.walkPage(binary.BigEndian.Uint32(buf[p:]), depth+1, seen, fn)
+			more, err := d.walkPage(binary.BigEndian.Uint32(buf[p:]), depth+1, index, seen, fn)
 			if err != nil || !more {
 				return more, err
 			}
-			continue
+			if !index {
+				continue // a table interior cell only holds a key, its rows are in the leaves
+			}
+			p += 4 // an index interior cell holds a row (its key) after the child pointer
 		}
 		size, k := varint(buf[p:d.usable])
 		if k == 0 {
 			return false, errDamaged
 		}
 		p += k
-		rowid, k := varint(buf[p:d.usable])
-		if k == 0 {
-			return false, errDamaged
+		var rowid uint64
+		if !index {
+			rowid, k = varint(buf[p:d.usable])
+			if k == 0 {
+				return false, errDamaged
+			}
+			p += k
 		}
-		p += k
-		payload, err := d.payload(buf, p, size)
+		payload, err := d.payload(buf, p, size, index)
 		if err != nil {
 			return false, err
 		}
@@ -302,17 +354,61 @@ func (d *DB) walkPage(pg uint32, depth int, seen map[uint32]bool, fn func(int64,
 			return more, err
 		}
 	}
-	if typ == 5 {
-		return d.walkPage(binary.BigEndian.Uint32(buf[off+8:]), depth+1, seen, fn)
+	if interior {
+		return d.walkPage(binary.BigEndian.Uint32(buf[off+8:]), depth+1, index, seen, fn)
 	}
 	return true, nil
 }
 
-// payload gathers the record of a table leaf cell that starts at buf[p] and is size bytes long: the part on the page
-// and, when it spills, the overflow pages after it (up to maxPayload).
-func (d *DB) payload(buf []byte, p int, size uint64) ([]byte, error) {
+// count counts the rows of the b-tree rooted at page root from the page headers alone, without decoding a record:
+// the cells of the leaves, and for an index b-tree the cells of the interior pages too. It stops with an error after
+// limit pages.
+func (d *DB) count(root uint32, limit int) (int64, error) {
+	seen := map[uint32]bool{}
+	var walk func(pg uint32, depth int) (int64, error)
+	walk = func(pg uint32, depth int) (int64, error) {
+		if depth > maxDepth || seen[pg] || len(seen) >= limit {
+			return 0, errDamaged
+		}
+		seen[pg] = true
+		buf, off, typ, n, err := d.pageHeader(pg)
+		if err != nil {
+			return 0, err
+		}
+		if typ == 10 || typ == 13 {
+			return int64(n), nil
+		}
+		var total int64
+		if typ == 2 {
+			total = int64(n)
+		}
+		for i := 0; i <= n; i++ {
+			at := off + 8 // the right-most child last
+			if i < n {
+				at = int(binary.BigEndian.Uint16(buf[off+12+2*i:]))
+				if at < off+12 || at+4 > d.usable {
+					return 0, errDamaged
+				}
+			}
+			c, err := walk(binary.BigEndian.Uint32(buf[at:]), depth+1)
+			if err != nil {
+				return 0, err
+			}
+			total += c
+		}
+		return total, nil
+	}
+	return walk(root, 0)
+}
+
+// payload gathers the record of a cell that starts at buf[p] and is size bytes long: the part on the page and, when
+// it spills, the overflow pages after it (up to maxPayload). Index cells keep less on the page than table leaf cells.
+func (d *DB) payload(buf []byte, p int, size uint64, index bool) ([]byte, error) {
 	u := d.usable
 	x := u - 35
+	if index {
+		x = ((u-12)*64)/255 - 23
+	}
 	m := ((u-12)*32)/255 - 23
 	local := int(size)
 	if size > uint64(x) {

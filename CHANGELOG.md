@@ -14,6 +14,13 @@ version is changed only when a round of features is merged.
   "Program for HEIC, AVIF and JPEG XL pictures". Turning external tools off turns this off too.
 - JPEG XL files are recognised in the Lister, and their picture size shows in the Lister, the Pictures columns and
   the file list tooltips; AVIF and JPEG XL images also get the picture size line in tooltips.
+- The Lister's table view (key T) shows Parquet files too, read-only and without any extra program (list and map
+  columns are named but not shown).
+- Table view: SQLite tables declared WITHOUT ROWID can be shown now.
+- Table view: Find (F7, F3, Shift+F3) searches the cells of the grid and marks the cell it finds (case, whole cell
+  and regular expression options).
+- Table view: when a file has more than 10,000 rows, the status line says how many it has ("first 10,000 of 25,000
+  rows") when that can be found quickly.
 
 ## 0.14.36 – 2026-11-18
 

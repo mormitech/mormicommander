@@ -4,8 +4,8 @@
 // search matches are byte ranges too; every row says which byte each of its characters came from.
 //
 // Modes (TC's keys): 1 text, 2 binary, 3 hex, 4 image/multimedia, 5 HTML/Markdown rendered (other files: HTML as text),
-// 6/U Unicode, 7/8 UTF-8, A ANSI, S ASCII (DOS), V variable-width font, W wrap, T table (CSV, TSV, JSONL and SQLite as a
-// grid, viewer/table.js). See key() for the rest.
+// 6/U Unicode, 7/8 UTF-8, A ANSI, S ASCII (DOS), V variable-width font, W wrap, T table (CSV, TSV, JSONL, Parquet and
+// SQLite as a grid, viewer/table.js). See key() for the rest.
 
 import { go, on, errText } from '../../core/go.js';
 import { track } from '../../core/busy.js';
@@ -17,7 +17,7 @@ import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
 import { mediaTag, convertible } from './mediael.js';
-import { TableGrid, FORMAT_NAMES, rowsLabel } from './table.js';
+import { TableGrid, FORMAT_NAMES, rowsLabel, findFrom } from './table.js';
 import { LISTER_DEFAULTS } from './lister-defaults.js';
 import { printPlan, printerNote } from './print.js';
 
@@ -49,6 +49,8 @@ on('lister-change', (d) => views.get(d?.id)?.changed(d));
 
 // The last search, shared by every view like in Total Commander (F3 in another Lister repeats it).
 let lastQuery = null;
+// The last search in the cells of a table (table mode has its own Find, F7).
+let lastTableQuery = null;
 
 const b64ToBytes = (s) => {
   const bin = atob(s || '');
@@ -285,7 +287,7 @@ export class ListerView {
     if (!this.id) return;
     if ((m === 'media' || m === 'html' || m === 'table') && this.internalOnly) { this.note('This view shows text, binary and hex only.'); return; }
     if (m === 'table' && !this.info.table) {
-      this.note('This file is not a table: CSV, TSV, JSON Lines (JSONL) and SQLite files can be shown as one.');
+      this.note('This file is not a table: CSV, TSV, JSON Lines (JSONL), Parquet and SQLite files can be shown as one.');
       if (!initial) return;
       m = 'text';
     }
@@ -944,6 +946,7 @@ export class ListerView {
 
   async find() {
     if (!this.id) return;
+    if (this.mode === 'table') { await this.findInTable(); return; }
     if (!this.isTextMode()) { await this.setMode('text'); }
     const s = listerSettings(this.app);
     const q = lastQuery || {};
@@ -978,6 +981,7 @@ export class ListerView {
   // findNext repeats the last search forwards (F3) or backwards (Shift+F3).
   async findNext(backward = false) {
     if (!this.id) return;
+    if (this.mode === 'table') { await this.findNextInTable(backward); return; }
     if (!lastQuery) { await this.find(); return; }
     if (!this.isTextMode()) await this.setMode('text');
     const q = { ...lastQuery, backward };
@@ -1012,6 +1016,59 @@ export class ListerView {
     this.sel = { a: m.offset, b: m.offset + m.length };
     await this.refresh('reveal', m.offset);
     this.revealColumn();
+  }
+
+  // findInTable is Find in table mode: text in the cells (not in the column names), row by row from the cursor row.
+  async findInTable() {
+    if (!this.grid.shape) return;
+    const s = listerSettings(this.app);
+    const q = lastTableQuery || { pattern: lastQuery?.pattern || '', caseSensitive: !!lastQuery?.caseSensitive };
+    const initial = q.pattern || '';
+    const hist = (s.findHistory || []).map((h) => `<option value="${esc(h)}"></option>`).join('');
+    const chk = (id, label, on) => `<label class="mc-check"><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${label}</label>`;
+    const html = `<div class="mc-row"><label for="mc-viewer-tfind">Search the cells for:</label><input id="mc-viewer-tfind" type="text" spellcheck="false" autofocus list="mc-viewer-tfind-hist" value="${esc(initial)}" data-select="0,${initial.length}"><datalist id="mc-viewer-tfind-hist">${hist}</datalist></div>
+      <div class="mc-viewer-findopts">
+        ${chk('mc-viewer-tfind-case', 'Case sensitive', q.caseSensitive)}${chk('mc-viewer-tfind-whole', 'Whole cell', q.wholeCell)}
+        ${chk('mc-viewer-tfind-regex', 'Regular expressions', q.regex)}${chk('mc-viewer-tfind-back', 'Search backwards', q.backward)}
+      </div>`;
+    const res = await formDialog('Find', html, (box) => {
+      const v = (id) => box.querySelector(`#${id}`);
+      const pattern = v('mc-viewer-tfind').value;
+      if (!pattern) return 'Type the text to search for.';
+      return { pattern, caseSensitive: v('mc-viewer-tfind-case').checked, wholeCell: v('mc-viewer-tfind-whole').checked,
+        regex: v('mc-viewer-tfind-regex').checked, backward: v('mc-viewer-tfind-back').checked };
+    }, null, { okLabel: 'Find', kind: 'lister-table-find' });
+    this.focus();
+    if (!res) return;
+    lastTableQuery = res;
+    const h = [res.pattern, ...(s.findHistory || []).filter((x) => x !== res.pattern)].slice(0, 20);
+    saveListerSettings(this.app, { findHistory: h });
+    this.grid.hit = null; // a new search starts in the cursor row
+    await this.findNextInTable(res.backward);
+  }
+
+  // findNextInTable repeats the last search in the cells (F3, Shift+F3 backwards) and marks the cell it finds.
+  async findNextInTable(backward = false) {
+    if (!lastTableQuery) { await this.findInTable(); return; }
+    const g = this.grid;
+    if (!g.shape) return;
+    const q = { ...lastTableQuery, backward };
+    const from = findFrom(g.hit, g.cursor, (g.shape.columns || []).length, backward);
+    let m;
+    try {
+      m = await track(go.Lister.TableFind(this.id, q, from.row, from.col));
+    } catch (e) {
+      await messageDialog({ Title: 'Find', Message: errText(e), Kind: 'lister-error' });
+      this.focus();
+      return;
+    }
+    if (!m?.found) {
+      await messageDialog({ Title: 'Find', Message: `"${q.pattern}" was not found${backward ? ' before this cell' : ' after this cell'}.`, Kind: 'lister-notfound' });
+      this.focus();
+      return;
+    }
+    g.showHit(m.row, m.col);
+    this.status();
   }
 
   // revealColumn scrolls sideways (wrap off) so the match is in view.
