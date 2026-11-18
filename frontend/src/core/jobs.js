@@ -167,11 +167,17 @@ function report(r, final) {
   }
   if (final.state === 'failed' && final.errors?.length) {
     app.flash(final.errors.slice(0, 3).join('\n') + (final.errors.length > 3 ? `\n…and ${final.errors.length - 3} more.` : ''), 'err');
-  } else if (r.background && final.state === 'done' && final.summary) {
+  } else if (final.state === 'done' && final.summary && (r.background || summaryWanted(r.req))) {
     app.flash(final.summary);
   } else if (final.state === 'cancelled' && r.background) {
     app.flash(`${KIND[final.kind] || 'Job'} stopped.`);
   }
+}
+
+// summaryWanted: Options > Copy/Delete > Show a summary when a copy or move ends (off by default, F-492) also says how a
+// foreground copy or move went.
+export function summaryWanted(req, values = app.config?.values) {
+  return (req?.kind === 'copy' || req?.kind === 'move') && (values?.['CopyDelete.ShowSummary'] ?? '0') === '1';
 }
 
 function finishedInBackground(r) {
@@ -283,6 +289,9 @@ async function askNow(r, c) {
     case 'readonly':
       return answer(r, await pick(r, { Title: 'Read-only file', Message: `${c.target} is read-only.\n\nOverwrite it anyway?`, Kind: 'overwrite-readonly', DefaultButton: 'Skip' },
         [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
+    case 'hidden': // (only with Options > Copy/Delete > Confirm overwriting hidden and system files, F-467)
+      return answer(r, await pick(r, { Title: 'Hidden or system file', Message: `${c.target} is a hidden or system file.\n\nOverwrite it anyway?`, Kind: 'overwrite-hidden', DefaultButton: 'Skip' },
+        [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     case 'error':
       return answer(r, await pick(r, { Title: 'Problem', Message: c.error || `Something went wrong with ${name}.`, Kind: 'job-error', DefaultButton: 'Retry' },
         ERROR_BUTTONS));
@@ -309,8 +318,16 @@ const SECOND = [['Overwrite all older', 'older_all'], ['Rename…', 'rename'], [
 const MORE = [['Auto-rename', 'auto_rename'], ['Auto-rename all', 'auto_rename_all'], ['Rename target', 'rename_target'], ['Rename all targets', 'rename_target_all'],
   ['Copy all larger', 'larger_all'], ['Copy all smaller', 'smaller_all'], ['Append', 'append'], ['Resume', 'resume']];
 
+// setCompareTool is how features/comparefiles.js hands over its window (left, right) → Promise, so the overwrite question
+// can open the two files in the compare-by-content tool (F-466) without core depending on a feature.
+let compareTool = null;
+export function setCompareTool(fn) { compareTool = fn; }
+
 async function overwrite(r, c) {
   const offered = new Set(c.choices || []);
+  // "Compare tool…" (F-466): next to the quick Compare, for two files on this computer; the question comes back after
+  const toolBtn = compareTool && offered.has('compare') && !backendOf.get(r.id)
+    ? '<button type="button" data-choice="compare_tool" title="Open both files in the compare-by-content tool">Compare tool…</button>' : '';
   const row = (list, cls = '') => `<div class="mc-btns ${cls}">${list.filter(([, ch]) => offered.has(ch))
     .map(([l, ch]) => `<button type="button" data-choice="${ch}"${ch === 'overwrite' ? ' class="primary"' : ''}>${esc(l)}</button>`).join('')}</div>`;
   const newer = c.srcTime > c.dstTime ? 'src' : c.dstTime > c.srcTime ? 'dst' : '';
@@ -325,7 +342,7 @@ async function overwrite(r, c) {
     box.classList.add('mc-jobs-overwrite');
     box.innerHTML = `<h2>Replace file?</h2><p class="mc-msg">${esc(base(c.target))} is already in the target folder.</p>
       ${file('Overwrite this file:', c.target, c.dstSize, c.dstTime, 'dst')}${file(`With this one (${verb.toLowerCase()}):`, c.source, c.srcSize, c.srcTime, 'src')}${same}${noUndo}
-      ${row(MAIN)}${row(SECOND)}${hasMore ? `<div class="mc-btns"><button type="button" class="mc-jobs-more">More options</button></div><div class="mc-jobs-morebox" hidden>${row(MORE)}</div>` : ''}`;
+      ${row(MAIN)}${row(SECOND).replace(/<\/div>$/, `${toolBtn}</div>`)}${hasMore ? `<div class="mc-btns"><button type="button" class="mc-jobs-more">More options</button></div><div class="mc-jobs-morebox" hidden>${row(MORE)}</div>` : ''}`;
     box.querySelectorAll('[data-choice]').forEach((b) => { b.onclick = () => done(b.dataset.choice); });
     const more = box.querySelector('.mc-jobs-more');
     if (more) more.onclick = () => { const m = box.querySelector('.mc-jobs-morebox'); m.hidden = !m.hidden; more.textContent = m.hidden ? 'More options' : 'Fewer options'; };
@@ -340,6 +357,10 @@ async function overwrite(r, c) {
       return true;
     },
   });
+  if (choice === 'compare_tool') {
+    try { await compareTool(c.target, c.source); } catch (e) { app.flash(errText(e), 'err'); }
+    return overwrite(r, c); // back to the question
+  }
   if (choice === 'rename') {
     const name = base(c.target);
     const dot = name.lastIndexOf('.');

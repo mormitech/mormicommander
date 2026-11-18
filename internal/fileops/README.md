@@ -25,7 +25,8 @@ Kinds: `Copy`, `Move`, `Delete` (permanent), `Trash`, `Wipe`.
 read-only targets, `Filter` ("Only files of this type", `*.txt;*.md|old*;vendor/`), `Links` (`LinksCopy`,
 `LinksFollow`, `LinksSkip`), `NoDates`, `NoPerms`, `NoAttrs`, `Owner`, `Verify` (SHA-256 re-read), `SpeedLimit`,
 `BufferSize` + `NoCache` (big-file mode), `OnError` (`ErrorsSkip`, `ErrorsAsk`, `ErrorsStop`), `Retries`,
-`IgnoreSpace`, `Queued`, `ConfirmDirs`, `ConfirmReadOnly`, `WipePasses`.
+`IgnoreSpace`, `Queued`, `ConfirmDirs`, `ConfirmReadOnly`, `ConfirmHidden` (ask before overwriting a hidden or system
+target, question type `hidden`), `WipePasses`.
 
 `Start` refuses empty or relative `Sources` and `Target` (a cleaned `""` is the working folder), and a `Rename` of
 `""`-like, `.` or `..`; a mask whose result for some item is `.`, `..` or empty fails that item.

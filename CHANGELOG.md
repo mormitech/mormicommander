@@ -11,6 +11,16 @@ version is changed only when a round of features is merged.
 - Change start menu: each entry can have an icon (a PNG, JPEG, GIF, BMP or WebP file), shown before its title in the
   Start menu.
 - Help menu: Report a problem opens the issues page in the browser, and Help shows its key (F1).
+- Files > Copy in the same folder (Shift+F5).
+- Replace file? question: a Compare tool button opens both files in the compare-by-content tool, then asks again.
+- Options > Copy/Delete > Confirm overwriting hidden and system files (off by default): asks before a copy or move
+  replaces a hidden file (a dot name on macOS and Linux, hidden or system on Windows).
+- Options > Copy/Delete > Show a summary when a copy or move ends (off by default): the status line says how many
+  files and bytes went across, and how many were skipped or failed.
+
+### Fixed
+
+- The copy dialog's target list (Alt+Down) now also lists the folders of the other panel's tabs.
 
 ## 0.14.32 – 2026-11-18
 

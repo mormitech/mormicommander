@@ -106,7 +106,10 @@ type Request struct {
 
 	ConfirmDirs     bool `json:"confirmDirs"`     // delete/wipe: ask before removing each non-empty folder (Yes/All/Skip)
 	ConfirmReadOnly bool `json:"confirmReadOnly"` // delete/wipe: ask before removing each read-only file
-	WipePasses      int  `json:"wipePasses"`      // wipe: how many times the contents are overwritten; 0 = 1
+	// ConfirmHidden (copy/move, off by default): ask before overwriting a hidden or system target (a dot name on
+	// macOS and Linux, the hidden or system attribute on Windows), TC's "overwrite hidden/system file?" question.
+	ConfirmHidden bool `json:"confirmHidden"`
+	WipePasses    int  `json:"wipePasses"` // wipe: how many times the contents are overwritten; 0 = 1
 
 	// NoJournal keeps the job out of the app's undo journal (the jobs an undo itself runs); the engine ignores it.
 	NoJournal bool `json:"noJournal,omitempty"`
@@ -122,6 +125,7 @@ type AskType string
 const (
 	AskExists         AskType = ""                // the target file exists (the classic overwrite dialog)
 	AskReadOnly       AskType = "readonly"        // the target that would be overwritten is read-only
+	AskHidden         AskType = "hidden"          // the target that would be overwritten is hidden or a system file
 	AskError          AskType = "error"           // a file failed: Retry / Skip / Skip all / Cancel
 	AskNoSpace        AskType = "no_space"        // the target volume has less free space than the job needs
 	AskDeleteDir      AskType = "delete_dir"      // delete a non-empty folder with all its contents?

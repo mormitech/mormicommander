@@ -195,31 +195,34 @@ type ViewerEditorPage struct {
 
 // CopyDeletePage (F-421).
 type CopyDeletePage struct {
-	UseTrash            bool `ini:"Configuration:UseTrash" def:"1" label:"Delete to trash"`
-	ConfirmDelete       bool `ini:"Configuration:ConfirmDelete" def:"1" label:"Confirm deleting files"`
-	ConfirmDeleteDirs   bool `ini:"Configuration:ConfirmDeleteDirs" def:"1" label:"Confirm deleting non-empty folders"`
-	ConfirmDeleteRO     bool `ini:"Configuration:ConfirmDeleteReadOnly" def:"1" label:"Confirm deleting read-only and hidden files"`
-	ConfirmOverwrite    bool `ini:"Configuration:ConfirmOverwrite" def:"1" label:"Confirm overwriting files"`
-	ConfirmOverwriteRO  bool `ini:"Configuration:ConfirmOverwriteReadOnly" def:"1" label:"Confirm overwriting read-only files"`
-	ConfirmCopy         bool `ini:"Configuration:ConfirmCopy" def:"1" label:"Show the copy dialog for F5/F6"`
-	ConfirmDragDrop     bool `ini:"Configuration:ConfirmDragDrop" def:"1" label:"Confirm drag and drop"`
-	BufferKB            int  `ini:"Configuration:CopyBufferSize" def:"1024" min:"16" max:"65536" label:"Copy buffer size (kB)"`
-	Verify              bool `ini:"Configuration:CopyVerify" def:"0" label:"Verify after copying"`
-	CopyTimes           bool `ini:"Configuration:CopyTimes" def:"1" label:"Copy file times"`
-	CopyAttributes      bool `ini:"Configuration:CopyAttributes" def:"1" label:"Copy attributes"`
-	CopyPermissions     bool `ini:"Configuration:CopyPermissions" def:"1" label:"Copy permissions"`
-	CopyOwner           bool `ini:"Configuration:CopyOwner" def:"0" label:"Copy owner and group"`
-	CopyComments        bool `ini:"Configuration:CopyComments" def:"1" label:"Copy file comments"`
-	OverwriteDefault    int  `ini:"Configuration:OverwriteDefault" def:"0" min:"0" max:"5" opts:"0=Ask|1=Overwrite all|2=Skip all|3=Overwrite older|4=Rename new|5=Rename old" label:"When the target exists"`
-	BackgroundDefault   bool `ini:"Configuration:CopyBackgroundDefault" def:"0" label:"Copy in the background by default"`
-	BigFileMode         int  `ini:"Configuration:BigFileMode" def:"0" min:"0" max:"2" opts:"0=Automatic|1=Always|2=Never" label:"Big file copy mode (no cache)"`
-	BigFileThresholdMB  int  `ini:"Configuration:BigFileThreshold" def:"1024" min:"1" max:"1048576" label:"Big file threshold (MB)"`
-	FollowLinks         bool `ini:"Configuration:CopyFollowLinks" def:"0" label:"Copy link targets instead of links"`
-	CheckFreeSpace      bool `ini:"Configuration:CheckFreeSpace" def:"1" label:"Check free space before copying"`
-	MoveDeleteAfterCopy bool `ini:"Configuration:MoveSafe" def:"0" label:"Move across drives: delete only after a full copy"`
+	UseTrash               bool `ini:"Configuration:UseTrash" def:"1" label:"Delete to trash"`
+	ConfirmDelete          bool `ini:"Configuration:ConfirmDelete" def:"1" label:"Confirm deleting files"`
+	ConfirmDeleteDirs      bool `ini:"Configuration:ConfirmDeleteDirs" def:"1" label:"Confirm deleting non-empty folders"`
+	ConfirmDeleteRO        bool `ini:"Configuration:ConfirmDeleteReadOnly" def:"1" label:"Confirm deleting read-only and hidden files"`
+	ConfirmOverwrite       bool `ini:"Configuration:ConfirmOverwrite" def:"1" label:"Confirm overwriting files"`
+	ConfirmOverwriteRO     bool `ini:"Configuration:ConfirmOverwriteReadOnly" def:"1" label:"Confirm overwriting read-only files"`
+	ConfirmOverwriteHidden bool `ini:"Configuration:ConfirmOverwriteHidden" def:"0" label:"Confirm overwriting hidden and system files"`
+	ConfirmCopy            bool `ini:"Configuration:ConfirmCopy" def:"1" label:"Show the copy dialog for F5/F6"`
+	ConfirmDragDrop        bool `ini:"Configuration:ConfirmDragDrop" def:"1" label:"Confirm drag and drop"`
+	BufferKB               int  `ini:"Configuration:CopyBufferSize" def:"1024" min:"16" max:"65536" label:"Copy buffer size (kB)"`
+	Verify                 bool `ini:"Configuration:CopyVerify" def:"0" label:"Verify after copying"`
+	CopyTimes              bool `ini:"Configuration:CopyTimes" def:"1" label:"Copy file times"`
+	CopyAttributes         bool `ini:"Configuration:CopyAttributes" def:"1" label:"Copy attributes"`
+	CopyPermissions        bool `ini:"Configuration:CopyPermissions" def:"1" label:"Copy permissions"`
+	CopyOwner              bool `ini:"Configuration:CopyOwner" def:"0" label:"Copy owner and group"`
+	CopyComments           bool `ini:"Configuration:CopyComments" def:"1" label:"Copy file comments"`
+	OverwriteDefault       int  `ini:"Configuration:OverwriteDefault" def:"0" min:"0" max:"5" opts:"0=Ask|1=Overwrite all|2=Skip all|3=Overwrite older|4=Rename new|5=Rename old" label:"When the target exists"`
+	BackgroundDefault      bool `ini:"Configuration:CopyBackgroundDefault" def:"0" label:"Copy in the background by default"`
+	BigFileMode            int  `ini:"Configuration:BigFileMode" def:"0" min:"0" max:"2" opts:"0=Automatic|1=Always|2=Never" label:"Big file copy mode (no cache)"`
+	BigFileThresholdMB     int  `ini:"Configuration:BigFileThreshold" def:"1024" min:"1" max:"1048576" label:"Big file threshold (MB)"`
+	FollowLinks            bool `ini:"Configuration:CopyFollowLinks" def:"0" label:"Copy link targets instead of links"`
+	CheckFreeSpace         bool `ini:"Configuration:CheckFreeSpace" def:"1" label:"Check free space before copying"`
+	MoveDeleteAfterCopy    bool `ini:"Configuration:MoveSafe" def:"0" label:"Move across drives: delete only after a full copy"`
 
 	// SkipErrorsBackground (board issue #15): background jobs note failed files and go on, and list them at the end.
 	SkipErrorsBackground bool `ini:"Configuration:SkipErrorsInBackground" def:"0" label:"Skip errors in background jobs (list them at the end)"`
+	// ShowSummary (F-492): a copy or move in the foreground also says how it went when it ends (count, bytes, errors).
+	ShowSummary bool `ini:"Configuration:CopyShowSummary" def:"0" label:"Show a summary when a copy or move ends"`
 }
 
 // RefreshPage (F-422).

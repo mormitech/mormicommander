@@ -32,7 +32,8 @@ import { onErrorFor } from '../core/joberrors.js';
 import { plural, F } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
-import { sameNameTarget } from './fileops-target.js';
+import { sameNameTarget, targetHistory } from './fileops-target.js';
+import { tabList } from './tabs.js';
 import { copiedNames } from './fileops-sel.js';
 import { archiveRefusal } from './fileops-readonly.js';
 import { noteXattrLoss } from './fileops-xattr.js';
@@ -232,15 +233,9 @@ function copyDialog(app, { move, same, items }) {
     const input = $('#target');
     const drop = new Drop(box, input, $('.mc-fileops-field'));
     box._drop = drop;
-    const history = () => {
-      const seen = new Set();
-      const items2 = [];
-      const add = (value, detail) => { if (value && !seen.has(value)) { seen.add(value); items2.push({ label: value, value, detail }); } };
-      add(withSep(app, dst.path), 'other panel');
-      for (const t of dst.tabs || []) if (t?.path) add(withSep(app, t.path), 'tab'); // (folder tabs, when that feature keeps them on the panel)
-      for (const h of app.setting('copyHistory', []) || []) add(h, '');
-      return items2;
-    };
+    // the other panel's folder, the folders of its other tabs, then the recent targets (F-830)
+    const history = () => targetHistory({ other: dst.path, tabs: tabList(dst.side).map((t) => t.path), recent: app.setting('copyHistory', []) || [],
+      withSep: (p) => withSep(app, p) });
     box._history = () => (drop.open && drop.mode === 'hist' ? drop.close() : drop.show(history(), 'hist', 'Recent targets'));
     box._tree = () => {
       if (drop.open && drop.mode === 'tree') { drop.close(); return; }
@@ -346,6 +341,8 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
     sources: items.map((e) => src.fullPath(e.name)),
     target: t.dir, rename, overwrite,
     readOnly: opt(app, 'confirmOverwriteRO') ? '' : 'overwrite',
+    // Options > Copy/Delete > Confirm overwriting hidden and system files (off by default, F-467)
+    confirmHidden: cfgv('CopyDelete.ConfirmOverwriteHidden', '0') === '1',
     filter: normFilter(a.filter),
     links: a.links ? '' : 'follow',
     noDates: !a.dates, noPerms: !a.perms, noAttrs: !a.attrs, owner: !!a.owner, verify: !!a.verify, trashReplaced: !!a.trashReplaced,
@@ -625,7 +622,8 @@ function startRename(app) {
 // ---- commands ----
 
 command({ name: 'cm_Copy', label: 'Copy…', short: 'Copy', run: (app) => copyOrMove(app) });
-command({ name: 'cm_CopySamepanel', label: 'Copy in the same folder…', short: 'Copy here', run: (app) => copyOrMove(app, { same: true }) });
+// (in the Files menu with its key, Shift+F5: F-479)
+command({ name: 'cm_CopySamepanel', label: 'Copy in the same folder…', short: 'Copy here', menu: 'Files', menuAfter: 'cm_MultiRenameFiles', menuKey: true, run: (app) => copyOrMove(app, { same: true }) });
 command({ name: 'cm_RenMov', label: 'Move or rename…', short: 'Move', run: (app) => copyOrMove(app, { move: true }) });
 command({ name: 'cm_RenameOnly', label: 'Rename', short: 'Rename', run: (app) => startRename(app) });
 command({ name: 'cm_MkDir', label: 'New folder…', short: 'New folder', run: (app) => makeFolder(app) });

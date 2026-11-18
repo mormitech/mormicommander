@@ -18,6 +18,8 @@ import { esc, messageDialog, inputDialog } from '../core/dialogs.js';
 import { addControlCommand } from '../core/control.js';
 import { size, plural } from '../core/format.js';
 import { openWindow } from './synccompare-ui.js';
+import { setCompareTool } from '../core/jobs.js';
+import { app as theApp } from '../core/app.js';
 
 const ROW_H = 18;     // px, the fixed height of a text or hex row (the list draws only what is in view)
 const HEX_W = 16;     // bytes per hex row
@@ -48,6 +50,9 @@ export async function compareFiles(app, left, right, { force = false } = {}) {
   const encodings = await go.CompareFiles.Encodings().catch(() => ['Auto', 'UTF-8']);
   return runWindow(app, view, encodings);
 }
+
+// the overwrite question of a copy or move can open its two files here (F-466; core/jobs.js)
+setCompareTool((left, right) => compareFiles(theApp, left, right));
 
 function runWindow(app, first, encodings) {
   const st = {

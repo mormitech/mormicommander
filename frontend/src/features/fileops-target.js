@@ -15,3 +15,15 @@ export function sameNameTarget({ same, items, text, srcPath, t }) {
   if (!e.dir || text !== e.name) return t;
   return { ...t, dir: srcPath, rename: e.name, dirExists: true, sameVolume: true };
 }
+
+// targetHistory is the list of the copy dialog's target dropdown (F-830): the other panel's folder first, then the
+// folders of the other panel's tabs, then the recent targets, each once. withSep adds the trailing separator.
+export function targetHistory({ other, tabs = [], recent = [], withSep = (p) => p }) {
+  const seen = new Set();
+  const out = [];
+  const add = (value, detail) => { if (value && !seen.has(value)) { seen.add(value); out.push({ label: value, value, detail }); } };
+  if (other) add(withSep(other), 'other panel');
+  for (const p of tabs) if (p) add(withSep(p), 'tab');
+  for (const h of recent) add(h, '');
+  return out;
+}

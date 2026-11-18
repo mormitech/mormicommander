@@ -35,6 +35,7 @@ type job struct {
 	// decisions that "… all" answers make for the rest of the job; only the job's goroutine touches them
 	policy      Policy
 	roPolicy    Policy
+	hidPolicy   Policy // Request.ConfirmHidden: the answer "… all" to the hidden/system question
 	errPolicy   ErrorPolicy
 	delDirsAll  bool   // AskDeleteDir answered All
 	delROAll    int    // AskDeleteReadOnly answered: 0 ask, 1 all yes, -1 all skip

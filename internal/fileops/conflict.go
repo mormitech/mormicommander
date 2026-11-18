@@ -145,6 +145,9 @@ func (j *job) resolve(it item) (string, writeMode, outcome) {
 // when the answer is yes.
 func (j *job) readOnlyCheck(it item, dst string, di fs.FileInfo) outcome {
 	if !readOnly(di) {
+		if j.req.ConfirmHidden && hiddenTarget(dst, di) {
+			return j.hiddenCheck(it, dst, di)
+		}
 		return outWrite
 	}
 	take := false
@@ -173,6 +176,30 @@ func (j *job) readOnlyCheck(it item, dst string, di fs.FileInfo) outcome {
 		return outFailed
 	}
 	return outWrite
+}
+
+// hiddenCheck asks before a hidden or system target is overwritten (only with Request.ConfirmHidden). Unlike a
+// read-only one, the target needs no change to be written over.
+func (j *job) hiddenCheck(it item, dst string, di fs.FileInfo) outcome {
+	switch j.hidPolicy {
+	case Overwrite:
+		return outWrite
+	case Skip:
+		return outSkip
+	}
+	a := j.ask(Conflict{Type: AskHidden, Source: it.src, Target: dst, SrcSize: it.info.Size(), DstSize: di.Size(),
+		SrcTime: it.info.ModTime().UnixMilli(), DstTime: di.ModTime().UnixMilli(),
+		Choices: []Choice{ChoiceOverwrite, ChoiceOverwriteAll, ChoiceSkip, ChoiceSkipAll, ChoiceCancel}})
+	switch a.Choice {
+	case ChoiceOverwrite:
+		return outWrite
+	case ChoiceOverwriteAll:
+		j.hidPolicy = Overwrite
+		return outWrite
+	case ChoiceSkipAll:
+		j.hidPolicy = Skip
+	}
+	return outSkip
 }
 
 // moveAside renames an existing target to a free name ("file(2).txt") so the copy can take its place.
