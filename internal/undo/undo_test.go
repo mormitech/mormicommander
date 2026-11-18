@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"mormicommander/internal/tags"
 )
 
 func write(t *testing.T, p, s string) {
@@ -310,5 +312,44 @@ func TestUndoCopyFolderAddedTo(t *testing.T) {
 	os.Chtimes(filepath.Join(cp, "sub", "mine.txt"), time.Unix(1, 0), time.Unix(1, 0)) // an old file moved in
 	if p := PlanUndo(e, same); len(p.Steps) != 0 || len(p.Problems) != 1 {
 		t.Fatalf("copy with an added file: steps %v, problems %v; want it left alone", p.Steps, p.Problems)
+	}
+}
+
+// TestUndoTags: a tag change goes back to the old tags, but tags changed again since are left alone, and so is a file
+// that is gone. readTags and writeTags keep the tags in memory here, so this runs on every system.
+func TestUndoTags(t *testing.T) {
+	dir := t.TempDir()
+	a, b, gone := filepath.Join(dir, "a.txt"), filepath.Join(dir, "b.txt"), filepath.Join(dir, "gone.txt")
+	write(t, a, "a")
+	write(t, b, "b")
+	store := map[string][]tags.Tag{a: {{Name: "Red", Color: 6}, {Name: "Work"}}, b: {{Name: "Other"}}}
+	oldR, oldW := readTags, writeTags
+	readTags = func(p string) ([]tags.Tag, error) { return store[p], nil }
+	writeTags = func(p string, l []tags.Tag) error { store[p] = l; return nil }
+	t.Cleanup(func() { readTags, writeTags = oldR, oldW })
+
+	e := Entry{Kind: Tags, Items: []Item{
+		{From: a, To: a, TagsBefore: []tags.Tag{{Name: "Work"}}, TagsAfter: []tags.Tag{{Name: "Red", Color: 6}, {Name: "Work"}}},
+		{From: b, To: b, TagsBefore: nil, TagsAfter: []tags.Tag{{Name: "Blue", Color: 4}}}, // changed again since
+		{From: gone, To: gone, TagsAfter: []tags.Tag{{Name: "x"}}},
+	}}
+	if d := Describe(e); d != "the tag change of 3 items" {
+		t.Fatalf("Describe = %q", d)
+	}
+	p := PlanUndo(e, same)
+	if len(p.Steps) != 1 || p.Steps[0].Op != OpTags || len(p.Problems) != 2 {
+		t.Fatalf("plan = %+v", p)
+	}
+	jobs, done, problems := Apply(p.Steps)
+	if len(jobs) != 0 || done != 1 || len(problems) != 0 {
+		t.Fatalf("Apply = %v %d %v", jobs, done, problems)
+	}
+	if !tags.Equal(store[a], []tags.Tag{{Name: "Work"}}) || store[b][0].Name != "Other" {
+		t.Fatalf("store = %+v", store)
+	}
+	// putting back "no tags" writes an empty list
+	e2 := Entry{Kind: Tags, Items: []Item{{From: a, To: a, TagsAfter: []tags.Tag{{Name: "Work"}}}}}
+	if _, done, _ := Apply(PlanUndo(e2, same).Steps); done != 1 || len(store[a]) != 0 {
+		t.Fatalf("store = %+v", store)
 	}
 }

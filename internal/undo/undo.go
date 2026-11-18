@@ -29,6 +29,7 @@ import (
 	"unicode/utf8"
 
 	"mormicommander/internal/robust"
+	"mormicommander/internal/tags"
 	"mormicommander/internal/trash"
 )
 
@@ -41,6 +42,7 @@ const (
 	Copy   Kind = "copy"   // items were copied (F5); undo removes the copies
 	MkDir  Kind = "mkdir"  // a folder was made (F7); undo removes it while it is still empty
 	Trash  Kind = "trash"  // items went to the trash (F8); undo brings them back to where they were
+	Tags   Kind = "tags"   // the file tags of items were changed (Files > Tags…); undo puts the old tags back
 )
 
 // Item is one thing an operation changed.
@@ -58,6 +60,10 @@ type Item struct {
 	// older journals.
 	Size  int64 `json:"size,omitempty"`
 	MTime int64 `json:"mtime,omitempty"`
+	// TagsBefore and TagsAfter are a tag change's tags before and after it (From and To are the same path). An undo
+	// puts TagsBefore back, unless the tags were changed again since (they are no longer TagsAfter).
+	TagsBefore []tags.Tag `json:"tagsBefore,omitempty"`
+	TagsAfter  []tags.Tag `json:"tagsAfter,omitempty"`
 }
 
 // Entry is one operation in the journal.
@@ -230,13 +236,15 @@ const (
 	OpMove    Op = "move"    // a job: To is moved back to From across volumes
 	OpRemove  Op = "remove"  // a job: the copy To goes to the trash (or is deleted where there is no trash)
 	OpRestore Op = "restore" // instant: the item To comes back from the trash to From
+	OpTags    Op = "tags"    // instant: the item To gets its old tags (Tags) back
 )
 
 // Step is one thing an undo does to one item.
 type Step struct {
-	Op   Op     `json:"op"`
-	From string `json:"from"`
-	To   string `json:"to"`
+	Op   Op         `json:"op"`
+	From string     `json:"from"`
+	To   string     `json:"to"`
+	Tags []tags.Tag `json:"tags,omitempty"` // OpTags: the tags to put back
 }
 
 // Plan is what undoing an entry would do now.
@@ -337,6 +345,21 @@ func PlanUndo(e Entry, sameVolume SameVolumeFunc) Plan {
 				continue
 			}
 			p.Steps = append(p.Steps, Step{Op: OpRestore, From: it.From, To: it.To})
+		case Tags:
+			if _, err := os.Lstat(it.To); err != nil {
+				p.Problems = append(p.Problems, fmt.Sprintf("%s is not there any more.", it.To))
+				continue
+			}
+			now, err := readTags(it.To)
+			if err != nil {
+				p.Problems = append(p.Problems, fmt.Sprintf("The tags of %s can't be read: %s.", filepath.Base(it.To), plain(err)))
+				continue
+			}
+			if !tags.Equal(now, it.TagsAfter) {
+				p.Problems = append(p.Problems, fmt.Sprintf("The tags of %s were changed again since, so they were left alone.", filepath.Base(it.To)))
+				continue
+			}
+			p.Steps = append(p.Steps, Step{Op: OpTags, From: it.From, To: it.To, Tags: append([]tags.Tag{}, it.TagsBefore...)})
 		default:
 			p.Problems = append(p.Problems, fmt.Sprintf("Undoing %q is not known to this version.", e.Kind))
 			return p
@@ -395,6 +418,12 @@ func Apply(steps []Step) (jobs []Step, done int, problems []string) {
 				continue
 			}
 			done++
+		case OpTags:
+			if err := writeTags(s.To, s.Tags); err != nil {
+				problems = append(problems, fmt.Sprintf("Can't put the tags of %s back: %s.", filepath.Base(s.To), plain(err)))
+				continue
+			}
+			done++
 		case OpMove, OpRemove:
 			jobs = append(jobs, s)
 		}
@@ -405,6 +434,13 @@ func Apply(steps []Step) (jobs []Step, done int, problems []string) {
 // restoreTrashed brings an item back from the trash; the tests replace it, so they work with temporary folders and
 // never with the real trash.
 var restoreTrashed = trash.Restore
+
+// readTags and writeTags read and write a file's tags in the system's style; the tests replace them to use one style
+// on every system.
+var (
+	readTags  = tags.Read
+	writeTags = tags.Write
+)
 
 // TrashWord is the name of the trash on this system.
 func TrashWord() string {
@@ -554,6 +590,8 @@ func Describe(e Entry) string {
 		return "the new folders"
 	case Trash:
 		return fmt.Sprintf("the move of %s to the %s", what, TrashWord())
+	case Tags:
+		return "the tag change of " + what
 	}
 	return string(e.Kind)
 }

@@ -84,6 +84,8 @@ function fileMenu(app, p, args) {
     // notes and colour labels kept by mormiCommander (features/notes.js, #147); the colour list opens where this menu was
     item(app, 'Note…', 'cm_EditNote'),
     item(app, 'Colour label…', 'cm_ColorLabel', args.x != null ? { x: args.x, y: args.y } : undefined),
+    // the system's file tags (features/tags.js, #28): only where the system has them
+    hasCommand('cm_EditTags') && getCommand('cm_EditTags')?.enabled?.(app) ? item(app, 'Tags…', 'cm_EditTags') : null,
     SEP,
     item(app, 'Pack…', 'cm_PackFiles'),
     one && !one.dir ? item(app, 'Split…', 'cm_FileSplit') : null,

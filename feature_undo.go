@@ -312,6 +312,12 @@ func (u *Undo) Run(id int64) (UndoResult, error) {
 	plan := undo.PlanUndo(e, fileops.SameVolume)
 	jobs, done, problems := undo.Apply(plan.Steps)
 	notesInstance.afterUndo(plan.Steps) // notes and colour labels go back with the renames (feature_notes.go)
+	for _, s := range plan.Steps {
+		if s.Op == undo.OpTags && u.app != nil {
+			u.app.emit("tags-changed") // the page asks for the tags it shows again (features/tags.js)
+			break
+		}
+	}
 	u.j.Remove(e.ID)
 	res := UndoResult{What: undo.Describe(e), Done: done, Jobs: undoJobs(jobs), Problems: append(plan.Problems, problems...)}
 	return res, nil

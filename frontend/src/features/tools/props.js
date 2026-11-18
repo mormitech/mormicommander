@@ -13,6 +13,7 @@ import { esc, needLocal, targets, showError, newId, onProgress, dirName, copyTex
 import { xattrLines, hasQuarantine } from './xattr-lib.js';
 import { removeQuarantine } from './xattr.js';
 import { noteFor, saveNote, pickerHTML, pickerSetup, pickerValue } from '../notes.js';
+import { tagsFor, tagsLine } from '../tags.js';
 import { onServer, remoteProps } from '../net-attrs.js';
 
 const SYS_LABEL = { darwin: 'Get Info in Finder', windows: 'Windows properties…', linux: 'File manager properties…' };
@@ -106,6 +107,12 @@ function notePart(n) {
     <p class="mc-note">Kept by mormiCommander, not in the file.</p></fieldset>`;
 }
 
+// tagsPart is the system's file tags of the item, with a button for the Tags dialog.
+function tagsPart(list) {
+  return `<fieldset class="mc-tools-group"><legend>Tags</legend>
+    <div class="mc-row mc-tools-tagline"><span>${tagsLine(list)}</span><button type="button" class="mc-tools-tags">Change tags…</button></div></fieldset>`;
+}
+
 async function showProps(app, path, entry) {
   let pr;
   try { pr = await go.Tools.Properties(path); } catch (e) { await showError(String(e?.message ?? e)); return; }
@@ -113,17 +120,20 @@ async function showProps(app, path, entry) {
   let stopCount = () => {}, stopSum = () => {};
   const quarantined = app.platform === 'darwin' && hasQuarantine(pr.xattrs);
   const noteBefore = await noteFor(path);
+  const tagList = await tagsFor(path); // the system's file tags (features/tags.js, #28); null where there are none
   let readNote = () => null;
   const after = await modal((box, done) => {
     box.classList.add('mc-info', 'mc-tools-propsbox');
     box.innerHTML = `<button type="button" class="mc-close" aria-label="Close" title="Close (Esc)">×</button>
-      <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${notePart(noteBefore)}${algs.length ? checksumPart(algs) : ''}
+      <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${tagList ? tagsPart(tagList) : ''}${notePart(noteBefore)}${algs.length ? checksumPart(algs) : ''}
       <div class="mc-btns"><button type="button" class="mc-tools-sys">${esc(SYS_LABEL[app.platform] || SYS_LABEL.linux)}</button>
       ${quarantined ? '<button type="button" class="mc-tools-unq">Remove quarantine flag</button>' : ''}
       <button type="button" class="mc-tools-attr">Change attributes…</button><button type="submit" class="primary">Close</button></div>`;
     box.querySelector('.mc-close').onclick = () => done();
     box.onsubmit = (ev) => { ev.preventDefault(); done(); };
     box.querySelector('.mc-tools-attr').onclick = () => done('attrs');
+    const tagBtn = box.querySelector('.mc-tools-tags');
+    if (tagBtn) tagBtn.onclick = () => done('tags');
     pickerSetup(box, 'tp');
     const ta = box.querySelector('#tp-note');
     ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.ctrlKey && !ev.metaKey) ev.stopPropagation(); });
@@ -185,6 +195,11 @@ async function showProps(app, path, entry) {
   stopSum();
   const n = readNote();
   if (n) await saveNote(path, noteBefore, n.note, n.color);
+  if (after === 'tags') {
+    const p = app.cur;
+    if (entry && !p.selectedEntries().length) p.focusName(entry.name);
+    await app.run('cm_EditTags');
+  }
   if (after === 'attrs') {
     const p = app.cur;
     if (entry && !p.selectedEntries().length) p.focusName(entry.name);

@@ -1,0 +1,17 @@
+/* File tags (tags.js, issue #28): a coloured dot per tag after the name (hollow for a tag without colour), the names
+   beside them when File tags settings say so, and the Tags dialog's list. */
+.row .mc-tags-mark { flex: none; display: inline-flex; align-items: center; gap: 2px; min-width: 0; }
+.mc-tags-dot {
+  display: inline-block; flex: none; width: 8px; height: 8px; border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(127, 127, 127, 0.35);
+}
+.row .mc-tags-mark .mc-tags-dot + .mc-tags-dot { margin-left: -3px; }
+.mc-tags-dot.none { background: transparent; box-shadow: inset 0 0 0 1.5px var(--muted); }
+.mc-tags-names { margin-left: 3px; font-size: .85em; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-tags-status { margin-left: 12px; color: var(--muted); }
+.mc-tags-status b { font-weight: 600; }
+.mc-tags-list { display: flex; flex-direction: column; gap: 4px; max-height: 260px; overflow: auto; margin-bottom: 8px; }
+.mc-tags-list .mc-check { display: flex; align-items: center; gap: 6px; }
+#mc-tags-new { flex: 1; min-width: 0; }
+.mc-tools-tagline { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.mc-tools-tagline > span { display: inline-flex; align-items: center; gap: 3px; min-width: 0; }

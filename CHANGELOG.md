@@ -8,6 +8,12 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- File tags: Finder tags on macOS and user.xdg.tags on Linux. Show > File tags (off by default) puts a coloured dot
+  per tag after each name and the tags of the current item in the status line; Files > Tags… (also in the right-click
+  menu and in Properties) adds and removes tags, and Cmd+Z takes the change back; Mark > Select by tag… and
+  Show > Only files with tag… pick files by tag. Custom columns can show them with [=mc.tags]. Windows has no file
+  tags, so the commands are disabled there.
+
 - HEIC, AVIF and JPEG XL pictures on Windows and Linux too: when the web view or the built-in decoders can't read
   one, the thumbnails view, the Lister and Quick View convert it with a program you have (Windows' own picture
   codecs, or libheif, libavif, libjxl, ImageMagick, vips or ffmpeg), or with the one named in Options > Plugins >

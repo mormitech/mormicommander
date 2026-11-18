@@ -59,3 +59,34 @@ func removeName(p, name string) error { return unix.Lremovexattr(p, name) }
 func isAbsent(err error) bool {
 	return errors.Is(err, errNoAttr) || errors.Is(err, unix.ENOTSUP) || errors.Is(err, unix.EOPNOTSUPP)
 }
+
+// getValue reads an attribute's value; ok false when the file has no such attribute.
+func getValue(p, name string) ([]byte, bool, error) {
+	for tries := 0; tries < 8; tries++ {
+		n, err := unix.Lgetxattr(p, name, nil)
+		if err != nil {
+			if isAbsent(err) {
+				return nil, false, nil
+			}
+			return nil, false, err
+		}
+		buf := make([]byte, n)
+		if n == 0 {
+			return buf, true, nil
+		}
+		n2, err := unix.Lgetxattr(p, name, buf)
+		if errors.Is(err, unix.ERANGE) {
+			continue // the value grew between the two calls
+		}
+		if err != nil {
+			if isAbsent(err) {
+				return nil, false, nil
+			}
+			return nil, false, err
+		}
+		return buf[:n2], true, nil
+	}
+	return nil, false, unix.ERANGE
+}
+
+func setValue(p, name string, val []byte) error { return unix.Lsetxattr(p, name, val, 0) }

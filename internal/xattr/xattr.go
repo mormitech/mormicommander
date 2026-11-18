@@ -1,4 +1,4 @@
-// Package xattr reads and removes extended attributes of files: the extra named values a file system keeps beside a
+// Package xattr reads, writes and removes extended attributes of files: the extra named values a file system keeps beside a
 // file's data. On macOS they hold Finder tags, colour labels, resource forks and the quarantine flag that Gatekeeper
 // puts on files downloaded from the internet (com.apple.quarantine); on Linux they hold user.* values and ACLs. On
 // Windows and the other systems there is nothing to read here: Supported says false and every call is a no-op.
@@ -45,6 +45,23 @@ func List(path string) ([]Attr, error) {
 
 // Has says whether the file carries the named attribute.
 func Has(path, name string) bool { return valueSize(path, name) >= 0 }
+
+// Get returns the value of one attribute; ok is false when the file has no such attribute (or the system has none).
+func Get(path, name string) (val []byte, ok bool, err error) {
+	val, ok, err = getValue(path, name)
+	if err != nil {
+		return nil, false, &fs.PathError{Op: "read attribute", Path: path, Err: err}
+	}
+	return val, ok, nil
+}
+
+// Set writes one attribute, replacing its value when it is there. On a system without extended attributes it fails.
+func Set(path, name string, val []byte) error {
+	if err := setValue(path, name, val); err != nil {
+		return &fs.PathError{Op: "write attribute", Path: path, Err: err}
+	}
+	return nil
+}
 
 // Remove deletes one attribute from one file. An attribute that is not there is not an error. It answers whether
 // something was removed.
