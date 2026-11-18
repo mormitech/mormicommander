@@ -191,6 +191,8 @@ type ViewerEditorPage struct {
 	EditorWait     bool   `ini:"Configuration:EditorWait" def:"0" label:"Wait for the editor before reloading"`
 	ViewerByType   bool   `ini:"Configuration:ViewerByType" def:"0" label:"Choose viewer by file type"`
 	EditTempUpload bool   `ini:"Configuration:EditUploadPrompt" def:"1" label:"Ask before uploading an edited remote file"`
+	// F-594: the built-in editor for F4 on local text files (off: F4 runs the editor above, as before)
+	InternalEditor bool `ini:"Configuration:InternalEditor" def:"0" label:"Use the built-in editor for F4 on text files"`
 }
 
 // CopyDeletePage (F-421).

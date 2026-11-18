@@ -143,7 +143,7 @@ export const DENIED_COMMANDS = {
   cm_Copy: 'copying can overwrite files at the target', cm_CopySamepanel: 'copying can overwrite files',
   cm_PackFiles: 'use the pack_files tool, which never overwrites an archive', cm_PackFilesMove: 'it deletes the files after packing',
   cm_UnpackFiles: 'unpacking can overwrite files', cm_MkDir: 'it opens a dialog; folders are not created by the AI',
-  cm_Edit: 'it runs the editor', cm_EditNewFile: 'it creates a file and runs the editor', cm_EditComment: 'it edits file comments',
+  cm_Edit: 'it runs the editor', cm_EditNewFile: 'it creates a file and runs the editor', cm_EditInternal: 'it edits and saves files', cm_EditComment: 'it edits file comments',
   cm_Enter: 'on a file it opens the file with its program; use open_folder to open a folder',
   cm_EnterDir: 'on a file it opens the file with its program; use open_folder to open a folder',
   cm_OpenWith: 'it runs a program', cm_InternalAssociate: 'it changes which program opens a file', cm_ExecuteDOS: 'it opens a terminal', cm_ExecuteCmdLine: 'it runs the command line',

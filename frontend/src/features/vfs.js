@@ -8,7 +8,7 @@
 // F4 on a file inside an archive edits a watched temporary copy (Go: feature_archive_edit.go); each save asks whether
 // to update the archive.
 //
-// Dialog kinds for control mode: "pack", "unpack", "password", "test-report", "archive-edit", "archive-edit-error";
+// Dialog kinds for control mode: "pack", "unpack", "password", "test-report", "archive-edit", "server-edit", "archive-edit-error";
 // the jobs show the usual "job" progress box and "overwrite" question. Control command "vfs" tells what kind of place each panel shows.
 
 import { command, commandForKey, hasCommand } from '../core/registry.js';
@@ -112,7 +112,7 @@ export function init(app) {
   on('archive-edit-changed', (c) => askArchiveUpdate(app, c));
 }
 
-// ---- F4 on a file inside an archive: the editor saved the temporary copy ----
+// ---- F4 on a file inside an archive or on a server (F-593): the editor saved the temporary copy ----
 async function askArchiveUpdate(app, c) {
   // Options > Viewer/Editor > Ask before uploading an edited remote file off: each save goes into the archive at once
   const ask = app.config?.values?.['ViewerEditor.EditTempUpload'] !== '0';
@@ -120,11 +120,11 @@ async function askArchiveUpdate(app, c) {
   try {
     await go.ListerEdit.AnswerArchiveEdit(c.id, update);
   } catch (e) {
-    await messageDialog({ Title: 'Edit inside archive', Message: errText(e), Kind: 'archive-edit-error' });
+    await messageDialog({ Title: c.remote ? 'Edit on server' : 'Edit inside archive', Message: errText(e), Kind: 'archive-edit-error' });
     return;
   }
   if (!update) return;
-  app.flash(`Updated ${c.name} in ${base(c.archive)}.`);
+  app.flash(c.remote ? `Uploaded ${c.name} to ${c.archive}.` : `Updated ${c.name} in ${base(c.archive)}.`);
   for (const p of panelsShowing(app.panels, c.archive)) p.reload();
 }
 

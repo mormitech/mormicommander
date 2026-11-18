@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- F4 on a file on an FTP or SFTP server downloads it and opens it in the editor; each time you save it you are
+  asked whether to upload it back (Options > Viewer/Editor > "Ask before uploading an edited remote file").
+- A simple built-in text editor: Files > Edit with the built-in editor. Options > Viewer/Editor > "Use the built-in
+  editor for F4 on text files" (off by default) makes F4 and Shift+F4 use it for text files on this computer.
+- Files menu: Edit (F4) and Edit new file… (Shift+F4).
+- F4 on a file inside an archive on a server opens a temporary copy instead of saying it is not ready yet.
+
 ## 0.14.33 – 2026-11-18
 
 Parity rounds for the Start menu, Help, Copy/Move, Delete, Rename, Make folder, Find files, Synchronize, Compare

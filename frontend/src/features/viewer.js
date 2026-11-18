@@ -31,6 +31,8 @@ import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LIS
 import { makeWalker, walkList } from './viewer/walk.js';
 import { editNote } from './archive-edit-lib.js';
 import { viewEditAssociated } from './assoc.js';
+import { openTextEditor } from './textedit.js';
+import { wantInternal } from './textedit-lib.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
@@ -361,14 +363,21 @@ for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Ri
 
 command({
   // F4: the file under the cursor (F4 ignores the selection, unlike F3); nothing on a folder or "..".
-  name: 'cm_Edit', label: 'Edit', short: 'Edit',
+  name: 'cm_Edit', label: 'Edit', short: 'Edit', menu: 'Files', menuAfter: 'cm_Properties', menuKey: true,
   run: async (app, args) => {
     const p = app.cur;
     const path = args.path || (p.cur && !p.cur.up && !p.cur.dir ? p.fullPath(p.cur.name) : '');
     if (!path) return;
     // Files > Internal associations: a matching entry with an Edit (F4) command comes first (F-323; none set: as before)
     if ((args.path || !viewsFromCopy(p.vfs, p.path)) && await viewEditAssociated(app, 'edit', path, args.path ? path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))) : p.path, args)) return;
-    // (a file inside an archive opens as a watched temporary copy: each save asks to update the archive, see vfs.js)
+    // Options > Viewer/Editor > the built-in editor (F-594, off by default); a file it can't take goes on to the editor
+    if (wantInternal(app.config?.values, path, !args.path && viewsFromCopy(p.vfs, p.path))) {
+      const r = await openTextEditor(app, path);
+      if (r.shown) return;
+      app.flash(`${r.why} Opening the external editor.`, 'err');
+    }
+    // (a file inside an archive or on a server opens as a watched temporary copy: each save asks to update the archive
+    // or upload the file, see vfs.js)
     const r = await go.ListerEdit.Edit(path, app.setting('editor', '') || '', paramCtx(app));
     const note = editNote(r, path.split(/[\\/]/).pop());
     if (note) app.flash(note, r?.watching ? '' : 'err');
@@ -378,7 +387,7 @@ command({
 command({
   // Shift+F4: asks for a name (the file under the cursor, selected), creates the file empty when it is not there, opens
   // it in the editor; the panel then shows the new file under the cursor.
-  name: 'cm_EditNewFile', label: 'Edit new file…', short: 'New file',
+  name: 'cm_EditNewFile', label: 'Edit new file…', short: 'New file', menu: 'Files', menuAfter: 'cm_Edit', menuKey: true,
   run: async (app, args) => {
     const p = app.cur;
     if (remote(p.path)) { app.flash('Editing files inside archives or on servers is not ready yet.', 'err'); return; }
@@ -387,6 +396,14 @@ command({
     const name = args.name ?? await inputDialog({ title: 'New file', label: 'Edit new file:', value: cur, select: [0, dot > 0 ? dot : cur.length], okLabel: 'Edit',
       kind: 'lister-newfile', validate: (v) => (v.trim() ? '' : 'Type a file name.') });
     if (!name) return;
+    // the built-in editor (F-594, Options > Viewer/Editor; off by default): create the file, then edit it here
+    if (wantInternal(app.config?.values, p.path)) {
+      const r = await go.ListerEdit.CreateNew(p.path, name.trim());
+      if (r.dir === p.path || app.resolvePath(r.dir, p.path) === p.path) { await p.reload(); p.focusName(r.name); }
+      const shown = await openTextEditor(app, r.path);
+      if (!shown.shown) app.flash(shown.why, 'err');
+      return;
+    }
     const r = await go.ListerEdit.EditNew(p.path, name.trim(), app.setting('editor', '') || '', paramCtx(app));
     if (r.created || r.dir === p.path) {
       if (r.dir === p.path || app.resolvePath(r.dir, p.path) === p.path) {
@@ -394,6 +411,18 @@ command({
         p.focusName(r.name);
       }
     }
+  },
+});
+
+// the built-in editor on the file under the cursor (F-594; features/textedit.js)
+command({
+  name: 'cm_EditInternal', label: 'Edit with the built-in editor', menu: 'Files', menuAfter: 'cm_EditNewFile',
+  run: async (app, args = {}) => {
+    const p = app.cur;
+    const path = args.path || (p?.cur && !p.cur.up && !p.cur.dir ? p.fullPath(p.cur.name) : '');
+    if (!path) return;
+    const r = await openTextEditor(app, path);
+    if (!r.shown) app.flash(r.why, 'err');
   },
 });
 

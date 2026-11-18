@@ -9,7 +9,7 @@ package main
 // another one) still open their entry in the editor, with a note that the changes stay in the temporary copy.
 //
 // Before this existed F4 on an archive entry only said that editing inside archives was not ready yet, so nothing
-// that worked before behaves differently; files on servers still get that answer.
+// that worked before behaves differently. Files on servers use the same watcher (feature_server_edit.go).
 
 import (
 	"bytes"
@@ -36,6 +36,7 @@ const arcEditPollEvery = time.Second
 type ListerEditResult struct {
 	Watching bool   `json:"watching"`
 	Note     string `json:"note"`
+	Remote   bool   `json:"remote,omitempty"` // the watched copy is of a file on a server (F-593)
 }
 
 // arcEditChange is the "archive-edit-changed" event: the temporary copy of Entry (a full panel path inside Archive)
@@ -45,6 +46,9 @@ type arcEditChange struct {
 	Entry   string `json:"entry"`
 	Archive string `json:"archive"`
 	Name    string `json:"name"`
+	// Remote: Entry is a file on a server (F-593) and Archive the server folder it is in; the page asks whether to
+	// upload the copy instead of whether to update an archive
+	Remote bool `json:"remote,omitempty"`
 }
 
 // arcEditWatch is one watched temporary copy and what it looked like when it was last unpacked, packed or declined.
@@ -57,6 +61,7 @@ type arcEditWatch struct {
 	size    int64
 	sum     [32]byte
 	pending bool // the page is asking about this change; no new question until it is answered
+	remote  bool // a file on a server (feature_server_edit.go), not an archive entry
 }
 
 // arcEditWatcher keeps the watched copies. scan finds the changed ones; answer packs or declines one change. upload
@@ -114,6 +119,20 @@ func (w *arcEditWatcher) add(entry, archive, local string) (int, error) {
 	return w.seq, nil
 }
 
+// addRemote is add for a temporary copy of a file on a server: folder is the server folder the file is in.
+func (w *arcEditWatcher) addRemote(entry, folder, local string) (int, error) {
+	id, err := w.add(entry, folder, local)
+	if err != nil {
+		return 0, err
+	}
+	w.mu.Lock()
+	if x := w.watches[id]; x != nil {
+		x.remote = true
+	}
+	w.mu.Unlock()
+	return id, nil
+}
+
 // remove stops watching id.
 func (w *arcEditWatcher) remove(id int) {
 	w.mu.Lock()
@@ -160,7 +179,7 @@ func (w *arcEditWatcher) scan() []arcEditChange {
 			continue
 		}
 		x.pending = true
-		c := arcEditChange{ID: x.id, Entry: x.entry, Archive: x.archive, Name: filepath.Base(x.local)}
+		c := arcEditChange{ID: x.id, Entry: x.entry, Archive: x.archive, Name: filepath.Base(x.local), Remote: x.remote}
 		w.mu.Unlock()
 		out = append(out, c)
 		if w.emit != nil {
@@ -188,6 +207,9 @@ func (w *arcEditWatcher) answer(id int, update bool) error {
 		}
 		if err := w.upload(x.local, x.entry); err != nil {
 			w.setPending(x, false)
+			if x.remote {
+				return fmt.Errorf("Can't upload %s to %s: %s", filepath.Base(x.local), x.archive, vfsErrText(err))
+			}
 			return fmt.Errorf("Can't update %s in %s: %s", filepath.Base(x.local), vfsBase(x.archive), vfsErrText(err))
 		}
 	}

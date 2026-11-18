@@ -1,6 +1,6 @@
-// Editing a file inside an archive (F4 on an archive entry, FEATURES.md F-592), the page's plain logic: the question
-// asked when the editor saved the temporary copy, the note shown when F4 opened one, and which panels show the
-// archive and so are read again after it was updated. Go watches the copy (feature_archive_edit.go) and sends
+// Editing a file inside an archive (F4 on an archive entry, FEATURES.md F-592) or on a server (F-593), the page's
+// plain logic: the question asked when the editor saved the temporary copy, the note shown when F4 opened one, and
+// which panels show the archive (or the server folder) and so are read again after it was updated. Go watches the copy (feature_archive_edit.go) and sends
 // "archive-edit-changed"; vfs.js asks with these and answers through ListerEdit.AnswerArchiveEdit.
 
 const baseName = (p) => String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop() || String(p || '');
@@ -11,6 +11,17 @@ export const DONT_UPDATE = "Don't update";
 
 // updateQuestion is the messageDialog options for a change c = {name, archive}.
 export function updateQuestion(c) {
+  // a file on a server (F-593): the same question, about uploading it to the server folder
+  if (c?.remote) {
+    return {
+      Title: 'Edit on server',
+      Message: `${c.name} was changed in the editor.\n\nUpload it to ${c.archive}?`,
+      Buttons: [UPDATE, DONT_UPDATE],
+      DefaultButton: UPDATE,
+      CancelButton: DONT_UPDATE,
+      Kind: 'server-edit',
+    };
+  }
   return {
     Title: 'Edit inside archive',
     Message: `${c.name} was changed in the editor.\n\nUpdate it in ${baseName(c.archive)}?`,
@@ -24,6 +35,7 @@ export function updateQuestion(c) {
 // editNote is the flash message after F4 (r: Go's ListerEditResult; name: the entry's name), or '' for nothing.
 export function editNote(r, name) {
   if (r?.note) return r.note;
+  if (r?.watching && r?.remote) return `Editing a copy of ${name}. Each time you save it, you are asked whether to upload it to the server.`;
   if (r?.watching) return `Editing a copy of ${name}. Each time you save it, you are asked whether to update the archive.`;
   return '';
 }

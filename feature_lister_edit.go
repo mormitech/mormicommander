@@ -45,13 +45,23 @@ func (e *ListerEdit) check(path string) error {
 }
 
 // Edit opens a file in the editor: the configured line, or the system's text editor when it is empty. A file inside an
-// archive opens as a temporary copy that is watched for changes (feature_archive_edit.go).
+// archive or on a server opens as a temporary copy that is watched for changes (feature_archive_edit.go,
+// feature_server_edit.go).
 func (e *ListerEdit) Edit(path, tool string, ctx launch.ParamContext) (ListerEditResult, error) {
+	if e.app.mock != nil {
+		return ListerEditResult{}, e.check(path)
+	}
+	// a file inside an archive (also one on a server) or on a server opens as a watched temporary copy (F-592, F-593)
+	if r := vfsRouter(e.app); r != nil {
+		if vfsPathKind(r, path) == "archive" && !vfsIsLocal(r, path) {
+			return e.editInArchive(r, path, tool, ctx)
+		}
+		if vfsServerKind(r, path) {
+			return e.editOnServer(r, path, tool, ctx)
+		}
+	}
 	if err := e.check(path); err != nil {
 		return ListerEditResult{}, err
-	}
-	if r := vfsRouter(e.app); r != nil && vfsPathKind(r, path) == "archive" && !vfsIsLocal(r, path) {
-		return e.editInArchive(r, path, tool, ctx)
 	}
 	// Options > Viewer/Editor > Wait for the editor before reloading: the page rereads the folder when the editor quits
 	if s, ok := currentSettings(); ok && s.ViewerEditor.EditorWait {
@@ -97,6 +107,18 @@ func (e *ListerEdit) editInArchive(r *vfs.Router, path, tool string, ctx launch.
 // EditNew makes sure the file name (relative to dir, or a full path) exists, creating it empty when it does not, and
 // opens it in the editor (Shift+F4).
 func (e *ListerEdit) EditNew(dir, name, tool string, ctx launch.ParamContext) (ListerNewFile, error) {
+	out, err := e.createNew(dir, name)
+	if err != nil {
+		return out, err
+	}
+	if err := e.launch.OpenInTool(launch.ParseTool(tool), out.Path, ctx); err != nil {
+		return out, listerLaunchError("the editor", out.Name, err)
+	}
+	return out, nil
+}
+
+// createNew makes sure the file name (relative to dir, or a full path) exists, creating it empty when it does not.
+func (e *ListerEdit) createNew(dir, name string) (ListerNewFile, error) {
 	name = strings.TrimSpace(name)
 	if name == "" {
 		return ListerNewFile{}, errors.New("Type a file name.")
@@ -114,11 +136,7 @@ func (e *ListerEdit) EditNew(dir, name, tool string, ctx launch.ParamContext) (L
 		}
 		return ListerNewFile{}, fmt.Errorf("Can't create %s: %s", name, strings.TrimPrefix(err.Error(), "launch: "))
 	}
-	out := ListerNewFile{Path: p, Name: filepath.Base(p), Dir: filepath.Dir(p), Created: created}
-	if err := e.launch.OpenInTool(launch.ParseTool(tool), p, ctx); err != nil {
-		return out, listerLaunchError("the editor", out.Name, err)
-	}
-	return out, nil
+	return ListerNewFile{Path: p, Name: filepath.Base(p), Dir: filepath.Dir(p), Created: created}, nil
 }
 
 // View opens a file in the external viewer line, or with its default app when the line is empty.
