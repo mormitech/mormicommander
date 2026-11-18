@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.31 – 2026-11-18
+
+Parity checks of the macOS key rule (#57), the command line (#58), the button bar (#59) and the Files menu (#60)
+found most items already built; docs/FEATURES.md notes what was found.
+
 ### Added
 
 - The Commands menu lists Command line history, Path to command line, Name to command line and Path and name to
