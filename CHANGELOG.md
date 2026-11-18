@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Change start menu: each entry can have an icon (a PNG, JPEG, GIF, BMP or WebP file), shown before its title in the
+  Start menu.
+
 ## 0.14.32 – 2026-11-18
 
 Parity checks of the Mark (#61), Commands (#62), Net (#63), Show (#64) and Configuration (#65) menus found most

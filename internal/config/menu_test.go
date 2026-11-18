@@ -270,9 +270,10 @@ func TestStartMenu(t *testing.T) {
 		t.Fatalf("action = %+v", a)
 	}
 	sm.Items = append(sm.Items, NewStartItem("New", "cm_Edit", "", "", "A+E"))
+	sm.Items[2].SetField("icon", "%COMMANDER_PATH%\\new.png")
 	sm.Save(f)
 	sm2 := LoadStartMenu(f)
-	if len(sm2.Items) != 3 || sm2.Items[2].Field("key") != "A+E" {
+	if len(sm2.Items) != 3 || sm2.Items[2].Field("key") != "A+E" || sm2.Items[2].Field("icon") != `%COMMANDER_PATH%\new.png` {
 		t.Fatalf("after save: %+v", sm2.Items)
 	}
 }

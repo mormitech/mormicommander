@@ -78,6 +78,8 @@ body:not(.mc-config-flat) .panel .status { box-shadow: inset 0 1px 2px color-mix
 .mc-config-listedit { display: flex; gap: 12px; align-items: stretch; margin-bottom: 8px; }
 .mc-config-listedit > select { flex: 0 0 44%; min-width: 0; }
 .mc-config-listfields { flex: 1; min-width: 0; }
+.mc-config-iconrow { display: flex; align-items: center; gap: 6px; }
+.mc-config-iconrow input { flex: 1; min-width: 0; }
 .mc-config-rowbtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 8px; }
 .mc-config-rowbtns.mc-config-col { flex-direction: column; align-items: flex-start; }
 .mc-config-inline { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: flex-end; margin-bottom: 6px; }

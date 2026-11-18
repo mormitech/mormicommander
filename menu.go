@@ -27,6 +27,7 @@ type MenuItem struct {
 	Checked  *bool      `json:"checked"`  // nil: no check mark at all; else the state of a toggle
 	Sep      bool       `json:"sep"`      // a separator line
 	Items    []MenuItem `json:"items"`    // a submenu
+	Icon     string     `json:"icon"`     // an image file drawn before the label (Start menu entries, F-450); "" = none
 }
 
 // SetMenu replaces the menu bar with the given tree (top-level items are the menus).
@@ -143,6 +144,11 @@ func addItems(a *App, m *application.Menu, items []MenuItem) {
 				mi = m.Add(it.Label)
 			}
 			mi.SetEnabled(!it.Disabled).OnClick(func(*application.Context) { a.emit("menu", cmd) })
+			if it.Icon != "" {
+				if png := menuIcon(it.Icon); png != nil {
+					mi.SetBitmap(png)
+				}
+			}
 		}
 	}
 }

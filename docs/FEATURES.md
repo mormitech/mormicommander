@@ -615,9 +615,9 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 18. Start menu (user menu)
 
-- [~] F-448 Start menu with user-defined entries — — — items run commands, programs, cm_* commands; submenus with "-" prefix; separators
-- [~] F-449 Start menu hotkeys — — — each entry can have its own hotkey
-- [~] F-450 Change start menu dialog — — — add, delete, edit, reorder, submenu, icons
+- [~] F-448 Start menu with user-defined entries — — — items run commands, programs, cm_* commands; submenus with "-" prefix; separators — audit #66: the [user] section (internal/config/startmenu.go, menu.go "-"/"--" submenus and "-" separators) is read by go.ConfigStart.Menu and added to the end of the Start menu (features/config/startmenu.js menuTree, after a line); each entry gets its own numbered Start menu command and runs like a button (cm_/em_ commands, cd folder, program with parameters and start folder); empty submenus are left out (start-menu.test.js, TestStartMenu, TestConfigStartTree)
+- [~] F-449 Start menu hotkeys — — — each entry can have its own hotkey — audit #66: keyN (TC notation) is read and written; the entry's key runs it before the keymap (addKeyHandler in startmenu.js, not while a dialog or popup is open), typing keys are refused, and the key is shown in the menu label (start-menu.test.js)
+- [~] F-450 Change start menu dialog — — — add, delete, edit, reorder, submenu, icons — audit #66: Configuration > Change start menu… (cm_ConfigStartMenu) adds entries, submenus and separators, deletes (a submenu with its entries), edits title/command/parameters/start folder/key, moves up/down and in/out of submenus; built: an Icon field per entry (an image file, with a preview; kept as our own iconN key, which TC ignores) and the native menu draws it at 16x16 before the title (menu_icon.go, MenuItem.icon in menu.go; start-menu.test.js, TestMenuIconFile)
 
 ## 19. Help menu and About
 

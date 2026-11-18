@@ -4,7 +4,8 @@
 // separators and an optional hotkey per entry (F-448, F-449). It is stored in
 // the [user] section of wincmd.ini as a numbered menu (menu.go) with the
 // fields cmdN, paramN (parameters, with the %-placeholders of params.go),
-// pathN (start folder) and keyN (hotkey in TC notation, see keymap.go). The
+// pathN (start folder), keyN (hotkey in TC notation, see keymap.go) and our
+// own iconN (an image file shown in the menu; TC ignores the key). The
 // Change start menu dialog (F-450) edits the tree through the MenuInsert/
 // MenuRemove/MenuMove helpers.
 
@@ -15,7 +16,7 @@ import "strings"
 // SectionUserMenu is TC's Start menu section.
 const SectionUserMenu = "user"
 
-var startMenuFields = []string{"cmd", "param", "path", "key"}
+var startMenuFields = []string{"cmd", "param", "path", "key", "icon"}
 
 // StartMenu is the user's Start menu.
 type StartMenu struct {

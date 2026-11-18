@@ -1,7 +1,8 @@
 // The Start menu (FEATURES.md section 18): the user's own entries in the Start menu of the menu bar, with submenus and
 // separators (F-448), each with an optional key of its own (F-449), and the dialog that changes them (Configuration >
 // Change start menu, cm_ConfigStartMenu, F-450). Entries are kept in the [user] section of the settings file
-// (internal/config) and run like buttons: cm_ / em_ commands, "cd folder", or a program with parameters.
+// (internal/config) and run like buttons: cm_ / em_ commands, "cd folder", or a program with parameters. An entry can
+// name an image file as its icon; the native menu draws it before the title (menu_icon.go).
 
 import { command, getCommand } from '../../core/registry.js';
 import { addKeyHandler } from '../../core/keyboard.js';
@@ -18,7 +19,7 @@ import { keyText, hotkeyOK } from './keys.js';
 import { runButton } from './run.js';
 import { allCommandNames, commandLabel } from './options.js';
 
-let items = []; // the flat list from Go: {kind, depth, title, cmd, params, path, key}
+let items = []; // the flat list from Go: {kind, depth, title, cmd, params, path, key, icon}
 const keys = new Map(); // combo → index in items
 
 const cmdName = (i) => `cm_StartMenu_${i + 1}`;
@@ -41,7 +42,7 @@ function ensureCommands() {
 }
 
 // menuTree turns the flat list into the menu layout of core/menus.js.
-function menuTree() {
+export function menuTree() {
   const root = [];
   const stack = [root];
   items.forEach((it, i) => {
@@ -52,7 +53,9 @@ function menuTree() {
     else if (it.kind === 'submenu') { const sub = []; list.push([it.title, sub]); stack.push(sub); }
     else {
       const k = it.key ? `   ${keyText(it.key)}` : '';
-      list.push([`${(it.title || it.cmd).replace(/&(.)/g, '$1')}${k}`, cmdName(i)]);
+      const entry = [`${(it.title || it.cmd).replace(/&(.)/g, '$1')}${k}`, cmdName(i)];
+      if (it.icon) entry.push({ icon: it.icon });
+      list.push(entry);
     }
   });
   const clean = (l) => l.filter((x) => !Array.isArray(x) || !Array.isArray(x[1]) || (x[1] = clean(x[1])).length);
@@ -93,6 +96,7 @@ export function openStartMenuConfig(app) {
           <div class="mc-row"><label for="sm-params">Parameters (%P path, %N name, %S selected names; ? asks first)</label><input type="text" id="sm-params" spellcheck="false"></div>
           <div class="mc-row"><label for="sm-path">Start folder</label><input type="text" id="sm-path" spellcheck="false"></div>
           <div class="mc-row"><label for="sm-key">Key: click here and press it (Backspace: none)</label><input type="text" id="sm-key" data-keycapture="1" spellcheck="false" placeholder="No key"></div>
+          <div class="mc-row"><label for="sm-icon">Icon (a PNG, JPEG, GIF, BMP or WebP file; empty for none)</label><span class="mc-config-iconrow"><img id="sm-iconview" alt="" width="16" height="16" hidden><input type="text" id="sm-icon" spellcheck="false"></span></div>
         </div>
       </div>
       <div class="mc-config-rowbtns"><button type="button" class="sm-add">Add entry</button><button type="button" class="sm-sub">Add submenu</button><button type="button" class="sm-sep">Add separator</button>
@@ -103,7 +107,16 @@ export function openStartMenuConfig(app) {
     const $ = (s) => box.querySelector(s);
     const err = $('.mc-err');
     const list = $('#sm-list');
-    const FIELDS = ['title', 'cmd', 'params', 'path', 'key'];
+    const FIELDS = ['title', 'cmd', 'params', 'path', 'key', 'icon'];
+    const iconView = $('#sm-iconview');
+    let iconAsk = 0;
+    // a small preview of the icon file (read by Go, like the button bar's icons)
+    const showIcon = (file) => {
+      const n = ++iconAsk;
+      iconView.hidden = true;
+      if (!file) return;
+      Promise.resolve(go.ConfigBar.IconData(file)).then((d) => { if (n === iconAsk && d) { iconView.src = d; iconView.hidden = false; } }).catch(() => {});
+    };
     const labelOf = (it) => {
       const pad = '    '.repeat(it.depth);
       if (it.kind === 'sep') return `${pad}────────`;
@@ -120,12 +133,14 @@ export function openStartMenuConfig(app) {
         el.value = it ? it[f] || '' : '';
         el.disabled = !it || it.kind === 'sep' || (it.kind === 'submenu' && f !== 'title');
       }
+      showIcon(it && it.kind === 'item' ? it.icon : '');
     };
     for (const f of FIELDS) {
       $(`#sm-${f}`).addEventListener('input', () => {
         const it = pending[+list.value];
         if (!it) return;
         it[f] = $(`#sm-${f}`).value;
+        if (f === 'icon') showIcon(it.icon);
         const o = list.selectedOptions[0];
         if (o) o.textContent = labelOf(it);
       });
@@ -142,9 +157,9 @@ export function openStartMenuConfig(app) {
       fix();
       paint(at);
     };
-    $('.sm-add').onclick = () => { insert({ kind: 'item', title: '', cmd: '', params: '', path: '', key: '' }); $('#sm-title').focus(); };
-    $('.sm-sub').onclick = () => { insert({ kind: 'submenu', title: 'New submenu', cmd: '', params: '', path: '', key: '' }); $('#sm-title').focus(); };
-    $('.sm-sep').onclick = () => insert({ kind: 'sep', title: '-', cmd: '', params: '', path: '', key: '' });
+    $('.sm-add').onclick = () => { insert({ kind: 'item', title: '', cmd: '', params: '', path: '', key: '', icon: '' }); $('#sm-title').focus(); };
+    $('.sm-sub').onclick = () => { insert({ kind: 'submenu', title: 'New submenu', cmd: '', params: '', path: '', key: '', icon: '' }); $('#sm-title').focus(); };
+    $('.sm-sep').onclick = () => insert({ kind: 'sep', title: '-', cmd: '', params: '', path: '', key: '', icon: '' });
     $('.sm-del').onclick = () => {
       const i = +list.value;
       if (!(i >= 0 && i < pending.length)) return;

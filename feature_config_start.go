@@ -39,7 +39,8 @@ type configStartItem struct {
 	Cmd    string `json:"cmd"`
 	Params string `json:"params"`
 	Path   string `json:"path"`
-	Key    string `json:"key"` // as the page writes keys ("Ctrl+Shift+F1"); "" = none
+	Key    string `json:"key"`  // as the page writes keys ("Ctrl+Shift+F1"); "" = none
+	Icon   string `json:"icon"` // an image file shown before the title in the menu (F-450); "" = none
 }
 
 // Menu returns the Start menu as a flat list (F-448).
@@ -61,7 +62,7 @@ func (s *ConfigStart) Menu() ([]configStartItem, error) {
 				e.Kind = "submenu"
 			default:
 				e.Kind = "item"
-				e.Cmd, e.Params, e.Path = it.Field("cmd"), it.Field("param"), it.Field("path")
+				e.Cmd, e.Params, e.Path, e.Icon = it.Field("cmd"), it.Field("param"), it.Field("path"), it.Field("icon")
 				if k := strings.TrimSpace(it.Field("key")); k != "" {
 					if h, err := config.ParseHotkey(k); err == nil {
 						e.Key = configComboFromHotkey(h)
@@ -119,6 +120,7 @@ func configStartTree(items []configStartItem) ([]*config.MenuItem, error) {
 				return nil, fmt.Errorf("The entry %q needs a name that does not start with -.", title)
 			}
 			it = config.NewStartItem(title, strings.TrimSpace(e.Cmd), e.Params, strings.TrimSpace(e.Path), key)
+			it.SetField("icon", strings.TrimSpace(e.Icon))
 		}
 		list := stack[len(stack)-1]
 		*list = append(*list, it)

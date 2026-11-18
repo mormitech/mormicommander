@@ -87,7 +87,7 @@ function toSpec(items) {
   const out = [];
   for (const it of items) {
     if (it === '-') { out.push({ sep: true }); continue; }
-    const [label, x] = it;
+    const [label, x, extra] = it;
     if (Array.isArray(x)) { out.push({ label: tr(label), items: toSpec(x) }); continue; }
     const c = getCommand(x);
     let text = tr(label === '__REVEAL__' ? REVEAL[app.platform] || REVEAL.linux : label);
@@ -96,6 +96,7 @@ function toSpec(items) {
     if (c?.menuKey) text = menuLabel(text, app.keyLabel(x));
     const item = { label: text, cmd: x, disabled: !c || (c.enabled ? !c.enabled(app) : false) };
     if (c?.checked) item.checked = !!c.checked(app);
+    if (extra?.icon) item.icon = String(extra.icon); // an image file Go draws before the label (Start menu, F-450)
     out.push(item);
   }
   return out;
@@ -103,6 +104,7 @@ function toSpec(items) {
 
 // Items a feature adds to a menu at run time (the user's Start menu entries, a Layout submenu): addMenuItems('Start', fn)
 // where fn() returns items in the MENUS format ([label, cmd], '-', [label, [items]]); they go at the end of that menu.
+// An item may carry a third element {icon: 'image file'} for an icon before its label.
 const providers = [];
 export function addMenuItems(menu, fn) { providers.push({ menu, fn }); refreshMenu(); }
 
