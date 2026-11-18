@@ -9,7 +9,7 @@ import { showList } from '../core/popup.js';
 import { inputDialog } from '../core/dialogs.js';
 import { cmdline } from '../core/cmdline.js';
 import { splitPath } from '../core/panel.js';
-import { maskFilter, execFilter, historyItems } from './reserved-lib.js';
+import { maskFilter, execFilter, historyItems, selectionFilter } from './reserved-lib.js';
 
 const USER_MASK = 'srcUserMask'; // the setting that keeps the custom filter's mask between runs
 
@@ -33,7 +33,7 @@ const srcKind = (app) => app.cur.filter?.mcSrc || '';
 
 command({
   // Ctrl+F11: only folders and the files that can be run. Show > All files (Ctrl+F10) shows everything again.
-  name: 'cm_SrcExecs', label: 'Programs', checked: (app) => srcKind(app) === 'execs',
+  name: 'cm_SrcExecs', menuKey: true, label: 'Programs', checked: (app) => srcKind(app) === 'execs',
   run: (app) => { app.cur.setFilter(execFilter(), 'Programs'); return true; },
 });
 
@@ -68,13 +68,31 @@ async function askUserMask(app, args = {}) {
 
 command({
   // Ctrl+F12: the custom filter defined last; the first time it asks for one.
-  name: 'cm_SrcUserSpec', label: 'Custom filter', checked: (app) => srcKind(app) === 'user',
+  name: 'cm_SrcUserSpec', menuKey: true, label: 'Custom filter', checked: (app) => srcKind(app) === 'user',
   run: (app, args) => {
     const mask = app.setting(USER_MASK, '');
     return mask ? applyUserMask(app, mask) : defineUserMask(app, args);
   },
 });
 command({ name: 'cm_SrcUserDef', label: 'Define custom filter…', run: (app, args) => defineUserMask(app, args) });
+
+// Show > Show only selected files / Hide selected files (F-408, ours names): the active panel shows only the selected
+// entries, or all but them, until the folder is read again (Ctrl+R) or left; Show > All files (Ctrl+F10) ends it too.
+function showSelected(app, keep) {
+  const p = app.cur;
+  const names = [...p.selected];
+  if (!names.length) { app.flash(keep ? 'Select the files to show first.' : 'Select the files to hide first.'); return false; }
+  p.setFilter(selectionFilter(names, keep, p.filter, p.filterLabel), keep ? 'Only selected' : 'Selected hidden');
+  return true;
+}
+command({
+  name: 'cm_ShowOnlySelected', label: 'Show only selected files', menu: 'Show', menuAfter: 'cm_SrcUserDef',
+  checked: (app) => srcKind(app) === 'onlysel', run: (app) => showSelected(app, true),
+});
+command({
+  name: 'cm_HideSelected', label: 'Hide selected files', menu: 'Show', menuAfter: 'cm_ShowOnlySelected',
+  checked: (app) => srcKind(app) === 'hidesel', run: (app) => showSelected(app, false),
+});
 
 // The Show menu filters for a named panel (F-786): Left, Right and Trg (the other panel) variants of All files,
 // Programs, Custom filter and Define custom filter. Each acts on that panel only and leaves the active panel as it is.

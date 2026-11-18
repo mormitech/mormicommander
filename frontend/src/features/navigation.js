@@ -135,13 +135,13 @@ command({
   },
 });
 command({
-  name: 'cm_RereadSource', label: 'Reread',
+  name: 'cm_RereadSource', menuKey: true, label: 'Reread',
   run: async (app) => { await Promise.all([app.cur.reload(), app.loadVolumes()]); },
 });
 command({
   // Ctrl+F10 (Show > All files): shows every file again, whatever filter the panel has (a quick filter, a hotlist
   // mask, or the files Compare folders hid).
-  name: 'cm_SrcAllFiles', label: 'All files', checked: (app) => !app.cur.filter,
+  name: 'cm_SrcAllFiles', menuKey: true, label: 'All files', checked: (app) => !app.cur.filter,
   run: (app) => { if (app.cur.filter) app.cur.setFilter(null); },
 });
 command({

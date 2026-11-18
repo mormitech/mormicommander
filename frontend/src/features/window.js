@@ -50,7 +50,7 @@ command({ name: 'cm_ZoomIn', label: 'Larger text', run: (app) => zoom(app, 1) })
 command({ name: 'cm_ZoomOut', label: 'Smaller text', run: (app) => zoom(app, -1) });
 
 command({
-  name: 'cm_HorizontalPanels', label: 'Panels on top of each other', checked: () => document.getElementById('panels').classList.contains('horizontal'),
+  name: 'cm_HorizontalPanels', menuKey: true, label: 'Panels on top of each other', checked: () => document.getElementById('panels').classList.contains('horizontal'),
   run: (app) => {
     const on = document.getElementById('panels').classList.toggle('horizontal');
     app.setSetting('horizontal', on);
@@ -79,7 +79,7 @@ function endSolo(app) {
   for (const p of app.panels) p.renderRows();
 }
 command({
-  name: 'cm_100Percent', label: 'Active panel alone', checked: () => !!solo,
+  name: 'cm_100Percent', menuKey: true, label: 'Active panel alone', menu: 'Show', menuAfter: 'cm_HorizontalPanels', checked: () => !!solo,
   run: (app) => {
     if (solo) { endSolo(app); return true; }
     solo = app.cur;

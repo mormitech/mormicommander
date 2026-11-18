@@ -17,6 +17,12 @@ version is changed only when a round of features is merged.
   with tabs, Show folder under cursor in left/right panel, Branch view, Open terminal here, Go to root folder and
   Command line.
 - The Net menu shows the keys of FTP connect, New FTP connection, Disconnect and Transfer mode.
+- Show > Show only selected files and Hide selected files: the panel shows only the selected files, or all but them,
+  until the folder is read again (Ctrl+R).
+- Show > Active panel alone: the active panel takes the whole width; again brings both panels back.
+- Show > View mode: the saved view modes as a submenu, to switch the panel to one.
+- The Show menu shows the keys of the views, Quick view, the filters, the sort orders, Reread and Panels on top of
+  each other.
 
 ## 0.14.31 – 2026-11-18
 

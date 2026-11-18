@@ -543,26 +543,26 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 16. Show menu
 
-- [ ] F-393 Brief — Ctrl+F1 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-394 Full — Ctrl+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-395 Comments — Ctrl+Shift+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-396 Thumbnails — Ctrl+Shift+F1 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-397 Custom columns submenu — — — lists column sets for choosing
-- [ ] F-398 Tree — Ctrl+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-399 Quick view — Ctrl+Q — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-393 Brief — Ctrl+F1 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Brief runs cm_SrcShort (views.js); its label shows the key (Ctrl+F1)
+- [~] F-394 Full — Ctrl+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Full runs cm_SrcLong (views.js); its label shows the key (Ctrl+F2)
+- [~] F-395 Comments — Ctrl+Shift+F2 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Comments runs cm_SrcComments (views.js); its label shows the key (Ctrl+Shift+F2)
+- [~] F-396 Thumbnails — Ctrl+Shift+F1 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Thumbnails runs cm_SrcThumbs (views.js); its label shows the key (Ctrl+Shift+F1)
+- [~] F-397 Custom columns submenu — — — lists column sets for choosing — audit #64: Show > Custom columns… (cm_SrcCustomViewMenu, Shift+F1, key in the label) lists the column sets to choose from; the sets are also listed at the end of the Show menu (cm_SrcCustomView1…9, Options > Custom columns > List column sets in the Show menu)
+- [~] F-398 Tree — Ctrl+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Tree runs cm_SrcTree (views.js, toggles the tree view); its label shows the key (Ctrl+F8)
+- [~] F-399 Quick view — Ctrl+Q — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Quick view runs cm_SrcQuickView (viewer.js); its label shows the key (Ctrl+Q)
 - [~] F-400 Separate tree (off / 1 / 2) — Ctrl+Shift+F8 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #38: the Show > Separate tree items and Ctrl+Shift+F8 run cm_SeparateTreeOff / 1 / 2 / cm_SeparateTreeCycle (see F-025)
-- [ ] F-401 All files — Ctrl+F10 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-402 Programs — Ctrl+F11 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-403 *.* custom filter — Ctrl+F12 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-404 Define custom filter (with saved filters / search templates) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-405 Sort by Name/Extension/Time/Size/Unsorted — Ctrl+F3..F7 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-406 Reverse order — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-407 Reread source — Ctrl+R — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-408 Show only selected files / hide selected (cm_ShowOnlySelected / cm_HideSelected, ours names) — — — panel shows only selected (or only unselected) files until reread
-- [ ] F-409 Show hidden/system toggle — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-410 Horizontal arrangement — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-411 Show 2 panels / single panel — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel — audit #103: not built: the Show menu has no view modes submenu (see F-785)
+- [~] F-401 All files — Ctrl+F10 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > All files runs cm_SrcAllFiles (navigation.js, drops any filter); its label shows the key (Ctrl+F10)
+- [~] F-402 Programs — Ctrl+F11 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Programs runs cm_SrcExecs (reserved.js); its label shows the key (Ctrl+F11)
+- [~] F-403 *.* custom filter — Ctrl+F12 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Custom filter runs cm_SrcUserSpec (reserved.js, asks the first time); its label shows the key (Ctrl+F12)
+- [~] F-404 Define custom filter (with saved filters / search templates) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Define custom filter… runs cm_SrcUserDef (reserved.js): asks for a mask, keeps it for Ctrl+F12 and applies it; no list of saved filters or search templates
+- [~] F-405 Sort by Name/Extension/Time/Size/Unsorted — Ctrl+F3..F7 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Sort by name / extension / date / size / Unsorted run cm_SrcByName … cm_SrcUnsorted (sorting.js); their labels show the keys (Ctrl+F3..F7)
+- [~] F-406 Reverse order — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Reverse order runs cm_SrcNegOrder (sorting.js); no default key
+- [~] F-407 Reread source — Ctrl+R — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Reread runs cm_RereadSource (navigation.js); its label shows the key (Ctrl+R)
+- [~] F-408 Show only selected files / hide selected (cm_ShowOnlySelected / cm_HideSelected, ours names) — — — panel shows only selected (or only unselected) files until reread — audit #64: built: Show > Show only selected files (cm_ShowOnlySelected) and Hide selected files (cm_HideSelected) filter the active panel on top of its filter, with a path bar label; Ctrl+R, leaving the folder or All files (Ctrl+F10) end it, and a reread puts the earlier filter back; with nothing selected they say so
+- [~] F-409 Show hidden/system toggle — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Hidden files runs cm_SwitchHidSys (navigation.js); its label shows the key (Ctrl+H)
+- [~] F-410 Horizontal arrangement — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: Show > Panels on top of each other runs cm_HorizontalPanels (window.js); its label shows the key (Ctrl+Shift+H)
+- [~] F-411 Show 2 panels / single panel — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #64: built: Show > Active panel alone (cm_100Percent, window.js) shows the active panel the whole width and again brings both back
+- [~] F-819 View modes submenu — — — lists the view modes; choosing one switches the panel — audit #103: not built: the Show menu has no view modes submenu (see F-785); audit #64: built: the saved view modes are listed as a Show > View mode submenu (the first nine, cm_SrcViewMode1…9 with left/right/other variants, check mark on the current one)
 - [x] F-858 Hidden-files state always visible and honoured by search — — — when hidden files are shown, the status bar (or path bar) shows a "Hidden: shown" marker; Find files (Alt+F7) has an "Include hidden files" checkbox that defaults to the panel's current state; the toggle F-090/F-242 is listed in the Show menu with its key
 
 ## 17. Configuration menu and dialog pages

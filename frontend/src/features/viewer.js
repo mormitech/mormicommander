@@ -344,7 +344,7 @@ function endQuickView(app) {
   if (document.activeElement === document.body || !document.activeElement) app.cur.$.list.focus({ preventScroll: true });
 }
 
-command({ name: 'cm_SrcQuickView', label: 'Quick view', run: (app) => quickView(app, false), checked: () => !!qv && !qv.internalOnly });
+command({ name: 'cm_SrcQuickView', menuKey: true, label: 'Quick view', run: (app) => quickView(app, false), checked: () => !!qv && !qv.internalOnly });
 command({ name: 'cm_SrcQuickInternalOnly', label: 'Quick view, built-in viewer only', run: (app) => quickView(app, true), checked: () => !!qv?.internalOnly, menu: 'Show', menuAfter: 'cm_SrcQuickView' });
 // the same with the panel that shows the file named (F-786): Left / Right, or Trg (the other panel, as Ctrl+Q)
 for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Right', (app) => app.right, ' (right panel)'], ['Trg', (app) => app.other, ' (other panel)']]) {

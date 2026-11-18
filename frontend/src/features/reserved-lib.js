@@ -94,3 +94,15 @@ export function historyItems(history, max = 50) {
   return (Array.isArray(history) ? history : []).filter((x) => typeof x === 'string' && x.trim()).slice(0, max)
     .map((x) => ({ label: x, value: x }));
 }
+
+// selectionFilter is the panel filter of Show only selected files (keep true, cm_ShowOnlySelected) and Hide selected
+// files (keep false, cm_HideSelected, F-408): it lets through only the names given, or all but them. It works on top of
+// the filter the panel had (prev, with its path bar label), and is marked mcReread so a reread (Ctrl+R) drops it and
+// puts that earlier filter back (Panel.reload).
+export function selectionFilter(names, keep, prev = null, prevLabel = '') {
+  const set = new Set(names);
+  return Object.assign((e) => set.has(e.name) === keep && (!prev || prev(e)), {
+    mcSrc: keep ? 'onlysel' : 'hidesel', mcReread: true, mcPrev: prev || null, mcPrevLabel: prev ? prevLabel : '',
+  });
+}
+

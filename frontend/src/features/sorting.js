@@ -4,12 +4,12 @@
 import { command } from '../core/registry.js';
 
 const sortCmd = (name, label, key) => command({
-  name, label, checked: (app) => app.cur.sort.key === key,
+  name, label, menuKey: true, checked: (app) => app.cur.sort.key === key,
   run: (app) => app.cur.sortBy(key),
 });
 sortCmd('cm_SrcByName', 'Sort by name', 'name');
 sortCmd('cm_SrcByExt', 'Sort by extension', 'ext');
 sortCmd('cm_SrcByDateTime', 'Sort by date', 'date');
 sortCmd('cm_SrcBySize', 'Sort by size', 'size');
-command({ name: 'cm_SrcUnsorted', label: 'Unsorted', checked: (app) => app.cur.sort.key === 'none', run: (app) => app.cur.sortBy('none', false) });
-command({ name: 'cm_SrcNegOrder', label: 'Reverse order', run: (app) => app.cur.sortBy(app.cur.sort.key, !app.cur.sort.desc) });
+command({ name: 'cm_SrcUnsorted', menuKey: true, label: 'Unsorted', checked: (app) => app.cur.sort.key === 'none', run: (app) => app.cur.sortBy('none', false) });
+command({ name: 'cm_SrcNegOrder', menuKey: true, label: 'Reverse order', run: (app) => app.cur.sortBy(app.cur.sort.key, !app.cur.sort.desc) });

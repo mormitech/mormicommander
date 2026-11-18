@@ -15,7 +15,7 @@
 // "view"/"set".
 
 import { compileMask } from './config/util.js';
-import { addMenuItems } from '../core/menus.js';
+import { addMenuItems, refreshMenu } from '../core/menus.js';
 import './views.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
@@ -1158,7 +1158,7 @@ const SIDE_WORD = { Src: '', Left: ' (left panel)', Right: ' (right panel)', Trg
 for (const [pre, pick] of Object.entries(PANELS)) {
   const w = SIDE_WORD[pre];
   const view = (suffix, mode, label) => command({
-    name: `cm_${pre}${suffix}`, label: label + w, checked: (app) => modeOf(pick(app)) === mode,
+    name: `cm_${pre}${suffix}`, label: label + w, menuKey: pre === 'Src', checked: (app) => modeOf(pick(app)) === mode,
     run: (app) => (mode === 'tree' ? toggleTree(pick(app)) : setMode(pick(app), mode)),
   });
   view('Short', 'brief', 'Brief');
@@ -1168,7 +1168,7 @@ for (const [pre, pick] of Object.entries(PANELS)) {
   view('Comments', 'comments', 'Comments');
   view('Thumbs', 'thumbs', 'Thumbnails');
   view('Tree', 'tree', 'Tree');
-  command({ name: `cm_${pre}CustomViewMenu`, label: `Custom columns…${w}`, checked: (app) => modeOf(pick(app)) === 'custom', run: (app) => columnSetMenu(app, pick(app)) });
+  command({ name: `cm_${pre}CustomViewMenu`, menuKey: pre === 'Src', label: `Custom columns…${w}`, checked: (app) => modeOf(pick(app)) === 'custom', run: (app) => columnSetMenu(app, pick(app)) });
   for (let n = 1; n <= 9; n++) command({ name: `cm_${pre}CustomView${n}`, label: `Column set ${n}${w}`, run: (app) => customByNumber(pick(app), n) });
   command({ name: `cm_${pre}NextCustomView`, label: `Next column set${w}`, run: (app) => stepCustom(pick(app), 1) });
   command({ name: `cm_${pre}PrevCustomView`, label: `Previous column set${w}`, run: (app) => stepCustom(pick(app), -1) });
@@ -1235,6 +1235,7 @@ async function viewModeList(app, p) {
     const r2 = await showList({ title: 'Remove which view mode?', items: modes.map((m) => ({ label: m.name, detail: describeMode(m), value: m.name })), anchor: p.$.header, kind: 'view-modes-remove' });
     if (!r2) return false;
     await app.setSetting('viewModes', modes.filter((m) => m.name !== r2.item.value));
+    refreshMenu();
     app.flash(`View mode "${r2.item.value}" removed.`);
     return true;
   }
@@ -1246,6 +1247,7 @@ async function viewModeList(app, p) {
   if (folders === null) return false;
   const m = { name: name.trim(), mode: cur.mode, set: cur.mode === 'custom' ? cur.set : '', sort: { ...p.sort }, folders: folders.trim() };
   await app.setSetting('viewModes', [...modes.filter((x) => x.name !== m.name), m]);
+  refreshMenu();
   vs.viewMode = m.name;
   app.flash(`View mode "${m.name}" saved.`);
   return true;
@@ -1276,7 +1278,26 @@ async function autoViewMode(p) {
   }
 }
 
+// viewModeMenu is the Show menu's View modes submenu for the saved modes (MENUS format): the first nine, by name.
+export const viewModeMenu = (modes) => (modes.length
+  ? ['-', ['View mode', modes.slice(0, 9).map((m, k) => [m.name, `cm_SrcViewMode${k + 1}`])]] : []);
+
+// viewModeByNumber puts the panel in the n-th view mode (cm_SrcViewMode1…9, ours: the Show > View modes submenu, F-819).
+function viewModeByNumber(app, p, n) {
+  const m = viewModes()[n - 1];
+  if (!m) { app.flash(viewModes().length ? `There is no view mode ${n}.` : 'There are no view modes yet. Save one with Show > View modes….', 'err'); return false; }
+  app.setActive(p);
+  return applyViewMode(p, m);
+}
+
 for (const [pre, pick] of Object.entries(PANELS)) {
+  for (let n = 1; n <= 9; n++) {
+    command({
+      name: `cm_${pre}ViewMode${n}`, label: `View mode ${n}${SIDE_WORD[pre]}`,
+      checked: (app) => { const m = viewModes()[n - 1], p = pick(app); return !!m && !!p && vsOf(p).viewMode === m.name; },
+      run: (app) => viewModeByNumber(app, pick(app), n),
+    });
+  }
   command({ name: `cm_${pre}ViewModeList`, label: `View modes…${SIDE_WORD[pre]}`, run: (app) => viewModeList(app, pick(app)), ...(pre === 'Src' ? { menu: 'Show', menuAfter: 'cm_SrcCustomViewMenu' } : {}) });
 }
 
@@ -1330,6 +1351,8 @@ command({ name: 'cm_ViewOptions', label: 'View options…', menu: 'Show', menuAf
 // Options > Custom columns > List column sets in the Show menu: the first nine sets by name (cm_SrcCustomView1…9)
 addMenuItems('Show', () => (treeOpt('CustomColumns.ShowInShowMenu', '1') === '1' && sets().length
   ? ['-', ...sets().slice(0, 9).map((s, k) => [s.name || `Column set ${k + 1}`, `cm_SrcCustomView${k + 1}`])] : []));
+// the saved view modes as a Show > View modes submenu (F-819), the first nine (cm_SrcViewMode1…9); none, no submenu
+addMenuItems('Show', () => viewModeMenu(viewModes()));
 command({ name: 'cm_CustomColumnConfig', label: 'Custom columns…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: customColumnConfig });
 command({ name: 'cm_ThumbnailsConfig', label: 'Thumbnails…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: thumbnailsConfig });
 command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)

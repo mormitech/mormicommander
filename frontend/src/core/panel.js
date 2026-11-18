@@ -244,8 +244,10 @@ export class Panel {
 
   // reload reads the folder again; the cursor stays on the same file if it is still there (else at the same place).
   // A "hide equal files" filter of Compare folders (marked mcCompare) belongs to that compare, so a reread drops it.
+  // So does Show only selected / Hide selected files (marked mcReread, F-408), which gives back the filter it was put on.
   reload() {
     if (!this.path) return Promise.resolve(false);
+    while (this.filter?.mcReread) { const f = this.filter; this.filter = f.mcPrev || null; this.filterLabel = this.filter ? f.mcPrevLabel || '' : ''; }
     if (this.filter?.mcCompare) { this.filter = null; this.filterLabel = ''; }
     return this.go(this.path, { history: false, keepSelection: true });
   }
