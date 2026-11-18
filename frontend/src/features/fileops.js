@@ -536,7 +536,7 @@ function subPathPrefix(name, platform) {
   return i >= 0 ? name.slice(0, i + 1) : '';
 }
 
-function renameSelection(e, mode) {
+export function renameSelection(e, mode) {
   const n = e.name;
   if (e.dir || !e.ext) return [0, n.length];
   if (mode === 0) return [0, e.base.length];
@@ -629,8 +629,9 @@ function startRename(app) {
 command({ name: 'cm_Copy', label: 'Copy…', short: 'Copy', run: (app) => copyOrMove(app) });
 // (in the Files menu with its key, Shift+F5: F-479)
 command({ name: 'cm_CopySamepanel', label: 'Copy in the same folder…', short: 'Copy here', menu: 'Files', menuAfter: 'cm_MultiRenameFiles', menuKey: true, run: (app) => copyOrMove(app, { same: true }) });
-command({ name: 'cm_RenMov', label: 'Move or rename…', short: 'Move', run: (app) => copyOrMove(app, { move: true }) });
-command({ name: 'cm_RenameOnly', label: 'Rename', short: 'Rename', run: (app) => startRename(app) });
+// Move or rename (F6) and the inline rename (Shift+F6) sit in the Files menu too, with their keys (F-502, F-503)
+command({ name: 'cm_RenMov', label: 'Move or rename…', short: 'Move', menu: 'Files', menuAfter: 'cm_CopySamepanel', menuKey: true, run: (app) => copyOrMove(app, { move: true }) });
+command({ name: 'cm_RenameOnly', label: 'Rename', short: 'Rename', menu: 'Files', menuAfter: 'cm_RenMov', menuKey: true, run: (app) => startRename(app) });
 command({ name: 'cm_MkDir', label: 'New folder…', short: 'New folder', run: (app) => makeFolder(app) });
 command({ name: 'cm_Delete', label: 'Delete…', short: 'Delete', run: (app) => deleteFiles(app) });
 command({ name: 'cm_DeletePermanent', label: 'Delete permanently…', short: 'Delete now', run: (app) => deleteFiles(app, { permanent: true }) });

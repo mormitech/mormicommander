@@ -22,6 +22,7 @@ version is changed only when a round of features is merged.
   Trash). Nothing is ever replaced.
 - Options > Copy/Delete > Say when a drive has no trash before deleting (off by default): F8 on a network share (or
   a USB stick on Windows) says at once that the files will be deleted permanently, instead of offering the trash.
+- Files > Move or rename… (F6) and Files > Rename (Shift+F6).
 
 ### Fixed
 
