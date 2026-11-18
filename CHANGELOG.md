@@ -8,6 +8,9 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Commands > Folder hotlist for the other panel (Ctrl+Shift+D) and Commands > Search the folder hotlist….
+- Configuration > Import folder hotlist from Total Commander… adds the hotlist of a wincmd.ini to the end of yours.
+- Commands > Clear folder history and Configuration > Folder history settings… are now in the menus.
 - F4 on a file on an FTP or SFTP server downloads it and opens it in the editor; each time you save it you are
   asked whether to upload it back (Options > Viewer/Editor > "Ask before uploading an edited remote file").
 - A simple built-in text editor: Files > Edit with the built-in editor. Options > Viewer/Editor > "Use the built-in

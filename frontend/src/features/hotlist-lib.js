@@ -29,3 +29,11 @@ export function nestedEntries(level) {
   walk(level, []);
   return out;
 }
+
+// appendImported puts entries read from Total Commander's [DirMenu] at the end of a hotlist level, with a separator
+// between the old and the new entries when both have some (the Configure dialog's Import button and
+// cm_ImportDirHotlist, F-663). It returns a new list; nothing already in the hotlist changes.
+export function appendImported(tree, items) {
+  const old = tree || [], add = items || [];
+  return [...old, ...(old.length && add.length ? [{ kind: 'sep', title: '' }] : []), ...add];
+}

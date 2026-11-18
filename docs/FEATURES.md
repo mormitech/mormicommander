@@ -885,21 +885,21 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 31. Directory hotlist and history
 
-- [ ] F-651 Directory hotlist popup — Ctrl+D — list of favorite folders; choose to navigate
-- [ ] F-652 Add current folder to hotlist — Ctrl+D then A — "Add current folder" entry
-- [ ] F-653 Add both panels' folders (target too) — — — entry stores source and target paths
-- [~] F-654 Configure hotlist (cm_ConfigDirHotlist) — — — dialog: add, delete, rename, reorder, submenus, separators, hotkey letters (&)
-- [ ] F-655 Hotlist entries with commands (cd, cm_*, program) — — — entry may run a command
-- [~] F-656 Hotlist hotkeys (&letter accelerators) — — — pressing letter in popup selects entry
-- [~] F-657 Hotlist on drive bar / path bar button — — — star button opens hotlist
-- [~] F-658 Hotlist search / type to filter — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-659 Hotlist in other panel (Ctrl+D with target) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-660 Directory history — Alt+Down — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-661 Frequently used folders — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-662 History size setting and clear — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-663 Hotlist import from TC [DirMenu] — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-664 Hotlist folder for tabs (tab sets) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-849 Hotlist paths with variables ($HOME, %COMMANDER_PATH%-style) — — — entries using variables open the expanded folder on every platform
+- [~] F-651 Directory hotlist popup — Ctrl+D — list of favorite folders; choose to navigate — audit #79: Ctrl+D (cm_DirectoryHotlist, Commands menu with key) opens the hotlist popup at the cursor; choosing an entry opens its folder (features/hotlist.js)
+- [~] F-652 Add current folder to hotlist — Ctrl+D then A — "Add current folder" entry — audit #79: the popup has "Add current folder…" (letter A; "Remove current folder" when it is listed); built: cm_AddDirToHotlist runs it directly
+- [~] F-653 Add both panels' folders (target too) — — — entry stores source and target paths — audit #79: "Add current folder and target…" stores the other panel's folder as the target (pathN); the Configure dialog edits the target; built: cm_AddDirsToHotlist
+- [~] F-654 Configure hotlist (cm_ConfigDirHotlist) — — — dialog: add, delete, rename, reorder, submenus, separators, hotkey letters (&) — audit #79: cm_ConfigDirHotlist (Configuration menu) dialog adds items, submenus, separators, renames (& hotkey), deletes (asks for a non-empty submenu), moves, cut/paste, sorts
+- [~] F-655 Hotlist entries with commands (cd, cm_*, program) — — — entry may run a command — audit #79: entries run cd folder, cd file.tab, cm_*, em_* and programs (TabsHotlist.Resolve / RunProgram; TestTHResolveKinds)
+- [~] F-656 Hotlist hotkeys (&letter accelerators) — — — pressing letter in popup selects entry — audit #79: the "&" letter of an entry picks it in the popup (showList key); TC import keeps the letters
+- [~] F-657 Hotlist on drive bar / path bar button — — — star button opens hotlist — audit #79: a star button in each path bar opens that panel's hotlist
+- [~] F-658 Hotlist search / type to filter — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: "Search…" in the popup and Options > Hotlist "Typing in the hotlist filters it"; built: Commands > Search the folder hotlist… (cm_SearchDirHotlist)
+- [~] F-659 Hotlist in other panel (Ctrl+D with target) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #79 built: Commands > Folder hotlist for the other panel (cm_OtherDirectoryHotlist, Ctrl+Shift+D) opens the hotlist of the other panel; the folder chosen opens there
+- [~] F-660 Directory history — Alt+Down — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: Alt+Down (cm_DirectoryHistory, Commands menu with key) lists the tab's folders; Shift+Enter opens in a new tab
+- [~] F-661 Frequently used folders — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: Commands > Frequently used folders (cm_FrequentlyUsedDirs, Alt+Shift+Down), also in the history popup; counts are local (TabsHotlist.Visit/Frequent)
+- [~] F-662 History size setting and clear — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: the history popup has Clear history and History settings… (size 5-200, order, append); built: menu entries Commands > Clear folder history (cm_ClearDirHistory) and Configuration > Folder history settings… (cm_DirHistorySettings)
+- [~] F-663 Hotlist import from TC [DirMenu] — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: Import from Total Commander… in the Configure dialog; built: Configuration > Import folder hotlist from Total Commander… (cm_ImportDirHotlist) asks, then adds the [DirMenu] entries at the end
+- [~] F-664 Hotlist folder for tabs (tab sets) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #79: "Add current tabs…" saves both panels' tabs to a .tab file and adds a "cd file.tab" entry that reopens them; built: cm_AddTabsToHotlist
+- [~] F-849 Hotlist paths with variables ($HOME, %COMMANDER_PATH%-style) — — — entries using variables open the expanded folder on every platform — audit #79: $HOME, ${VAR}, %VAR%, ~ and %COMMANDER_PATH% are expanded with local separators on every platform (config.Vars.Expand, expand_test.go; thLocalSeparators)
 - [~] F-867 Frecency jump: fuzzy jump to frequently and recently used folders, importing zoxide's database when installed — — — typing part of a folder name lists matches ranked by frequency and recency; Enter navigates the active panel; data stored locally only
 
 ## 32. Custom columns and column sets

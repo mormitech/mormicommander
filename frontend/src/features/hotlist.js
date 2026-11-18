@@ -16,7 +16,7 @@ import { messageDialog, inputDialog, formDialog, modal, esc } from '../core/dial
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { openInNewTab, loadTabFile, saveBothTabs, saveSoon } from './tabs.js';
-import { hotlistMaskFilter, nestedEntries } from './hotlist-lib.js';
+import { hotlistMaskFilter, nestedEntries, appendImported } from './hotlist-lib.js';
 
 const trimSep = (x) => (x.length > 1 ? x.replace(/[\\/]+$/, '') : x) || x;
 const folderName = (p) => { const t = trimSep(p || ''); return t.split(/[\\/]/).pop() || t; };
@@ -295,7 +295,7 @@ function configHotlist(app) {
             const f = await go.TabsHotlist.ChooseFile(false, 'Import the hotlist of Total Commander (wincmd.ini)', '', 'ini');
             if (!f) break;
             const items = await go.TabsHotlist.ReadTC(f);
-            tree.push(...(tree.length && items.length ? [{ kind: 'sep', title: '' }] : []), ...items);
+            tree.splice(0, tree.length, ...appendImported(tree, items));
             draw();
             err('');
             theApp.flash(`${items.length} entries were imported; OK keeps them.`);
@@ -307,6 +307,22 @@ function configHotlist(app) {
     });
     draw();
   }, false, { kind: 'hotlist-config' }));
+}
+
+// importTC adds the hotlist of a Total Commander wincmd.ini to the end of the hotlist, from the menu (F-663). It asks
+// before it adds anything; the entries already in the hotlist stay as they are.
+async function importTC() {
+  const f = await go.TabsHotlist.ChooseFile(false, 'Import the hotlist of Total Commander (wincmd.ini)', '', 'ini');
+  if (!f) return false;
+  let items;
+  try { items = await go.TabsHotlist.ReadTC(f); } catch (e) { theApp.flash(errText(e), 'err'); return false; }
+  if (!items?.length) { theApp.flash('The folder hotlist in that file is empty.'); return false; }
+  const y = await messageDialog({ Title: 'Import folder hotlist', Message: `Add the ${items.length} entries of ${folderName(f)} to the end of the folder hotlist?`,
+    Buttons: ['Add', 'Cancel'], Kind: 'hotlist-import' });
+  if (y !== 'Add') return false;
+  await go.TabsHotlist.SetHotlist(appendImported(await go.TabsHotlist.Hotlist(), items));
+  theApp.flash(`${items.length} entries were added to the folder hotlist.`);
+  return true;
 }
 
 // ---- folder history (Alt+Down, F-055, F-660) ----
@@ -394,17 +410,27 @@ command({
     return showHotlist(p, { anchor: args.anchor });
   },
 });
+// the hotlist of the other panel (F-659): the same popup, and the folder chosen opens in the other panel
+command({
+  name: 'cm_OtherDirectoryHotlist', menuKey: true, label: 'Folder hotlist for the other panel', keys: ['Ctrl+Shift+D'], menu: 'Commands', menuAfter: 'cm_DirectoryHotlist',
+  run: (app) => showHotlist(app.other, { anchor: anchorFor(app.other) }),
+});
+command({ name: 'cm_SearchDirHotlist', label: 'Search the folder hotlist…', menu: 'Commands', menuAfter: 'cm_OtherDirectoryHotlist', run: (app, args) => searchHotlist(panelArg(app, args), args.search !== undefined ? String(args.search) : undefined) });
+command({ name: 'cm_AddDirToHotlist', label: 'Add current folder to the hotlist…', run: (app) => special(app.cur, 'add') });
+command({ name: 'cm_AddDirsToHotlist', label: 'Add current folder and target to the hotlist…', run: (app) => special(app.cur, 'addboth') });
+command({ name: 'cm_AddTabsToHotlist', label: 'Add current tabs to the hotlist…', run: (app) => special(app.cur, 'addtabs') });
 command({ name: 'cm_ConfigDirHotlist', label: 'Folder hotlist settings…', run: (app) => configHotlist(app) });
+command({ name: 'cm_ImportDirHotlist', label: 'Import folder hotlist from Total Commander…', menu: 'Configuration', menuAfter: 'cm_ConfigDirHotlist', run: () => importTC() });
 command({ name: 'cm_DirectoryHistory', menuKey: true, label: 'Folder history', run: (app, args) => showHistory(panelArg(app, args), { anchor: args.anchor }) });
 command({
   name: 'cm_FrequentlyUsedDirs', label: 'Frequently used folders', keys: ['Alt+Shift+Down'], menu: 'Commands', menuAfter: 'cm_DirectoryHistory',
   run: (app, args) => showFrequent(panelArg(app, args)),
 });
 command({
-  name: 'cm_ClearDirHistory', label: 'Clear folder history',
+  name: 'cm_ClearDirHistory', label: 'Clear folder history', menu: 'Commands', menuAfter: 'cm_FrequentlyUsedDirs',
   run: (app) => { const p = app.cur; p.back = []; p.fwd = []; saveSoon(); app.flash('The folder history of this tab is cleared.'); return true; },
 });
-command({ name: 'cm_DirHistorySettings', label: 'Folder history settings…', run: () => historySettings() });
+command({ name: 'cm_DirHistorySettings', label: 'Folder history settings…', menu: 'Configuration', menuAfter: 'cm_ImportDirHotlist', run: () => historySettings() });
 command({ name: 'cm_ConfigSaveDirHistory', label: 'Save folder history', run: () => { saveSoon(); return true; } });
 
 // ---- control mode (for QA) ----
