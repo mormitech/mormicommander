@@ -12,7 +12,7 @@ import { esc, runTool, withOverwrite, needLocal, targets, showError, reloadAll, 
 let presets = null;
 
 command({
-  name: 'cm_FileSplit', label: 'Split file…',
+  name: 'cm_FileSplit', menuKey: true, label: 'Split file…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
@@ -56,7 +56,7 @@ command({
 });
 
 command({
-  name: 'cm_FileCombine', label: 'Combine files…',
+  name: 'cm_FileCombine', menuKey: true, label: 'Combine files…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
@@ -86,7 +86,7 @@ command({
 const ENCODINGS = [['mime', 'MIME (Base64)'], ['uue', 'UUE'], ['xxe', 'XXE'], ['binhex', 'BinHex']];
 
 command({
-  name: 'cm_UUEncode', label: 'Encode file…',
+  name: 'cm_UUEncode', menuKey: true, label: 'Encode file…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
@@ -122,7 +122,7 @@ command({
 });
 
 command({
-  name: 'cm_UUDecode', label: 'Decode file…',
+  name: 'cm_UUDecode', menuKey: true, label: 'Decode file…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;

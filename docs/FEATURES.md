@@ -939,13 +939,13 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 35. Split / combine / checksums / encoding
 
-- [~] F-687 Split by size — — — see Files menu
-- [~] F-688 Combine — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-689 CRC32 SFV, MD5, SHA1, SHA256, SHA512 create — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-690 Checksum verify — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-691 Checksum of single file shown in properties / dialog — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-692 Base64/MIME, UUE, XXE encode/decode — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-693 Calculate checksum of selected files to clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-687 Split by size — — — see Files menu — audit #83: Files > Split file… runs cm_FileSplit (tools/split.js, size presets, CRC32 .crc file, target = other panel); Go split in internal/fileutil (split_combine_test.go); Split… also in the file context menu; menu shows a user-bound key (menuKey)
+- [~] F-688 Combine — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Files > Combine files… runs cm_FileCombine (CombineInfo finds all .001… parts, checks size/CRC32 from the .crc file); same Go code as split (split_combine_test.go); menu shows a user-bound key
+- [~] F-689 CRC32 SFV, MD5, SHA1, SHA256, SHA512 create — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Files > Create checksum files… runs cm_CRCCreate: CRC32 (SFV), MD5, SHA1, SHA256, SHA512 (and more) as one file or one per file, md5sum/shasum/SFV formats (internal/fileutil create.go, hash_vectors_test.go); menu shows a user-bound key
+- [~] F-690 Checksum verify — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Files > Verify checksums… runs cm_CRCCheck (also Enter on a .md5/.sha*/.sfv file) with a per-file OK/failed/missing report (checksumfile_test.go); menu shows a user-bound key
+- [~] F-691 Checksum of single file shown in properties / dialog — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Properties (cm_Properties, Files menu, Alt+Enter) has a Checksum box: pick the method, Calculate, and paste a known value to compare (tools/props.js, go.Tools.Checksums/MatchChecksum)
+- [~] F-692 Base64/MIME, UUE, XXE encode/decode — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Files > Encode file… (cm_UUEncode) writes MIME/Base64, UUE, XXE or BinHex, UUE/XXE optionally split by lines; Decode file… (cm_UUDecode) detects the format (internal/fileutil encode.go/uucode.go, encode_test.go); menu shows a user-bound key
+- [~] F-693 Calculate checksum of selected files to clipboard — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #83: Files > Copy checksums to clipboard… (cm_ChecksumToClip, after Verify checksums) puts the chosen algorithm's checksums of the selected files on the clipboard in md5sum style (go.Tools.ChecksumText); menu shows a user-bound key
 
 ## 36. Drag and drop
 

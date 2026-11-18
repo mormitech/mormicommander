@@ -163,6 +163,9 @@ test('the Files menu lists its commands, and the ones with a key show it', () =>
   // (the features that register these are big; their command({...}) lines are checked in the source)
   const src = (f) => readFileSync(resolve(__dirname, '../src/features', f), 'utf8');
   const keyed = { 'vfs.js': ['cm_PackFiles', 'cm_UnpackFiles', 'cm_TestArchive'], 'tools/props.js': ['cm_Properties'], 'tools/space.js': ['cm_GetFileSpace'],
-    'multirename.js': ['cm_MultiRenameFiles'], 'views.js': ['cm_EditComment'], 'window.js': ['cm_Exit'] };
+    'multirename.js': ['cm_MultiRenameFiles'], 'views.js': ['cm_EditComment'], 'window.js': ['cm_Exit'],
+    // section 35 (#83): no default keys, but a key the user binds shows in the menu
+    'tools/split.js': ['cm_FileSplit', 'cm_FileCombine', 'cm_UUEncode', 'cm_UUDecode'],
+    'tools/checksums.js': ['cm_CRCCreate', 'cm_CRCCheck', 'cm_ChecksumToClip'] };
   for (const [f, names] of Object.entries(keyed)) for (const n of names) expect(src(f)).toContain(`name: '${n}', menuKey: true`);
 });

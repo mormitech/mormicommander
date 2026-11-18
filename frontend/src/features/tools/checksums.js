@@ -15,7 +15,7 @@ const algSelect = (algs, cur, id = 'algorithm') => `<select id="${id}">${algs.ma
 const CHECKSUM_EXT = /\.(sfv|md5|sha|sha1|sha224|sha256|sha384|sha512|sha3|sha3-256|sha3-512|blake2|blake2b|b2|b2sum|blake3|b3|b3sum|crc32)$/i;
 
 command({
-  name: 'cm_CRCCreate', label: 'Create checksum files…',
+  name: 'cm_CRCCreate', menuKey: true, label: 'Create checksum files…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
@@ -103,7 +103,7 @@ async function verify(app, paths) {
 }
 
 command({
-  name: 'cm_CRCCheck', label: 'Verify checksums…',
+  name: 'cm_CRCCheck', menuKey: true, label: 'Verify checksums…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
@@ -116,7 +116,7 @@ command({
 });
 
 command({
-  name: 'cm_ChecksumToClip', label: 'Copy checksums to clipboard…', menu: 'Files', menuAfter: 'cm_CRCCheck',
+  name: 'cm_ChecksumToClip', menuKey: true, label: 'Copy checksums to clipboard…', menu: 'Files', menuAfter: 'cm_CRCCheck',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;
