@@ -14,7 +14,8 @@ version is changed only when a round of features is merged.
 - View modes: a mode can also set the panel's icons, colour scheme and font size while it is used (back to normal
   when the panel leaves it), and Show > View modes… > Change a view mode… edits a saved mode (renaming it too).
 - Options > Tooltips > "Tooltip fields per file type" (empty by default): "masks = fields; …" chooses the lines of a
-  file's tooltip (name, kind, size, date, attributes, path, dimensions, exif, artist, title, album).
+  file's tooltip (name, kind, size, date, attributes, path, dimensions, exif, artist, title, album, and duration
+  when Options > Plugins names an ffprobe program).
 - Command line: Options > Misc > "Show command line output in a window instead of a terminal" (off by default) runs
   console programs and shell commands without a terminal and shows what they print in a window, with Copy and Stop
   (the program gets no input, and output over 1 MB stops it).

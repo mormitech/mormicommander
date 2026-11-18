@@ -4,10 +4,14 @@ package main
 // Options > Ignore list). frontend/src/features/config/listopts.js is the page's side.
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"image"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,10 +36,11 @@ func (v *Views) ImageSize(path string) map[string]int {
 
 // TipFacts are the media facts a tooltip can show (Options > Tooltips > Tooltip fields per file type, F-821): the
 // picture size, the EXIF date taken (Unix milliseconds) and the audio tags, read from the first bytes of the file as
-// the Pictures and Music columns read them. Only the groups asked for are read ("image", "audio"); a folder, a missing
-// file or a file without the facts gives empty values.
+// the Pictures and Music columns read them. Only the groups asked for are read ("image", "audio", "media"); a folder,
+// a missing file or a file without the facts gives empty values. "media" is the duration in seconds, asked of ffprobe
+// only when Options > Plugins names one (tipFFprobe): nothing that is not configured is ever started.
 func (v *Views) TipFacts(path string, groups []string) map[string]any {
-	out := map[string]any{"w": 0, "h": 0, "exif": int64(0), "artist": "", "title": "", "album": ""}
+	out := map[string]any{"w": 0, "h": 0, "exif": int64(0), "artist": "", "title": "", "album": "", "duration": 0.0}
 	fi, err := os.Stat(path)
 	if err != nil || !fi.Mode().IsRegular() {
 		return out
@@ -61,9 +66,48 @@ func (v *Views) TipFacts(path string, groups []string) map[string]any {
 					out[k] = s
 				}
 			}
+		case "media":
+			if bin := tipFFprobe(); bin != "" && filepath.IsAbs(path) {
+				ctx, cancel := context.WithTimeout(context.Background(), tipProbeTimeout)
+				if d, err := tipProbe(ctx, bin, path); err == nil && d > 0 {
+					out["duration"] = d
+				}
+				cancel()
+			}
 		}
 	}
 	return out
+}
+
+// tipProbeTimeout keeps a tooltip from waiting long for ffprobe.
+const tipProbeTimeout = 3 * time.Second
+
+// tipFFprobe is the ffprobe of Options > Plugins (or the one next to its configured ffmpeg); "" when none is set or
+// external tools are off. Unlike the Lister's player, the tooltip never looks on the PATH.
+var tipFFprobe = func() string {
+	if p, found, off := ffmpegConfigured("ffprobe"); found && !off {
+		return p
+	}
+	return ""
+}
+
+// tipProbe asks ffprobe for a media file's duration in seconds.
+var tipProbe = func(ctx context.Context, bin, path string) (float64, error) {
+	cmd := exec.CommandContext(ctx, bin, "-v", "error", "-show_entries", "format=duration", "-of", "json", path) // (path is absolute: never read as an option)
+	hideWindow(cmd)
+	b, err := cmd.Output()
+	if err != nil {
+		return 0, err
+	}
+	var r struct {
+		Format struct {
+			Duration string `json:"duration"`
+		} `json:"format"`
+	}
+	if err := json.Unmarshal(b, &r); err != nil {
+		return 0, err
+	}
+	return strconv.ParseFloat(r.Format.Duration, 64)
 }
 
 // IgnoreList is the ignore file of Options > Ignore list: where it is and its masks, one per line, without blank lines

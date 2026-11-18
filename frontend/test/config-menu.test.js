@@ -120,4 +120,8 @@ test('tooltip fields per file type: the first matching entry decides the lines; 
   expect(lo.tipLines(p, e, ['name', 'dimensions', 'kind', 'path', 'date'], 2)).toEqual({ lines: ['a.png', 'PNG file', '/d/a.png'], late: ['dimensions'] });
   expect(lo.tipLines(p, e, ['name'], 3).lines).toEqual([]); // ("file info only" leaves the name out)
   expect(lo.lateLines({ w: 640, h: 480, exif: 0, artist: 'X' }, ['exif', 'dimensions', 'artist'])).toEqual(['Picture: 640 × 480', 'Artist: X']);
+  expect(lo.lateLines({ duration: 3725.4 }, ['duration'])).toEqual(['Duration: 1:02:05']);
+  expect(lo.lateLines({ duration: 0 }, ['duration'])).toEqual([]); // (no ffprobe configured: no line)
+  expect(lo.durationText(65)).toBe('1:05');
+  expect(lo.parseTipFields('*.mp3 = title length')[0].fields).toEqual(['title', 'duration']);
 });

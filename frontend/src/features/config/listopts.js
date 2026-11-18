@@ -38,12 +38,12 @@ function kindOf(e) {
 //
 // "masks = fields; masks = fields": the first entry whose masks match a file decides the lines of its tooltip, in the
 // order given. Fields: name, kind, size, date, attributes, path, and the ones Go reads from the file when the tooltip
-// shows (dimensions, exif, artist, title, album). A file no entry matches, and every file while the option is empty
+// shows (dimensions, exif, artist, title, album; duration only with an ffprobe set in Options > Plugins). A file no entry matches, and every file while the option is empty
 // (the default), gets the tooltip as before.
 
-export const TIP_FIELDS = ['name', 'kind', 'size', 'date', 'attributes', 'path', 'dimensions', 'exif', 'artist', 'title', 'album'];
-const LATE = { dimensions: 'image', exif: 'image', artist: 'audio', title: 'audio', album: 'audio' };
-const ALIAS = { modified: 'date', time: 'date', type: 'kind', attr: 'attributes', attrs: 'attributes', picture: 'dimensions', exifdate: 'exif', taken: 'exif' };
+export const TIP_FIELDS = ['name', 'kind', 'size', 'date', 'attributes', 'path', 'dimensions', 'exif', 'artist', 'title', 'album', 'duration'];
+const LATE = { dimensions: 'image', exif: 'image', artist: 'audio', title: 'audio', album: 'audio', duration: 'media' };
+const ALIAS = { modified: 'date', time: 'date', type: 'kind', attr: 'attributes', attrs: 'attributes', picture: 'dimensions', exifdate: 'exif', taken: 'exif', length: 'duration' };
 
 let fieldRules = null, fieldsFor = null;
 
@@ -81,6 +81,13 @@ export function tipLines(p, e, fields, mode) {
   return { lines, late };
 }
 
+// durationText writes seconds as m:ss or h:mm:ss.
+export function durationText(sec) {
+  const t = Math.round(sec), h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  const p = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${p(m)}:${p(s)}` : `${m}:${p(s)}`;
+}
+
 // lateLines turns Go's facts (Views.TipFacts) into the lines of the late fields, in their order.
 export function lateLines(facts, fields) {
   const out = [];
@@ -90,6 +97,7 @@ export function lateLines(facts, fields) {
     else if (f === 'artist' && facts?.artist) out.push(`Artist: ${facts.artist}`);
     else if (f === 'title' && facts?.title) out.push(`Title: ${facts.title}`);
     else if (f === 'album' && facts?.album) out.push(`Album: ${facts.album}`);
+    else if (f === 'duration' && facts?.duration > 0) out.push(`Duration: ${durationText(facts.duration)}`);
   }
   return out;
 }

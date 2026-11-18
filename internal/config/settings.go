@@ -424,7 +424,7 @@ type TooltipsPage struct {
 	ByType    bool `ini:"Configuration:TooltipsByType" def:"1" label:"Use per-type tooltip fields"`
 	ShowOnNet bool `ini:"Configuration:TooltipsOnNet" def:"0" label:"Tooltips for network files"`
 	// Fields: "masks = fields; masks = fields" (name kind size date attributes path dimensions exif artist title
-	// album); empty, the default, keeps the tooltip as it is (F-821).
+	// album duration — the last with a configured ffprobe only); empty, the default, keeps the tooltip as it is (F-821).
 	Fields string `ini:"Configuration:TooltipFields" def:"" label:"Tooltip fields per file type (masks = fields; …)"`
 }
 
