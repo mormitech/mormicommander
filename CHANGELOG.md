@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.36 – 2026-11-18
+
+Parity rounds for Drives and volumes, Logging and safety, Scripted control, Command-line parameters and
+Miscellaneous TC features (#86–#90), and the listed gaps of #103. Every new behaviour that changes what you see is an
+option that is off by default; access-denied errors now also say what you can do.
+
 ### Added
 - Favourite tab sets can each have a key: Configure favourite tabs > Key… (the Favourite tabs menu shows it).
 - The second sort key (Ctrl/Cmd+click on a column title) is now kept with each tab after a restart.
