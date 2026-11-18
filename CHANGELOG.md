@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.34 – 2026-11-18
+
+Parity rounds for the Editor, Packers and archives, FTP and network file systems, Directory hotlist and history,
+and Custom columns (#76–#80). Every new behaviour that changes what you see is an option that is off by default.
+
 ### Added
 
 - Right-click on the column titles now also lists the view's columns to show or hide, and Fit column widths to
