@@ -9,6 +9,8 @@ package main
 
 import (
 	"encoding/base64"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 )
@@ -62,6 +64,38 @@ func (ic *Icons) ForPaths(paths []string, size int) map[string]string {
 		if u := ic.get("p:"+p, px, func() []byte { return sysIconForPath(p, px) }); u != "" {
 			out[p] = u
 		}
+	}
+	return out
+}
+
+// iconFileTypes are the picture files an internal association may name as its icon (F-323), with their media types.
+var iconFileTypes = map[string]string{
+	".png": "image/png", ".gif": "image/gif", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".webp": "image/webp",
+	".svg": "image/svg+xml", ".ico": "image/x-icon", ".bmp": "image/bmp",
+}
+
+// iconFileMax is the largest icon file read: an icon is small, and a big picture would only slow the lists down.
+const iconFileMax = 512 << 10
+
+// FromFiles answers picture files themselves as data: URLs, for the icons of the internal associations (Files >
+// Internal associations, F-323): only local files of a picture type up to 512 KB; anything else is left out, and the
+// list keeps its usual icon for it.
+func (ic *Icons) FromFiles(paths []string) map[string]string {
+	out := map[string]string{}
+	for _, p := range paths {
+		mime := iconFileTypes[strings.ToLower(filepath.Ext(p))]
+		if mime == "" || strings.Contains(p, "://") || !filepath.IsAbs(p) {
+			continue
+		}
+		fi, err := os.Stat(p)
+		if err != nil || !fi.Mode().IsRegular() || fi.Size() > iconFileMax {
+			continue
+		}
+		data, err := os.ReadFile(p)
+		if err != nil {
+			continue
+		}
+		out[p] = "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(data)
 	}
 	return out
 }

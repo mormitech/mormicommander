@@ -256,23 +256,63 @@ func (l *Launcher) OpenAssociated(a *Associations, verb string, ctx ParamContext
 	return Result{Handled: true}, nil
 }
 
-// ParseAssociationLines reads the short form the Internal associations dialog keeps (cm_InternalAssociate): one
+// ParseAssociationLines reads the form the Internal associations dialog keeps (cm_InternalAssociate): one
 // association per line, "mask list = command", for Enter (the open verb). Empty lines and lines starting with "#" or
-// ";" are skipped, as are lines without "=" or with an empty mask or command. The mask list is split at the first
-// "=", so the command may hold "=" itself.
+// ";" are skipped, as are lines without "=" or with an empty mask. The mask list is split at the first "=", so the
+// command may hold "=" itself.
+//
+// Indented lines below an association add to it (the dialog's per-entry fields): "view = command" for F3, "edit =
+// command" for F4, "open = command" for Enter, "icon = file or text" for the panel icon and "desc = text":
+//
+//	*.txt *.md = code --wait "%1"
+//	  view = cm_List
+//	  edit = myedit "%1"
+//	  icon = /path/to/text.png
+//
+// The command after the mask may then be empty ("*.log =" with an indented view line). An indented line whose key is
+// none of these words is an association of its own, as before. Associations with no command and no icon are left out.
 func ParseAssociationLines(text string) *Associations {
 	a := &Associations{}
-	for _, line := range strings.Split(text, "\n") {
-		line = strings.TrimSpace(line)
+	var last *Association
+	for _, raw := range strings.Split(text, "\n") {
+		line := strings.TrimSpace(raw)
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
 			continue
 		}
-		mask, command, ok := strings.Cut(line, "=")
-		mask, command = strings.TrimSpace(mask), strings.TrimSpace(command)
-		if !ok || mask == "" || command == "" {
+		key, value, ok := strings.Cut(line, "=")
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if !ok || key == "" {
 			continue
 		}
-		a.List = append(a.List, Association{Mask: mask, Verbs: []VerbLine{{Verb: VerbOpen, Command: command}}})
+		indented := raw != "" && (raw[0] == ' ' || raw[0] == '\t')
+		if lk := strings.ToLower(key); indented && last != nil && isAssocField(lk) {
+			switch lk {
+			case "icon":
+				last.Icon = value
+			case "desc":
+				last.Description = value
+			default:
+				last.SetCommand(lk, value)
+			}
+			continue
+		}
+		a.List = append(a.List, Association{Mask: key})
+		last = &a.List[len(a.List)-1]
+		if value != "" {
+			last.Verbs = []VerbLine{{Verb: VerbOpen, Command: value}}
+		}
 	}
+	out := a.List[:0]
+	for _, x := range a.List {
+		if len(x.Verbs) > 0 || x.Icon != "" {
+			x.Verbs = orderVerbs(x.Verbs)
+			out = append(out, x)
+		}
+	}
+	a.List = out
 	return a
+}
+
+func isAssocField(k string) bool {
+	return k == VerbOpen || k == VerbView || k == VerbEdit || k == "icon" || k == "desc"
 }

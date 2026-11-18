@@ -7,9 +7,12 @@ import (
 	"fmt"
 	"image"
 	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"mormicommander/internal/config"
+	lst "mormicommander/internal/listing"
 )
 
 // ImageSize is the picture size of an image file, for the tooltip of an image in the file list (Tooltips > Use
@@ -25,6 +28,42 @@ func (v *Views) ImageSize(path string) map[string]int {
 		return map[string]int{"w": 0, "h": 0}
 	}
 	return map[string]int{"w": cfg.Width, "h": cfg.Height}
+}
+
+// TipFacts are the media facts a tooltip can show (Options > Tooltips > Tooltip fields per file type, F-821): the
+// picture size, the EXIF date taken (Unix milliseconds) and the audio tags, read from the first bytes of the file as
+// the Pictures and Music columns read them. Only the groups asked for are read ("image", "audio"); a folder, a missing
+// file or a file without the facts gives empty values.
+func (v *Views) TipFacts(path string, groups []string) map[string]any {
+	out := map[string]any{"w": 0, "h": 0, "exif": int64(0), "artist": "", "title": "", "album": ""}
+	fi, err := os.Stat(path)
+	if err != nil || !fi.Mode().IsRegular() {
+		return out
+	}
+	it := lst.Item{Name: filepath.Base(path), Dir: filepath.Dir(path), Size: fi.Size(), ModTime: fi.ModTime(), Mode: fi.Mode()}
+	for _, g := range groups {
+		switch g {
+		case "image":
+			lst.LoadImageFacts(&it)
+			if w, ok := it.Extra[lst.ExtraImgWidth].(int64); ok {
+				out["w"] = int(w)
+			}
+			if h, ok := it.Extra[lst.ExtraImgHeight].(int64); ok {
+				out["h"] = int(h)
+			}
+			if t, ok := it.Extra[lst.ExtraExifDate].(time.Time); ok && !t.IsZero() {
+				out["exif"] = t.UnixMilli()
+			}
+		case "audio":
+			lst.LoadAudioFacts(&it)
+			for k, key := range map[string]string{"artist": lst.ExtraArtist, "title": lst.ExtraTitle, "album": lst.ExtraAlbum} {
+				if s, ok := it.Extra[key].(string); ok {
+					out[k] = s
+				}
+			}
+		}
+	}
+	return out
 }
 
 // IgnoreList is the ignore file of Options > Ignore list: where it is and its masks, one per line, without blank lines

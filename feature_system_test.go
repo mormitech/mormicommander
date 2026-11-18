@@ -374,3 +374,28 @@ func TestSystemOpenInternal(t *testing.T) {
 		t.Errorf("no match must fall back: %+v", r)
 	}
 }
+
+// TestSystemOpenInternalVerb: F3 and F4 use the indented view and edit lines of an association (F-323); with none for
+// the verb, nothing happens and the built-in viewer / the editor are used.
+func TestSystemOpenInternalVerb(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "notes.zz")
+	os.WriteFile(doc, []byte("x"), 0o644)
+	a := NewApp(startOpts{})
+	a.settings = loadSettings(filepath.Join(dir, "settings.json"))
+	s, got := recordingLaunch(a)
+	a.settings.put("internalAssociations", "*.zz = opener \"%1\"\n  view = cm_List /T\n  edit = myeditor -n \"%1\"")
+	if r, err := s.OpenInternalVerb("view", doc, dir); err != nil || !r.Handled || r.Internal != "cm_List" || r.Args != "/T" || len(*got) != 0 {
+		t.Fatalf("view: %+v %v %v", r, err, *got)
+	}
+	if r, err := s.OpenInternalVerb("edit", doc, dir); err != nil || !r.Handled || len(*got) != 1 || !strings.Contains((*got)[0].String(), "myeditor") {
+		t.Fatalf("edit: %+v %v %v", r, err, *got)
+	}
+	a.settings.put("internalAssociations", "*.zz = opener")
+	if r, _ := s.OpenInternalVerb("view", doc, dir); r.Handled {
+		t.Errorf("no view line must fall back: %+v", r)
+	}
+	if _, err := s.OpenInternalVerb("print", doc, dir); err == nil {
+		t.Error("an unknown verb must be refused")
+	}
+}

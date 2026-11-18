@@ -2,7 +2,7 @@
 // tooltip is not used (same as mormiView).
 const DELAY = 1000;
 
-// tipMore(path) → a promise of one more line for an image's tooltip ("Picture: 1920 × 1080"); set by
+// tipMore(path, fields) → a promise of one more line for an image's tooltip ("Picture: 1920 × 1080"); set by
 // features/config/listopts.js.
 let tipMore = null;
 export function setTipMore(fn) { tipMore = fn; }
@@ -50,7 +50,8 @@ export function initTips() {
       show(el);
       // an image in a file list adds its picture size once it is known (Options > Tooltips > per-type fields)
       const more = el.dataset.tipImg;
-      if (more && tipMore) tipMore(more).then((line) => { if (line && from === el) { tip.textContent = `${el.dataset.tip}\n${line}`; place(el); } }, () => {});
+      // (with Tooltip fields per file type, data-tip-fields names the fields Go reads, F-821)
+      if (more && tipMore) tipMore(more, el.dataset.tipFields || '').then((line) => { if (line && from === el) { tip.textContent = el.dataset.tip.trim() ? `${el.dataset.tip}\n${line}` : line; place(el); } }, () => {});
     }, delay);
   });
   document.addEventListener('pointerout', (ev) => { if (from && !from.contains(ev.relatedTarget)) hide(); });

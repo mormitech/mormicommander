@@ -30,6 +30,7 @@ import { quickViewSource, viewsFromCopy, downloads, ARCHIVE_PREVIEW_LIMIT, SERVE
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 import { makeWalker, walkList } from './viewer/walk.js';
 import { editNote } from './archive-edit-lib.js';
+import { viewEditAssociated } from './assoc.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
@@ -194,6 +195,8 @@ async function view(app, args = {}) {
   // by file type" with Options > Lister > "Open these types in the external viewer" (a mask: those types go to the
   // external viewer, or to their own program when none is named)
   const cv = (k, d) => app.config?.values?.[k] ?? d;
+  // Files > Internal associations: a matching entry with a View (F3) command comes first (F-323; none set: as before)
+  if (!args.internal && !args.internalOnly && !args.external && !viewsFromCopy(p.vfs, p.path) && await viewEditAssociated(app, 'view', p.fullPath(first.name), p.path, args)) return;
   if (s.viewer && !args.internal && cv('ViewerEditor.UseExtViewer', '1') !== '0') return external(app, p.fullPath(first.name), s.viewer);
   const byType = cv('ViewerEditor.ViewerByType', '0') === '1' ? String(cv('Lister.ExtViewerFor', '')).trim() : '';
   if (byType && !args.internal && compileMask(byType)(first.name, false)) {
@@ -363,6 +366,8 @@ command({
     const p = app.cur;
     const path = args.path || (p.cur && !p.cur.up && !p.cur.dir ? p.fullPath(p.cur.name) : '');
     if (!path) return;
+    // Files > Internal associations: a matching entry with an Edit (F4) command comes first (F-323; none set: as before)
+    if ((args.path || !viewsFromCopy(p.vfs, p.path)) && await viewEditAssociated(app, 'edit', path, args.path ? path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\'))) : p.path, args)) return;
     // (a file inside an archive opens as a watched temporary copy: each save asks to update the archive, see vfs.js)
     const r = await go.ListerEdit.Edit(path, app.setting('editor', '') || '', paramCtx(app));
     const note = editNote(r, path.split(/[\\/]/).pop());

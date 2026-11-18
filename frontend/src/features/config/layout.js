@@ -142,6 +142,25 @@ function schemeCSS() {
   return (vars.length ? `:root, :root[data-theme] { ${vars.join('; ')}; }\n` : '') + rules.join('\n');
 }
 
+// schemeVars are the panel colours of a colour scheme by name, for a view mode that sets its own (F-820, features/
+// views.js): a built-in scheme, or "Light" / "Dark" for the schemes of Options > Colours; null for an unknown name.
+export function schemeVars(name) {
+  if (!colors) return null;
+  const n = String(name || '').trim().toLowerCase();
+  const s = n === 'light' ? colors.light : n === 'dark' ? colors.dark : (colors.builtin || []).find((x) => (x.name || '').toLowerCase() === n);
+  if (!s) return null;
+  const c = s.colors || {};
+  const out = {};
+  for (const [k, v] of [['fore', '--text'], ['back', '--bg'], ['mark', '--sel'], ['cursor', '--cur'], ['inactiveCursor', '--cur-off'], ['back2', '--row-alt']]) if (c[k]) out[v] = c[k];
+  return out;
+}
+
+// schemeNames are the names a view mode can choose: the two of Options > Colours and the built-in ones.
+export const schemeNames = () => ['Light', 'Dark', ...((colors?.builtin || []).map((x) => x.name).filter((x) => x && !/^(light|dark)$/i.test(x)))];
+
+Panel.schemeVars = schemeVars;
+Panel.schemeNames = schemeNames;
+
 export async function loadColors() {
   try { colors = await go.Configuration.Colors(); } catch { colors = null; }
 }

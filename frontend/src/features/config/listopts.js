@@ -11,9 +11,9 @@ import { Panel } from '../../core/panel.js';
 import { go } from '../../core/go.js';
 import { command } from '../../core/registry.js';
 import { esc } from '../../core/dialogs.js';
-import { cellSize, date } from '../../core/format.js';
+import { cellSize, date, attr } from '../../core/format.js';
 import { setTipMore } from '../../core/tooltip.js';
-import { on, num, applyOptions, compileMask } from './util.js';
+import { on, num, opt, applyOptions, compileMask } from './util.js';
 
 let app = null;
 
@@ -34,6 +34,66 @@ function kindOf(e) {
   return e.ext ? `${e.ext.toUpperCase()} file` : 'File';
 }
 
+// ---- tooltip fields per file type (Options > Tooltips > Tooltip fields per file type, F-821) ----
+//
+// "masks = fields; masks = fields": the first entry whose masks match a file decides the lines of its tooltip, in the
+// order given. Fields: name, kind, size, date, attributes, path, and the ones Go reads from the file when the tooltip
+// shows (dimensions, exif, artist, title, album). A file no entry matches, and every file while the option is empty
+// (the default), gets the tooltip as before.
+
+export const TIP_FIELDS = ['name', 'kind', 'size', 'date', 'attributes', 'path', 'dimensions', 'exif', 'artist', 'title', 'album'];
+const LATE = { dimensions: 'image', exif: 'image', artist: 'audio', title: 'audio', album: 'audio' };
+const ALIAS = { modified: 'date', time: 'date', type: 'kind', attr: 'attributes', attrs: 'attributes', picture: 'dimensions', exifdate: 'exif', taken: 'exif' };
+
+let fieldRules = null, fieldsFor = null;
+
+// parseTipFields reads the option into [{masks, test, fields}] (unknown field names are left out).
+export function parseTipFields(text) {
+  const out = [];
+  for (const part of String(text || '').split(/[;\n]/)) {
+    const at = part.indexOf('=');
+    if (at < 0) continue;
+    const masks = part.slice(0, at).trim();
+    const fields = part.slice(at + 1).toLowerCase().split(/[\s,]+/).map((f) => ALIAS[f] || f).filter((f) => TIP_FIELDS.includes(f));
+    if (masks && fields.length) out.push({ masks, test: compileMask(masks), fields: [...new Set(fields)] });
+  }
+  return out;
+}
+
+function fieldsOf(e) {
+  const text = opt('Tooltips.Fields');
+  if (text !== fieldsFor) { fieldsFor = text; fieldRules = parseTipFields(text); }
+  if (!fieldRules.length) return null;
+  return fieldRules.find((r) => r.test(e.name, !!e.dir))?.fields || null;
+}
+
+// tipLines are the lines of the fields known without reading the file; late are the fields Go reads when it shows.
+export function tipLines(p, e, fields, mode) {
+  const lines = [], late = [];
+  for (const f of fields) {
+    if (f === 'name') { if (mode !== 3) lines.push(e.name); } else if (f === 'kind') lines.push(kindOf(e));
+    else if (f === 'size') { const sz = e.dir ? e.dirSize : e.size; if (sz != null) lines.push(`Size: ${cellSize(sz)}`); }
+    else if (f === 'date') { if (e.mtime) lines.push(`Modified: ${date(e.mtime)}`); }
+    else if (f === 'attributes') { const a = attr(e.mode, e.flags, app?.platform); if (a) lines.push(`Attributes: ${a}`); }
+    else if (f === 'path') lines.push(p.fullPath(e.name));
+    else if (LATE[f] && !e.dir) late.push(f);
+  }
+  return { lines, late };
+}
+
+// lateLines turns Go's facts (Views.TipFacts) into the lines of the late fields, in their order.
+export function lateLines(facts, fields) {
+  const out = [];
+  for (const f of fields) {
+    if (f === 'dimensions' && facts?.w) out.push(`Picture: ${facts.w} × ${facts.h}`);
+    else if (f === 'exif' && facts?.exif) out.push(`Taken: ${date(facts.exif)}`);
+    else if (f === 'artist' && facts?.artist) out.push(`Artist: ${facts.artist}`);
+    else if (f === 'title' && facts?.title) out.push(`Title: ${facts.title}`);
+    else if (f === 'album' && facts?.album) out.push(`Album: ${facts.album}`);
+  }
+  return out;
+}
+
 // tipAttr builds the title (and the data attributes core/tooltip.js reads) of a row's name.
 function tipAttr(p, e, cut) {
   if (e.up) return '';
@@ -42,6 +102,13 @@ function tipAttr(p, e, cut) {
   const delay = ` data-tip-delay="${Math.max(0, num('Tooltips.DelayMs', 700))}"`;
   const facts = mode >= 2 && (on('Tooltips.ShowOnNet') || !onNetwork(p));
   if (!facts) return mode === 3 ? '' : ` title="${esc(e.name)}" data-tip-cut="1"${delay}`;
+  const own = fieldsOf(e);
+  if (own) {
+    const { lines: ln, late } = tipLines(p, e, own, mode);
+    if (!ln.length && !late.length) return '';
+    const more = late.length ? ` data-tip-img="${esc(p.fullPath(e.name))}" data-tip-fields="${late.join(' ')}"` : '';
+    return ` title="${esc(ln.join('\n') || ' ')}"${delay}${more}`;
+  }
   const lines = mode === 2 ? [e.name] : [];
   if (on('Tooltips.ByType')) lines.push(kindOf(e));
   const sz = e.dir ? e.dirSize : e.size;
@@ -106,7 +173,12 @@ export function initListOpts(a) {
   app = a;
   Panel.hideHooks.push((p, e) => on('IgnoreList.Enabled') && ignored(p, e));
   Panel.tipAttr = tipAttr;
-  setTipMore(async (path) => {
+  setTipMore(async (path, fields) => {
+    if (fields) { // the late fields of Tooltip fields per file type
+      const want = fields.split(' ').filter(Boolean);
+      const groups = [...new Set(want.map((f) => LATE[f]).filter(Boolean))];
+      return lateLines(await go.Views.TipFacts(path, groups), want).join('\n');
+    }
     const s = await go.Views.ImageSize(path);
     return s?.w ? `Picture: ${s.w} × ${s.h}` : '';
   });

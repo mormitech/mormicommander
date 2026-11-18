@@ -150,7 +150,7 @@ function renderBrief(p) {
       if (i >= p.entries.length) break;
       const e = p.entries[i];
       const tip = Panel.tipAttr(p, e, true);
-      html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.iconHTML(p, e)}<b${tip}>${esc(shownName(e, e.name, display))}</b></span></div>`;
+      html += `<div class="${rowClass(p, e, i)} mc-views-bi" data-i="${i}" style="left:${c * g.colW}px;top:${r * p.rowH}px;width:${g.colW}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(p, e)}<b${tip}>${esc(shownName(e, e.name, display))}</b></span></div>`;
     }
   }
   rows.style.transform = '';
@@ -206,7 +206,7 @@ function renderColumns(p) {
     const e = p.entries[i];
     const name = def.ext ? (e.dir ? e.name : e.base) : e.name;
     const tip = Panel.tipAttr(p, e, name.length > 28);
-    let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.iconHTML(p, e)}<b${tip}>${esc(shownName(e, name, display))}</b></span>`;
+    let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(p, e)}<b${tip}>${esc(shownName(e, name, display))}</b></span>`;
     if (def.ext) row += `<span class="e">${esc(e.ext)}</span>`;
     let c = cells?.get(e.name);
     if (!c && full) c = e.up ? ['&lt;DIR&gt;', '', ''] : null; // (".." is not in the engine's rows)
@@ -481,6 +481,7 @@ function setMode(p, mode, set = '') {
   vs.manual = { mode, set: vs.set };
   vs.auto = false;
   vs.viewMode = ''; vs.modeAuto = null; // (chosen by hand: no view mode any more)
+  modeLook(p, null);
   applyView(p);
   save();
   return true;
@@ -1197,10 +1198,50 @@ for (const [pre, pick] of Object.entries(PANELS)) {
 // sort, kept in the setting "viewModes" as [{name, mode, set, sort, folders}]. Choosing one puts the panel in it.
 // With a folder mask ("folders", TC's syntax, as column sets have) and Options > View modes > Switch view modes
 // automatically on, a panel takes the mode by itself in matching folders and goes back to its own view after them.
+// A mode may also set the panel's icons ("icons": "on" / "off"), colours ("scheme": a colour scheme's name) and font
+// size ("fontSize" in pixels) while it is used (F-820); without them (modes saved before) the panel keeps its own.
 
 const viewModes = () => (theApp.setting('viewModes', []) || []).filter((m) => m && m.name);
 const VIEW_WORD = { brief: 'Brief', full: 'Full', comments: 'Comments', thumbs: 'Thumbnails' };
-const describeMode = (m) => `${m.mode === 'custom' ? `columns "${m.set}"` : VIEW_WORD[m.mode] || m.mode}${m.sort?.key ? `, by ${m.sort.key}${m.sort.desc ? ' (reversed)' : ''}` : ''}${m.folders ? `; on its own in ${m.folders}` : ''}`;
+const lookWords = (m) => [m.icons === 'off' ? 'no icons' : m.icons === 'on' ? 'icons' : '', m.scheme ? `colours "${m.scheme}"` : '', +m.fontSize ? `${+m.fontSize} px font` : ''].filter(Boolean);
+const describeMode = (m) => `${m.mode === 'custom' ? `columns "${m.set}"` : VIEW_WORD[m.mode] || m.mode}${m.sort?.key ? `, by ${m.sort.key}${m.sort.desc ? ' (reversed)' : ''}` : ''}${lookWords(m).length ? `, ${lookWords(m).join(', ')}` : ''}${m.folders ? `; on its own in ${m.folders}` : ''}`;
+
+const LOOK_VARS = ['--text', '--bg', '--sel', '--cur', '--cur-off', '--row-alt', '--font', '--mono', '--row-h'];
+
+// modeLook puts a view mode's icons, colours and font size on its panel, and with null (or a mode without them) takes
+// them off again, so the panel looks as the options say (F-820). Colours come from the built-in schemes and the
+// light / dark ones of Options > Colours (Panel.schemeVars, features/config/layout.js).
+export function modeLook(p, m) {
+  const el = p.el;
+  if (!el?.classList) return;
+  const had = !!p.vs?.look;
+  const icons = m?.icons === 'on' || m?.icons === 'off' ? m.icons : '';
+  const vars = m?.scheme ? (Panel.schemeVars?.(m.scheme) || null) : null;
+  const px = Math.round(+m?.fontSize || 0);
+  const font = px >= 8 && px <= 40;
+  el.classList.toggle('mc-vm-noicons', icons === 'off');
+  el.classList.toggle('mc-vm-icons', icons === 'on');
+  for (const k of LOOK_VARS) el.style.removeProperty(k);
+  el.style.font = ''; el.style.color = ''; el.style.backgroundColor = '';
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) el.style.setProperty(k, v);
+    if (vars['--text']) el.style.color = vars['--text'];
+    if (vars['--bg']) el.style.backgroundColor = vars['--bg'];
+  }
+  if (font) {
+    const root = globalThis.getComputedStyle ? getComputedStyle(document.documentElement) : null;
+    const base = root?.getPropertyValue('--font').trim() || '13px -apple-system, "Segoe UI", system-ui, sans-serif';
+    const f = /\d+(\.\d+)?px/.test(base) ? base.replace(/\d+(\.\d+)?px/, `${px}px`) : `${px}px ${base}`;
+    el.style.setProperty('--font', f);
+    el.style.font = f;
+    el.style.setProperty('--mono', `${px - 1}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`);
+    const ic = parseFloat(root?.getPropertyValue('--ic-size')) || 15; // (taller rows for large icons, as Options > Icons)
+    el.style.setProperty('--row-h', `${Math.max(Math.round(px * 1.55), ic > 16 ? Math.round(ic + 6) : 0)}px`);
+  }
+  const look = !!(icons || vars || font);
+  if (p.vs) p.vs.look = look;
+  if (look || had) { try { p.measure(); } catch { /* not drawn yet */ } }
+}
 
 async function applyViewMode(p, m, { auto = false } = {}) {
   const vs = vsOf(p);
@@ -1214,6 +1255,7 @@ async function applyViewMode(p, m, { auto = false } = {}) {
   vs.set = set;
   vs.auto = false;
   vs.viewMode = m.name;
+  modeLook(p, m);
   applyView(p);
   if (m.sort?.key) p.sortBy(m.sort.key, !!m.sort.desc);
   if (!auto) save();
@@ -1235,12 +1277,67 @@ export function putViewMode(modes, m) {
   return i < 0 ? [...modes, m] : modes.map((x, k) => (k === i ? m : x));
 }
 
+// replaceViewMode is the list with the mode called oldName changed to m in its place (a new name included); a mode
+// of m's new name elsewhere in the list gives way to it.
+export function replaceViewMode(modes, oldName, m) {
+  const i = modes.findIndex((x) => x.name === oldName);
+  if (i < 0) return putViewMode(modes, m);
+  return modes.map((x, k) => (k === i ? m : x)).filter((x, k) => k === i || x.name !== m.name);
+}
+
+// readModeForm turns the view mode dialog's fields into a mode (keeping fields of the old one the dialog doesn't show);
+// a string is the error to show.
+export function readModeForm(f, old = {}) {
+  const name = String(f.name || '').trim();
+  if (!name) return 'Please give the view mode a name.';
+  const [mode, set = ''] = String(f.view || 'full').split(':');
+  const fs = String(f.fontSize ?? '').trim();
+  let fontSize = 0;
+  if (fs) {
+    fontSize = parseInt(fs, 10);
+    if (!(fontSize >= 8 && fontSize <= 40)) return 'The font size is a number from 8 to 40 (or empty: the usual size).';
+  }
+  const m = { ...old, name, mode, set: mode === 'custom' ? set : '', sort: f.sortKey ? { key: f.sortKey, desc: !!f.sortDesc } : {}, folders: String(f.folders || '').trim() };
+  delete m.icons; delete m.scheme; delete m.fontSize;
+  if (f.icons === 'on' || f.icons === 'off') m.icons = f.icons;
+  if (String(f.scheme || '').trim()) m.scheme = String(f.scheme).trim();
+  if (fontSize) m.fontSize = fontSize;
+  return m;
+}
+
+// modeDialog asks for a view mode's settings: a new one (from the panel's view) or one to change.
+function modeDialog(p, m, isNew) {
+  const opt = (v, l, cur) => `<option value="${esc(v)}"${String(v) === String(cur) ? ' selected' : ''}>${esc(l)}</option>`;
+  const viewNow = m.mode === 'custom' ? `custom:${m.set}` : m.mode;
+  const views = [['brief', 'Brief'], ['full', 'Full'], ['comments', 'Comments'], ['thumbs', 'Thumbnails'], ...sets().map((s) => [`custom:${s.name}`, `Columns: ${s.name}`])];
+  if (!views.some(([v]) => v === viewNow)) views.push([viewNow, m.mode === 'custom' ? `Columns: ${m.set} (missing)` : viewNow]);
+  const sorts = [['', 'Keep the panel\'s sort'], ['name', 'Name'], ['ext', 'Extension'], ['size', 'Size'], ['date', 'Date']];
+  if (m.sort?.key && !sorts.some(([v]) => v === m.sort.key)) sorts.push([m.sort.key, m.sort.key]);
+  const schemes = [['', 'The usual colours'], ...(Panel.schemeNames?.() || []).map((n) => [n, n])];
+  if (m.scheme && !schemes.some(([v]) => v === m.scheme)) schemes.push([m.scheme, m.scheme]);
+  const html = `<div class="mc-row"><label for="vm-name">Name</label><input type="text" id="vm-name" value="${esc(m.name || '')}" autofocus></div>
+    <div class="mc-row"><label for="vm-view">View</label><select id="vm-view">${views.map(([v, l]) => opt(v, l, viewNow)).join('')}</select></div>
+    <div class="mc-row"><label for="vm-sort">Sort by</label><select id="vm-sort">${sorts.map(([v, l]) => opt(v, l, m.sort?.key || '')).join('')}</select></div>
+    <label class="mc-check"><input type="checkbox" id="vm-desc"${m.sort?.desc ? ' checked' : ''}> Reversed</label>
+    <div class="mc-row"><label for="vm-icons">Icons</label><select id="vm-icons">${[['', 'As the options say'], ['on', 'Shown'], ['off', 'Hidden']].map(([v, l]) => opt(v, l, m.icons || '')).join('')}</select></div>
+    <div class="mc-row"><label for="vm-scheme">Colours</label><select id="vm-scheme">${schemes.map(([v, l]) => opt(v, l, m.scheme || '')).join('')}</select></div>
+    <div class="mc-row"><label for="vm-font">Font size in pixels (empty: the usual size)</label><input type="text" id="vm-font" inputmode="numeric" value="${+m.fontSize || ''}"></div>
+    <div class="mc-row"><label for="vm-folders">Use it by itself in these folders (optional mask, e.g. *\\Photos* or */Pictures/*)</label><input type="text" id="vm-folders" spellcheck="false" value="${esc(m.folders || '')}"></div>
+    <p class="mc-note">Icons, colours and font size apply to the panel while it is in this mode, and go back when it leaves it.</p>`;
+  return formDialog(isNew ? 'New view mode' : `Change view mode "${m.name}"`, html, (box) => {
+    const v = (id) => box.querySelector(id);
+    return readModeForm({ name: v('#vm-name').value, view: v('#vm-view').value, sortKey: v('#vm-sort').value, sortDesc: v('#vm-desc').checked,
+      icons: v('#vm-icons').value, scheme: v('#vm-scheme').value, fontSize: v('#vm-font').value, folders: v('#vm-folders').value }, isNew ? {} : m);
+  }, null, { okLabel: isNew ? 'Save' : 'OK', kind: 'view-mode-edit' });
+}
+
 async function viewModeList(app, p) {
   const vs = vsOf(p);
   const modes = viewModes();
   const items = modes.map((m, i) => ({ label: m.name, detail: `${vs.viewMode === m.name ? '✓ ' : ''}${describeMode(m)}`, value: { use: m }, key: i < 9 ? String(i + 1) : '' }));
   if (items.length) items.push({ sep: true });
   items.push({ label: 'Save the current view as a view mode…', value: { add: true } });
+  if (modes.length) items.push({ label: 'Change a view mode…', value: { edit: true } });
   if (modes.length > 1) items.push({ label: 'Move a view mode up…', value: { up: true } });
   if (modes.length) items.push({ label: 'Remove a view mode…', value: { remove: true } });
   const r = await showList({ title: `View modes (${p.side} panel)`, items, anchor: p.$.header, kind: 'view-modes' });
@@ -1264,16 +1361,26 @@ async function viewModeList(app, p) {
     app.flash(`View mode "${r2.item.value}" removed.`);
     return true;
   }
+  if (v.edit) {
+    const r2 = await showList({ title: 'Change which view mode?', items: modes.map((m) => ({ label: m.name, detail: describeMode(m), value: m.name })), anchor: p.$.header, kind: 'view-modes-edit' });
+    if (!r2) return false;
+    const old = modes.find((m) => m.name === r2.item.value);
+    const m = await modeDialog(p, old, false);
+    if (!m) return false;
+    await app.setSetting('viewModes', replaceViewMode(modes, old.name, m));
+    refreshMenu();
+    // a panel in the mode takes the change at once
+    for (const q of app.panels || []) if (vsOf(q).viewMode === old.name) await applyViewMode(q, m, { auto: !!vsOf(q).modeAuto });
+    app.flash(`View mode "${m.name}" changed.`);
+    return true;
+  }
   const cur = vs.mode === 'tree' ? (vs.prev || { mode: 'full', set: '' }) : vs;
-  const name = await inputDialog({ title: 'New view mode', label: 'Name', value: '', kind: 'view-mode-name', validate: (x) => (x.trim() ? '' : 'Please give the view mode a name.'),
-    note: `Keeps: ${describeMode({ mode: cur.mode, set: cur.set, sort: p.sort })}. The name of a saved view mode changes that one, in its place.` });
-  if (name === null) return false;
-  const folders = await inputDialog({ title: 'New view mode', label: 'Use it by itself in these folders (optional mask, e.g. *\\Photos* or */Pictures/*)', value: '', kind: 'view-mode-folders' });
-  if (folders === null) return false;
-  const m = { name: name.trim(), mode: cur.mode, set: cur.mode === 'custom' ? cur.set : '', sort: { ...p.sort }, folders: folders.trim() };
+  const m = await modeDialog(p, { name: '', mode: cur.mode, set: cur.mode === 'custom' ? cur.set : '', sort: { ...p.sort }, folders: '' }, true);
+  if (!m) return false;
   await app.setSetting('viewModes', putViewMode(modes, m));
   refreshMenu();
   vs.viewMode = m.name;
+  if (lookWords(m).length) modeLook(p, m);
   app.flash(`View mode "${m.name}" saved.`);
   return true;
 }
@@ -1296,6 +1403,7 @@ async function autoViewMode(p) {
     const back = vs.modeAuto.back;
     vs.modeAuto = null;
     vs.viewMode = '';
+    modeLook(p, null);
     vs.mode = back.mode;
     vs.set = back.set;
     applyView(p);

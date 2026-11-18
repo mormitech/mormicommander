@@ -195,6 +195,18 @@ type SystemAssocResult struct {
 // "internalAssociations": one "mask = command" per line) to Enter on path, before the system default. With no
 // association set or none matching, nothing happens and Handled is false, so Enter works as it always did.
 func (s *SystemLaunch) OpenInternal(path, dir string) (SystemAssocResult, error) {
+	return s.OpenInternalVerb("open", path, dir)
+}
+
+// OpenInternalVerb is OpenInternal for one verb of the associations: "open" (Enter), "view" (F3) or "edit" (F4; the
+// indented "view =" and "edit =" lines of an association). With no association for that verb, Handled is false and
+// F3 / F4 use the built-in viewer and the configured editor as before.
+func (s *SystemLaunch) OpenInternalVerb(verb, path, dir string) (SystemAssocResult, error) {
+	switch verb {
+	case launch.VerbOpen, launch.VerbView, launch.VerbEdit:
+	default:
+		return SystemAssocResult{}, fmt.Errorf("%q is no verb of the internal associations", verb)
+	}
 	if s.app.mock != nil || s.app.settings == nil {
 		return SystemAssocResult{}, nil
 	}
@@ -204,7 +216,7 @@ func (s *SystemLaunch) OpenInternal(path, dir string) (SystemAssocResult, error)
 	}
 	a := launch.ParseAssociationLines(text)
 	ctx := launch.ParamContext{File: path, Source: launch.Panel{Dir: systemStartDir(dir), Current: filepath.Base(path)}}
-	r, err := s.launcher().OpenAssociated(a, launch.VerbOpen, ctx)
+	r, err := s.launcher().OpenAssociated(a, verb, ctx)
 	if err != nil {
 		return SystemAssocResult{}, systemErr("open", path, err)
 	}

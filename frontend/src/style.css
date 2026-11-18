@@ -119,6 +119,11 @@ html.mc-panning, html.mc-panning * { cursor: grab !important; } /* middle-button
 img.ic { background: none !important; -webkit-mask: none; mask: none; object-fit: contain; }
 .ic { width: var(--ic-size, 15px); flex-basis: var(--ic-size, 15px) !important; height: var(--ic-size, 15px); }
 body.mc-config-no-icons .row .ic, body.mc-config-no-icons .mc-views-node .ic { display: none; }
+/* the icon of an internal association given as a character (features/assoc.js, F-323) */
+.ic.mc-assoc-ic { background: none !important; -webkit-mask: none; mask: none; font-style: normal; font-size: calc(var(--ic-size, 15px) - 2px); line-height: var(--ic-size, 15px); text-align: center; overflow: hidden; }
+/* a view mode that turns the icons off or on in its panel (features/views.js, F-820) */
+.panel.mc-vm-noicons .row .ic, .panel.mc-vm-noicons .mc-views-node .ic { display: none; }
+body.mc-config-no-icons .panel.mc-vm-icons .row .ic, body.mc-config-no-icons .panel.mc-vm-icons .mc-views-node .ic { display: block; }
 body.mc-config-no-overlays .link .n b::after { content: none; }
 .link .n b::after { content: " ↗"; color: var(--muted); font-weight: 400; }
 .broken .n b { text-decoration: line-through; }

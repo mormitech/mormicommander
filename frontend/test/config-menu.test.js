@@ -70,3 +70,54 @@ test('view modes can be moved up and edited in place (F-820)', () => {
   expect(views.putViewMode(ms, b2)).toEqual([{ name: 'a' }, b2, { name: 'c' }]);
   expect(views.putViewMode(ms, { name: 'd' }).map((m) => m.name)).toEqual(['a', 'b', 'c', 'd']);
 });
+
+test('a view mode is changed in its place, renamed too; icons, colours and font size are optional (F-820)', () => {
+  const ms = [{ name: 'a' }, { name: 'b', mode: 'full' }, { name: 'c' }];
+  expect(views.replaceViewMode(ms, 'b', { name: 'B' }).map((m) => m.name)).toEqual(['a', 'B', 'c']);
+  expect(views.replaceViewMode(ms, 'b', { name: 'c', x: 1 })).toEqual([{ name: 'a' }, { name: 'c', x: 1 }]);
+  expect(views.replaceViewMode(ms, 'zz', { name: 'd' }).map((m) => m.name)).toEqual(['a', 'b', 'c', 'd']);
+  // the dialog's fields
+  expect(views.readModeForm({ name: ' ' })).toMatch(/name/);
+  expect(views.readModeForm({ name: 'x', fontSize: '99' })).toMatch(/8 to 40/);
+  // nothing chosen: the mode is what modes always were (no icons, scheme or fontSize keys)
+  expect(views.readModeForm({ name: 'Photos', view: 'thumbs', sortKey: 'date', sortDesc: true, icons: '', scheme: '', fontSize: '', folders: ' */Pictures/* ' }))
+    .toEqual({ name: 'Photos', mode: 'thumbs', set: '', sort: { key: 'date', desc: true }, folders: '*/Pictures/*' });
+  expect(views.readModeForm({ name: 'Code', view: 'custom:Dev', sortKey: '', icons: 'off', scheme: 'Dark', fontSize: '15' }, { name: 'old', extra: 1, icons: 'on' }))
+    .toEqual({ name: 'Code', extra: 1, mode: 'custom', set: 'Dev', sort: {}, folders: '', icons: 'off', scheme: 'Dark', fontSize: 15 });
+});
+
+test('a view mode puts its icons, colours and font size on its panel and takes them off again (F-820)', async () => {
+  const { Panel } = await import('../src/core/panel.js');
+  const saved = Panel.schemeVars;
+  Panel.schemeVars = (n) => (n === 'Dark' ? { '--text': '#eeeeee', '--bg': '#111111' } : null);
+  const el = document.createElement('section');
+  let measured = 0;
+  const p = { el, vs: {}, measure: () => { measured++; } };
+  views.modeLook(p, { name: 'old' });
+  expect(el.getAttribute('style') || '').toBe('');
+  expect(measured).toBe(0); // (a mode without a look changes nothing)
+  views.modeLook(p, { icons: 'off', scheme: 'Dark', fontSize: 16 });
+  expect(el.classList.contains('mc-vm-noicons')).toBe(true);
+  expect(el.style.getPropertyValue('--bg')).toBe('#111111');
+  expect(el.style.getPropertyValue('--row-h')).toBe('25px');
+  expect(el.style.getPropertyValue('--font')).toContain('16px');
+  views.modeLook(p, null);
+  expect(el.classList.contains('mc-vm-noicons')).toBe(false);
+  expect(el.style.getPropertyValue('--bg')).toBe('');
+  expect(el.style.getPropertyValue('--font')).toBe('');
+  expect(measured).toBe(2);
+  Panel.schemeVars = saved;
+});
+
+test('tooltip fields per file type: the first matching entry decides the lines; none set keeps the tooltip (F-821)', async () => {
+  const lo = await import('../src/features/config/listopts.js');
+  expect(lo.parseTipFields('')).toEqual([]);
+  const r = lo.parseTipFields('*.jpg *.png = name dimensions exif size; *.mp3 = artist, title modified bogus\n* = name');
+  expect(r.map((x) => [x.masks, x.fields])).toEqual([['*.jpg *.png', ['name', 'dimensions', 'exif', 'size']], ['*.mp3', ['artist', 'title', 'date']], ['*', ['name']]]);
+  expect(r[0].test('a.PNG', false)).toBe(true);
+  const p = { fullPath: (n) => `/d/${n}` };
+  const e = { name: 'a.png', ext: 'png', size: 2048, mtime: 0 };
+  expect(lo.tipLines(p, e, ['name', 'dimensions', 'kind', 'path', 'date'], 2)).toEqual({ lines: ['a.png', 'PNG file', '/d/a.png'], late: ['dimensions'] });
+  expect(lo.tipLines(p, e, ['name'], 3).lines).toEqual([]); // ("file info only" leaves the name out)
+  expect(lo.lateLines({ w: 640, h: 480, exif: 0, artist: 'X' }, ['exif', 'dimensions', 'artist'])).toEqual(['Picture: 640 × 480', 'Artist: X']);
+});

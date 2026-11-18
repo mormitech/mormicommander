@@ -205,3 +205,34 @@ func TestParseAssociationLines(t *testing.T) {
 		t.Errorf("empty text gave %d associations", n)
 	}
 }
+
+// TestParseAssociationLinesVerbs: indented "view =", "edit =", "icon =" lines add F3, F4 and an icon to the entry
+// above them (F-323, issue #60); an entry may then have no command for Enter.
+func TestParseAssociationLinesVerbs(t *testing.T) {
+	a := ParseAssociationLines("*.txt = code \"%1\"\n  view = cm_List\n\tedit = myedit %1\n  icon = /i/t.png\n  desc = Text\n*.log =\n  view = cm_List /T\n*.x =\n  bogus = 1\n  *.y = cm_Edit\nview = z\n")
+	if len(a.List) != 5 { // (the indented "bogus = 1" is an entry of its own, as before)
+		t.Fatalf("got %d associations: %+v", len(a.List), a.List)
+	}
+	if c, ok := a.Lookup("a.txt", false, VerbView); !ok || c != "cm_List" {
+		t.Errorf("view = %q, %v", c, ok)
+	}
+	if c, _ := a.Lookup("a.txt", false, VerbEdit); c != "myedit %1" {
+		t.Errorf("edit = %q", c)
+	}
+	if a.List[0].Icon != "/i/t.png" || a.List[0].Description != "Text" {
+		t.Errorf("icon/desc: %+v", a.List[0])
+	}
+	if _, ok := a.Lookup("a.log", false, VerbOpen); ok {
+		t.Error("an entry without an open command must leave Enter alone")
+	}
+	if c, _ := a.Lookup("a.log", false, VerbView); c != "cm_List /T" {
+		t.Errorf("log view = %q", c)
+	}
+	// an indented line that is no field of the entry is an association of its own; "*.x" with nothing is left out
+	if c, _ := a.Lookup("a.y", false, VerbOpen); c != "cm_Edit" {
+		t.Errorf("y = %q", c)
+	}
+	if c, _ := a.Lookup("view", false, VerbOpen); c != "z" {
+		t.Errorf("unindented view = %q", c)
+	}
+}
