@@ -521,25 +521,25 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 15. Net menu
 
-- [~] F-377 FTP connect — Ctrl+F — connection manager: list of saved servers, new, duplicate, edit, delete, folders, connect
-- [ ] F-378 New FTP connection (quick) — Ctrl+N — enter host or URL (ftp://user@host:port/path); connects
-- [ ] F-379 FTP disconnect — Ctrl+Shift+F — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-380 Show hidden FTP files / custom LIST command — — — option sends LIST -a; hidden files shown
+- [~] F-377 FTP connect — Ctrl+F — connection manager: list of saved servers, new, duplicate, edit, delete, folders, connect — audit #63: cm_FtpConnect (net.js manager, feature_net_sites.go) lists saved sites in folders with new, duplicate, edit, delete and connect; the Net menu entry now shows Ctrl+F
+- [~] F-378 New FTP connection (quick) — Ctrl+N — enter host or URL (ftp://user@host:port/path); connects — audit #63: cm_FtpNew (quickConnect in net.js) takes a host or ftp://user@host:port/path (sftp://, webdav:// too) and opens it in the panel; URL parsing in internal/ftp/url.go (url_test.go); the Net menu entry now shows Ctrl+N
+- [~] F-379 FTP disconnect — Ctrl+Shift+F — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #63: Net > Disconnect runs cm_FtpDisconnect like Ctrl+Shift+F and the bar's Disconnect button, and now shows its key; with no server panel it says so (net-menu.test.js)
+- [~] F-380 Show hidden FTP files / custom LIST command — — — option sends LIST -a; hidden files shown — audit #63: cm_FtpHiddenFiles and Options > FTP show hidden set ListCommand "LIST -a" in configureFTP (feature_net.go); a site's own list command wins
 - [~] F-381 FTP download list (cm_FtpDownloadList) — — — queue of files to download later; transfer manager — #106: the list's queued items run one by one as Net.StartJob transfers that ask when a file is in the way; the live tests run that against vsftpd, OpenSSH and Apache WebDAV (download, skip, overwrite; live_net_test.go); the page's list dialog is not part of them
-- [ ] F-382 Background transfer manager (cm_BackgroundTransferManager) — — — transfers run in background with progress; can be queued, paused, removed
+- [~] F-382 Background transfer manager (cm_BackgroundTransferManager) — — — transfers run in background with progress; can be queued, paused, removed — audit #63: local file jobs queue, pause, continue, start now, stop and clear in the Background transfers window (core/jobs.js, cm_BackgroundTransferManager, also the job indicator); server transfers (feature_net_xfer.go) run in their own progress box with Cancel and are not listed there yet
 - [x] F-383 Connect/disconnect network drive (cm_NetConnect / cm_NetDisconnect, Net menu) — #148, 0.12.0 — type a share and map it (Windows: drive letter, reconnect at sign-in; macOS: /Volumes like Connect to Server; Linux: GVfs); Disconnect lists the network drives and unmounts one
 - [N/A] F-384 Share / unshare folder (cm_NetShareDir / cm_NetUnshareDir) — sharing is an OS setting — button opens OS sharing settings
 - [N/A] F-385 Port connection / direct cable (cm_DirectCableConnect) — obsolete serial/parallel/USB cable link — SFTP/FTP between machines
 - [x] F-386 Network neighbourhood (cm_OpenNetwork, the Network button at the end of the drive bar) — #148, 0.12.0 — finds servers (Bonjour, Avahi, NetBIOS) and lists them after the ones used before; lists a server's shares (SMB in-process with sign-in and optional keychain password, NFS via showmount); Open shows a share in the panel, Map mounts it to stay; all three systems
-- [~] F-387 FTP transfer mode binary/ASCII/auto — — — transfer mode selectable; ASCII converts line endings
+- [~] F-387 FTP transfer mode binary/ASCII/auto — — — transfer mode selectable; ASCII converts line endings — audit #63: binary/ASCII/auto per session and per site, ASCII masks; ASCII converts line endings (internal/ftp ascii_test.go, TestTransferModes)
 - [~] F-388 Resume aborted download — — — partially downloaded file resumes from offset (REST) — #106: resumed downloads checked against real servers (vsftpd, OpenSSH, Apache WebDAV) in the live tests
-- [ ] F-389 FTP hidden filter / server-specific settings (passive, proxy, firewall, SSL/TLS, codepage UTF-8) — — — per-connection options saved and used
-- [~] F-390 Send FTP command (cm_FtpSendCommand) — — — raw FTP command can be sent; reply shown in log
-- [~] F-391 FTP log window — — — log of FTP commands and responses can be shown
-- [ ] F-392 Restore lost connection — — — after disconnect, operation reconnects automatically (retries configurable)
-- [~] F-816 Change FTP transfer mode — Ctrl+Shift+M — cycles binary / ASCII / auto; the current mode is shown in the FTP status bar
-- [~] F-817 FTP status bar above panel while connected (mode, log button, Abort) — — — while connected a small bar shows; Abort stops the running transfer cleanly
-- [ ] F-818 Server listing formats (Unix ls, Windows/IIS, MLSD) — — — listings from each format parse into correct names, sizes, dates (unit tests with fixtures and a local test server)
+- [~] F-389 FTP hidden filter / server-specific settings (passive, proxy, firewall, SSL/TLS, codepage UTF-8) — — — per-connection options saved and used — audit #63: a saved site keeps TLS mode, passive/active, transfer mode, ASCII masks, charset (UTF-8 negotiation, Latin-1), time offset, keepalive, list command, MLSD/EPSV off, start folder and proxy; configureFTP applies them over the global options (TestTLS, TestEncodingLatin1, proxy_test.go)
+- [~] F-390 Send FTP command (cm_FtpSendCommand) — — — raw FTP command can be sent; reply shown in log — audit #63: cm_FtpSendCommand sends a raw line via Net.SendCommand, shows the reply and adds it to the protocol log; with no FTP panel it says so
+- [~] F-391 FTP log window — — — log of FTP commands and responses can be shown — audit #63: the FTP bar's log button shows the per-session protocol log (passwords masked, TestLogMasksPassword)
+- [~] F-392 Restore lost connection — — — after disconnect, operation reconnects automatically (retries configurable) — audit #63: a dead FTP or SFTP connection is replaced and the operation retried once (vfs adapter_ftp.go with(), TestFTPReconnect, TestSFTPReconnectAndArchive); connecting retries Options > FTP Retries times, RetryDelay apart (internal/ftp Dial)
+- [~] F-816 Change FTP transfer mode — Ctrl+Shift+M — cycles binary / ASCII / auto; the current mode is shown in the FTP status bar — audit #63: Ctrl+Shift+M and Net > Transfer mode cycle binary → ASCII → auto for the panel's session (or the default for new ones) and the bar shows the mode; the menu entry now shows its key
+- [~] F-817 FTP status bar above panel while connected (mode, log button, Abort) — — — while connected a small bar shows; Abort stops the running transfer cleanly — audit #63: net.js paints the bar above a server panel with kind, mode (click to change), log and Disconnect; the bar has no Abort button yet: a running transfer stops with Cancel in its progress box and keeps the partial file for resume
+- [~] F-818 Server listing formats (Unix ls, Windows/IIS, MLSD) — — — listings from each format parse into correct names, sizes, dates (unit tests with fixtures and a local test server) — audit #63: parsers for Unix ls, DOS/IIS, MLSD/MLST, VMS and others (internal/ftp parse_*.go) with fixtures in parse_test.go; TestListFormats lists through a local test server in MLSD, Unix and DOS style
 
 ## 16. Show menu
 

@@ -649,10 +649,10 @@ async function downloadList(app) {
 command({ name: 'cm_FtpDownloadList', label: 'Download list…', run: (app) => downloadList(app) });
 command({ name: 'cm_FtpAddToList', label: 'Add to download list', run: (app) => addToDownloadList(app) });
 
-command({ name: 'cm_FtpConnect', label: 'FTP connect…', short: 'FTP', run: (app, args) => manager(app, args) });
-command({ name: 'cm_FtpNew', label: 'New FTP connection…', run: (app, args) => quickConnect(app, args) });
+command({ name: 'cm_FtpConnect', menuKey: true, label: 'FTP connect…', short: 'FTP', run: (app, args) => manager(app, args) });
+command({ name: 'cm_FtpNew', menuKey: true, label: 'New FTP connection…', run: (app, args) => quickConnect(app, args) });
 command({
-  name: 'cm_FtpDisconnect', label: 'Disconnect',
+  name: 'cm_FtpDisconnect', menuKey: true, label: 'Disconnect',
   run: (app, args = {}) => {
     const p = args.path ? { path: args.path } : remotePanel(app);
     if (!p) { app.flash('No panel shows a server.'); return false; }
@@ -670,7 +670,7 @@ command({
   },
 });
 command({
-  name: 'cm_FtpTransferMode', label: 'Transfer mode',
+  name: 'cm_FtpTransferMode', menuKey: true, label: 'Transfer mode',
   run: async (app, args = {}) => {
     const p = remotePanel(app, 'ftp');
     let mode;
