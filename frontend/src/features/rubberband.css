@@ -1,0 +1,3 @@
+/* Rubber-band selection (F-700, features/rubberband.js): the rectangle drawn in the file list's content. */
+.mc-rubberband { position: absolute; z-index: 3; pointer-events: none; border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); border-radius: 2px; }
+.mc-rubberband[hidden] { display: none; }

@@ -325,6 +325,14 @@ function install(p) {
   // the step of Shift+Left / Shift+Right (selection.js): a column in Brief, one tile in Thumbnails, a page otherwise
   // the step of Shift+Up / Shift+Down (selection.js): a row of tiles in Thumbnails, one entry otherwise (F-850)
   p.vertStep = () => (modeOf(p) === 'thumbs' ? thumbGeo(p).cols : 1);
+  // the boxes of the entries for rubber-band selection (features/rubberband.js, F-700); none in the tree view
+  p.bandGeo = () => {
+    const m = modeOf(p);
+    if (m === 'tree') return null;
+    if (m === 'brief') { const g = briefGeo(p); return { kind: 'brief', rows: g.rows, colW: g.colW, rowH: p.rowH }; }
+    if (m === 'thumbs') { const g = thumbGeo(p); return { kind: 'grid', cols: g.cols, tileW: g.tileW, tileH: g.tileH }; }
+    return { kind: 'rows', rowH: p.rowH, width: Math.max(p.$.list.scrollWidth, p.$.list.clientWidth) };
+  };
   p.sideStep = () => {
     const m = modeOf(p);
     if (m === 'brief') return briefGeo(p).rows;

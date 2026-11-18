@@ -7,6 +7,7 @@ version is changed only when a round of features is merged.
 ## Unreleased
 
 ### Added
+- Rubber-band selection: with Options > Drag & drop > "Rubber-band selection on empty space" on, dragging on the empty space of a file list selects the files in the rectangle (Full, Brief and Thumbnails). Off by default.
 - Thumbnails can show your own field lines under each picture (Configuration > Thumbnails, or Options > Thumbnails > Field lines), such as size, date or image dimensions. Empty keeps the view as before.
 - "Delete thumbnail cache…" is also in the Configuration menu.
 - Files menu: Split, Combine, Encode, Decode, Create/Verify checksums and Copy checksums to clipboard now show their key when you assign one.

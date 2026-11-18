@@ -469,6 +469,8 @@ type DragDropPage struct {
 	DragToOtherApp bool `ini:"Configuration:DragOut" def:"1" label:"Allow dragging to other programs"`
 	NativeDragOut  bool `ini:"Configuration:NativeDragOut" def:"0" label:"Drag files to other programs as real files (macOS, Windows)"`
 	ThresholdPx    int  `ini:"Configuration:DragThreshold" def:"4" min:"1" max:"100" label:"Drag start distance (pixels)"`
+	// RubberBand (F-700, ours): a left drag on the empty space of a file list selects the entries in a rectangle.
+	RubberBand bool `ini:"Configuration:RubberBand" def:"0" label:"Rubber-band selection on empty space"`
 }
 
 // TreePage (F-824).
