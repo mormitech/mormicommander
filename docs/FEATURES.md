@@ -962,12 +962,12 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 37. Context menus
 
-- [~] F-703 File context menu (shell menu on Windows; own menu on macOS/Linux) — Shift+F10 / right-click — items: Open, Open with, View, Edit, Copy, Cut, Paste, Rename, Delete, Pack, Properties, Copy path, Reveal in Finder/Explorer/file manager
-- [~] F-704 Background (empty area) context menu — — — New folder, New file, Paste, Refresh, Properties of folder
-- [~] F-705 Drive button context menu — — — Eject/unmount (removable), Properties
-- [ ] F-706 Tab context menu — — — see tabs
-- [ ] F-707 Header context menu — — — columns
-- [~] F-708 Shell extension items (Windows) — — — Windows shows the real Explorer context menu; macOS/Linux show our own menu with 'Open with'
+- [~] F-703 File context menu (shell menu on Windows; own menu on macOS/Linux) — Shift+F10 / right-click — items: Open, Open with, View, Edit, Copy, Cut, Paste, Rename, Delete, Pack, Properties, Copy path, Reveal in Finder/Explorer/file manager — audit #85: cm_ContextMenu (Shift+F10, Apps key, right-click) shows our own menu on every system (features/system-menus.js) with all these items plus Copy name, Note, Colour label, Split, Open terminal here; several files get Copy paths; tested in frontend/test/context-menus.test.js. The Windows Explorer shell menu is not used, see F-708
+- [~] F-704 Background (empty area) context menu — — — New folder, New file, Paste, Refresh, Properties of folder — audit #85: right-click on the empty list or ".." gives New folder, New file, Paste, Reread, Sort by, Open terminal here, reveal, Copy path, Map to drive bar, Folder properties (files, folders, size, volume, free space); tested
+- [~] F-705 Drive button context menu — — — Eject/unmount (removable), Properties — audit #85: Open, Open in the other panel, Eject (enabled for removable, network and optical volumes only), Properties (file system, device, size, used, free, with Eject button); mapped folders get Rename/Move/Remove; tested
+- [~] F-706 Tab context menu — — — see tabs — audit #85: right-click on a tab (or cm_TabMenu) lists Close, Close others, Lock, Locked with folder changes, Rename/lock, New, Duplicate, Copy/Move to other side, Reopen closed, Save/Load tabs, Favourite tabs, Folder tab settings (features/tabs.js)
+- [~] F-707 Header context menu — — — columns — audit #85: right-click on the column header lists Full and the custom column sets, a check per column to hide/show it (F-672), Fit/Equal/Default column widths (F-673) and Configure custom columns (features/views.js columnSetMenu)
+- [~] F-708 Shell extension items (Windows) — — — Windows shows the real Explorer context menu; macOS/Linux show our own menu with 'Open with' — audit #85: macOS/Linux part works (own menu, Open with lists the apps for the file, internal/launch/apps.go). Left open on Windows: showing the real Explorer menu needs COM (IShellFolder/IContextMenu, TrackPopupMenu on the Wails window's UI thread) with no cgo on Windows; it can't be built or tried safely without a Windows machine, so Windows shows our own menu (its Open with list is read from the registry the way Explorer builds it, internal/launch/apps_windows.go)
 
 ## 38. Drives, volumes and disk operations
 
