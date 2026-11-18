@@ -806,7 +806,7 @@ async function resultList(st) {
 // ---- the command ----
 
 command({
-  name: 'cm_MultiRenameFiles',
+  name: 'cm_MultiRenameFiles', menuKey: true,
   label: 'Multi-rename tool…',
   short: 'Rename',
   enabled: (app) => !app.cur?.path?.includes('://') || isBranchPath(app.cur.path),

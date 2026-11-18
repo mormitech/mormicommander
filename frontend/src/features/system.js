@@ -22,6 +22,7 @@ import { addControlCommand } from '../core/control.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { applyOptions } from './config/util.js';
+import { openAssociated } from './assoc.js';
 import { isLocal, baseName, dirName, logError, errorLog, onLog, runTransfer, focusIn } from './system-lib.js';
 import { createCutState } from './system-cut.js';
 import { Panel } from '../core/panel.js';
@@ -46,6 +47,7 @@ export function anchorFor(panel, args = {}) {
 async function openEntry(app, panel, e, path) {
   if (app.demo || e.broken || !isLocal(path)) return false;
   try {
+    if (await openAssociated(app, e, path, panel.path)) return true; // the user's internal associations first (F-323)
     const r = await go.SystemLaunch.Open(path, panel.path);
     if (r.kind === 'dir') { await panel.go(r.dir, { focus: r.focus || null }); return true; }
     app.flash(r.kind === 'started' ? `Started ${e.name}.` : `Opened ${e.name}.`);

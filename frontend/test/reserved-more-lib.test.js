@@ -1,7 +1,7 @@
 // Tests of reserved-more-lib.js (board issue #38, second slice): the separate tree commands mapped onto the panels'
 // tree view, the items of the in-window menu (F9, F10), the folder tree popup (Alt+F10) and the printed file list.
 import { expect, test } from 'vitest';
-import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, joinPath, folderItems, isoDate, groupDigits, fileListText } from '../src/features/reserved-more-lib.js';
+import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, joinPath, folderItems, isoDate, groupDigits, fileListText, subEntries } from '../src/features/reserved-more-lib.js';
 
 const S = (active, other) => ({ active, other });
 
@@ -119,4 +119,13 @@ test('fileListText lists the entries in panel order with a summary', () => {
   expect(lines.at(-2)).toBe('2 files (1 205 bytes), 1 folder');
   expect(text.endsWith('\n')).toBe(true);
   expect(fileListText({ path: '/e', entries: [], when: t }).split('\n').at(-2)).toBe('0 files (0 bytes), 0 folders');
+});
+
+test('subEntries turns a branch listing into printable entries, sorted by path (cm_PrintDirSub, F-334)', () => {
+  const list = subEntries({ entries: [['sub/b.txt', 5, 2, 0], ['..', 0, 0, 1], ['a.txt', 7, 1, 0], ['sub/deep', 0, 3, 1]] });
+  expect(list.map((e) => e.name)).toEqual(['a.txt', 'sub/b.txt', 'sub/deep']);
+  expect(list[0]).toEqual({ name: 'a.txt', size: 7, mtime: 1, dir: false });
+  expect(list[2].dir).toBe(true);
+  expect(subEntries(null)).toEqual([]);
+  expect(fileListText({ path: '/x', entries: list, when: 0 }).split('\n').at(-2)).toBe('2 files (12 bytes), 1 folder');
 });

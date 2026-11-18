@@ -178,6 +178,34 @@ func (s *SystemLaunch) Open(path, dir string) (SystemOpenResult, error) {
 	return SystemOpenResult{Kind: "opened"}, nil
 }
 
+// SystemAssocResult tells the page what an internal association did on Enter (F-323): Handled false means none
+// matched and the page opens the file as usual; Internal names a cm_* command (with Args) for the page to run.
+type SystemAssocResult struct {
+	Handled  bool   `json:"handled"`
+	Internal string `json:"internal"`
+	Args     string `json:"args"`
+}
+
+// OpenInternal applies the user's internal associations (Files > Internal associations, setting
+// "internalAssociations": one "mask = command" per line) to Enter on path, before the system default. With no
+// association set or none matching, nothing happens and Handled is false, so Enter works as it always did.
+func (s *SystemLaunch) OpenInternal(path, dir string) (SystemAssocResult, error) {
+	if s.app.mock != nil || s.app.settings == nil {
+		return SystemAssocResult{}, nil
+	}
+	text, _ := s.app.settings.Get("internalAssociations").(string)
+	if strings.TrimSpace(text) == "" {
+		return SystemAssocResult{}, nil
+	}
+	a := launch.ParseAssociationLines(text)
+	ctx := launch.ParamContext{File: path, Source: launch.Panel{Dir: systemStartDir(dir), Current: filepath.Base(path)}}
+	r, err := s.launcher().OpenAssociated(a, launch.VerbOpen, ctx)
+	if err != nil {
+		return SystemAssocResult{}, systemErr("open", path, err)
+	}
+	return SystemAssocResult{Handled: r.Handled, Internal: r.Internal, Args: r.Args}, nil
+}
+
 // follow does what a shortcut file points to. ok is false when the file is no shortcut after all (then it is opened
 // like any other file).
 func (s *SystemLaunch) follow(path string) (SystemOpenResult, error, bool) {

@@ -1280,7 +1280,7 @@ export async function setTreeView(p, on) {
   return toggleTree(p);
 }
 
-command({ name: 'cm_EditComment', label: 'Edit comment…', run: editComment });
+command({ name: 'cm_EditComment', menuKey: true, label: 'Edit comment…', run: editComment });
 command({
   name: 'cm_SwitchDirSort', label: 'Sort folders always by name', checked: (app) => !app.setting('dirsLikeFiles', false), menu: 'Show', menuAfter: 'cm_SrcNegOrder',
   run: async (app) => { await app.setSetting('dirsLikeFiles', !app.setting('dirsLikeFiles', false)); for (const p of app.panels) { p.rebuild(); app.panelChanged(p, { moved: false }); } },

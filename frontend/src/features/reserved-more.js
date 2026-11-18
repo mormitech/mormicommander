@@ -13,7 +13,7 @@ import { formDialog, messageDialog, esc } from '../core/dialogs.js';
 import { menuSpec } from '../core/menus.js';
 import { F } from '../core/format.js';
 import { inTreeView, setTreeView } from './views.js';
-import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, folderItems, fileListText } from './reserved-more-lib.js';
+import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, folderItems, fileListText, subEntries } from './reserved-more-lib.js';
 
 const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 
@@ -130,12 +130,22 @@ async function printFile(app) {
 command({ name: 'cm_PrintFile', label: 'Print file', run: (app) => printFile(app) });
 
 // printDir shows the file list of the active panel (the files it shows, in its order, with the filter that is on) as
-// plain text, and prints it when the user presses Print. Plain text is what every system's print path accepts.
-async function printDir(app) {
+// plain text, and prints it when the user presses Print. Plain text is what every system's print path accepts. With
+// sub (cm_PrintDirSub, F-334) it lists every file of the folder and its subfolders instead, named by their path below
+// the folder, read through the branch view's listing (feature_branch.go).
+async function printDir(app, { sub = false } = {}) {
   const p = app.cur;
   if (!p?.path) return false;
-  const text = fileListText({ path: p.path, entries: p.entries, filter: p.filterLabel || '' });
-  const ok = await formDialog('Print file list', `<p class="mc-note">${esc(printerNote(app))}</p><pre class="mc-print-preview" tabindex="0">${esc(text)}</pre>`,
+  let entries = p.entries, filter = p.filterLabel || '';
+  if (sub) {
+    if (isRemote(p.path)) { app.flash('The file list with subfolders works only for folders on this computer.', 'err'); return false; }
+    let l;
+    try { l = await go.FS.List('print-dir-sub', `branch://${p.path}`); } catch (err) { app.flash(errText(err), 'err'); return false; }
+    entries = subEntries(l);
+    filter = '';
+  }
+  const text = fileListText({ path: p.path, entries, filter });
+  const ok = await formDialog(sub ? 'Print file list with subfolders' : 'Print file list', `<p class="mc-note">${esc(printerNote(app))}</p><pre class="mc-print-preview" tabindex="0">${esc(text)}</pre>`,
     () => true, null, { okLabel: 'Print', kind: 'print-dir' });
   if (!ok) return false;
   try { await go.SystemLaunch.PrintText(`File list ${p.path}`, text); } catch (err) { app.flash(errText(err), 'err'); return false; }
@@ -143,3 +153,4 @@ async function printDir(app) {
   return true;
 }
 command({ name: 'cm_PrintDir', label: 'Print file list…', run: (app) => printDir(app) });
+command({ name: 'cm_PrintDirSub', label: 'Print file list with subfolders…', run: (app) => printDir(app, { sub: true }) });

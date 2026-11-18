@@ -10,7 +10,7 @@ import { syncSplitter, applySplit } from '../core/splitter.js';
 const SITE = 'https://github.com/mormitech/mormicommander';
 
 command({
-  name: 'cm_Exit', label: 'Quit',
+  name: 'cm_Exit', menuKey: true, label: 'Quit',
   run: async (app) => {
     const busy = await go.Jobs.Running().catch(() => false);
     if (busy) {

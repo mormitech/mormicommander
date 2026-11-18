@@ -255,3 +255,24 @@ func (l *Launcher) OpenAssociated(a *Associations, verb string, ctx ParamContext
 	}
 	return Result{Handled: true}, nil
 }
+
+// ParseAssociationLines reads the short form the Internal associations dialog keeps (cm_InternalAssociate): one
+// association per line, "mask list = command", for Enter (the open verb). Empty lines and lines starting with "#" or
+// ";" are skipped, as are lines without "=" or with an empty mask or command. The mask list is split at the first
+// "=", so the command may hold "=" itself.
+func ParseAssociationLines(text string) *Associations {
+	a := &Associations{}
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, ";") {
+			continue
+		}
+		mask, command, ok := strings.Cut(line, "=")
+		mask, command = strings.TrimSpace(mask), strings.TrimSpace(command)
+		if !ok || mask == "" || command == "" {
+			continue
+		}
+		a.List = append(a.List, Association{Mask: mask, Verbs: []VerbLine{{Verb: VerbOpen, Command: command}}})
+	}
+	return a
+}

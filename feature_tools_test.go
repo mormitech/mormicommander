@@ -218,3 +218,28 @@ func TestToolsSetAttrs(t *testing.T) {
 		t.Fatal("an empty change should say so")
 	}
 }
+
+// TestToolsSetAttrsDateFromName: Change attributes can take each file's modified date from a date in its name
+// (F-340, issue #60); files without one, and folders, keep their date.
+func TestToolsSetAttrsDateFromName(t *testing.T) {
+	dir := t.TempDir()
+	named := filepath.Join(dir, "IMG_20210304_101112.jpg")
+	plain := filepath.Join(dir, "notes.txt")
+	toolsWrite(t, named, []byte("x"))
+	toolsWrite(t, plain, []byte("y"))
+	before, _ := os.Stat(plain)
+	tl := newTestTools()
+	res, err := tl.SetAttrs("a1", ToolsAttrRequest{Paths: []string{named, plain, dir}, ModifiedFrom: "name"})
+	if err != nil || res.Changed != 1 || len(res.Failed) != 0 {
+		t.Fatalf("set attrs: %+v %v", res, err)
+	}
+	if fi, _ := os.Stat(named); !fi.ModTime().Equal(time.Date(2021, 3, 4, 10, 11, 12, 0, time.Local)) {
+		t.Errorf("named file time %v", fi.ModTime())
+	}
+	if fi, _ := os.Stat(plain); !fi.ModTime().Equal(before.ModTime()) {
+		t.Errorf("a file without a date in its name changed: %v", fi.ModTime())
+	}
+	if toolsDateFrom("") != nil || toolsDateFrom("bogus") != nil {
+		t.Error("an unknown source must be off")
+	}
+}

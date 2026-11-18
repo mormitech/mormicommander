@@ -145,7 +145,7 @@ export const DENIED_COMMANDS = {
   cm_Edit: 'it runs the editor', cm_EditNewFile: 'it creates a file and runs the editor', cm_EditComment: 'it edits file comments',
   cm_Enter: 'on a file it opens the file with its program; use open_folder to open a folder',
   cm_EnterDir: 'on a file it opens the file with its program; use open_folder to open a folder',
-  cm_OpenWith: 'it runs a program', cm_ExecuteDOS: 'it opens a terminal', cm_ExecuteCmdLine: 'it runs the command line',
+  cm_OpenWith: 'it runs a program', cm_InternalAssociate: 'it changes which program opens a file', cm_ExecuteDOS: 'it opens a terminal', cm_ExecuteCmdLine: 'it runs the command line',
   cm_RunKeepOpen: 'it runs a program in a terminal', cm_Exit: 'it quits mormiCommander',
   cm_Config: 'use list_settings, get_setting and set_setting', cm_ConfigChangeIniFiles: 'it opens the settings file in an editor',
   cm_PasteFromClipboard: 'pasting copies or moves files', cm_CutToClipboard: 'cutting moves files when pasted',

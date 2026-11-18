@@ -3,6 +3,8 @@
 // in-window menu (F9, F10), the items of the folder tree popup (Alt+F10) and the text of a printed file list. No DOM
 // and no Go here, so vitest can test them.
 
+import { F } from '../core/format.js';
+
 // ---- separate tree (Show > Separate tree, Ctrl+Shift+F8) ----
 
 // Total Commander's separate tree is a pane of its own beside the file panels. This app has no such pane; it has the
@@ -109,6 +111,15 @@ export function groupDigits(n) {
 // fileListText is the printed file list of a folder: a heading with the folder and the time, one line per entry
 // (name, size or <DIR>, date) in the order the panel shows them, and a summary line. entries are panel entries
 // ({name, dir, size, mtime, up}); ".." is left out. A long name pushes its line wider rather than being cut.
+// subEntries turns a branch view listing ({entries: [[name, size, mtime, flags], ...]}) into the entries fileListText
+// prints, sorted by their path below the folder (cm_PrintDirSub).
+export function subEntries(listing) {
+  return (listing?.entries || [])
+    .map(([name, size, mtime, flags]) => ({ name: String(name), size, mtime, dir: !!(flags & F.DIR) }))
+    .filter((e) => e.name !== '..')
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
 export function fileListText({ path, entries, when = Date.now(), filter = '' }) {
   const list = (Array.isArray(entries) ? entries : []).filter((e) => e && !e.up);
   const sizeText = (e) => (e.dir ? (e.dirSize != null ? groupDigits(e.dirSize) : '<DIR>') : groupDigits(e.size));

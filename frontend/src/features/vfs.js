@@ -315,12 +315,12 @@ async function pack(app, args = {}) {
   return final.state === 'done';
 }
 
-command({ name: 'cm_PackFiles', label: 'Pack…', short: 'Pack', run: (app, args) => pack(app, args) });
+command({ name: 'cm_PackFiles', menuKey: true, label: 'Pack…', short: 'Pack', run: (app, args) => pack(app, args) });
 command({ name: 'cm_PackFilesMove', label: 'Pack and delete…', run: (app, args) => pack(app, { ...args, move: true }) });
 
 // ---- Unpack (Alt+F9) ----
 command({
-  name: 'cm_UnpackFiles', label: 'Unpack…', short: 'Unpack',
+  name: 'cm_UnpackFiles', menuKey: true, label: 'Unpack…', short: 'Unpack',
   run: async (app, args = {}) => {
     const p = app.cur;
     const items = p.targets().filter((e) => !e.dir);
@@ -356,7 +356,7 @@ command({
 
 // ---- Test archives (Alt+Shift+F9) ----
 command({
-  name: 'cm_TestArchive', label: 'Test archives',
+  name: 'cm_TestArchive', menuKey: true, label: 'Test archives',
   run: async (app) => {
     const p = app.cur;
     const items = p.targets().filter((e) => !e.dir);

@@ -10,6 +10,12 @@ version is changed only when a round of features is merged.
 
 - The Commands menu lists Command line history, Path to command line, Name to command line and Path and name to
   command line, with their keys (Alt+F8, Ctrl+P, Ctrl+Enter, Ctrl+Shift+Enter).
+- Files > Internal associations…: map file masks to a program or an internal command, one "mask = command" per line;
+  Enter on a matching file uses it instead of the system's app. Empty by default, so Enter works as before.
+- Change attributes can set each file's modified date from its EXIF date (photos) or from a date in its name.
+- Files > Print file list with subfolders… prints every file below the folder.
+- The Files menu shows the keys of Pack, Unpack, Test archives, Properties, Calculate occupied space, Multi-rename
+  tool, Edit comment and Quit.
 
 ## 0.14.30 – 2026-11-18
 

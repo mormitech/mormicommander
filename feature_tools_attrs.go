@@ -10,10 +10,12 @@ import (
 	"errors"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"runtime"
 	"time"
 
 	"mormicommander/internal/attrs"
+	lst "mormicommander/internal/listing"
 )
 
 // ToolsBit is one three-state checkbox of the attributes dialog.
@@ -76,6 +78,9 @@ type ToolsAttrRequest struct {
 	Modified  ToolsTime `json:"modified"`
 	Accessed  ToolsTime `json:"accessed"`
 	Created   ToolsTime `json:"created"`
+	// ModifiedFrom takes each file's modification date from its contents (F-340): "exif" the EXIF date of a photo,
+	// "name" a date written in the file name. Files without one keep the Modified setting; "" is off.
+	ModifiedFrom string `json:"modifiedFrom"`
 }
 
 // ToolsFailure is one file a tool could not handle.
@@ -167,6 +172,31 @@ func toolsTimeValue(v ToolsTime) attrs.TimeValue {
 	return attrs.TimeValue{}
 }
 
+// toolsDateFrom gives the per-file modification date for ModifiedFrom, or nil when it is off. Only regular files
+// have one; folders and other entries keep the Modified setting.
+func toolsDateFrom(from string) func(attrs.Info) (time.Time, bool) {
+	var get func(attrs.Info) (time.Time, bool)
+	switch from {
+	case "exif":
+		get = func(info attrs.Info) (time.Time, bool) {
+			it := lst.Item{Name: filepath.Base(info.Path), Dir: filepath.Dir(info.Path), Size: info.Size, ModTime: info.Modified, Mode: info.Mode}
+			lst.LoadImageFacts(&it)
+			t, ok := it.Extra[lst.ExtraExifDate].(time.Time)
+			return t, ok && !t.IsZero()
+		}
+	case "name":
+		get = func(info attrs.Info) (time.Time, bool) { return attrs.DateFromName(filepath.Base(info.Path)) }
+	default:
+		return nil
+	}
+	return func(info attrs.Info) (time.Time, bool) {
+		if info.Kind != attrs.KindFile {
+			return time.Time{}, false
+		}
+		return get(info)
+	}
+}
+
 // SetAttrs changes attributes, permissions, owner and dates of the selection (and, with Recursive, of everything in
 // the selected folders). It goes on after single failures and reports them.
 func (t *Tools) SetAttrs(id string, r ToolsAttrRequest) (ToolsAttrResult, error) {
@@ -183,6 +213,7 @@ func (t *Tools) SetAttrs(id string, r ToolsAttrRequest) (ToolsAttrResult, error)
 			Modified: toolsTimeValue(r.Modified), Accessed: toolsTimeValue(r.Accessed), Created: toolsTimeValue(r.Created),
 		},
 	}
+	req.Times.Func = toolsDateFrom(r.ModifiedFrom)
 	switch r.ApplyTo {
 	case "files":
 		req.ApplyTo = attrs.FilesOnly

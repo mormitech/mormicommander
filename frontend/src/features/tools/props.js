@@ -213,7 +213,7 @@ async function showMany(app, paths, entries) {
 }
 
 command({
-  name: 'cm_Properties', label: 'Properties…',
+  name: 'cm_Properties', menuKey: true, label: 'Properties…',
   enabled: (app) => !app.demo,
   run: async (app) => {
     if (!needLocal(app)) return;

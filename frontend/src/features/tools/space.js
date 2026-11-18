@@ -88,7 +88,7 @@ command({
 });
 
 command({
-  name: 'cm_GetFileSpace', label: 'Calculate occupied space…',
+  name: 'cm_GetFileSpace', menuKey: true, label: 'Calculate occupied space…',
   run: async (app) => {
     if (!needLocal(app)) return;
     const { panel: p, entries, paths } = targets(app);

@@ -21,7 +21,7 @@ export const MENUS = [
     ['Split file…', 'cm_FileSplit'], ['Combine files…', 'cm_FileCombine'], ['Encode file…', 'cm_UUEncode'], ['Decode file…', 'cm_UUDecode'],
     ['Create checksum files…', 'cm_CRCCreate'], ['Verify checksums…', 'cm_CRCCheck'], '-',
     ['Create symbolic link…', 'cm_CreateSymbolicLink'], ['Create hard link…', 'cm_CreateHardLink'], ['Wipe…', 'cm_Wipe'], '-',
-    ['Print file list…', 'cm_PrintDir'], '-', ['Quit', 'cm_Exit'],
+    ['Print file list…', 'cm_PrintDir'], ['Print file list with subfolders…', 'cm_PrintDirSub'], '-', ['Quit', 'cm_Exit'],
   ]],
   ['Mark', [
     ['Select group…', 'cm_SpreadSelection'], ['Unselect group…', 'cm_ShrinkSelection'], ['Select all', 'cm_SelectAll'], ['Unselect all', 'cm_ClearAll'],

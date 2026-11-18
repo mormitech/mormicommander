@@ -183,3 +183,25 @@ func TestOpenAssociated(t *testing.T) {
 	}
 	sameCmd(t, rec.last(t), Command{Path: "vim", Args: []string{"/d/pic.jpg"}, Dir: "/d"})
 }
+
+func TestParseAssociationLines(t *testing.T) {
+	a := ParseAssociationLines("# text files\n*.txt *.md = code --wait \"%1\"\n\n; skipped\nno equals sign\n = cm_List\n*.log =\n*.ini = cm_List /T=1\r\n")
+	if len(a.List) != 2 {
+		t.Fatalf("got %d associations, want 2: %+v", len(a.List), a.List)
+	}
+	if c, ok := a.Lookup("Notes.MD", false, VerbOpen); !ok || c != `code --wait "%1"` {
+		t.Errorf("md = %q, %v", c, ok)
+	}
+	if c, _ := a.Lookup("x.ini", false, VerbOpen); c != "cm_List /T=1" {
+		t.Errorf("ini = %q", c)
+	}
+	if _, ok := a.Lookup("x.log", false, VerbOpen); ok {
+		t.Error("a line without a command must be skipped")
+	}
+	if _, ok := a.Lookup("x.txt", false, VerbView); ok {
+		t.Error("the short form only sets the open verb")
+	}
+	if n := len(ParseAssociationLines("").List); n != 0 {
+		t.Errorf("empty text gave %d associations", n)
+	}
+}

@@ -1,4 +1,4 @@
-// Change attributes (cm_SetAttrib, F-194, F-315, F-316, F-338, F-683, F-684, F-685): Total Commander's dialog with
+// Change attributes (cm_SetAttrib, F-194, F-315, F-316, F-338, F-340, F-683, F-684, F-685): Total Commander's dialog with
 // three-state boxes (checked = set, unchecked = clear, grey = leave alone), "Process subfolders", date and time with a
 // "Now" button, over internal/attrs (Tools.AttrInfo / Tools.SetAttrs). On Windows the box group is the attributes
 // (read only, archive, hidden, system); on macOS and Linux it is the rwx grid with the octal field and the special
@@ -109,12 +109,13 @@ command({
       ${st.createdTime ? dateRow('created', 'Created', dateFor(st.created, st.createdMixed), st.createdMixed) : ''}
       ${dateRow('accessed', 'Accessed', dateFor(st.accessed, st.accessedMixed), st.accessedMixed)}
       <div class="mc-btns mc-tools-left"><button type="button" class="mc-tools-other" title="Copy the date of the file under the cursor in the other panel">Date from other panel</button></div>
+      <div class="mc-row"><label for="dateFrom">Modified date of each file from</label><select id="dateFrom"><option value="">(the date above)</option><option value="exif">its EXIF date (photos)</option><option value="name">a date in its name</option></select></div>
       </fieldset>`;
 
     const req = await formDialog(paths.length === 1 ? `Change attributes of ${entries[0].name}` : 'Change attributes', html, (box) => {
       const q = (s) => box.querySelector(s);
       const r = { paths, recursive: !!q('#recursive')?.checked, applyTo: '', mask: '', permSet: 0, permClear: 0, attrSet: 0, attrClear: 0,
-        owner: '', group: '', modified: { mode: '' }, accessed: { mode: '' }, created: { mode: '' } };
+        owner: '', group: '', modified: { mode: '' }, accessed: { mode: '' }, created: { mode: '' }, modifiedFrom: '' };
       if (r.recursive) { r.applyTo = q('#applyTo').value; r.mask = q('#mask').value.trim(); }
       // A box counts when the user changed it. With "Process subfolders", a box clicked back to its start value
       // still counts: it means "make everything inside like this", and files deep inside may differ.
@@ -136,6 +137,9 @@ command({
         r[k] = { mode: 'set', at: ms };
         changed = true;
       }
+      // F-340: each file's own date (EXIF, or a date in its name); files without one keep the Modified setting
+      const from = q('#dateFrom')?.value || '';
+      if (from) { r.modifiedFrom = from; changed = true; }
       if (!changed) return { nothing: true };
       return r;
     }, (box) => {

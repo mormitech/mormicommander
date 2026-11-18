@@ -345,3 +345,32 @@ func TestSystemSamePaths(t *testing.T) {
 		}
 	}
 }
+
+// TestSystemOpenInternal: Enter uses the user's internal associations (F-323, issue #60) before the system default;
+// with none set, or none matching, nothing is started and Enter opens the file as before.
+func TestSystemOpenInternal(t *testing.T) {
+	dir := t.TempDir()
+	doc := filepath.Join(dir, "notes.zz")
+	os.WriteFile(doc, []byte("x"), 0o644)
+	a := NewApp(startOpts{})
+	a.settings = loadSettings(filepath.Join(dir, "settings.json"))
+	s, got := recordingLaunch(a)
+
+	if r, err := s.OpenInternal(doc, dir); err != nil || r.Handled || len(*got) != 0 {
+		t.Fatalf("no associations: %+v %v %v", r, err, *got)
+	}
+	a.settings.put("internalAssociations", "*.yy = cm_List\n*.zz = myeditor -n \"%1\"\n*.ini = cm_List /T")
+	r, err := s.OpenInternal(doc, dir)
+	if err != nil || !r.Handled || r.Internal != "" || len(*got) != 1 {
+		t.Fatalf("program: %+v %v %v", r, err, *got)
+	}
+	if c := (*got)[0]; !strings.Contains(c.String(), "myeditor") || !strings.Contains(c.String(), doc) {
+		t.Errorf("command %q", c.String())
+	}
+	if r, _ := s.OpenInternal(filepath.Join(dir, "a.ini"), dir); !r.Handled || r.Internal != "cm_List" || r.Args != "/T" {
+		t.Errorf("internal: %+v", r)
+	}
+	if r, _ := s.OpenInternal(filepath.Join(dir, "a.txt"), dir); r.Handled {
+		t.Errorf("no match must fall back: %+v", r)
+	}
+}
