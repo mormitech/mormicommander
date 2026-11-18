@@ -11,7 +11,9 @@ show the keys as they are set, including your changes.
 2. **macOS also has the usual Cmd keys**: Cmd+C / Cmd+X / Cmd+V copy, cut and paste files, Cmd+A select all, Cmd+T and
    Cmd+W tabs, Cmd+Q quit, Cmd+, options, Cmd+Backspace delete to the Trash, Cmd+Shift+. hidden files, Cmd+R reread,
    Cmd+Up parent folder, Cmd+Down open, Cmd+I properties, Cmd+L or Cmd+Shift+G type a path, Cmd+F find files, Cmd+[ and
-   Cmd+] back and forward. They run the same commands as the TC keys, which keep working too.
+   Cmd+] back and forward. They run the same commands as the TC keys, which keep working too. Cmd+Z in the file panel
+   takes back the last file operation; in text fields and the command line it undoes typing as usual. The Cmd keys
+   do not exist on Windows and Linux.
 3. **Keys are matched by where they are, not by what they type**, so Option+letter on a Mac (which types a special
    character) and other layouts such as Hungarian still work. On European keyboards Ctrl+< (the key next to the left
    Shift, í on a Hungarian keyboard) goes to the root, like Ctrl+\\. AltGr (on Windows and Linux) types characters and is
@@ -24,7 +26,8 @@ show the keys as they are set, including your changes.
 5. **Function keys on a Mac laptop** need fn (fn+F5), unless "Use F1, F2, etc. keys as standard function keys" is on in
    System Settings > Keyboard.
 6. **No numpad, no Ins key:** Space selects like Ins; Shift+= / Shift+- / Shift+8 work as Num+ / Num- / Num* (select
-   group, unselect group, invert selection) while the command line is empty.
+   group, unselect group, invert selection) while the command line is empty. They do whatever Num+ / Num- / Num* are
+   set to; binding Shift+= (or the others) to a command of its own replaces the stand-in.
 7. **Changing keys:** settings.json has a "keymap" object, for example `{"Ctrl+K": "cm_Copy", "F2": ""}` ("" takes a key
    away). Configuration > Keyboard shortcuts will edit it; "Restore defaults" brings back the TC keys.
 
