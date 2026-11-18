@@ -12,8 +12,8 @@
 // While dragging, the list scrolls near its top and bottom edge (F-701) and, with the setting "springLoaded", a folder
 // opens after hovering over it ("springDelay" ms, default 1000; F-702).
 //
-// With the setting "nativeDragOut" (off by default, macOS only so far; board issue #108) a drag from a local panel is
-// handed to the system instead, so Finder and other apps get real files (system-dragout.js, SystemDrag in Go); its drop
+// With the setting "nativeDragOut" (off by default, macOS and Windows; board issue #108) a drag from a local panel is
+// handed to the system instead, so Finder, Explorer and other apps get real files (system-dragout.js, SystemDrag in Go); its drop
 // back inside the window arrives as a file drop and is treated like an HTML drop of our own.
 //
 // HTML drag events can't be made by control mode, so it has "drop" and "filedrop" commands that do what a drop does.

@@ -16,6 +16,9 @@ version is changed only when a round of features is merged.
 - Files > Print file list with subfolders… prints every file below the folder.
 - The Files menu shows the keys of Pack, Unpack, Test archives, Properties, Calculate occupied space, Multi-rename
   tool, Edit comment and Quit.
+- Real file drag-out on Windows too (#108): with Options > Drag & drop > "Drag files to other programs as real files
+  (macOS, Windows)" on, files dragged out of a panel drop into Explorer and other programs as real files (copied). Off
+  by default, as before.
 
 ## 0.14.30 – 2026-11-18
 

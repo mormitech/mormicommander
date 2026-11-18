@@ -4,12 +4,13 @@ package main
 // files to other programs only as file URLs and paths in text. With the option "Drag files out as real files"
 // (settings key "nativeDragOut", Options > Drag & drop, off by default) the page hands the drag to the system instead:
 // SystemDrag.Start begins a native drag of the files from the main window, so Finder and other apps get real files.
-// Finder copies them (the drag never offers a move to other programs, so no file leaves its panel by surprise); inside
-// the window the drop comes back as a file drop with the paths, and the page does with it what an HTML drop would
-// (frontend/src/features/system-dnd.js), with the modifier keys read from SystemDrag.Modifiers.
+// Finder and Explorer copy them (the drag never offers a move to other programs, so no file leaves its panel by
+// surprise); inside the window the drop comes back as a file drop with the paths, and the page does with it what an
+// HTML drop would (frontend/src/features/system-dnd.js), with the modifier keys read from SystemDrag.Modifiers.
 //
-// Only macOS has the native drag so far (feature_system_dragout_darwin.go); elsewhere Supported answers false and the
-// page keeps the HTML drag.
+// macOS (feature_system_dragout_darwin.go) and Windows (feature_system_dragout_windows.go) have the native drag; on
+// Linux Supported answers false and the page keeps the HTML drag (file URLs as text/uri-list, which file managers
+// there take as files).
 
 import (
 	"errors"
@@ -116,6 +117,42 @@ const (
 	dragOpMove    = 16
 	dragOpDelete  = 32
 )
+
+// The effects of a finished drag, as Windows reports them (DROPEFFECT).
+const (
+	dropEffectCopy = 1
+	dropEffectMove = 2
+	dropEffectLink = 4
+)
+
+// dragOpFromDropEffect turns the DROPEFFECT a Windows drop reports into the operation bits dragEnded expects (the
+// macOS NSDragOperation values that dragOpName reads).
+func dragOpFromDropEffect(e uint32) int {
+	switch {
+	case e&dropEffectMove != 0:
+		return dragOpMove
+	case e&dropEffectCopy != 0:
+		return dragOpCopy
+	case e&dropEffectLink != 0:
+		return dragOpLink
+	}
+	return 0
+}
+
+// commonDir is the folder all the paths are in, and whether there is one (the Windows drag gives the files relative
+// to it, as Explorer does).
+func commonDir(paths []string) (string, bool) {
+	if len(paths) == 0 {
+		return "", false
+	}
+	dir := filepath.Dir(paths[0])
+	for _, p := range paths[1:] {
+		if filepath.Dir(p) != dir {
+			return "", false
+		}
+	}
+	return dir, true
+}
 
 // dragOpName names what a finished drag did. The drop target picks one operation; "generic" is the target's own
 // choice, which Finder uses for a move.

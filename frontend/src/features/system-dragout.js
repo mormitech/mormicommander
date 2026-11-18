@@ -1,7 +1,7 @@
 // The page's half of real file drag-out (board issue #108), kept free of the DOM and of Go so the tests can run it.
 // With the setting "nativeDragOut" (Options > Drag & drop, off by default) a drag that starts in a local panel is
-// handed to the system (Go's SystemDrag, feature_system_dragout.go) instead of being an HTML drag, so Finder gets real
-// files. A drop of those files back inside the window then comes in as a file drop from the system, with the paths;
+// handed to the system (Go's SystemDrag, feature_system_dragout.go) instead of being an HTML drag, so Finder and
+// Explorer get real files. A drop of those files back inside the window then comes in as a file drop from the system, with the paths;
 // ownNativeDrop tells such a drop apart from files dragged in from another app, so system-dnd.js can treat it like
 // one of its own HTML drops (target checks, copy / move / link from the modifier keys) and not as a Finder drop.
 

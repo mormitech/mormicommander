@@ -100,3 +100,28 @@ func TestDragEndedOnce(t *testing.T) {
 		t.Errorf("ends seen = %v", got)
 	}
 }
+
+func TestDragOpFromDropEffect(t *testing.T) {
+	for e, want := range map[uint32]string{
+		0: "none", dropEffectCopy: "copy", dropEffectMove: "move", dropEffectLink: "link",
+		dropEffectCopy | dropEffectLink: "copy", 0x80000000: "none",
+	} {
+		if got := dragOpName(dragOpFromDropEffect(e)); got != want {
+			t.Errorf("drop effect %#x = %q, want %q", e, got, want)
+		}
+	}
+}
+
+func TestCommonDir(t *testing.T) {
+	dir := filepath.Join(t.TempDir(), "d")
+	a, b := filepath.Join(dir, "a"), filepath.Join(dir, "b")
+	if got, ok := commonDir([]string{a, b}); !ok || got != dir {
+		t.Errorf("commonDir(a, b) = %q, %v", got, ok)
+	}
+	if _, ok := commonDir([]string{a, filepath.Join(a, "c")}); ok {
+		t.Error("files of two folders have a common folder")
+	}
+	if _, ok := commonDir(nil); ok {
+		t.Error("no files have a common folder")
+	}
+}

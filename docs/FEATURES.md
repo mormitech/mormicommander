@@ -950,7 +950,7 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 ## 36. Drag and drop
 
 - [~] F-694 Drag between panels — — — copy with confirmation; Shift = move; Ctrl+Shift/Alt = link (TC rules), right-drag = menu
-- [~] F-695 Drag to/from Finder/Explorer/other apps — — — files dropped from OS file manager into a panel are copied there; dragging from panel to OS app delivers file paths
+- [~] F-695 Drag to/from Finder/Explorer/other apps — — — files dropped from OS file manager into a panel are copied there; dragging from panel to OS app delivers file paths — #108: with Options > Drag & drop > "Drag files to other programs as real files (macOS, Windows)" (off by default) a drag out of a local panel is a native file drag (AppKit on macOS, shell SHDoDragDrop with CF_HDROP on Windows), so Finder / Explorer copy real files; Linux keeps the HTML drag (text/uri-list); not yet from archives or servers; the Windows path is untested on a real machine
 - [~] F-696 Drag onto folder in list — — — drops into that folder
 - [~] F-697 Drag onto drive button / tab / path bar segment — — — drops into that location
 - [~] F-698 Drag onto button bar — — — adds button / passes files to program — audit #103: built through F-306/F-307: dropping a file on the button bar adds a button, dropping files on a button runs it with them (features/config/buttonbar.js); waiting for QA

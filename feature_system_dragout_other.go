@@ -1,7 +1,7 @@
-//go:build !darwin
+//go:build !darwin && !windows
 
-// Native file drags are only made on macOS so far (feature_system_dragout_darwin.go). On Windows and Linux the page
-// keeps its HTML drag, which carries file URLs and paths as text.
+// Native file drags are made on macOS and Windows (feature_system_dragout_darwin.go, _windows.go). On Linux the page
+// keeps its HTML drag, which carries file URLs (text/uri-list) and paths as text.
 package main
 
 import "github.com/wailsapp/wails/v3/pkg/application"
