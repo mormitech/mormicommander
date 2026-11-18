@@ -761,15 +761,15 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 26. Compare by content (file compare tool)
 
-- [ ] F-556 Compare two files (text) — — — side-by-side view with differences highlighted, line by line
-- [ ] F-557 Compare binary files — — — hex mode shows differing bytes
-- [ ] F-558 Next/previous difference navigation — — — buttons/keys jump between differences
-- [ ] F-559 Edit mode and save in compare tool — — — lines can be edited and copied left/right and saved
-- [ ] F-560 Ignore case / whitespace / repeated lines options — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-561 Compare files from two panels with same name automatically — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-562 Compare folders recursively by content (Sync) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-563 External diff tool option — — — user can set external compare program
-- [ ] F-839 Compare tool: line numbers, synced scrolling, encoding choice — — — both sides scroll together; encoding menu redisplays text
+- [~] F-556 Compare two files (text) — — — side-by-side view with differences highlighted, line by line — audit #74: Files > Compare by content (cm_CompareFilesByContent, shows its key when one is set) opens the two files side by side, changed lines coloured and the changed words marked; identical files are reported first with "Show anyway" (internal/compare, feature_cmpfiles.go; TestBuildRows, TestInlineDiff, TestCompareFilesEditAndSave, comparefiles.test.js)
+- [~] F-557 Compare binary files — — — hex mode shows differing bytes — audit #74: Binary checkbox (Ctrl+B), and non-text or too-big files switch to it on their own with a note: offset, hex and characters per side, differing bytes marked, count and size difference in the status line (TestCompareBinary, TestCompareFilesEditAndSave)
+- [~] F-558 Next/previous difference navigation — — — buttons/keys jump between differences — audit #74: Next / Previous difference buttons, F8 / Ctrl+Down and Shift+F8 / Ctrl+Up; the window opens on the first difference and the status says "Difference n of m" (comparefiles.test.js)
+- [~] F-559 Edit mode and save in compare tool — — — lines can be edited and copied left/right and saved — audit #74: Edit (Ctrl+E), Enter/double-click edits a line, Ctrl+Delete deletes it, Copy to left/right (Alt+Left/Right), undo/redo, Save left/right (Ctrl+S), unsaved changes are asked about on close (TestSessionCopyBlocks, TestSessionLineEdits, TestCompareFilesEditAndSave, TestSaveKeepsHardLinks)
+- [~] F-560 Ignore case / whitespace / repeated lines options — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #74: the compare window has no menu; its toolbar has Ignore case, Blanks (compare / ignore repeated / ignore all) and Ignore repeated lines, each recompares in Go and is remembered for the next window (TestSessionOptionsAndRows, TestNormalizeLine, TestBuildRowsRepeatedFold, comparefiles.test.js)
+- [~] F-561 Compare files from two panels with same name automatically — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #74: cm_CompareFilesByContent from the menu, a key or the button bar picks two selected files, one selected in each panel, or the file under the cursor and the file of the same name in the other panel (case-insensitive on macOS/Windows), else the other cursor file (pickPair, comparefiles.test.js)
+- [~] F-562 Compare folders recursively by content (Sync) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #74: Commands > Synchronize folders (cm_SyncDirs, shows its key) with Subfolders and By content compares trees byte by byte; Enter opens a pair here (see F-547, F-552; TestCompareTimeAndContentOptions, comparefiles.test.js)
+- [~] F-563 External diff tool option — — — user can set external compare program — audit #74: Configuration > Compare program… (cm_CompareToolSetup) sets a program with %1 / %2; Compare by content then starts it (only on that user action), empty goes back to the built-in window (TestExternalCommand, comparefiles.test.js)
+- [~] F-839 Compare tool: line numbers, synced scrolling, encoding choice — — — both sides scroll together; encoding menu redisplays text — audit #74: line numbers per side, both sides are rows of one scrolling list (vertical and sideways scrolling move them together), an encoding list per side reads that side again in the chosen encoding (TestDetect, TestEncodeDecodeRoundTrip, TestUTF16Spans, comparefiles.test.js)
 
 ## 27. Lister (internal viewer)
 

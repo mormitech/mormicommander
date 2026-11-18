@@ -8,6 +8,7 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Files > Compare by content shows its key when one is set.
 - Synchronize folders: F3 / Shift+F3 view and F4 / Shift+F4 edit the left / right file of a row (also in the
   right-click menu), and the menu can select all rows that copy to the right or to the left.
 - Find files: a saved search can be used as a filter: ">name" in Select files (Num +, also in its list) and in

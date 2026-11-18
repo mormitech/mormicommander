@@ -508,7 +508,7 @@ export function pickPair(app) {
 }
 
 command({
-  name: 'cm_CompareFilesByContent', label: 'Compare by content…', short: 'Compare',
+  name: 'cm_CompareFilesByContent', menuKey: true, label: 'Compare by content…', short: 'Compare',
   run: async (app, args = {}) => {
     let { left, right } = args;
     if (!left || !right) {
