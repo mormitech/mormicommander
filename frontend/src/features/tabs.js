@@ -804,7 +804,7 @@ command({
     return applyFavorite(f);
   },
 });
-command({ name: 'cm_ConfigFavoriteTabs', label: 'Configure favourite tabs…', run: () => configFavorites() });
+command({ name: 'cm_ConfigFavoriteTabs', label: 'Favourite tabs settings…', menu: 'Configuration', menuAfter: 'cm_ConfigDirHotlist', run: () => configFavorites() });
 command({ name: 'cm_NextFavoriteTab', label: 'Next favourite tabs', run: () => stepFavorite(1) });
 command({ name: 'cm_PrevFavoriteTab', label: 'Previous favourite tabs', run: () => stepFavorite(-1) });
 command({ name: 'cm_DirTabsConfig', label: 'Folder tab settings…', run: () => configDialog() });

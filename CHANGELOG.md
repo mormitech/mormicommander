@@ -23,6 +23,10 @@ version is changed only when a round of features is merged.
 - Show > View mode: the saved view modes as a submenu, to switch the panel to one.
 - The Show menu shows the keys of the views, Quick view, the filters, the sort orders, Reread and Panels on top of
   each other.
+- Configuration > Favourite tabs settings…: the favourite tab sets can be edited from the Configuration menu.
+- Configuration > Options… shows its key (Cmd+, on macOS).
+- Show > View modes… > Move a view mode up: puts the view modes in order (the first nine are the View mode submenu).
+  Saving a view mode under a name in use now changes that mode in its place.
 
 ## 0.14.31 – 2026-11-18
 

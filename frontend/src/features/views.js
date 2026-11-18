@@ -1220,17 +1220,42 @@ async function applyViewMode(p, m, { auto = false } = {}) {
   return true;
 }
 
+// moveViewModeUp is the list of view modes with the named one a place higher (the same list when it is first or absent).
+export function moveViewModeUp(modes, name) {
+  const i = modes.findIndex((m) => m.name === name);
+  if (i <= 0) return [...modes];
+  const out = [...modes];
+  [out[i - 1], out[i]] = [out[i], out[i - 1]];
+  return out;
+}
+
+// putViewMode is the list with m added at the end, or in place of the mode of the same name (editing it keeps its place).
+export function putViewMode(modes, m) {
+  const i = modes.findIndex((x) => x.name === m.name);
+  return i < 0 ? [...modes, m] : modes.map((x, k) => (k === i ? m : x));
+}
+
 async function viewModeList(app, p) {
   const vs = vsOf(p);
   const modes = viewModes();
   const items = modes.map((m, i) => ({ label: m.name, detail: `${vs.viewMode === m.name ? '✓ ' : ''}${describeMode(m)}`, value: { use: m }, key: i < 9 ? String(i + 1) : '' }));
   if (items.length) items.push({ sep: true });
   items.push({ label: 'Save the current view as a view mode…', value: { add: true } });
+  if (modes.length > 1) items.push({ label: 'Move a view mode up…', value: { up: true } });
   if (modes.length) items.push({ label: 'Remove a view mode…', value: { remove: true } });
   const r = await showList({ title: `View modes (${p.side} panel)`, items, anchor: p.$.header, kind: 'view-modes' });
   if (!r) return false;
   const v = r.item.value;
   if (v.use) { app.setActive(p); return applyViewMode(p, v.use); }
+  if (v.up) {
+    // the order counts: the first nine are Show > View mode 1…9 and the first matching folder mask wins (F-820)
+    const r2 = await showList({ title: 'Move which view mode up?', items: modes.slice(1).map((m) => ({ label: m.name, detail: describeMode(m), value: m.name })), anchor: p.$.header, kind: 'view-modes-up' });
+    if (!r2) return false;
+    await app.setSetting('viewModes', moveViewModeUp(modes, r2.item.value));
+    refreshMenu();
+    app.flash(`View mode "${r2.item.value}" moved up.`);
+    return true;
+  }
   if (v.remove) {
     const r2 = await showList({ title: 'Remove which view mode?', items: modes.map((m) => ({ label: m.name, detail: describeMode(m), value: m.name })), anchor: p.$.header, kind: 'view-modes-remove' });
     if (!r2) return false;
@@ -1241,12 +1266,12 @@ async function viewModeList(app, p) {
   }
   const cur = vs.mode === 'tree' ? (vs.prev || { mode: 'full', set: '' }) : vs;
   const name = await inputDialog({ title: 'New view mode', label: 'Name', value: '', kind: 'view-mode-name', validate: (x) => (x.trim() ? '' : 'Please give the view mode a name.'),
-    note: `Keeps: ${describeMode({ mode: cur.mode, set: cur.set, sort: p.sort })}.` });
+    note: `Keeps: ${describeMode({ mode: cur.mode, set: cur.set, sort: p.sort })}. The name of a saved view mode changes that one, in its place.` });
   if (name === null) return false;
   const folders = await inputDialog({ title: 'New view mode', label: 'Use it by itself in these folders (optional mask, e.g. *\\Photos* or */Pictures/*)', value: '', kind: 'view-mode-folders' });
   if (folders === null) return false;
   const m = { name: name.trim(), mode: cur.mode, set: cur.mode === 'custom' ? cur.set : '', sort: { ...p.sort }, folders: folders.trim() };
-  await app.setSetting('viewModes', [...modes.filter((x) => x.name !== m.name), m]);
+  await app.setSetting('viewModes', putViewMode(modes, m));
   refreshMenu();
   vs.viewMode = m.name;
   app.flash(`View mode "${m.name}" saved.`);

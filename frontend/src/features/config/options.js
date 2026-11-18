@@ -643,7 +643,7 @@ function pageList(el) {
   return el;
 }
 
-command({ name: 'cm_Config', label: 'Options…', run: (app, args) => openOptions(app, args?.page || '') });
+command({ name: 'cm_Config', menuKey: true, label: 'Options…', run: (app, args) => openOptions(app, args?.page || '') });
 command({ name: 'cm_ConfigHotkeys', label: 'Keyboard shortcuts…', run: (app, args) => openOptions(app, 'Hotkeys', { command: args?.command || '' }) });
 command({
   name: 'cm_ConfigSaveSettings', label: 'Save settings',
