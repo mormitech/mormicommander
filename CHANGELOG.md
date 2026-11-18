@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.37 – 2026-11-19
+
+HEIC, AVIF and JPEG XL pictures through programs already on the computer (#25), Parquet and more in the table
+preview (#26), Finder and xdg file tags (#28), extended attributes (#29), online-only iCloud Drive and OneDrive files
+(#30) and the folder size treemap (#24). Every new behaviour that changes what you see is an option that is off by
+default; Remove quarantine flag now asks first.
+
 ### Added
 
 - Folder size treemap: Options > Operation > "Folder size treemap remembers folder sizes between sessions" (off by
