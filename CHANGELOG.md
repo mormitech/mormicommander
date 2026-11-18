@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.30 – 2026-11-18
+
+### Fixed
+
+- The build checks pass again after 0.14.21–0.14.29: the window layout no longer assumes the app can report the
+  active panel (a test stand-in could not), and the Options test no longer expects Layout.MenuBar to be marked as
+  having no effect, since every option now works.
+
 ## 0.14.29 – 2026-11-17
 
 ### Added

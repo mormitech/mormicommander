@@ -54,10 +54,8 @@ func TestConfigSchemaMarksOptionsWithoutEffect(t *testing.T) {
 	if len(marks) == 0 {
 		t.Fatal("Schema gave no fields")
 	}
-	if !marks["Layout.MenuBar"] {
-		t.Error("Layout.MenuBar should be marked as having no effect")
-	}
-	for _, n := range []string{"Display.ShowHidden", "Refresh.AutoRefresh", "FolderTabs.Show", "Misc.HideNoEffect"} {
+	// Every option works since 0.14.27, so none is marked; Layout.MenuBar was the last example of one that was.
+	for _, n := range []string{"Layout.MenuBar", "Display.ShowHidden", "Refresh.AutoRefresh", "FolderTabs.Show", "Misc.HideNoEffect"} {
 		if v, ok := marks[n]; !ok || v {
 			t.Errorf("%s: present=%v marked=%v, want present and not marked", n, ok, v)
 		}

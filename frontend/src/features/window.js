@@ -90,7 +90,7 @@ command({
 });
 
 export function init(app) {
-  app.on('active', (p) => { if (solo && p !== solo) endSolo(app); });
+  app.on?.('active', (p) => { if (solo && p !== solo) endSolo(app); });
   // Options > Operation > Alt+F4 and the close button minimise (F-771): the key minimises; Files > Quit still quits
   addKeyHandler((ev, combo) => {
     if (combo !== 'Alt+F4' || app.config?.values?.['Operation.MinimizeOnClose'] !== '1') return false;
