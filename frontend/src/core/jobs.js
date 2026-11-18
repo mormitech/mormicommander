@@ -29,7 +29,7 @@ import { track } from './busy.js';
 import { app } from './app.js';
 import { holdProgress, progressHeld, showWhenFree } from './progresshold.js';
 import { ERROR_BUTTONS, offeredButtons } from './jobchoices.js';
-import { failuresOf, errorCount, listText, logText, logName, retryRequests, listAtEnd } from './joberrors.js';
+import { failuresOf, errorCount, listText, logText, logName, retryRequests, listAtEnd, deniedHint, anyDenied } from './joberrors.js';
 
 // Job engines of features (archives and servers: features/vfs.js) offer themselves here: start(req) resolves with a
 // job number, or 0 when the job is not theirs (then it goes to Go's Jobs); cancel(id) and answer(id, a) serve their jobs.
@@ -329,7 +329,7 @@ async function askNow(r, c) {
       return answer(r, await pick(r, { Title: 'Hidden or system file', Message: `${c.target} is a hidden or system file.\n\nOverwrite it anyway?`, Kind: 'overwrite-hidden', DefaultButton: 'Skip' },
         [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     case 'error':
-      return answer(r, await pick(r, { Title: 'Problem', Message: c.error || `Something went wrong with ${name}.`, Kind: 'job-error', DefaultButton: 'Retry' },
+      return answer(r, await pick(r, { Title: 'Problem', Message: (c.error || `Something went wrong with ${name}.`) + (c.denied ? `\n\n${deniedHint(app.platform)}` : ''), Kind: 'job-error', DefaultButton: 'Retry' },
         ERROR_BUTTONS));
     case 'no_space':
       return answer(r, await pick(r, { Title: 'Not enough space', Message: `${c.target} has ${size(c.free)} free, but this needs ${size(c.need)}.\n\nStart anyway?`, Kind: 'no-space', DefaultButton: 'Cancel' },
@@ -553,6 +553,7 @@ export async function showErrorList(r, p = r.p) {
       <p class="mc-msg">${esc(p.summary || '')}</p>
       <ul class="mc-jobs-errlist" aria-label="Failed files">${rows}</ul>
       ${more > 0 ? `<p class="mc-note">${esc(`…and ${more} more errors that were not listed.`)}</p>` : ''}
+      ${anyDenied(failures) ? `<p class="mc-note mc-jobs-denied">${esc(deniedHint(app.platform))}</p>` : ''}
       ${requests.length && skipped ? `<p class="mc-note">${esc(`${plural(skipped, 'error')} can't be retried by itself.`)}</p>` : ''}
       <p class="mc-note mc-jobs-errstate" aria-live="polite"></p>
       <div class="mc-btns"><button type="button" class="retry"${requests.length ? '' : ' disabled'}>Retry failed</button><button type="button" class="copy">Copy list</button>

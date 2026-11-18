@@ -120,3 +120,21 @@ export function listAtEnd({ skipErrorsBackground = false, background = false, on
   if (!(background || onError === '')) return false;
   return errorCount(final) > 0;
 }
+
+// deniedHint is the extra paragraph under an "access denied" error (F-720): what the user can do, since
+// mormiCommander never raises its own rights (no sudo on macOS and Linux; no "Continue as administrator" on Windows
+// yet). platform is app.platform: "darwin", "linux" or "windows".
+export function deniedHint(platform) {
+  if (platform === 'windows') {
+    return 'mormiCommander can\'t continue as administrator. Check the item\'s permissions in its Properties (Security tab), or quit and start mormiCommander with "Run as administrator" for this step.';
+  }
+  if (platform === 'darwin') {
+    return 'mormiCommander doesn\'t ask for administrator rights. Check the owner and permissions (Files > Change attributes…), or, for a folder macOS protects, give mormiCommander Full Disk Access in System Settings > Privacy & Security.';
+  }
+  return 'mormiCommander doesn\'t ask for administrator rights (it doesn\'t use sudo). Check the owner and permissions (Files > Change attributes…), or do this step in a terminal with sudo.';
+}
+
+// anyDenied says whether a failure list has an "access denied" one, so the error list can show deniedHint.
+export function anyDenied(failures) {
+  return (failures || []).some((f) => f.reason === 'permission denied');
+}

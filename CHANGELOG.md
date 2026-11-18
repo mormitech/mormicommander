@@ -11,6 +11,7 @@ version is changed only when a round of features is merged.
 - Commands > Rename volume… changes the name of a disk or USB drive (macOS and Windows), after asking twice.
 - Commands > Drive list as folder shows all drives as a folder ("My computer"); an option makes ".." in a drive's root go there.
 - Option to show a small bar under each drive button telling how full the drive is (Options > Layout, off by default).
+- When a file job hits "permission denied", the error question and the error list now say what you can do (permissions, Full Disk Access on macOS, sudo on Linux, Run as administrator on Windows).
 
 ## 0.14.35 – 2026-11-18
 

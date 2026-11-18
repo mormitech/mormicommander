@@ -6,7 +6,9 @@ package fileops
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -451,7 +453,7 @@ func (j *job) try(what, src, dst string, extra []Choice, op func() error) (error
 		case ErrorsAsk:
 			choices := append([]Choice{ChoiceRetry, ChoiceSkip, ChoiceSkipAll}, extra...)
 			a := j.ask(Conflict{Type: AskError, Source: src, Target: dst, Error: fmt.Sprintf("%s: %s.", what, plainErr(err)),
-				Choices: append(choices, ChoiceCancel)})
+				Denied: errors.Is(err, fs.ErrPermission), Choices: append(choices, ChoiceCancel)})
 			switch a.Choice {
 			case ChoiceRetry:
 				retries = j.req.Retries

@@ -144,8 +144,9 @@ type Conflict struct {
 	DstDir  bool     `json:"dstDir"`         // the target is a folder (a file can't overwrite it)
 	Same    *bool    `json:"same,omitempty"` // set after ChoiceCompare: whether the two files have the same content
 	Error   string   `json:"error,omitempty"`
-	Need    int64    `json:"need,omitempty"` // AskNoSpace: bytes needed
-	Free    int64    `json:"free,omitempty"` // AskNoSpace: bytes free
+	Denied  bool     `json:"denied,omitempty"` // AskError: the system refused access (F-720: the page explains what to do)
+	Need    int64    `json:"need,omitempty"`   // AskNoSpace: bytes needed
+	Free    int64    `json:"free,omitempty"`   // AskNoSpace: bytes free
 	Choices []Choice `json:"choices"`
 }
 
