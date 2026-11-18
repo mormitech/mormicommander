@@ -713,10 +713,10 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 23. Make folder
 
-- [ ] F-520 Make folder dialog — F7 — dialog with name; creates folder; cursor on new folder
-- [ ] F-521 Make nested folders (a/b/c) — F7 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-522 Make folder with placeholders (date) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-523 Make folder in archive / FTP — — — folder created there
+- [~] F-520 Make folder dialog — F7 — dialog with name; creates folder; cursor on new folder — audit #71: F7 (cm_MkDir) opens New folder with the name under the cursor, a recent-names list (Alt+Down); OK makes it, the panel rereads and the cursor goes to the new folder; now also Files > New folder… (F7) (fileops.js makeFolder, Jobs.MkDir, TestFileopsMkDir, make-folder-parity.test.js)
+- [~] F-521 Make nested folders (a/b/c) — F7 — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #71: "a/b/c" makes every missing level, the cursor goes to "a", undo removes only the levels it made; Files > New folder… runs the same cm_MkDir (TestFileopsMkDir, TestUndoRecordsRenameAndMkDir)
+- [~] F-522 Make folder with placeholders (date) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #71: [Y] [M] [D] [h] [m] [s] put in the date and time; the recent-names list offers three date templates; same cm_MkDir from Files > New folder… (fileopsPlaceholders, TestFileopsMkDir "log-[Y]")
+- [~] F-523 Make folder in archive / FTP — — — folder created there — audit #71: inside a writable archive (zip, tar…) and on FTP/SFTP the folder (also a/b/c) is made through the VFS; read-only archives (7z, RAR) say why instead of opening the dialog (fileopsMkdirVFS, TestVfsFileopsInsideArchive, feature_vfs_readonly_test.go, adapter_ftp_test.go TestFTPWrite)
 
 ## 24. Find files
 

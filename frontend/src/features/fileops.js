@@ -632,7 +632,8 @@ command({ name: 'cm_CopySamepanel', label: 'Copy in the same folder…', short: 
 // Move or rename (F6) and the inline rename (Shift+F6) sit in the Files menu too, with their keys (F-502, F-503)
 command({ name: 'cm_RenMov', label: 'Move or rename…', short: 'Move', menu: 'Files', menuAfter: 'cm_CopySamepanel', menuKey: true, run: (app) => copyOrMove(app, { move: true }) });
 command({ name: 'cm_RenameOnly', label: 'Rename', short: 'Rename', menu: 'Files', menuAfter: 'cm_RenMov', menuKey: true, run: (app) => startRename(app) });
-command({ name: 'cm_MkDir', label: 'New folder…', short: 'New folder', run: (app) => makeFolder(app) });
+// New folder (F7) sits in the Files menu with its key too; the same dialog makes a/b/c and fills in [Y] [M] [D]… (F-520..F-522)
+command({ name: 'cm_MkDir', label: 'New folder…', short: 'New folder', menu: 'Files', menuAfter: 'cm_RenameOnly', menuKey: true, run: (app) => makeFolder(app) });
 command({ name: 'cm_Delete', label: 'Delete…', short: 'Delete', run: (app) => deleteFiles(app) });
 command({ name: 'cm_DeletePermanent', label: 'Delete permanently…', short: 'Delete now', run: (app) => deleteFiles(app, { permanent: true }) });
 command({ name: 'cm_Wipe', label: 'Wipe…', run: (app) => deleteFiles(app, { wipe: true }) });

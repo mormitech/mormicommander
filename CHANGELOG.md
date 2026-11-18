@@ -12,6 +12,7 @@ version is changed only when a round of features is merged.
   Start menu.
 - Help menu: Report a problem opens the issues page in the browser, and Help shows its key (F1).
 - Files > Copy in the same folder (Shift+F5).
+- Files > New folder… (F7).
 - Replace file? question: a Compare tool button opens both files in the compare-by-content tool, then asks again.
 - Options > Copy/Delete > Confirm overwriting hidden and system files (off by default): asks before a copy or move
   replaces a hidden file (a dot name on macOS and Linux, hidden or system on Windows).
