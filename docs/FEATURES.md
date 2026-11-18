@@ -918,13 +918,13 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 33. Thumbnails
 
-- [ ] F-675 Thumbnail view — Ctrl+Shift+F1 — images shown as previews
-- [ ] F-676 Thumbnails for images (jpg, png, gif, webp, heic on macOS), PDFs, videos (macOS QuickLook), icons for others — — — previews generated in background, cache in config dir
-- [ ] F-677 Thumbnail size adjust — — — size slider/option 32..512px
-- [ ] F-678 Thumbnail cache (cm "Delete thumbnails cache") — — — cache can be cleared
-- [ ] F-679 Thumbnails with custom field lines under picture — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-680 Thumbnail cache across sessions — — — reopening a folder shows cached thumbs instantly
-- [ ] F-850 Keyboard moves in the thumbnail grid — arrows / PgUp / PgDn — arrows move by row and column; selection keys work as in other views
+- [~] F-675 Thumbnail view — Ctrl+Shift+F1 — images shown as previews — audit #81: Ctrl+Shift+F1 / Show > Thumbnails (cm_SrcThumbs, menuKey) switches the panel to a tile grid of previews (views.js renderThumbs, pictures from Views.Thumbs)
+- [~] F-676 Thumbnails for images (jpg, png, gif, webp, heic on macOS), PDFs, videos (macOS QuickLook), icons for others — — — previews generated in background, cache in config dir — audit #81: internal/thumbs decodes JPEG/PNG/GIF/BMP/WebP/TIFF natively (EXIF orientation), HEIC/PDF/video through QuickLook (qlmanage) on macOS and the freedesktop cache on Linux, file-type icons for the rest; a background pool makes them visible-first, cache in <config dir>/thumbs (feature_views.go viewsThumbDir; Options > Thumbnails > Cache folder)
+- [~] F-677 Thumbnail size adjust — — — size slider/option 32..512px — audit #81: Configuration > Thumbnails… (cm_ThumbnailsConfig) and Options > Thumbnails > Width set 32..512 px; Ctrl+wheel in the view steps 16 px (views.js setThumbSize)
+- [~] F-678 Thumbnail cache (cm "Delete thumbnails cache") — — — cache can be cleared — audit #81: "Delete thumbnail cache…" (cm_ClearThumbnailCache, with a confirmation) on the Thumbnails dialog, now also in the Configuration menu; not in the AI allow-list (Views.ClearThumbCache → thumbs.Cache.Clear)
+- [~] F-679 Thumbnails with custom field lines under picture — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #81: built — Configuration > Thumbnails… (menu entry cm_ThumbnailsConfig) and Options > Thumbnails > Field lines (Thumbnails.FieldLines, "|" between lines) take up to four column templates such as [=tc.size.k] or [=img.width]×[=img.height]; each tile shows one line per template from Views.Cells; empty (the default) keeps the size/dimensions line (views.js requestThumbCells, views-thumbs-lib.js, test views-thumbs-lib.test.js)
+- [~] F-680 Thumbnail cache across sessions — — — reopening a folder shows cached thumbs instantly — audit #81: the disk cache is keyed by path + mtime + size + box size and lives in the config dir, so a reopened folder (also after a restart) takes thumbs from it at once (internal/thumbs/cache.go, cache_test.go)
+- [~] F-850 Keyboard moves in the thumbnail grid — arrows / PgUp / PgDn — arrows move by row and column; selection keys work as in other views — #81: Up/Down move a row of tiles, Left/Right one tile, PgUp/PgDn a screen of rows (views.js cursorCommands); built: Shift+Up/Shift+Down now select over a row of tiles too, as Up/Down move (panel vertStep, selection.js; test sel-side.test.js); Shift+Left/Right, Shift+PgUp/PgDn, Ins, Space work as in other views
 
 ## 34. File properties and attributes
 

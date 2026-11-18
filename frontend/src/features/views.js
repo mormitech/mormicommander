@@ -32,6 +32,7 @@ import { nameComparer, SORT_METHODS, validLocale } from '../core/sort.js';
 import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
 import { viewKey, hiddenFor, visibleCols, toggleHidden } from './views-cols-lib.js';
 import { mergeKids, cursorAfter } from './views-tree.js';
+import { cleanThumbLines, thumbTileH, thumbSubHtml } from './views-thumbs-lib.js';
 
 // ---- settings ----
 
@@ -51,6 +52,8 @@ const ATTR_FORMATS = [['', 'As the system shows them'], ['unix', 'Unix (drwxr-xr
 
 const defaultFormats = (c = cfg()) => (!c.sizeFormat || c.sizeFormat === 'bytes') && !c.dateFormat && !c.attrFormat && !c.namesWhole;
 const thumbSize = () => Math.max(32, Math.min(512, Number(cfg().thumbSize) || 96));
+// the field lines under each thumbnail (Thumbnails.FieldLines, F-679): column templates; none = the size or dimensions
+const thumbLines = () => cleanThumbLines(cfg().thumbLines);
 
 // ---- per-panel state (p.vs, swapped with the panel by Ctrl+U) ----
 
@@ -141,7 +144,7 @@ function thumbGeo(p) {
   const list = p.$.list, s = thumbSize();
   const cols = Math.max(1, Math.floor(list.clientWidth / (s + 20)));
   const tileW = Math.floor(list.clientWidth / cols) || s + 20;
-  const tileH = s + 50;
+  const tileH = thumbTileH(s, thumbLines().length);
   return { cols, tileW, tileH, rows: Math.ceil(p.entries.length / cols), s };
 }
 
@@ -188,10 +191,11 @@ function renderThumbs(p) {
       const svg = icon ? t.icons.svg[icon] : '';
       const pic = url ? `<img src="${url}" alt="" draggable="false">` : svg ? `<img class="icon" src="${svg}" alt="" draggable="false">` : '<i class="ic"></i>';
       const dims = t.dims?.get(e.name);
+      const lines = vs.thumbCells?.lines, cells = lines && vs.thumbCells.path === p.path ? vs.thumbCells.map.get(e.name) : null;
       if (!e.up && !e.dir && !url) visible.push(e.name);
       html += `<div class="${rowClass(p, e, i)} mc-views-tile" data-i="${i}" style="left:${c * g.tileW}px;top:${r * g.tileH}px;width:${g.tileW}px;height:${g.tileH}px"${i === p.cursor && active ? ' aria-selected="true"' : ''}>`
         + `<div class="mc-views-pic" style="height:${g.s}px">${pic}</div><div class="mc-views-cap" title="${esc(e.name)}">${esc(e.name)}</div>`
-        + `<div class="mc-views-sub">${dims ? `${dims[0]} × ${dims[1]}` : e.up ? '' : e.dir ? (e.dirSize != null ? esc(shortSize(e.dirSize)) : '') : esc(shortSize(e.size))}</div></div>`;
+        + thumbSubHtml(lines, cells, dims ? `${dims[0]} × ${dims[1]}` : e.up ? '' : e.dir ? (e.dirSize != null ? esc(shortSize(e.dirSize)) : '') : esc(shortSize(e.size)), esc) + '</div>';
     }
   }
   rows.style.transform = '';
@@ -319,6 +323,8 @@ function install(p) {
     return core.pageSize();
   };
   // the step of Shift+Left / Shift+Right (selection.js): a column in Brief, one tile in Thumbnails, a page otherwise
+  // the step of Shift+Up / Shift+Down (selection.js): a row of tiles in Thumbnails, one entry otherwise (F-850)
+  p.vertStep = () => (modeOf(p) === 'thumbs' ? thumbGeo(p).cols : 1);
   p.sideStep = () => {
     const m = modeOf(p);
     if (m === 'brief') return briefGeo(p).rows;
@@ -409,6 +415,7 @@ function afterRebuild(p, focusName) {
   if (vs.mode === 'tree') return;
   const m = /^col(\d+)$/.exec(p.sort.key || '');
   if (isColumnMode(p)) requestCells(p);
+  else if (vs.mode === 'thumbs') requestThumbCells(p);
   if (!m || !vs.cells?.order || vs.cells.path !== p.path || vs.cells.sortKey !== p.sort.key || vs.cells.desc !== p.sort.desc) return;
   const rank = new Map(vs.cells.order.map((n, i) => [n, i]));
   const up = p.entries.filter((e) => e.up);
@@ -617,8 +624,40 @@ function stopThumbs(p, tellGo = true) {
   if (tellGo) go.Views.ThumbsStop(p.side).catch(() => {});
 }
 
+// requestThumbCells asks the engine for the field lines under the thumbnails (Thumbnails.FieldLines, F-679): each line
+// is a column template, so [=tc.size.k] or [=img.width]×[=img.height] work as in a column set. No lines: nothing asked,
+// and the tiles show the size or dimensions as before.
+let thumbCellsSeq = 0;
+async function requestThumbCells(p) {
+  const vs = vsOf(p);
+  const lines = thumbLines();
+  if (vs.mode !== 'thumbs' || !p.path || !lines.length) { vs.thumbCells = null; vs.thumbCellsSig = ''; return; }
+  const c = cfg();
+  const sig = JSON.stringify([p.path, allId(p.all), lines, cellFormat(c, display), [...p.dirSizes].sort().join('|')]);
+  if (sig === vs.thumbCellsSig) return;
+  vs.thumbCellsSig = sig;
+  if (!vs.thumbCells || vs.thumbCells.path !== p.path) vs.thumbCells = { path: p.path, lines, map: new Map() };
+  vs.thumbCells.lines = lines;
+  const seq = ++thumbCellsSeq;
+  vs.thumbCellsSeq = seq;
+  let r;
+  try {
+    r = await go.Views.Cells({
+      path: p.path, columns: lines.map((template) => ({ title: '', template, width: 0, align: 'center' })), format: cellFormat(c, display),
+      dirSizes: Object.fromEntries(p.dirSizes), sortCol: -1, desc: false, natural: true, sortMethod: '', sortLocale: '',
+    });
+  } catch (e) {
+    if (vs.thumbCellsSeq === seq) p.app.flash(errText(e), 'err');
+    return;
+  }
+  if (vs.thumbCellsSeq !== seq || p.vs !== vs || r.path !== p.path || vs.mode !== 'thumbs') return;
+  vs.thumbCells = { path: r.path, lines, map: new Map(Object.entries(r.cells || {})) };
+  p.renderRows();
+}
+
 async function startThumbs(p) {
   const vs = vsOf(p);
+  requestThumbCells(p);
   if (vs.mode !== 'thumbs' || !p.path) return;
   const s = thumbSize();
   const key = JSON.stringify([p.path, allId(p.all), s, p.side]);
@@ -1192,17 +1231,34 @@ async function thumbnailsConfig(app) {
   try { info = await go.Views.ThumbCache(); } catch { /* the size can still be set */ }
   const r = await formDialog('Thumbnails',
     `<div class="mc-row"><label for="thumbSize">Thumbnail size in pixels (32 to 512)</label><input id="thumbSize" type="text" inputmode="numeric" value="${thumbSize()}" autofocus></div>
+     <div class="mc-row"><label for="thumbLines">Field lines under the picture, one per line (column templates such as [=tc.size.k] or [=img.width]×[=img.height]; empty: the size or dimensions)</label><textarea id="thumbLines" rows="3" spellcheck="false">${esc(thumbLines().join('\n'))}</textarea></div>
      <p class="mc-note">Cache: ${esc(info.dir || 'none')} — ${info.entries} ${info.entries === 1 ? 'picture' : 'pictures'}, ${esc(shortSize(info.bytes))}.</p>
      <div class="mc-btns mc-views-left"><button type="button" id="mc-views-clear">Delete thumbnail cache…</button></div>`,
     (box) => {
       const ts = parseInt(box.querySelector('#thumbSize').value, 10);
       if (!(ts >= 32 && ts <= 512)) return 'The thumbnail size must be between 32 and 512 pixels.';
-      return { thumbSize: ts };
+      const lines = box.querySelector('#thumbLines').value.split(/\r?\n/).map((x) => x.trim()).filter(Boolean);
+      if (lines.length > 4) return 'At most four field lines can be shown under a thumbnail.';
+      return { thumbSize: ts, lines };
     },
     (box) => { box.querySelector('#mc-views-clear').onclick = async () => { if (await clearThumbCache(app)) box.querySelector('.mc-note').textContent = 'The thumbnail cache is empty.'; }; },
     { kind: 'thumbnails-config' });
   if (!r) return false;
+  await setThumbLines(app, r.lines);
   setThumbSize(r.thumbSize);
+  return true;
+}
+
+// setThumbLines keeps new field lines for the thumbnails (checked like column templates first) and draws the tiles again.
+async function setThumbLines(app, lines) {
+  if (JSON.stringify(lines) === JSON.stringify(thumbLines())) return true;
+  if (lines.length) {
+    let bad = '';
+    try { bad = await go.Views.CheckColumns(lines.map((template, i) => ({ title: `line ${i + 1}`, template, width: 0, align: 'center' }))); } catch (e) { bad = errText(e); }
+    if (bad) { app.flash(bad, 'err'); return false; }
+  }
+  saveCfg({ thumbLines: lines });
+  for (const p of app.panels) if (modeOf(p) === 'thumbs') { p.rebuild(); requestThumbCells(p); }
   return true;
 }
 
@@ -1553,7 +1609,7 @@ addMenuItems('Show', () => viewModeMenu(viewModes()));
 command({ name: 'cm_ColumnsShowHide', label: 'Show/hide columns…', menu: 'Show', menuAfter: 'cm_SrcCustomViewMenu', run: (app) => showHideColumns(app, app.cur) }); // ours (F-672)
 command({ name: 'cm_CustomColumnConfig', label: 'Custom columns…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: customColumnConfig });
 command({ name: 'cm_ThumbnailsConfig', label: 'Thumbnails…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: thumbnailsConfig });
-command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)
+command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', menu: 'Configuration', menuAfter: 'cm_ThumbnailsConfig', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)
 
 // The cursor keys, view-aware: in Brief, Left/Right move a column and PgUp/PgDn to the top / bottom of the column; in
 // Thumbnails, Up/Down move a row of tiles. Registered in init() so they replace the plain ones of navigation.js.

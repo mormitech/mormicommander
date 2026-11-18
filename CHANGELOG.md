@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+- Thumbnails can show your own field lines under each picture (Configuration > Thumbnails, or Options > Thumbnails > Field lines), such as size, date or image dimensions. Empty keeps the view as before.
+- "Delete thumbnail cache…" is also in the Configuration menu.
+
+### Fixed
+- In the Thumbnails view, Shift+Up and Shift+Down now select a whole row of tiles, the same way Up and Down move.
+
 ## 0.14.34 – 2026-11-18
 
 Parity rounds for the Editor, Packers and archives, FTP and network file systems, Directory hotlist and history,

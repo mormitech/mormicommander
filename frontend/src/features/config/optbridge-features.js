@@ -83,6 +83,9 @@ const tabBool = (k) => ({ get: (app) => bit(tabs(app)[k]), set: (app, text) => m
 // The thumbnails are square: "thumbSize" is their width and height, from 32 to 512 pixels (views.js), 96 by default.
 const thumbSize = (v) => clamp(parseInt(v, 10) || 96, 32, 512);
 
+// thumbLinesOf splits the option's text ("|" between lines) into at most four non-empty lines.
+export const thumbLinesOf = (text) => String(text ?? '').split('|').map((x) => x.trim()).filter(Boolean).slice(0, 4);
+
 export const FEATURE_BRIDGE = {
   'Operation.RenameSelectsName': renameSelectsName,
   'CopyDelete.ConfirmOverwrite': confirmOverwrite,
@@ -110,6 +113,11 @@ export const FEATURE_BRIDGE = {
   // column sets with a folder mask are switched to by folder (features/views.js)
   'CustomColumns.AutoSwitch': boolKey('columnsAutoSwitch', true),
   'Thumbnails.Width': { get: (app) => String(thumbSize(obj(app, 'views').thumbSize)), set: (app, text) => mergeKey(app, 'views', { thumbSize: thumbSize(text) }) },
+  // the lines under each thumbnail (features/views.js "thumbLines": column templates such as [=tc.size.k], F-679)
+  'Thumbnails.FieldLines': {
+    get: (app) => { const l = obj(app, 'views').thumbLines; return Array.isArray(l) ? l.join('|') : ''; },
+    set: (app, text) => mergeKey(app, 'views', { thumbLines: thumbLinesOf(text) }),
+  },
   // the log file starts again above this size (feature_system_watch.go, SystemLog.Write; 0 = never)
   'Log.MaxSizeKB': countKey('logMaxKB', 0, 0, 10485760),
 };

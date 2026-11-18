@@ -304,6 +304,7 @@ type ThumbnailsPage struct {
 	MaxFileMB   int    `ini:"Thumbnails:MaxFileSize" def:"200" min:"1" max:"100000" label:"Skip files larger than (MB)"`
 	ShowOnNet   bool   `ini:"Thumbnails:ShowOnNetwork" def:"1" label:"Thumbnails for network folders"`
 	FolderThumb bool   `ini:"Thumbnails:FolderPreview" def:"0" label:"Preview images inside folders"`
+	FieldLines  string `ini:"Thumbnails:FieldLines" def:"" label:"Field lines under the picture, separated by | (empty = size or dimensions)"`
 }
 
 // LogPage (F-427).

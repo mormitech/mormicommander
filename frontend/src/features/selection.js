@@ -63,8 +63,10 @@ function selMove(app, to, inclusive = false) {
   paint = run;
   p.selectionChanged();
 }
-command({ name: 'cm_SelUp', label: 'Select up', run: (app) => selMove(app, app.cur.cursor - 1) });
-command({ name: 'cm_SelDown', label: 'Select down', run: (app) => selMove(app, app.cur.cursor + 1, app.cur.cursor === app.cur.entries.length - 1) });
+// Shift+Up / Shift+Down move as Up / Down do: one entry, or a row of tiles in Thumbnails (the panel's vertStep, F-850).
+export const vertStep = (p) => Math.max(1, typeof p.vertStep === 'function' ? p.vertStep() : 1);
+command({ name: 'cm_SelUp', label: 'Select up', run: (app) => selMove(app, app.cur.cursor - vertStep(app.cur)) });
+command({ name: 'cm_SelDown', label: 'Select down', run: (app) => selMove(app, app.cur.cursor + vertStep(app.cur), app.cur.cursor === app.cur.entries.length - 1) });
 command({ name: 'cm_SelPageUp', label: 'Select page up', run: (app) => selMove(app, app.cur.cursor - app.cur.pageSize()) });
 command({ name: 'cm_SelPageDown', label: 'Select page down', run: (app) => selMove(app, app.cur.cursor + app.cur.pageSize()) });
 // Shift+Left / Shift+Right (ours: TC has no cm_* names for them; spec area 3, 1.2): one side step with range marking.

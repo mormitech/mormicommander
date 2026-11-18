@@ -85,3 +85,26 @@ test('Full view (no sideStep): Shift+Right acts as Shift+PgDn', async () => {
   expect(marked(a)).toEqual(marked(b));
   expect(a.cursor).toBe(8);
 });
+
+// F-850: in the Thumbnails view Up/Down move a row of tiles, and Shift+Up/Shift+Down select over that row (the panel's
+// vertStep); with no vertStep (the other views) they move one entry as before.
+describe('Thumbnails view: Shift+Up/Down move a row (vertStep = tiles per row)', () => {
+  test('Shift+Down marks the row it leaves, Shift+Up takes it back', async () => {
+    const p = fakePanel(30);
+    p.vertStep = () => 5;
+    app.cur = p;
+    await reg.run('cm_SelDown');
+    expect(p.cursor).toBe(5);
+    expect(marked(p)).toEqual(['f0', 'f1', 'f2', 'f3', 'f4']);
+    await reg.run('cm_SelUp');
+    expect(p.cursor).toBe(0);
+    expect(marked(p)).toEqual([]);
+  });
+  test('without vertStep Shift+Down moves one entry', async () => {
+    const p = fakePanel(30);
+    app.cur = p;
+    await reg.run('cm_SelDown');
+    expect(p.cursor).toBe(1);
+    expect(marked(p)).toEqual(['f0']);
+  });
+});

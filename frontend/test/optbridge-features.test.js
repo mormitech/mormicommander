@@ -11,7 +11,7 @@ vi.mock('../src/core/go.js', () => {
   return { go, on: () => () => {}, errText: String };
 });
 import {
-  FEATURE_BRIDGE, countKey, confirmOverwrite, renameSelectsName, listerInt, imageFitText, imageFitPart, packerName, packerText,
+  FEATURE_BRIDGE, thumbLinesOf, countKey, confirmOverwrite, renameSelectsName, listerInt, imageFitText, imageFitPart, packerName, packerText,
 } from '../src/features/config/optbridge-features.js';
 import { BRIDGE } from '../src/features/config/util.js';
 
@@ -32,7 +32,7 @@ test('with nothing stored, the dialog shows what the program does today', () => 
     'Hotlist.CmdHistSize': '50', 'Hotlist.FrequentSize': '20', 'Hotlist.ShowPaths': '1', 'Packer.DefaultPacker': 'zip',
     'FolderTabs.Bottom': '0', 'FolderTabs.RestoreTabs': '1', 'FolderTabs.ActivateNew': '0', // (Ctrl+Up opens its tab in the background)
     'FavoriteTabs.RestoreBoth': '1', 'FavoriteTabs.CloseOldTabs': '1', 'FavoriteTabs.ConfirmReplac': '0',
-    'CustomColumns.AutoSwitch': '1', 'Thumbnails.Width': '96', 'Log.MaxSizeKB': '0',
+    'CustomColumns.AutoSwitch': '1', 'Thumbnails.Width': '96', 'Thumbnails.FieldLines': '', 'Log.MaxSizeKB': '0',
   };
   for (const [name, v] of Object.entries(want)) expect([name, FEATURE_BRIDGE[name].get(app)]).toEqual([name, v]);
   expect(Object.keys(FEATURE_BRIDGE).sort()).toEqual(Object.keys(want).sort());
@@ -120,6 +120,11 @@ test('tab, favourite, column and thumbnail options merge into their objects', ()
   expect(app.data.folderTabs).toEqual({ multiLine: true, bottom: true, ctrlUpForeground: true, favConfirm: true });
   FEATURE_BRIDGE['Thumbnails.Width'].set(app, '16');
   expect(app.data.views).toEqual({ sizeFormat: 'k', thumbSize: 32 }); // (views.js draws them from 32 pixels)
+  FEATURE_BRIDGE['Thumbnails.FieldLines'].set(app, ' [=tc.size.k] | | [=img.width]x[=img.height] ');
+  expect(app.data.views).toEqual({ sizeFormat: 'k', thumbSize: 32, thumbLines: ['[=tc.size.k]', '[=img.width]x[=img.height]'] });
+  expect(FEATURE_BRIDGE['Thumbnails.FieldLines'].get(app)).toBe('[=tc.size.k]|[=img.width]x[=img.height]');
+  expect(thumbLinesOf('a|b|c|d|e')).toEqual(['a', 'b', 'c', 'd']); // (at most four lines under a thumbnail)
+  expect(thumbLinesOf(undefined)).toEqual([]);
   FEATURE_BRIDGE['CustomColumns.AutoSwitch'].set(app, '0');
   expect(app.data.columnsAutoSwitch).toBe(false);
 });
