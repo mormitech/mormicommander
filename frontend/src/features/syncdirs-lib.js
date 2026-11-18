@@ -45,3 +45,21 @@ export function contentTip(left, right) {
   const remote = [left, right].some((p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(String(p || '').trim()));
   return 'Compare files of the same size byte by byte' + (remote ? ' (files on a server are downloaded for this, which can take long)' : '');
 }
+
+// fileSide picks the side whose file F3 / F4 (or the menu's View / Edit) opens for a row: the asked side when it holds a
+// file, else the other side for a name that is there only ("singles"); '' for folders, links and rows with no file.
+export function fileSide(row, want = 'left') {
+  if (!row || row.isDir) return '';
+  const isFile = (e) => !!e && e.kind === 'file';
+  const other = want === 'left' ? 'right' : 'left';
+  if (isFile(row[want])) return want;
+  if (!row[want] && isFile(row[other])) return other;
+  return '';
+}
+
+// pathsWithAction lists the rows that copy in one direction ('lr', 'rl' or 'copy' for both), for the menu's
+// "Select rows that copy…" (TC's "Select for copying" group).
+export function pathsWithAction(rows, dir) {
+  const want = { lr: ['copyLeftToRight'], rl: ['copyRightToLeft'], copy: ['copyLeftToRight', 'copyRightToLeft'] }[dir] || [];
+  return (rows || []).filter((r) => want.includes(r.action)).map((r) => r.path);
+}

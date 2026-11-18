@@ -1,6 +1,6 @@
 // Synchronize folders' pure parts (src/features/syncdirs-lib.js): the notes about archive and server sides (F-555).
 import { expect, test } from 'vitest';
-import { isVirtual, readOnlyNote, dialogNotes, contentTip } from '../src/features/syncdirs-lib.js';
+import { isVirtual, readOnlyNote, dialogNotes, contentTip, fileSide, pathsWithAction } from '../src/features/syncdirs-lib.js';
 
 const local = { kind: 'local', trash: true, times: true };
 const rar = { kind: 'archive', readOnly: true, why: 'x.rar can\'t be changed: this archive type (RAR) is read-only here.' };
@@ -35,4 +35,25 @@ test('the by-content tip mentions downloads for server addresses', () => {
   expect(contentTip('/a', '/b')).toBe('Compare files of the same size byte by byte');
   expect(contentTip('/a', 'sftp://me@host/x')).toContain('downloaded');
   expect(contentTip('/a/b.zip/c', '/b')).not.toContain('downloaded');
+});
+
+test('F3 / F4 open the asked side, the only file of a single, and never a folder or link', () => {
+  const f = { kind: 'file' };
+  expect(fileSide({ left: f, right: f }, 'left')).toBe('left');
+  expect(fileSide({ left: f, right: f }, 'right')).toBe('right');
+  expect(fileSide({ left: f }, 'right')).toBe('left');
+  expect(fileSide({ right: f }, 'left')).toBe('right');
+  expect(fileSide({ left: { kind: 'dir' }, right: f }, 'left')).toBe('');
+  expect(fileSide({ left: { kind: 'link' } }, 'left')).toBe('');
+  expect(fileSide({ isDir: true, left: { kind: 'dir' } }, 'left')).toBe('');
+  expect(fileSide(null, 'left')).toBe('');
+});
+
+test('rows are selected by copy direction', () => {
+  const rows = [{ path: 'a', action: 'copyLeftToRight' }, { path: 'b', action: 'copyRightToLeft' }, { path: 'c', action: 'deleteRight' }, { path: 'd', action: 'none' }];
+  expect(pathsWithAction(rows, 'lr')).toEqual(['a']);
+  expect(pathsWithAction(rows, 'rl')).toEqual(['b']);
+  expect(pathsWithAction(rows, 'copy')).toEqual(['a', 'b']);
+  expect(pathsWithAction(rows, 'x')).toEqual([]);
+  expect(pathsWithAction(undefined, 'lr')).toEqual([]);
 });

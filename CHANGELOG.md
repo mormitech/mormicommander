@@ -8,6 +8,8 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Synchronize folders: F3 / Shift+F3 view and F4 / Shift+F4 edit the left / right file of a row (also in the
+  right-click menu), and the menu can select all rows that copy to the right or to the left.
 - Find files: a saved search can be used as a filter: ">name" in Select files (Num +, also in its list) and in
   the custom filter (Ctrl+F12) picks the files the saved search would find in the folder.
 - Change start menu: each entry can have an icon (a PNG, JPEG, GIF, BMP or WebP file), shown before its title in the

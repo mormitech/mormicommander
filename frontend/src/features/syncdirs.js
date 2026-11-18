@@ -8,7 +8,8 @@
 //
 // Keys in the list: Up/Down/PgUp/PgDn/Home/End move; Space selects, Ins selects and moves down, Shift+arrows extend,
 // Ctrl+A / Num+ / Num- select all / by pattern; Ctrl+Right, Ctrl+Left copy to the right / left, Ctrl+R reverses,
-// Delete removes the action, Shift+Delete deletes on the right; Enter compares a pair by content; Shift+F10 or the
+// Delete removes the action, Shift+Delete deletes on the right; Enter compares a pair by content; F3 / Shift+F3 view
+// the left / right file and F4 / Shift+F4 edit it (a name on one side only: that file); Shift+F10 or the
 // context-menu key opens the menu; Ctrl+1…Ctrl+6 toggle the Show buttons; F2 or Enter in a field compares; Esc stops a
 // compare, or closes the window.
 //
@@ -30,7 +31,7 @@ import { addControlCommand } from '../core/control.js';
 import { size, bytes, date, plural, dateWidth } from '../core/format.js';
 import { openWindow, contextMenu, joinPath } from './synccompare-ui.js';
 import { compareFiles } from './comparefiles.js';
-import { isVirtual, readOnlyNote, dialogNotes, contentTip } from './syncdirs-lib.js';
+import { isVirtual, readOnlyNote, dialogNotes, contentTip, fileSide, pathsWithAction } from './syncdirs-lib.js';
 
 const ROW_H = 20;
 const SHOW_KEYS = ['leftToRight', 'equal', 'unequal', 'rightToLeft', 'duplicates', 'singles'];
@@ -319,6 +320,23 @@ function syncWindow(app, id, args = {}) {
     const full = pathsOf(r)[which === 'left' ? 'l' : 'r'];
     go.FS.OpenFile(full).catch((e) => app.flash(errText(e), 'err'));
   };
+  // F3 / F4: the Lister or the editor for one side's file. The Lister reads a file in an archive or on a server from a
+  // temporary copy (cm_List does that); the editor only edits files on this computer from here. The list gets the keys
+  // back afterwards.
+  const viewEdit = async (cmd, want, r = st.rows[st.cursor]) => {
+    const which = fileSide(r, want);
+    if (!which) { app.flash('Choose a file: folders and links can\'t be viewed or edited here.', 'err'); return; }
+    if (cmd === 'cm_Edit' && isVirtual(st.sides?.[which])) { app.flash('A file in an archive or on a server can\'t be edited from here. View it (F3), or show it in a panel.', 'err'); return; }
+    const full = pathsOf(r)[which === 'left' ? 'l' : 'r'];
+    try { await app.run(cmd, { path: full, paths: [full] }); } catch (e) { app.flash(errText(e), 'err'); }
+    if (box?.isConnected) body.focus({ preventScroll: true });
+  };
+  const selectWithAction = (dir) => {
+    const ps = pathsWithAction(st.rows, dir);
+    st.sel = new Set(ps);
+    if (!ps.length) app.flash('No row copies in that direction.');
+    paint();
+  };
   const selectByPattern = async (on) => {
     const t = await inputDialog({ title: on ? 'Select rows' : 'Unselect rows', label: 'Names (for example *.txt *.md)', value: '*.*', kind: 'syncdirs-select' });
     if (t === null) return;
@@ -342,7 +360,12 @@ function syncWindow(app, id, args = {}) {
       { label: 'Delete on both sides', value: 'delboth' }, { label: 'Delete on the left', value: 'delleft' }, { label: 'Delete on the right', value: 'delright' }, '-',
       { label: 'Include in the synchronization', value: 'inc' }, { label: 'Leave out of the synchronization', value: 'exc' },
       { label: 'Reset all actions', value: 'reset' }, '-',
-      { label: 'Select all rows', value: 'selall' }, { label: 'Unselect all rows', value: 'selnone' }, '-',
+      { label: 'Select all rows', value: 'selall' }, { label: 'Select rows that copy to the right', value: 'selLR' },
+      { label: 'Select rows that copy to the left', value: 'selRL' }, { label: 'Unselect all rows', value: 'selnone' }, '-',
+      { label: 'View the left file (F3)', value: 'viewl', disabled: fileSide(one, 'left') !== 'left' },
+      { label: 'View the right file (Shift+F3)', value: 'viewr', disabled: fileSide(one, 'right') !== 'right' },
+      { label: 'Edit the left file (F4)', value: 'editl', disabled: fileSide(one, 'left') !== 'left' },
+      { label: 'Edit the right file (Shift+F4)', value: 'editr', disabled: fileSide(one, 'right') !== 'right' },
       { label: 'Open the left file', value: 'openl', disabled: !one?.left || one.isDir }, { label: 'Open the right file', value: 'openr', disabled: !one?.right || one.isDir },
       { label: 'Show in the left panel', value: 'showl', disabled: !one?.left }, { label: 'Show in the right panel', value: 'showr', disabled: !one?.right }, '-',
       { label: 'Copy names to the clipboard', value: 'clip' },
@@ -362,6 +385,12 @@ function syncWindow(app, id, args = {}) {
       case 'reset': act(() => go.SyncDirs.Reset(st.id)); break;
       case 'selall': st.rows.forEach((r) => st.sel.add(r.path)); paint(); break;
       case 'selnone': st.sel.clear(); paint(); break;
+      case 'selLR': selectWithAction('lr'); break;
+      case 'selRL': selectWithAction('rl'); break;
+      case 'viewl': viewEdit('cm_List', 'left', one); break;
+      case 'viewr': viewEdit('cm_List', 'right', one); break;
+      case 'editl': viewEdit('cm_Edit', 'left', one); break;
+      case 'editr': viewEdit('cm_Edit', 'right', one); break;
       case 'openl': openFile(one, 'left'); break;
       case 'openr': openFile(one, 'right'); break;
       case 'showl': showInPanel(one, 'left'); break;
@@ -593,6 +622,10 @@ function syncWindow(app, id, args = {}) {
         case 'Delete': case 'Backspace': setAction('none'); return true;
         case 'Shift+Delete': setAction('deleteRight'); return true;
         case 'Enter': compareRow(); return true;
+        case 'F3': viewEdit('cm_List', 'left'); return true;
+        case 'Shift+F3': viewEdit('cm_List', 'right'); return true;
+        case 'F4': viewEdit('cm_Edit', 'left'); return true;
+        case 'Shift+F4': viewEdit('cm_Edit', 'right'); return true;
         case 'Shift+F10': case 'Apps': {
           const el = rowsEl.querySelector('.mc-sync-row.cur');
           const r = el?.getBoundingClientRect();
@@ -610,7 +643,7 @@ function syncWindow(app, id, args = {}) {
 }
 
 command({
-  name: 'cm_SyncDirs', label: 'Synchronize folders…', short: 'Sync',
+  name: 'cm_SyncDirs', menuKey: true, label: 'Synchronize folders…', short: 'Sync',
   run: async (app, args = {}) => {
     const id = await go.SyncDirs.Open().catch((e) => { throw new Error(errText(e)); });
     let a = args;
