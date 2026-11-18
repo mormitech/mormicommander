@@ -9,7 +9,7 @@
 // default Full view and default formats nothing is replaced, so the core's own drawing is used.
 //
 // Settings: "views" = {sizeFormat, dateFormat, attrFormat, namesWhole, thumbSize, columnSets: [{name, autoSwitch,
-// columns: [{title, template, width, align}]}], left: {mode, set}, right: {mode, set}}; plus the core's "naturalSort"
+// columns: [{title, template, width, align}]}], hiddenCols (views-cols-lib.js), left: {mode, set}, right: {mode, set}}; plus the core's "naturalSort"
 // and "dirsLikeFiles". "left"/"right" are the views of the panels' active tabs: each folder tab keeps its own view
 // (issue #128, registered with features/tabs.js; the pure helpers are in views-tab.js), saved with the tab as
 // "view"/"set".
@@ -30,6 +30,7 @@ import { app as theApp } from '../core/app.js';
 import { addTabState } from './tabs.js';
 import { nameComparer, SORT_METHODS, validLocale } from '../core/sort.js';
 import { freshView, copyView, viewToSaved, viewFromSaved } from './views-tab.js';
+import { viewKey, hiddenFor, visibleCols, toggleHidden } from './views-cols-lib.js';
 import { mergeKids, cursorAfter } from './views-tree.js';
 
 // ---- settings ----
@@ -60,11 +61,20 @@ function vsOf(p) {
   return p.vs;
 }
 const modeOf = (p) => vsOf(p).mode;
-const isColumnMode = (p) => { const m = modeOf(p); return m === 'comments' || m === 'custom' || (m === 'full' && !defaultFormats()); };
+const hiddenNow = (p) => hiddenFor(cfg().hiddenCols, viewKey(vsOf(p)));
+// (the default Full view with default formats is the core's drawing, unless the user hid one of its columns, F-672)
+const isColumnMode = (p) => { const m = modeOf(p); return m === 'comments' || m === 'custom' || (m === 'full' && (!defaultFormats() || hiddenNow(p).length > 0)); };
 
 // columns is the list of columns after the name for a column view: [{title, template, width, align, sort}] (sort: the
-// core sort key a click on the header uses; none means "sort by this column" through the engine).
+// core sort key a click on the header uses; none means "sort by this column" through the engine). The columns hidden
+// from the header's right-click menu are left out (F-672); allColumns has them all.
 function columns(p) {
+  const def = allColumns(p), hidden = hiddenNow(p);
+  if (!hidden.length) return def;
+  return { ...def, ext: def.ext && !hidden.includes('Ext'), cols: visibleCols(def.cols, hidden) };
+}
+
+function allColumns(p) {
   const vs = vsOf(p), c = cfg();
   if (vs.mode === 'comments') return { ext: false, nameW: 'minmax(140px, 38%)', cols: [{ title: 'Comment', template: '[=tc.comment]', width: 0, align: 'left' }] };
   if (vs.mode === 'custom') {
@@ -209,11 +219,11 @@ function renderColumns(p) {
     let row = `<div class="${rowClass(p, e, i)}" data-i="${i}"${i === p.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(p, e)}<b${tip}>${esc(shownName(e, name, display))}</b></span>`;
     if (def.ext) row += `<span class="e">${esc(e.ext)}</span>`;
     let c = cells?.get(e.name);
-    if (!c && full) c = e.up ? ['&lt;DIR&gt;', '', ''] : null; // (".." is not in the engine's rows)
-    if (!c && full && !e.up) c = [e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '<DIR>') : cellSize(e.size), date(e.mtime), attr(e.mode, e.flags, plat)];
+    // (".." is not in the engine's rows; until the cells come, the Full view shows what the panel knows)
+    if (!c && full) c = def.cols.map((col) => fullCell(col.template, e, plat));
     def.cols.forEach((col, k) => {
       const txt = c ? c[k] ?? '' : '';
-      const raw = e.up && full && k === 0 ? txt : esc(txt);
+      const raw = e.up && full && col.template === '[=tc.size]' ? txt : esc(txt);
       row += `<span class="mc-views-c${col.align === 'right' ? ' r' : col.align === 'center' ? ' c' : ''}"${txt.length > 24 ? ` title="${esc(txt)}"` : ''}>${raw}</span>`;
     });
     html += row + '</div>';
@@ -221,6 +231,15 @@ function renderColumns(p) {
   rows.style.transform = `translateY(${first * h}px)`;
   rows.style.width = '';
   rows.innerHTML = html;
+}
+
+// fullCell is a Full view cell drawn from the panel's own entry, before (or without) the engine's cells.
+function fullCell(template, e, plat) {
+  if (e.up) return template === '[=tc.size]' ? '&lt;DIR&gt;' : '';
+  if (template === '[=tc.size]') return e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '<DIR>') : cellSize(e.size);
+  if (template === '[=tc.writedate]') return date(e.mtime);
+  if (template === '[=tc.attributestr]') return attr(e.mode, e.flags, plat);
+  return '';
 }
 
 // ---- the header ----
@@ -353,7 +372,7 @@ function install(p) {
   p.$.header.addEventListener('contextmenu', (ev) => {
     ev.preventDefault();
     p.app.setActive(p);
-    columnSetMenu(p.app, p, { x: ev.clientX, y: ev.clientY });
+    columnSetMenu(p.app, p, { x: ev.clientX, y: ev.clientY }, { header: true });
   });
   // Brief scrolls sideways with the wheel; Ctrl+wheel changes the size of thumbnails
   p.$.list.addEventListener('wheel', (ev) => {
@@ -501,16 +520,61 @@ function stepCustom(p, d) {
   return setMode(p, 'custom', all[(i + d + all.length) % all.length].name);
 }
 
-// the Shift+F1 popup and the header's right-click menu
-async function columnSetMenu(app, p, anchor) {
+// the Shift+F1 popup and the header's right-click menu; the header's menu also lists the view's columns to show or hide
+// and the column width commands (F-672, F-673)
+async function columnSetMenu(app, p, anchor, { header = false } = {}) {
   const vs = vsOf(p);
   const items = [{ label: 'Full (default)', detail: vs.mode === 'full' ? '✓' : '', value: { mode: 'full' }, key: '0' }];
   sets().forEach((s, i) => items.push({ label: s.name, detail: vs.mode === 'custom' && vs.set === s.name ? '✓' : '', value: { mode: 'custom', set: s.name }, key: i < 9 ? String(i + 1) : '' }));
+  if (header) {
+    const cols = columnToggles(p);
+    if (cols.length) items.push({ sep: true }, ...cols);
+    items.push({ sep: true },
+      { label: 'Fit column widths to contents', value: { cmd: 'cm_ColumnsFitWidth' } },
+      { label: 'Equal column widths', value: { cmd: 'cm_ColumnsEqualWidth' } },
+      { label: 'Default column widths', value: { cmd: 'cm_ColumnsDefaultWidth' } });
+  }
   items.push({ sep: true }, { label: 'Configure custom columns…', value: { config: true } });
   const r = await showList({ title: 'Column sets', items, anchor: anchor || p.$.header, kind: 'column-sets' });
   if (!r) return false;
-  if (r.item.value.config) return app.run('cm_CustomColumnConfig');
-  return setMode(p, r.item.value.mode, r.item.value.set);
+  const v = r.item.value;
+  if (v.config) return app.run('cm_CustomColumnConfig');
+  if (v.cmd) return app.run(v.cmd);
+  if (v.toggle) return toggleColumn(p, v.toggle);
+  return setMode(p, v.mode, v.set);
+}
+
+// columnToggles lists the columns of the panel's view (not the name) as popup items, checked when shown.
+function columnToggles(p) {
+  const key = viewKey(vsOf(p));
+  if (!key || modeOf(p) === 'tree') return [];
+  const def = allColumns(p), hidden = hiddenNow(p);
+  const titles = [...(def.ext ? ['Ext'] : []), ...def.cols.map((c) => c.title || '')].filter((t, i, a) => t && a.indexOf(t) === i);
+  return titles.map((t) => ({ label: `Column: ${t}`, detail: hidden.includes(t) ? '' : '✓', value: { toggle: t } }));
+}
+
+// toggleColumn hides a column of the panel's view, or shows it again; both panels showing that view follow.
+function toggleColumn(p, title) {
+  const key = viewKey(vsOf(p));
+  if (!key) return false;
+  saveCfg({ hiddenCols: toggleHidden(cfg().hiddenCols, key, title) });
+  for (const q of p.app.panels) {
+    const qs = vsOf(q);
+    if (viewKey(qs) !== key) continue;
+    if (/^col\d+$/.test(q.sort.key || '')) q.sort = { key: 'name', desc: false }; // (the column numbers moved)
+    q.el.style.removeProperty('--cols');
+    applyView(q);
+  }
+  return true;
+}
+
+// showHideColumns is Show > Show/hide columns…: the view's columns, choosing one shows or hides it (cm_ColumnsShowHide).
+async function showHideColumns(app, p) {
+  const items = columnToggles(p);
+  if (!items.length) { app.flash('This view has no columns to show or hide.', 'err'); return false; }
+  const r = await showList({ title: 'Show or hide columns', items, anchor: p.$.header, kind: 'column-toggles' });
+  if (!r) return false;
+  return toggleColumn(p, r.item.value.toggle);
 }
 
 // folder rules: a column set with a folder mask is chosen when such a folder is shown (F-668). With the setting
@@ -1486,6 +1550,7 @@ addMenuItems('Show', () => (treeOpt('CustomColumns.ShowInShowMenu', '1') === '1'
   ? ['-', ...sets().slice(0, 9).map((s, k) => [s.name || `Column set ${k + 1}`, `cm_SrcCustomView${k + 1}`])] : []));
 // the saved view modes as a Show > View modes submenu (F-819), the first nine (cm_SrcViewMode1…9); none, no submenu
 addMenuItems('Show', () => viewModeMenu(viewModes()));
+command({ name: 'cm_ColumnsShowHide', label: 'Show/hide columns…', menu: 'Show', menuAfter: 'cm_SrcCustomViewMenu', run: (app) => showHideColumns(app, app.cur) }); // ours (F-672)
 command({ name: 'cm_CustomColumnConfig', label: 'Custom columns…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: customColumnConfig });
 command({ name: 'cm_ThumbnailsConfig', label: 'Thumbnails…', menu: 'Configuration', menuAfter: 'cm_ConfigHotkeys', run: thumbnailsConfig });
 command({ name: 'cm_ClearThumbnailCache', label: 'Delete thumbnail cache…', run: clearThumbCache }); // ours (TC: a button on the Thumbnails page)

@@ -8,6 +8,8 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Right-click on the column titles now also lists the view's columns to show or hide, and Fit column widths to
+  contents, Equal column widths and Default column widths; the same commands are in the Show menu.
 - Commands > Folder hotlist for the other panel (Ctrl+Shift+D) and Commands > Search the folder hotlist….
 - Configuration > Import folder hotlist from Total Commander… adds the hotlist of a wincmd.ini to the end of yours.
 - Commands > Clear folder history and Configuration > Folder history settings… are now in the menus.
