@@ -1,0 +1,2 @@
+/* Online-only cloud files (cloud.js, issue #30): a muted cloud after the name when Display.CloudMark is on. */
+.row.mc-cloud .n b::after { content: ' \2601\FE0E'; color: var(--muted); font-size: .9em; }

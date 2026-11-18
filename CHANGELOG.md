@@ -8,6 +8,10 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- iCloud Drive and OneDrive online-only files: Options > Display > "Mark online-only cloud files" (off by default)
+  puts a small cloud after the names of files that are not downloaded, and custom columns can show [=mc.cloud].
+  Options > Operation > "Don't download online-only cloud files for searches and thumbnails" (off by default) keeps
+  content search, duplicate search by content, thumbnails and image/audio columns from downloading them.
 - Extended attributes: Properties has a "Remove attribute…" button that removes one attribute of the file after
   asking, and custom columns can show attribute names, their number and the quarantine flag with [=mc.xattrs],
   [=mc.xattrcount] and [=mc.quarantine]. The one-time note about lost attributes also shows when copying into a

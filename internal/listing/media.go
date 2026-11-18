@@ -55,6 +55,9 @@ func setExtra(it *Item, k string, v any) {
 // and checked again after opening, so a file swapped for a FIFO between the
 // check and the open cannot hang us either.
 func openRegular(it *Item) (*os.File, bool) {
+	if cloudSkipped(it) {
+		return nil, false
+	}
 	m := it.Mode
 	if m&os.ModeSymlink == 0 && !m.IsRegular() {
 		return nil, false
@@ -76,6 +79,15 @@ func openRegular(it *Item) (*os.File, bool) {
 	return f, true
 }
 
+// SkipCloudContent, when set and true, keeps the media fields (image size, EXIF date, audio tags) from reading
+// online-only cloud placeholders (AttrCloud), since reading one makes the system download it (#30). The program sets
+// it to Options > Operation > "Don't download online-only cloud files…"; nil (the default) reads them as before.
+var SkipCloudContent func() bool
+
+func cloudSkipped(it *Item) bool {
+	return it.Attr&AttrCloud != 0 && SkipCloudContent != nil && SkipCloudContent()
+}
+
 // LoadImageFacts reads an item's image size and EXIF date into Item.Extra (keys ExtraImgWidth, ExtraImgHeight,
 // ExtraExifDate), once per item. Other tools, such as the Multi-Rename tool's [=img.*] fields, use it to get the same
 // values the file list shows.
@@ -93,7 +105,7 @@ var ExternalImageFacts func(path string) (w, h int, date time.Time, ok bool)
 func loadImage(it *Item) {
 	done := it.Extra[extraImgDone] != nil
 	loadImageOwn(it)
-	if done || ExternalImageFacts == nil || it.IsDir() || it.Dir == "" {
+	if done || ExternalImageFacts == nil || it.IsDir() || it.Dir == "" || cloudSkipped(it) {
 		return
 	}
 	_, hasW := it.Extra[ExtraImgWidth]

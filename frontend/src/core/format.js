@@ -92,7 +92,7 @@ export function dateWidth(padPx = 12) {
 }
 
 // Flags as the Go side sends them (internal/vfs).
-export const F = { DIR: 1, LINK: 2, HIDDEN: 4, EXEC: 8, BROKEN: 16, SYSTEM: 32, READONLY: 64, NOATTR: 128, ARCHIVE: 256, WINATTRS: 512 };
+export const F = { DIR: 1, LINK: 2, HIDDEN: 4, EXEC: 8, BROKEN: 16, SYSTEM: 32, READONLY: 64, NOATTR: 128, ARCHIVE: 256, WINATTRS: 512, CLOUD: 1024 };
 
 // attr is the Attr column: Unix permissions "rwxr-xr-x" (with a leading "d" or "l" left out, the icon tells), or the
 // Windows letters r (read-only), a, h (hidden), s (system) as Total Commander shows them. "a" is the real archive bit

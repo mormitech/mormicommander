@@ -30,6 +30,7 @@ const (
 	AttrExecutable                  // executable bit (Unix) or an executable extension (Windows)
 	AttrCompressed                  // NTFS compression or the macOS compressed flag
 	AttrEncrypted                   // NTFS encryption (EFS)
+	AttrCloud                       // online-only cloud placeholder (internal/cloudfile); has no letter, never saved
 )
 
 // attrLetters maps each attribute to the letter used in AttrString and ParseAttr.

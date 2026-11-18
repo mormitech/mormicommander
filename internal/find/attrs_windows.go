@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"mormicommander/internal/cloudfile"
 )
 
 const (
@@ -45,6 +47,9 @@ func sysAttrs(name string, info fs.FileInfo) Attr {
 		}
 	} else if info.Mode().Perm()&0o222 == 0 {
 		a |= AttrReadOnly
+	}
+	if cloudfile.Placeholder(info) {
+		a |= AttrCloud
 	}
 	if !info.IsDir() && execExts[strings.ToLower(filepath.Ext(name))] {
 		a |= AttrExecutable

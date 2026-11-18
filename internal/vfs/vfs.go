@@ -28,6 +28,7 @@ const (
 	FlagNoAttr               // has no attributes to show (a server or share in the Network panel): the Attr column is blank
 	FlagArchive              // Windows FILE_ATTRIBUTE_ARCHIVE (only meaningful together with FlagWinAttrs)
 	FlagWinAttrs             // the Windows attribute word was read, so FlagArchive is the real archive bit (F-686)
+	FlagCloud                // an online-only cloud placeholder (iCloud Drive, OneDrive …): reading it downloads it (#30)
 )
 
 // Entry is one file or folder of a listing.

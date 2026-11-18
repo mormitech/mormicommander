@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	"mormicommander/internal/cloudfile"
 )
 
 var execExts = map[string]bool{".exe": true, ".bat": true, ".cmd": true, ".com": true, ".ps1": true, ".msi": true}
@@ -27,6 +29,9 @@ func sysFlags(info fs.FileInfo, name string) int {
 		if a&syscall.FILE_ATTRIBUTE_READONLY != 0 {
 			f |= FlagReadOnly
 		}
+	}
+	if cloudfile.Placeholder(info) {
+		f |= FlagCloud
 	}
 	if !info.IsDir() && execExts[strings.ToLower(filepath.Ext(name))] {
 		f |= FlagExec

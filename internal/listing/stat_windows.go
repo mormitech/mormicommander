@@ -11,6 +11,8 @@ import (
 	"io/fs"
 	"syscall"
 	"time"
+
+	"mormicommander/internal/cloudfile"
 )
 
 func fillPlatform(it *Item, fi fs.FileInfo) {
@@ -38,6 +40,9 @@ func fillPlatform(it *Item, fi fs.FileInfo) {
 	set(0x1000, AttrOffline)   // FILE_ATTRIBUTE_OFFLINE
 	set(0x200, AttrSparse)     // FILE_ATTRIBUTE_SPARSE_FILE
 	set(syscall.FILE_ATTRIBUTE_REPARSE_POINT, AttrLink)
+	if cloudfile.Placeholder(fi) {
+		it.Attr |= AttrCloud
+	}
 	if a&syscall.FILE_ATTRIBUTE_READONLY == 0 {
 		it.Attr &^= AttrReadOnly
 	}

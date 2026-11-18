@@ -441,13 +441,19 @@ func (r *run) consider(e *entry) error {
 		return nil
 	}
 	if r.q.dup != nil {
-		if !e.isDir && !(r.q.dup.needContent() && e.noContent(r.q.fs)) {
+		if !e.isDir && !(r.q.dup.needContent() && (e.noContent(r.q.fs) || r.q.skipCloud(e))) {
 			r.dupFound = append(r.dupFound, e)
 		}
 		return nil
 	}
 	r.prog.Matches++
 	return r.h.Result(e.result())
+}
+
+// skipCloud reports whether the entry's contents must not be read because it is an online-only cloud placeholder and
+// the search was asked not to download such files.
+func (q *Query) skipCloud(e *entry) bool {
+	return q.opts.SkipCloud && e.archive == "" && e.attr&AttrCloud != 0
 }
 
 // match is the filter chain, cheapest first.
@@ -486,7 +492,7 @@ func (q *Query) match(ctx context.Context, e *entry) (bool, error) {
 		// Folders have no text, and pipes, sockets and devices must never be opened:
 		// opening a named pipe without a writer blocks inside the open call, where
 		// neither the context nor Job.Stop can reach it.
-		if e.isDir || e.noContent(q.fs) {
+		if e.isDir || e.noContent(q.fs) || q.skipCloud(e) {
 			return false, nil
 		}
 		rc, err := e.open()

@@ -37,6 +37,7 @@ const (
 	AttrLink                        // a symbolic link, junction or other reparse point
 	AttrBroken                      // a link whose target does not exist
 	AttrExec                        // runnable: a Unix x bit, or an executable extension on Windows
+	AttrCloud                       // online-only cloud placeholder (macOS SF_DATALESS, Windows recall attributes), #30
 )
 
 // Has reports whether every bit of b is set.

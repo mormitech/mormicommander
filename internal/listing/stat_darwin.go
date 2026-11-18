@@ -11,6 +11,8 @@ import (
 	"io/fs"
 	"syscall"
 	"time"
+
+	"mormicommander/internal/cloudfile"
 )
 
 const (
@@ -30,6 +32,9 @@ func fillPlatform(it *Item, fi fs.FileInfo) {
 	}
 	if st.Flags&ufCompressed != 0 {
 		it.Attr |= AttrCompressed
+	}
+	if cloudfile.Placeholder(fi) {
+		it.Attr |= AttrCloud
 	}
 	it.Owner = userName(st.Uid)
 	it.Group = groupName(st.Gid)

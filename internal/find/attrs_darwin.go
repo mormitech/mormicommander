@@ -8,6 +8,8 @@ package find
 import (
 	"io/fs"
 	"syscall"
+
+	"mormicommander/internal/cloudfile"
 )
 
 const (
@@ -25,6 +27,9 @@ func sysAttrs(name string, info fs.FileInfo) Attr {
 		if st.Flags&ufCompressed != 0 {
 			a |= AttrCompressed
 		}
+	}
+	if cloudfile.Placeholder(info) {
+		a |= AttrCloud
 	}
 	return a
 }

@@ -59,6 +59,9 @@ type Options struct {
 	ExcludeDirs []string `json:"excludeDirs,omitempty"`
 	// SearchArchives looks inside archives through the Archives handler (F-528).
 	SearchArchives bool `json:"searchArchives,omitempty"`
+	// SkipCloud leaves online-only cloud placeholders (iCloud Drive, OneDrive …, see internal/cloudfile) out of
+	// content search and duplicate search by content, so a search does not download them (#30). Off by default.
+	SkipCloud bool `json:"skipCloud,omitempty"`
 
 	// Content is the "Find text" group (F-529).
 	Content ContentOptions `json:"content,omitzero"`

@@ -109,6 +109,8 @@ type DisplayPage struct {
 	HoverHighlight     bool   `ini:"Configuration:HoverHighlight" def:"0" label:"Highlight the row under the mouse"`
 	ThousandsSeparator bool   `ini:"Configuration:ThousandsSeparator" def:"1" label:"Thousands separator in sizes"`
 	LongNames          bool   `ini:"Configuration:UseLongNames" def:"1" label:"Show long names"`
+	// CloudMark (#30): a cloud mark after the names of online-only iCloud Drive / OneDrive files. Off by default.
+	CloudMark bool `ini:"Configuration:CloudMark" def:"0" label:"Mark online-only cloud files (iCloud Drive, OneDrive) after their names"`
 }
 
 // IconsPage: file icons (F-415).
@@ -162,6 +164,9 @@ type OperationPage struct {
 	MouseMode       int  `ini:"Configuration:Mouse" def:"1" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
 	MarkDirectories bool `ini:"Configuration:MarkDirectories" def:"0" label:"Num+ also selects folders"`
 	SpaceCalcSize   bool `ini:"Configuration:SpaceCalcSize" def:"1" label:"Space calculates folder size"`
+	// CloudNoDownload (#30): content search, duplicate search by content and thumbnails leave online-only cloud files
+	// alone instead of making the system download them. Off by default (they are read, and so downloaded, as before).
+	CloudNoDownload bool `ini:"Configuration:CloudNoDownload" def:"0" label:"Don't download online-only cloud files for searches and thumbnails"`
 	AlwaysToRoot    bool `ini:"Configuration:AlwaysToRoot" def:"0" label:"Go to root when changing drive"`
 	ArchiveEnter    int  `ini:"Configuration:ArchiveEnter" def:"0" min:"0" max:"1" opts:"0=Open like a folder|1=Open with associated program" label:"Enter on an archive"`
 	SavePath        bool `ini:"Configuration:Savepath" def:"1" label:"Remember folders on exit"`

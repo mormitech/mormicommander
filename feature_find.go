@@ -150,6 +150,9 @@ func (f *Find) findOptions(r FindRequest) (find.Options, error) {
 	o.SearchArchives = r.Archives
 	o.FollowLinks = r.FollowLinks
 	o.SkipHidden = r.SkipHidden
+	if s, ok := currentSettings(); ok {
+		o.SkipCloud = s.Operation.CloudNoDownload // online-only cloud files are not read (#30)
+	}
 	switch r.Kind {
 	case "files":
 		o.Kind = find.KindFiles

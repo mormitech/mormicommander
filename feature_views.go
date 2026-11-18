@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"mormicommander/internal/cloudfile"
 	"mormicommander/internal/config"
 	lst "mormicommander/internal/listing"
 	"mormicommander/internal/thumbs"
@@ -213,7 +214,7 @@ func viewsItemFromEntry(dir string, e vfs.Entry, order int) lst.Item {
 	flags := map[int]lst.Attr{
 		vfs.FlagDir: lst.AttrDir, vfs.FlagLink: lst.AttrLink, vfs.FlagHidden: lst.AttrHidden, vfs.FlagExec: lst.AttrExec,
 		vfs.FlagBroken: lst.AttrBroken, vfs.FlagSystem: lst.AttrSystem, vfs.FlagReadOnly: lst.AttrReadOnly,
-		vfs.FlagArchive: lst.AttrArchive,
+		vfs.FlagArchive: lst.AttrArchive, vfs.FlagCloud: lst.AttrCloud,
 	}
 	for f, a := range flags {
 		if e.Flags&f != 0 {
@@ -453,7 +454,7 @@ func (v *Views) Thumbs(key, dir string, names []string, size int) int {
 			continue
 		}
 		if !viewsThumbKinds[thumbs.KindOf(n)] {
-			if folderThumb {
+			if folderThumb && !(cloudNoDownload() && cloudfile.PathPlaceholder(filepath.Join(dir, n))) {
 				if pic := viewsFolderPicture(filepath.Join(dir, n)); pic != "" {
 					shownAs[pic] = n
 					paths = append(paths, pic)
@@ -463,6 +464,7 @@ func (v *Views) Thumbs(key, dir string, names []string, size int) int {
 		}
 		paths = append(paths, filepath.Join(dir, n))
 	}
+	paths = cloudKeepDownloaded(paths, cloudNoDownload()) // online-only cloud files keep their icons (#30)
 	if len(paths) == 0 {
 		return gen
 	}
