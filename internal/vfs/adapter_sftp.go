@@ -494,3 +494,31 @@ func (f *SFTPFS) Upload(ctx context.Context, local, p string, opt TransferOption
 	})
 	return n, err
 }
+
+// Symlink makes a symbolic link at p that points to target (stored as given, so it may be relative to the link's
+// folder). A name that is already there is never replaced.
+func (f *SFTPFS) Symlink(ctx context.Context, target, p string) error {
+	return f.with(ctx, p, func(c *sftp.Client, rp string) error {
+		if _, err := c.Lstat(rp); err == nil {
+			return &fs.PathError{Op: "symlink", Path: rp, Err: fs.ErrExist}
+		}
+		return c.Symlink(target, rp)
+	})
+}
+
+// Details gives what Stat leaves out for the properties of a remote item: the text of a symbolic link and the
+// numeric owner and group.
+func (f *SFTPFS) Details(ctx context.Context, p string) (linkTarget string, uid, gid uint32, err error) {
+	err = f.with(ctx, p, func(c *sftp.Client, rp string) error {
+		e, err := c.Lstat(rp)
+		if err != nil {
+			return err
+		}
+		linkTarget, uid, gid = e.LinkTarget, e.UID, e.GID
+		if e.IsLink && linkTarget == "" {
+			linkTarget, _ = c.ReadLink(rp)
+		}
+		return nil
+	})
+	return
+}

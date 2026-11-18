@@ -4,8 +4,9 @@
 // and each one has to be in a known, explained place:
 //
 //   - the FTP, SFTP and WebDAV clients (internal/ftp, internal/sftp, internal/webdav), which only run when the user
-//     connects to a server they typed in (Net > FTP connect and friends), and which only the network feature and the
-//     remote file system adapters may import;
+//     connects to a server they typed in (Net > FTP connect and friends), and the web file download (internal/httpdl,
+//     an http:// or https:// address the user types in Net > New FTP connection), which only the network feature and
+//     the remote file system adapters may import;
 //   - four loopback-only listeners: control mode (control.go, off unless started with --control), the "one app,
 //     several windows" hand-over (feature_config_start.go), the AI layer's MCP endpoint (feature_ai_mcp.go, only
 //     from the first AI run the user starts, for the Claude CLI that run starts) and the Lister's media player
@@ -56,7 +57,7 @@ func set(names ...string) map[string]bool {
 }
 
 // remoteClientDirs are the packages that talk to servers the user connects to on purpose.
-var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/webdav/"}
+var remoteClientDirs = []string{"internal/ftp/", "internal/sftp/", "internal/webdav/", "internal/httpdl/"}
 
 // loopbackFiles may listen or dial, but only on 127.0.0.1.
 var loopbackFiles = map[string]bool{"control.go": true, "feature_config_start.go": true, "feature_ai_mcp.go": true, "feature_lister_stream.go": true}

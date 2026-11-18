@@ -152,6 +152,7 @@ func (n *Net) router() *vfs.Router {
 				}
 				return n.configureFTP(c)
 			}
+			r.FTP.MaxConnsFunc = netMaxConns
 		}
 		if r.SFTP != nil {
 			prev := r.SFTP.Configure
@@ -210,10 +211,7 @@ func (n *Net) startIdle() {
 			case <-stop:
 				return
 			case <-t.C:
-				m := n.options().IdleMinutes
-				if m <= 0 {
-					m = 10
-				}
+				m := netIdleMinutes(n.options())
 				if r := n.router(); r.FTP != nil {
 					r.FTP.CloseIdle(time.Duration(m) * time.Minute)
 				}
@@ -278,6 +276,12 @@ func (n *Net) configureFTP(c *ftp.Config) error {
 			c.ASCIIMasks = m
 		}
 		if p := netGlobalProxy(s.Proxy.Type, s.Proxy.Host, s.Proxy.Port, s.Proxy.User); p != nil && c.Proxy == nil {
+			// the proxy's password is not kept in the settings file: it is asked once per session (F-637)
+			pw, err := n.proxyPassword(p.User, p.Address())
+			if err != nil {
+				return err
+			}
+			p.Password = pw
 			c.Proxy = p
 		}
 	}
@@ -398,6 +402,17 @@ func (n *Net) configureSFTP(c *sftp.Config) error {
 	}
 	if o.Keepalive > 0 {
 		c.KeepAlive = time.Duration(o.Keepalive) * time.Second
+	}
+	// Options > Proxy with "Use the proxy for SFTP connections too" (off by default, F-637)
+	if s, ok := currentSettings(); ok && s.Proxy.ForSFTP && c.Proxy == nil && c.Dial == nil {
+		if p := netSFTPProxy(s.Proxy.Type, s.Proxy.Host, s.Proxy.Port, s.Proxy.User); p != nil {
+			pw, err := n.proxyPassword(p.User, p.Addr)
+			if err != nil {
+				return err
+			}
+			p.Password = pw
+			c.Proxy = p
+		}
 	}
 	if hasSite {
 		if site.KeyFile != "" {
@@ -959,4 +974,62 @@ func netGlobalProxy(kind int, host string, port int, user string) *ftp.Proxy {
 		return nil
 	}
 	return &ftp.Proxy{Type: t, Host: host, Port: port, User: strings.TrimSpace(user)}
+}
+
+// netMaxConns is the number of connections a new FTP session may open (Options > FTP > "Connections per FTP server",
+// F-643): one browses in the panel, the others run transfers next to it. The default 2 is what it always was.
+func netMaxConns() int {
+	if s, ok := currentSettings(); ok && s.FTP.MaxConns > 0 {
+		return min(s.FTP.MaxConns, 8)
+	}
+	return 2
+}
+
+// netIdleMinutes is how long an unused extra FTP connection stays open (F-650): the page's own "net" option when
+// set, else Options > FTP > "Close unused extra connections after", else 10 minutes as before.
+func netIdleMinutes(o netOptions) int {
+	if o.IdleMinutes > 0 {
+		return o.IdleMinutes
+	}
+	if s, ok := currentSettings(); ok && s.FTP.IdleMinutes > 0 {
+		return s.FTP.IdleMinutes
+	}
+	return 10
+}
+
+// netSFTPProxy is the proxy of Options > Proxy for SFTP connections: SOCKS4, SOCKS5 or HTTP CONNECT tunnel any TCP
+// connection; the FTP-only kind (USER@host) and "none" give nil.
+func netSFTPProxy(kind int, host string, port int, user string) *sftp.Proxy {
+	fp := netGlobalProxy(kind, host, port, user)
+	if fp == nil {
+		return nil
+	}
+	t, ok := map[ftp.ProxyType]sftp.ProxyType{ftp.ProxyHTTP: sftp.ProxyHTTP, ftp.ProxySOCKS4: sftp.ProxySOCKS4, ftp.ProxySOCKS5: sftp.ProxySOCKS5}[fp.Type]
+	if !ok {
+		return nil
+	}
+	return &sftp.Proxy{Type: t, Addr: fp.Address(), User: fp.User}
+}
+
+// proxyPassword is the password of the proxy user at addr (Options > Proxy, F-637): "" when no user is set, else the
+// one typed before in this session, else it is asked (and kept in memory only, never in the settings file).
+func (n *Net) proxyPassword(user, addr string) (string, error) {
+	if user == "" {
+		return "", nil
+	}
+	key := "proxy://" + user + "@" + strings.ToLower(addr)
+	n.mu.Lock()
+	pw, ok := n.passwords[key]
+	n.mu.Unlock()
+	if ok {
+		return pw, nil
+	}
+	pw, ok = n.askPassword(fmt.Sprintf("Password for %s on the proxy %s", user, addr), "Options > Proxy names this user. Leave the password empty when the proxy needs none.")
+	if !ok {
+		return "", errNetCancelled
+	}
+	n.mu.Lock()
+	n.passwords[key] = pw
+	n.mu.Unlock()
+	return pw, nil
 }

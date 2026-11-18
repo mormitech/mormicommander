@@ -13,6 +13,7 @@ import { esc, needLocal, targets, showError, newId, onProgress, dirName, copyTex
 import { xattrLines, hasQuarantine } from './xattr-lib.js';
 import { removeQuarantine } from './xattr.js';
 import { noteFor, saveNote, pickerHTML, pickerSetup, pickerValue } from '../notes.js';
+import { onServer, remoteProps } from '../net-attrs.js';
 
 const SYS_LABEL = { darwin: 'Get Info in Finder', windows: 'Windows properties…', linux: 'File manager properties…' };
 const LINK_WORDS = { symlink: 'Symbolic link', junction: 'Junction', hardlink: 'Hard link', url: 'Shortcut file', webloc: 'Web location file', desktop: 'Desktop link file', lnk: 'Windows shortcut', alias: 'Finder alias' };
@@ -218,6 +219,8 @@ command({
   run: async (app) => {
     // inside an archive: TC's "Info on packed file" (features/vfs.js, F-847) instead of "works on local files only"
     if (app.cur?.vfs?.kind === 'archive' && hasCommand('cm_PackedFileInfo')) return app.run('cm_PackedFileInfo');
+    // on a server: the file's server, permissions, link target and owner (features/net-attrs.js, F-649)
+    if (!app.demo && onServer(app)) return remoteProps(app);
     if (!needLocal(app)) return;
     const { entries, paths } = targets(app);
     if (!paths.length) { // on "..": the folder itself, as the system's file managers do

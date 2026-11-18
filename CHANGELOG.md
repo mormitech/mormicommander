@@ -20,6 +20,16 @@ version is changed only when a round of features is merged.
 - Files > Archive comment… shows and edits the comment of a ZIP archive.
 - Files > Convert archives… converts the selected archives to another format (the originals are kept).
 - Options > Zip > "Names in old zips without UTF-8" picks the code page for names in old zips (default: automatic).
+- Alt+Enter (Properties) on a file on a server shows its server, size, date, permissions, link target and owner.
+- Files > Change attributes on an FTP or SFTP panel sets the Unix permissions (also through subfolders) and, where
+  the server can, the modification time.
+- Files > Create symbolic link on an SFTP panel makes the link on the server.
+- An http:// or https:// address typed in Net > New FTP connection… downloads the file to the local folder, with
+  progress and Resume.
+- Options > FTP: "Connections per FTP server" (default 2) and "Close unused extra connections after (minutes)"
+  (default 10).
+- Options > FTP proxy: "Use the proxy for SFTP connections too" (off by default); a proxy user's password is now
+  asked when connecting (kept in memory only).
 
 ## 0.14.33 – 2026-11-18
 

@@ -13,6 +13,7 @@ import { go } from '../../core/go.js';
 import { formDialog } from '../../core/dialogs.js';
 import { plural } from '../../core/format.js';
 import { esc, runTool, needLocal, targets, showError, failureList, reloadAll, deselect, pref, setPref, dateInput, parseDateInput } from './common.js';
+import { onServer, remoteAttrs } from '../net-attrs.js';
 
 const UNIX_ROWS = [['Owner', [0o400, 0o200, 0o100]], ['Group', [0o40, 0o20, 0o10]], ['Others', [0o4, 0o2, 0o1]]];
 const SPECIAL = [[0o4000, 'Set user ID'], [0o2000, 'Set group ID'], [0o1000, 'Sticky']];
@@ -70,6 +71,8 @@ command({
   name: 'cm_SetAttrib', label: 'Change attributes…',
   enabled: (app) => !app.demo,
   run: async (app) => {
+    // on an FTP or SFTP panel: the Unix permissions on the server (features/net-attrs.js, F-633)
+    if (!app.demo && onServer(app)) return remoteAttrs(app);
     if (!needLocal(app)) return;
     const { panel: p, entries, paths } = targets(app);
     if (!paths.length) { app.flash('Nothing is selected.'); return; }

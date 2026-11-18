@@ -43,6 +43,9 @@ type FTPFS struct {
 	// MaxConns is the number of connections per server (default 2: one for
 	// the panel, one for a transfer).
 	MaxConns int
+	// MaxConnsFunc, when set, gives the number of connections for a new
+	// session instead of MaxConns (Options > FTP, read when connecting).
+	MaxConnsFunc func() int
 	// NoLinkResolve turns off finding out whether symbolic links in a
 	// listing point to folders (one CWD per link, at most 64 per listing).
 	NoLinkResolve bool
@@ -127,6 +130,9 @@ func (f *FTPFS) session(ctx context.Context, p string) (*ftpConn, string, error)
 // learn the start folder, then registers the session.
 func (f *FTPFS) open(ctx context.Context, key string, u remoteURL, cfg ftp.Config) (*ftpConn, error) {
 	max := f.MaxConns
+	if f.MaxConnsFunc != nil {
+		max = f.MaxConnsFunc()
+	}
 	if max <= 0 {
 		max = 2
 	}

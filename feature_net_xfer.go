@@ -89,7 +89,8 @@ type netItem struct {
 	dir      bool
 	size     int64
 	mtime    int64
-	top      int // index of the source it belongs to
+	top      int  // index of the source it belongs to
+	http     bool // a web address to download (feature_net_http.go)
 }
 
 // StartJob starts a transfer and returns its number.
@@ -310,6 +311,13 @@ func (x *netXfer) run() {
 		if x.ctx.Err() != nil {
 			break
 		}
+		if netIsHTTP(src) {
+			if err := x.planHTTP(r, src, target, i, &items); err != nil {
+				x.fail(netBase(src), err)
+				moved[i] = true
+			}
+			continue
+		}
 		name := netBase(src)
 		if x.req.Rename != "" && len(x.req.Sources) == 1 {
 			name = x.req.Rename
@@ -376,6 +384,12 @@ func (x *netXfer) run() {
 		if it.dir {
 			if !x.makeDir(r, it.dst) {
 				blocked = append(blocked, it.dst)
+				failed[it.top] = true
+			}
+			continue
+		}
+		if it.http {
+			if !x.httpGet(r, it) {
 				failed[it.top] = true
 			}
 			continue

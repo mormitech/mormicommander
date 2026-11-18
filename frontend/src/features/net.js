@@ -3,7 +3,8 @@
 //   Ctrl+F        cm_FtpConnect        the connection manager: saved servers in folders; connect, new, duplicate,
 //                                      edit, delete, folders, master password, and "Keep saved passwords in the
 //                                      system keychain" (off by default; switching moves the saved passwords)
-//   Ctrl+N        cm_FtpNew            quick connect: type ftp://user@host:port/folder (sftp://, webdav:// too)
+//   Ctrl+N        cm_FtpNew            quick connect: type ftp://user@host:port/folder (sftp://, webdav:// too); an
+//                                      http(s):// address of a file downloads it to the local panel's folder (F-644)
 //   Ctrl+Shift+F  cm_FtpDisconnect     closes the connection of the panel and goes back to a local folder
 //   Ctrl+Shift+M  cm_FtpTransferMode   binary → ASCII → automatic
 //                 cm_FtpHiddenFiles    LIST -a (hidden files on FTP servers)
@@ -31,6 +32,7 @@ import { app as theApp } from '../core/app.js';
 import { holdProgress, showWhenFree } from '../core/progresshold.js';
 import { jobWaiter } from '../core/jobwait.js';
 import { trackJob } from '../core/jobs.js';
+import { isWebURL, webFileName } from './net-attrs-lib.js';
 import { savePasswordLabel, passwordStoreNote, sitePasswordNote, keychainTitle, keychainResult } from './net-lib.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
@@ -148,13 +150,23 @@ async function quickConnect(app, args = {}) {
     url = await formDialog('New FTP connection', `
       <div class="mc-row"><label for="url">Server address</label><input id="url" type="text" spellcheck="false" autofocus list="mc-net-hist" value="${esc(hist[0] || '')}" data-select="0,${(hist[0] || '').length}"></div>
       <datalist id="mc-net-hist">${hist.map((h) => `<option value="${esc(h)}">`).join('')}</datalist>
-      <p class="mc-note">For example ftp://user@example.com:21/pub, sftp://user@host/home/user or webdavs://host/remote.php/dav. A name alone means FTP.</p>`,
+      <p class="mc-note">For example ftp://user@example.com:21/pub, sftp://user@host/home/user or webdavs://host/remote.php/dav. A name alone means FTP. An http:// or https:// address of a file downloads it to the folder on this computer.</p>`,
     (box) => { const v = box.querySelector('#url').value.trim(); return v ? { url: v } : 'Type a server address.'; }, null, { okLabel: 'Connect', kind: 'net-quick' }).then((r) => r?.url);
     if (!url) return false;
   }
   const shown = url.replace(/^([a-z]+:\/\/[^:@/]*):[^@/]*@/i, '$1@'); // never keep a password in the history
   remember(app, shown);
+  if (isWebURL(url)) return downloadWeb(app, url.trim());
   return openServer(app, () => go.Net.Connect(url), shown.replace(/^[a-z]+:\/\//i, ''));
+}
+
+// downloadWeb fetches an http:// or https:// address into the local folder of the active panel (or of the other one
+// when the active panel is not on this computer), with the transfer progress box (TC: a URL in FTP connect, F-644).
+function downloadWeb(app, url) {
+  const local = (p) => p && p.path && !isRemote(p.path) && (!p.vfs?.kind || p.vfs.kind === 'local') && !/^[a-z][a-z0-9+.-]*:\/\//i.test(p.path);
+  const p = local(app.cur) ? app.cur : local(app.other) ? app.other : null;
+  if (!p) { app.flash('A web file is downloaded to a folder on this computer: open one in a panel first.', 'err'); return false; }
+  return runNetJob({ kind: 'copy', sources: [url], target: p.path, rename: '', overwrite: '' }, { title: `Downloading ${webFileName(url)}` });
 }
 
 // ---- disconnect ----

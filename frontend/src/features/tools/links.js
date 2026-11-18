@@ -9,6 +9,7 @@ import { go } from '../../core/go.js';
 import { formDialog, messageDialog } from '../../core/dialogs.js';
 import { plural } from '../../core/format.js';
 import { esc, runTool, askOverwrite, needLocal, targets, showError, failureList, reloadAll, deselect, pref, setPref, baseName, joinPath, otherDir } from './common.js';
+import { onServer, remoteSymlink } from '../net-attrs.js';
 
 let kindsCache = null;
 const linkKinds = async () => (kindsCache ||= await go.Tools.LinkKinds().catch(() => [{ kind: 'symlink', label: 'Symbolic link', ext: '' }]));
@@ -40,6 +41,8 @@ async function makeLinks(app, p, entries, sources, dir, kind, relative) {
 
 // linkDialog: TC's "Create symbolic link" / "Create hard link" dialog for one item.
 async function linkDialog(app, kind) {
+  // on an SFTP panel: a symbolic link on the server (features/net-attrs.js, F-633)
+  if (kind === 'symlink' && !app.demo && onServer(app)) return remoteSymlink(app);
   if (!needLocal(app)) return;
   const { panel: p, entries, paths } = targets(app);
   if (!paths.length) { app.flash('Nothing is selected.'); return; }

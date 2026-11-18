@@ -266,6 +266,8 @@ type FTPPage struct {
 	ResumeDefault  bool   `ini:"FTP:Resume" def:"1" label:"Resume interrupted downloads"`
 	ListTransfers  bool   `ini:"FTP:ListInTransferManager" def:"0" label:"List server transfers in the background transfer window"`
 	AbortButton    bool   `ini:"FTP:AbortButton" def:"0" label:"Show an Abort button on the server bar"`
+	IdleMinutes    int    `ini:"FTP:IdleMinutes" def:"10" min:"1" max:"1440" label:"Close unused extra connections after (minutes)"`
+	MaxConns       int    `ini:"FTP:MaxConnections" def:"2" min:"1" max:"8" label:"Connections per FTP server (browsing and transfers at the same time)"`
 }
 
 // ProxyPage (F-437). Passwords are not kept in the settings file; the UI
@@ -275,6 +277,9 @@ type ProxyPage struct {
 	Host string `ini:"Proxy:Host" def:"" label:"Proxy host"`
 	Port int    `ini:"Proxy:Port" def:"0" min:"0" max:"65535" label:"Proxy port"`
 	User string `ini:"Proxy:User" def:"" label:"Proxy user name"`
+	// ForSFTP also tunnels SFTP connections through the proxy (SOCKS4, SOCKS5 or HTTP CONNECT); off keeps the proxy
+	// for FTP only, as before.
+	ForSFTP bool `ini:"Proxy:ForSFTP" def:"0" label:"Use the proxy for SFTP connections too"`
 }
 
 // PluginsPage: TC plugins are Windows DLLs (F-425 is N/A); this page
