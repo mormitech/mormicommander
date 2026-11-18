@@ -9,11 +9,15 @@ import (
 
 var execExts = map[string]bool{".exe": true, ".bat": true, ".cmd": true, ".com": true, ".ps1": true, ".msi": true}
 
-// sysFlags reads the Windows attributes: hidden, system, read-only, and whether the extension runs.
+// sysFlags reads the Windows attributes: hidden, system, read-only, archive, and whether the extension runs.
 func sysFlags(info fs.FileInfo, name string) int {
 	f := 0
 	if d, ok := info.Sys().(*syscall.Win32FileAttributeData); ok {
 		a := d.FileAttributes
+		f |= FlagWinAttrs
+		if a&syscall.FILE_ATTRIBUTE_ARCHIVE != 0 {
+			f |= FlagArchive
+		}
 		if a&syscall.FILE_ATTRIBUTE_HIDDEN != 0 {
 			f |= FlagHidden
 		}

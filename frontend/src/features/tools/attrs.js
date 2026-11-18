@@ -1,5 +1,6 @@
 // Change attributes (cm_SetAttrib, F-194, F-315, F-316, F-338, F-340, F-683, F-684, F-685): Total Commander's dialog with
-// three-state boxes (checked = set, unchecked = clear, grey = leave alone), "Process subfolders", date and time with a
+// three-state boxes (checked = set, unchecked = clear, grey = leave alone), "Process subfolders" (with a name mask and
+// a saved search as filters, F-685), date and time with a
 // "Now" button, over internal/attrs (Tools.AttrInfo / Tools.SetAttrs). On Windows the box group is the attributes
 // (read only, archive, hidden, system); on macOS and Linux it is the rwx grid with the octal field and the special
 // bits, the Finder hidden flag on macOS, and owner and group (spec area-3 3.1, area-6 2.3).
@@ -80,6 +81,9 @@ command({
     try { st = await go.Tools.AttrInfo(paths); } catch (e) { await showError(String(e?.message ?? e)); return; }
     const accounts = st.ownerChange ? go.Tools.AttrAccounts().catch(() => ({ users: [], groups: [] })) : null;
     const what = paths.length === 1 ? entries[0].name : `${plural(st.count, 'item')} (${plural(st.files + st.links, 'file')}, ${plural(st.folders, 'folder')})`;
+    // F-685: TC's "Load from search template": a saved search (Find Files > Load/Save) narrows a recursive change
+    let templates = [];
+    try { templates = (await go.Find.Saved()) || []; } catch { /* no settings folder: no templates */ }
     const lastDate = pref(app, 'attrLastDate', 0);
     const dateFor = (ms, mixed) => (mixed ? lastDate || Date.now() : ms || Date.now());
 
@@ -88,6 +92,7 @@ command({
       <div class="mc-tools-rec" hidden>
         <div class="mc-row"><label for="applyTo">Change</label><select id="applyTo"><option value="">Files and folders</option><option value="files">Files only</option><option value="folders">Folders only</option></select></div>
         <div class="mc-row"><label for="mask">Only names matching (for example *.sh | .git\\)</label><input type="text" id="mask" spellcheck="false" placeholder="* (all)"></div>
+        <div class="mc-row"><label for="template">Only files a saved search finds (attributes, size, date…)</label><select id="template"><option value="">(none)</option>${templates.map((n) => `<option value="${esc(n)}">${esc(n)}</option>`).join('')}</select></div>
       </div>`;
     const bits = new Map((st.perm || []).map((b) => [b.bit, b]));
     if (st.unixPerms) {
@@ -117,9 +122,9 @@ command({
 
     const req = await formDialog(paths.length === 1 ? `Change attributes of ${entries[0].name}` : 'Change attributes', html, (box) => {
       const q = (s) => box.querySelector(s);
-      const r = { paths, recursive: !!q('#recursive')?.checked, applyTo: '', mask: '', permSet: 0, permClear: 0, attrSet: 0, attrClear: 0,
+      const r = { paths, recursive: !!q('#recursive')?.checked, applyTo: '', mask: '', template: '', permSet: 0, permClear: 0, attrSet: 0, attrClear: 0,
         owner: '', group: '', modified: { mode: '' }, accessed: { mode: '' }, created: { mode: '' }, modifiedFrom: '' };
-      if (r.recursive) { r.applyTo = q('#applyTo').value; r.mask = q('#mask').value.trim(); }
+      if (r.recursive) { r.applyTo = q('#applyTo').value; r.mask = q('#mask').value.trim(); r.template = q('#template')?.value || ''; }
       // A box counts when the user changed it. With "Process subfolders", a box clicked back to its start value
       // still counts: it means "make everything inside like this", and files deep inside may differ.
       let changed = false;

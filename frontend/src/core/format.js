@@ -92,14 +92,15 @@ export function dateWidth(padPx = 12) {
 }
 
 // Flags as the Go side sends them (internal/vfs).
-export const F = { DIR: 1, LINK: 2, HIDDEN: 4, EXEC: 8, BROKEN: 16, SYSTEM: 32, READONLY: 64, NOATTR: 128 };
+export const F = { DIR: 1, LINK: 2, HIDDEN: 4, EXEC: 8, BROKEN: 16, SYSTEM: 32, READONLY: 64, NOATTR: 128, ARCHIVE: 256, WINATTRS: 512 };
 
 // attr is the Attr column: Unix permissions "rwxr-xr-x" (with a leading "d" or "l" left out, the icon tells), or the
-// Windows letters r (read-only), a, h (hidden), s (system) as Total Commander shows them.
+// Windows letters r (read-only), a, h (hidden), s (system) as Total Commander shows them. "a" is the real archive bit
+// when Go read the attribute word (WINATTRS, local Windows files, F-686); for other sources every file shows "a".
 export function attr(mode, flags, platform) {
   if (flags & F.NOATTR) return '';
   if (platform === 'windows') {
-    return (flags & F.READONLY ? 'r' : '-') + (flags & F.DIR ? '-' : 'a') + (flags & F.HIDDEN ? 'h' : '-') + (flags & F.SYSTEM ? 's' : '-');
+    return (flags & F.READONLY ? 'r' : '-') + ((flags & F.WINATTRS ? flags & F.ARCHIVE : !(flags & F.DIR)) ? 'a' : '-') + (flags & F.HIDDEN ? 'h' : '-') + (flags & F.SYSTEM ? 's' : '-');
   }
   const m = mode & 0o777;
   let s = '';

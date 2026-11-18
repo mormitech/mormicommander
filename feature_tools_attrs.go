@@ -7,14 +7,18 @@ package main
 // without touching a box never rewrites it (attrs.ChangedOnly, done on the page side).
 
 import (
+	"context"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"mormicommander/internal/attrs"
+	"mormicommander/internal/find"
 	lst "mormicommander/internal/listing"
 )
 
@@ -67,9 +71,10 @@ type ToolsTime struct {
 type ToolsAttrRequest struct {
 	Paths     []string  `json:"paths"`
 	Recursive bool      `json:"recursive"`
-	ApplyTo   string    `json:"applyTo"` // "", "files" or "folders"
-	Mask      string    `json:"mask"`    // TC mask for recursive changes ("*.sh | .git\"); "" = all
-	PermSet   uint32    `json:"permSet"` // Unix bits
+	ApplyTo   string    `json:"applyTo"`  // "", "files" or "folders"
+	Mask      string    `json:"mask"`     // TC mask for recursive changes ("*.sh | .git\"); "" = all
+	Template  string    `json:"template"` // a saved search (Find Files > Load/Save) that also has to match; "" = none (F-685)
+	PermSet   uint32    `json:"permSet"`  // Unix bits
 	PermClear uint32    `json:"permClear"`
 	AttrSet   uint32    `json:"attrSet"` // Windows attribute bits (the macOS hidden flag is AttrHidden)
 	AttrClear uint32    `json:"attrClear"`
@@ -223,6 +228,19 @@ func (t *Tools) SetAttrs(id string, r ToolsAttrRequest) (ToolsAttrResult, error)
 	if r.Recursive && r.Mask != "" && r.Mask != "*" && r.Mask != "*.*" {
 		req.Filter = attrs.ParseMask(r.Mask)
 	}
+	if r.Recursive && strings.TrimSpace(r.Template) != "" {
+		q, err := toolsTemplateQuery(r.Template)
+		if err != nil {
+			return ToolsAttrResult{}, err
+		}
+		if req.Filter == nil {
+			req.Filter = &attrs.Filter{}
+		}
+		req.Filter.Match = func(p string, _ attrs.Info) bool {
+			ok, err := q.Match(context.Background(), p)
+			return err == nil && ok
+		}
+	}
 	if req.IsZero() {
 		return ToolsAttrResult{}, errors.New("Nothing to change: no box was changed and no date was chosen.")
 	}
@@ -270,4 +288,34 @@ func toolsAttrErrText(err error) string {
 		return "You don't have permission to change it (only its owner or an administrator can)."
 	}
 	return toolsErrText(err)
+}
+
+// toolsTemplateQuery compiles a saved search as a filter for a recursive attribute change (TC's "Load from search
+// template", F-685). Only the per-file tests count (name, size, date, attributes, permissions, text); the template's
+// own folders are not walked and a duplicate search is not a filter.
+func toolsTemplateQuery(name string) (*find.Query, error) {
+	dir := configDir()
+	if dir == "" {
+		return nil, errors.New("Saved searches need a settings folder, and there is none.")
+	}
+	st, err := find.OpenStore(filepath.Join(dir, "searches.json"))
+	if err != nil {
+		return nil, errors.New(findErrText(err))
+	}
+	return toolsTemplateFrom(st, name)
+}
+
+func toolsTemplateFrom(st *find.Store, name string) (*find.Query, error) {
+	o, ok := st.Get(name)
+	if !ok {
+		return nil, fmt.Errorf("There is no saved search named %q.", name)
+	}
+	o.SearchIn, o.Within = []string{"."}, nil // (Compile wants a start folder; Match never walks it)
+	o.Duplicates = find.DupOptions{}
+	o.SearchArchives = false
+	q, err := find.Compile(o)
+	if err != nil {
+		return nil, errors.New(findErrText(err))
+	}
+	return q, nil
 }

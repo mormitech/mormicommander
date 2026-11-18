@@ -213,6 +213,7 @@ func viewsItemFromEntry(dir string, e vfs.Entry, order int) lst.Item {
 	flags := map[int]lst.Attr{
 		vfs.FlagDir: lst.AttrDir, vfs.FlagLink: lst.AttrLink, vfs.FlagHidden: lst.AttrHidden, vfs.FlagExec: lst.AttrExec,
 		vfs.FlagBroken: lst.AttrBroken, vfs.FlagSystem: lst.AttrSystem, vfs.FlagReadOnly: lst.AttrReadOnly,
+		vfs.FlagArchive: lst.AttrArchive,
 	}
 	for f, a := range flags {
 		if e.Flags&f != 0 {

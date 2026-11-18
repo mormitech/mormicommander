@@ -928,12 +928,12 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 34. File properties and attributes
 
-- [~] F-681 Properties dialog (own, cross-platform) — Alt+Enter — name, type, path, size, size on disk, dates, permissions, owner, link target, Get info (macOS) button
-- [~] F-682 Open system properties (Windows shell dialog, macOS Get Info, Linux file manager) — — — button opens native dialog
-- [~] F-683 Change attributes dialog — — — see Files menu
-- [~] F-684 Change dates recursively — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [~] F-685 Attribute filters in attributes dialog via search template — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-686 Show attributes column (rhsa / rwxr-xr-x) — — — column shows Windows attributes on Windows, Unix permissions on macOS/Linux
+- [~] F-681 Properties dialog (own, cross-platform) — Alt+Enter — name, type, path, size, size on disk, dates, permissions, owner, link target, Get info (macOS) button — audit #82: cm_Properties (features/tools/props.js, feature_tools_props.go) on Alt+Enter (keymap.js) and Files > Properties…; shows name, type+MIME, location, size, size on disk, created/modified/accessed/changed, permissions+octal, owner/group, Windows attributes, link target/chain, xattrs, plus the system-properties button
+- [~] F-682 Open system properties (Windows shell dialog, macOS Get Info, Linux file manager) — — — button opens native dialog — audit #82: the Properties window's button calls Tools.OpenSystemProperties → internal/attrs/sysprops_*.go (Finder Get Info, Explorer property sheet, FileManager1 ShowItemProperties)
+- [~] F-683 Change attributes dialog — — — see Files menu — audit #82: Files > Change attributes… runs cm_SetAttrib (features/tools/attrs.js over internal/attrs): three-state boxes, rwx grid/octal/owner on Unix, r/a/h/s on Windows
+- [~] F-684 Change dates recursively — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #82: cm_SetAttrib with "Process subfolders" + Modified/Created/Accessed dates applies to the whole tree (attrs.MakePlan recursive, Files only/Folders only, mask)
+- [~] F-685 Attribute filters in attributes dialog via search template — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — #82: built the search template filter: with "Process subfolders", a saved search (Find Files > Load/Save) can be picked; only entries it matches (name, size, date, attributes, permissions, text) are changed (toolsTemplateQuery + find.Query.Match, feature_tools_attrs_template_test.go)
+- [~] F-686 Show attributes column (rhsa / rwxr-xr-x) — — — column shows Windows attributes on Windows, Unix permissions on macOS/Linux — #82: Attr column (core/format.js attr) shows rwxr-xr-x on macOS/Linux and rahs on Windows; fixed the "a" letter to be the real archive bit for local Windows files (vfs.FlagArchive/FlagWinAttrs) instead of "a" on every file; custom columns [=tc.attributestr] get it too
 - [ ] F-869 File tags: show and edit macOS Finder tags and Linux user.xdg.tags as a column and in the properties dialog — — — tag set in Finder appears in the column; tag set in the app appears in Finder; tags kept on copy/move; Windows: N/A unless a sidecar option is enabled
 - [ ] F-870 Extended attributes column and actions, including remove macOS quarantine flag — — — xattr names listed in properties; "Remove quarantine" clears com.apple.quarantine on selected files; copying to a filesystem that drops xattrs (FAT, exFAT, cloud) warns once
 

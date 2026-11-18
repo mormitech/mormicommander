@@ -21,6 +21,15 @@ test('attr on Unix and Windows', () => {
   expect(attr(0, F.DIR, 'linux')).toBe('---------');
 });
 
+test('attr shows the real Windows archive bit when Go read it (F-686)', () => {
+  expect(attr(0, F.WINATTRS, 'windows')).toBe('----');
+  expect(attr(0, F.WINATTRS | F.ARCHIVE | F.READONLY, 'windows')).toBe('ra--');
+  expect(attr(0, F.DIR | F.WINATTRS | F.ARCHIVE, 'windows')).toBe('-a--');
+  expect(attr(0, F.DIR | F.WINATTRS, 'windows')).toBe('----');
+  // the archive bit never leaks into the Unix permission string
+  expect(attr(0o644, F.WINATTRS | F.ARCHIVE, 'linux')).toBe('rw-r--r--');
+});
+
 test('splitExt like vfs.SplitExt', () => {
   expect(splitExt('a.tar.gz')).toEqual(['a.tar', 'gz']);
   expect(splitExt('.bashrc')).toEqual(['.bashrc', '']);

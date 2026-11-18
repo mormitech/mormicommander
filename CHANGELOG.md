@@ -9,9 +9,11 @@ version is changed only when a round of features is merged.
 ### Added
 - Thumbnails can show your own field lines under each picture (Configuration > Thumbnails, or Options > Thumbnails > Field lines), such as size, date or image dimensions. Empty keeps the view as before.
 - "Delete thumbnail cache…" is also in the Configuration menu.
+- Change attributes: with "Process subfolders" on, you can pick a saved search so only the files it finds (by name, size, date, attributes or text) are changed.
 
 ### Fixed
 - In the Thumbnails view, Shift+Up and Shift+Down now select a whole row of tiles, the same way Up and Down move.
+- On Windows, the "a" in the Attr column is now the file's real archive attribute instead of being shown for every file.
 
 ## 0.14.34 – 2026-11-18
 
