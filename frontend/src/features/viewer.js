@@ -57,6 +57,8 @@ async function openViewer(app, o) {
       await go.ListerWindows.Open({
         path: o.path, names: o.names || [], dir: o.dir || '', sources: o.sources || [], at: o.at ?? -1,
         side: o.panel?.side || o.side || '', internalOnly: !!o.internalOnly, mode: o.mode || 'auto',
+        // Options > Lister > Open Lister windows where the last one was closed (off: centred, as before; F-846)
+        keepPlace: app.config?.values?.['Lister.RememberPos'] === '1',
       });
       return;
     } catch (e) {

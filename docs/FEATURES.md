@@ -774,39 +774,39 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 ## 27. Lister (internal viewer)
 
 - [~] F-564 Lister window opens file — F3 — separate window; Esc closes; F3 or N/P for next/previous file — audit #103: built: F3 opens a Lister window of its own (feature_viewer_window.go); Esc closes it, N/P move to the next/previous file; waiting for QA
-- [ ] F-565 Text mode with automatic encoding detection (ANSI, UTF-8, UTF-16, ASCII/OEM) — — — correct display of UTF-8 Hungarian text (áéíóöőúüű)
-- [ ] F-566 Binary mode (fixed line width) — 2 — key 2 switches to binary mode
-- [ ] F-567 Hex mode — 3 — key 3 switches to hex dump with offsets and ASCII column
-- [ ] F-568 Text mode — 1 — key 1 text
-- [ ] F-569 Multimedia/image mode — 4 — key 4 shows image/audio/video via webview
-- [ ] F-570 Unicode / UTF-8 / encoding choice — — (Encoding menu) — menu chooses encoding; text redisplays correctly
+- [~] F-565 Text mode with automatic encoding detection (ANSI, UTF-8, UTF-16, ASCII/OEM) — — — correct display of UTF-8 Hungarian text (áéíóöőúüű) — audit #75: works: internal/lister/detect.go (BOM, UTF-8, BOM-less UTF-16, ANSI fallback, Cyrillic scoring; detect_test.go); Options > Lister > Detect text encoding
+- [~] F-566 Binary mode (fixed line width) — 2 — key 2 switches to binary mode — audit #75: works: key 2 and Options > Binary (view.js setMode, ModeBinary rows with the Binary width option)
+- [~] F-567 Hex mode — 3 — key 3 switches to hex dump with offsets and ASCII column — audit #75: works: key 3 and Options > Hex; offsets, 16 hex bytes and an ASCII column (view.js render, lister.FormatHexRow)
+- [~] F-568 Text mode — 1 — key 1 text — audit #75: works: key 1 and Options > Text
+- [~] F-569 Multimedia/image mode — 4 — key 4 shows image/audio/video via webview — audit #75: works: key 4 and Options > Image/Multimedia; images from the file, audio and video streamed (feature_lister_stream.go)
+- [~] F-570 Unicode / UTF-8 / encoding choice — — (Encoding menu) — menu chooses encoding; text redisplays correctly — audit #75: works: the Lister's Encoding menu lists every code page (lister.Encodings) plus Auto-detect, and the text is laid out again
 - [~] F-571 HTML/Markdown rendered mode — — (View menu) — renders HTML/markdown inside viewer (scripts disabled)
-- [ ] F-572 Wrap text — W — toggles line wrap
-- [ ] F-573 Fit image to window / original size / zoom — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-574 Image rotate / flip (Lister images) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-575 Search in Lister — F7 / Ctrl+F — search box: case, whole words, hex, regex, backwards
-- [ ] F-576 Find next / previous in Lister — F3 / Shift+F3 — next/previous match highlighted and scrolled into view
-- [ ] F-577 Select text and copy — Ctrl+C — selected text to clipboard; Ctrl+A select all
-- [ ] F-578 Go to line/position — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
+- [~] F-572 Wrap text — W — toggles line wrap — audit #75: works: W and Options > Wrap text (kept in the "lister" setting)
+- [~] F-573 Fit image to window / original size / zoom — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Image menu: Fit image to window (F), Zoom in/out (+/-), Original size
+- [~] F-574 Image rotate / flip (Lister images) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Image menu: Rotate left (L), Rotate right (R), Mirror
+- [~] F-575 Search in Lister — F7 / Ctrl+F — search box: case, whole words, hex, regex, backwards — audit #75: works: F7 / Ctrl+F (Cmd+F) and Edit > Find…: whole words, case, hex, regex, backwards, encoding, history
+- [~] F-576 Find next / previous in Lister — F3 / Shift+F3 — next/previous match highlighted and scrolled into view — audit #75: works: F3 / Shift+F3 (Edit > Find next/previous): the match is highlighted and scrolled into view, also sideways
+- [~] F-577 Select text and copy — Ctrl+C — selected text to clipboard; Ctrl+A select all — audit #75: works: drag or double-click to select, Ctrl+C / Ctrl+Ins copies, Ctrl+A selects all (Edit menu too)
+- [~] F-578 Go to line/position — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Edit > Go to… (Ctrl+G, Cmd+L): line, hex offset or percentage; row number in table mode
 - [~] F-579 Large files (multi-GB) opened instantly without loading fully — — — 10 GB file opens instantly and scrolls (backend streams ranges)
-- [ ] F-580 Lister font selection (fixed vs variable) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-581 Print from Lister — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-582 Save selection / Save as — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-583 Next / previous file in folder — N / P — Lister shows next/previous file
-- [ ] F-584 Reload / follow file (tail -f, "Auto-reload") — — — appended text appears
+- [~] F-580 Lister font selection (fixed vs variable) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Options > Variable width font (V), Larger/Smaller font; the font is kept in the "lister" setting and in Lister options
+- [~] F-581 Print from Lister — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: built: File > Print… (Ctrl+P) prints the shown file through the system after asking, or only the selected text (Print selection…); viewer/print.js, test viewer-print.test.js
+- [~] F-582 Save selection / Save as — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: File > Save as… / Save selection as… (Ctrl+S), asks before replacing a file
+- [~] F-583 Next / previous file in folder — N / P — Lister shows next/previous file — audit #75: works: N / P and File > Next/Previous file walk the selection or the folder; the panel cursor follows
+- [~] F-584 Reload / follow file (tail -f, "Auto-reload") — — — appended text appears — audit #75: works: File > Follow file (auto-reload): appended text appears and the view stays at the end (lister FollowTail)
 - [N/A] F-585 Lister plugins (WLX) — Windows DLL plugins — built-in viewers for images (incl. HEIC on macOS), PDF, audio, video, markdown, HTML, archive listing, font preview
-- [ ] F-586 Show EXIF / image info in Lister — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-587 Copy as hex, code page switching (cm in Lister menu) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-588 Lister options: tab width, ANSI/ASCII charset default — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button
-- [ ] F-589 Quick view uses Lister engine — Ctrl+Q — same modes in quick view panel
-- [ ] F-590 External viewer option — — — F3 can be set to launch an external viewer; Alt+F3 the other one
-- [ ] F-840 Lister charset keys: ANSI / ASCII (DOS) / variable-width font — A / S / V — each key changes the display at once
-- [ ] F-841 Lister Unicode / UTF-8 keys — U / 8 — UTF-16 and UTF-8 files show correctly after the key
-- [ ] F-842 Lister reload — F2 — file read again from disk
-- [ ] F-843 Lister print — Ctrl+P — print dialog for the shown file
-- [ ] F-844 Lister close — Esc (also Q) — window closes; focus returns to the panel
-- [ ] F-845 Lister image zoom — + / - — image zooms in/out; fit-to-window toggles back
-- [~] F-846 Several Lister windows at once and remembered window size — — — F3 on another file opens a second window; size and position kept across uses — audit #103: several Lister windows can be open at once and the last window size is kept (setting listerWindow); the window position is not kept
+- [~] F-586 Show EXIF / image info in Lister — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Image > Image and media info… (I): format, size, EXIF tags (camera, date, exposure, GPS...)
+- [~] F-587 Copy as hex, code page switching (cm in Lister menu) — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Edit > Copy as hex; code pages from the Encoding menu and the A/S/U/8 keys
+- [~] F-588 Lister options: tab width, ANSI/ASCII charset default — — — same as menu: the entry is in its menu, runs its cm_* command, and gives the same result as the hotkey/button — audit #75: works: Options > Lister options…: tab width, binary width, default encoding (ANSI/ASCII/UTF-8/Unicode), start mode
+- [~] F-589 Quick view uses Lister engine — Ctrl+Q — same modes in quick view panel — audit #75: works: quick view uses the same ListerView (viewer/view.js) with the same keys after Tab, and a right-click menu of the Lister menus
+- [~] F-590 External viewer option — — — F3 can be set to launch an external viewer; Alt+F3 the other one — audit #75: works: Lister options "Viewer for F3" makes F3 start the external viewer and Alt+F3 the Lister (and the other way round); Viewer/Editor options too
+- [~] F-840 Lister charset keys: ANSI / ASCII (DOS) / variable-width font — A / S / V — each key changes the display at once — audit #75: works: A (ANSI), S (ASCII/DOS), V (variable width font) change the display at once
+- [~] F-841 Lister Unicode / UTF-8 keys — U / 8 — UTF-16 and UTF-8 files show correctly after the key — audit #75: works: U / 6 (Unicode UTF-16) and 8 / 7 (UTF-8) re-lay the text at once
+- [~] F-842 Lister reload — F2 — file read again from disk — audit #75: works: F2 and File > Reload read the file again (says when it did not change, got shorter or was replaced)
+- [~] F-843 Lister print — Ctrl+P — print dialog for the shown file — audit #75: built: Ctrl+P (Cmd+P on macOS) asks and prints the shown file, or the selected text; same as File > Print…
+- [~] F-844 Lister close — Esc (also Q) — window closes; focus returns to the panel — audit #75: works: Esc (stops a search first), Q, Alt+F4 / Cmd+W close the Lister; the in-page Lister gives focus back to the panel, a Lister window lets the system bring the main window back
+- [~] F-845 Lister image zoom — + / - — image zooms in/out; fit-to-window toggles back — audit #75: works: + / - zoom an image (Ctrl+wheel too); F toggles fit to window back
+- [~] F-846 Several Lister windows at once and remembered window size — — — F3 on another file opens a second window; size and position kept across uses — audit #103: several Lister windows can be open at once and the last window size is kept (setting listerWindow); audit #75: built: the place is kept too, and with Options > Lister > "Open Lister windows where the last one was closed" (off by default, so windows still open centred) the next window opens there, moved a step when another Lister window sits there
 - [~] F-863 Native macOS Quick Look for file under cursor — Cmd+Y (macOS only) — Quick Look window opens for the file under cursor and follows the cursor while open; Space keeps its TC meaning unless the user picks the Mac-native preset
 - [ ] F-864 HEIC, AVIF and JPEG XL view and thumbnails on Windows and Linux too (pure Go/WASM decoders, no cgo) — — — sample .heic/.avif/.jxl files show in Lister, quick view and thumbnails on all three OSes
 - [ ] F-865 Table preview for CSV, TSV, JSONL, Parquet and SQLite in Lister and quick view — — — file opens as a scrollable grid (first 10,000 rows, virtual scrolling) with column names and types; SQLite shows table list; file opened read-only

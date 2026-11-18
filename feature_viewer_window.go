@@ -10,7 +10,8 @@
 // N and P (next and previous file) are worked out by the window from the list of names it was given; it tells Go which
 // file it shows now (Moved), Go sets the title and sends the file manager's page the "lister-cursor" event so the
 // panel's cursor follows. Esc (or the window's close button) closes the window; its size is kept in the setting
-// "listerWindow" and the next Lister window gets it.
+// "listerWindow" and the next Lister window gets it. Its place is kept there too, and is used only with Options >
+// Lister > "Open Lister windows where the last one was closed" (off by default: the window comes up centred).
 //
 // This is one of the few files that use the Wails API directly (with app.go, window.go, menu.go and shell.go): the
 // features themselves never do. Control mode can list the windows ("windows") and look into a Lister window or drive it
@@ -49,6 +50,7 @@ type ListerRequest struct {
 	Side         string   `json:"side"`         // the panel the file came from ("left", "right" or "" for none)
 	InternalOnly bool     `json:"internalOnly"` // text, binary and hex only (Alt+Shift+F3)
 	Mode         string   `json:"mode"`         // the mode to start in ("auto" and the like)
+	KeepPlace    bool     `json:"keepPlace"`    // open where the last Lister window was closed (Options > Lister), not centred
 }
 
 // listerWin is one Lister window as Go knows it.
@@ -289,8 +291,9 @@ func (lw *ListerWindows) closing(v *listerWin) {
 	lw.mu.Unlock()
 	if shown && !v.w.IsMaximised() && !v.w.IsFullscreen() && !v.w.IsMinimised() && lw.app.settings != nil {
 		w, h := v.w.Size()
+		x, y := v.w.Position()
 		if w >= listerWinMinW && h >= listerWinMinH {
-			lw.app.settings.put("listerWindow", map[string]any{"w": w, "h": h})
+			lw.app.settings.put("listerWindow", map[string]any{"w": w, "h": h, "x": x, "y": y})
 		}
 	}
 	if session != 0 && listerInstance != nil {
@@ -306,7 +309,24 @@ func (lw *ListerWindows) show(v *listerWin) {
 		return
 	}
 	v.shown = true
+	keep := v.req.KeepPlace
+	var others []*application.WebviewWindow
+	if keep {
+		for _, o := range lw.wins {
+			if o != v && o.shown {
+				others = append(others, o.w)
+			}
+		}
+	}
 	lw.mu.Unlock()
+	if keep { // (the windows are asked where they are outside the lock: that may wait for the UI thread)
+		taken := make([][2]int, 0, len(others))
+		for _, w := range others {
+			x, y := w.Position()
+			taken = append(taken, [2]int{x, y})
+		}
+		lw.placeKept(v, taken)
+	}
 	v.w.Show()
 	v.w.Focus()
 }
@@ -325,6 +345,58 @@ func (lw *ListerWindows) size() (int, int) {
 		}
 	}
 	return w, h
+}
+
+// place is where the last Lister window was closed, and whether that is known (older settings kept the size only).
+func (lw *ListerWindows) place() (int, int, bool) {
+	if s := lw.app.settings; s != nil {
+		if m, ok := s.Get("listerWindow").(map[string]any); ok {
+			x, okx := m["x"].(float64)
+			y, oky := m["y"].(float64)
+			if okx && oky {
+				return int(x), int(y), true
+			}
+		}
+	}
+	return 0, 0, false
+}
+
+// listerCascade moves a kept place down and to the right while another shown Lister window sits there already, so a
+// second window does not hide the first one exactly.
+func listerCascade(x, y int, taken [][2]int) (int, int) {
+	const step = 24
+	for range len(taken) + 1 {
+		hit := false
+		for _, t := range taken {
+			if t[0] == x && t[1] == y {
+				hit = true
+				break
+			}
+		}
+		if !hit {
+			break
+		}
+		x, y = x+step, y+step
+	}
+	return x, y
+}
+
+// placeKept puts a window where the last Lister window was closed (Options > Lister > Open Lister windows where the
+// last one was closed), when that place is still on a screen; otherwise the window stays centred.
+func (lw *ListerWindows) placeKept(v *listerWin, taken [][2]int) {
+	x, y, ok := lw.place()
+	if !ok || lw.app.wapp == nil {
+		return
+	}
+	x, y = listerCascade(x, y, taken)
+	w, h := v.w.Size()
+	total := 0
+	for _, s := range lw.app.wapp.Screen.GetAll() {
+		total = max(total, s.Bounds.X+s.Bounds.Width)
+	}
+	if total > 0 && onScreen(winState{X: x, Y: y, W: w, H: h}, total) {
+		v.w.SetPosition(x, y)
+	}
 }
 
 // of is the Lister window a call came from, or nil.

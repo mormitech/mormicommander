@@ -13,6 +13,7 @@ import { formDialog, messageDialog, esc } from '../core/dialogs.js';
 import { menuSpec } from '../core/menus.js';
 import { F } from '../core/format.js';
 import { inTreeView, setTreeView } from './views.js';
+import { printerNote } from './viewer/print.js';
 import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, folderItems, fileListText, subEntries } from './reserved-more-lib.js';
 
 const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
@@ -110,9 +111,7 @@ command({ name: 'cm_ActivateMenu', label: 'Menu', run: (app) => activateMenu(app
 
 // ---- printing (Ctrl+F9, Files > Print file list) ----
 
-const printerNote = (app) => (app.platform === 'windows'
-  ? 'Windows prints it with the app that belongs to the file type.'
-  : 'It goes to the default printer (lp); choose another default printer in the system settings.');
+// (printerNote is shared with the Lister's Print, viewer/print.js)
 
 // printFile prints the file under the cursor through the system, after asking: the system's print path (lp) prints
 // straight away without a dialog of its own.

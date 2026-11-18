@@ -434,6 +434,7 @@ type ListerPage struct {
 	MaxTextMB    int    `ini:"Lister:MaxTextSize" def:"64" min:"1" max:"100000" label:"Load text files up to (MB)"`
 	BinaryWidth  int    `ini:"Lister:BinaryWidth" def:"80" min:"16" max:"1024" label:"Binary mode line width"`
 	ExtViewerFor string `ini:"Lister:ExternalFor" def:"" label:"Open these types in the external viewer"`
+	RememberPos  bool   `ini:"Lister:RememberPos" def:"0" label:"Open Lister windows where the last one was closed"`
 }
 
 // DragDropPage (F-823).

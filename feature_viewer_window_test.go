@@ -55,3 +55,34 @@ func TestSettingsChanged(t *testing.T) {
 		t.Fatalf("changes told: %v", got)
 	}
 }
+
+func TestListerWindowPlace(t *testing.T) {
+	a := &App{settings: loadSettings(filepath.Join(t.TempDir(), "settings.json"))}
+	lw := &ListerWindows{app: a, wins: map[string]*listerWin{}}
+	if _, _, ok := lw.place(); ok {
+		t.Fatal("a place was found with nothing kept")
+	}
+	a.settings.put("listerWindow", map[string]any{"w": 700, "h": 500}) // kept by an older version: size only
+	if _, _, ok := lw.place(); ok {
+		t.Fatal("a place was found where only the size was kept")
+	}
+	a.settings.put("listerWindow", map[string]any{"w": 700, "h": 500, "x": 120, "y": 80})
+	if x, y, ok := lw.place(); !ok || x != 120 || y != 80 {
+		t.Fatalf("kept place %d,%d %v", x, y, ok)
+	}
+	if w, h := lw.size(); w != 700 || h != 500 {
+		t.Fatalf("the size is lost when the place is kept too: %dx%d", w, h)
+	}
+}
+
+func TestListerCascade(t *testing.T) {
+	if x, y := listerCascade(100, 50, nil); x != 100 || y != 50 {
+		t.Fatalf("free place moved: %d,%d", x, y)
+	}
+	if x, y := listerCascade(100, 50, [][2]int{{300, 300}}); x != 100 || y != 50 {
+		t.Fatalf("free place moved: %d,%d", x, y)
+	}
+	if x, y := listerCascade(100, 50, [][2]int{{100, 50}, {124, 74}}); x != 148 || y != 98 {
+		t.Fatalf("cascade gave %d,%d, want 148,98", x, y)
+	}
+}

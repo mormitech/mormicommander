@@ -19,12 +19,13 @@ import { quickMenuItems } from './quickmenu.js';
 import { mediaTag } from './mediael.js';
 import { TableGrid, FORMAT_NAMES, rowsLabel } from './table.js';
 import { LISTER_DEFAULTS } from './lister-defaults.js';
+import { printPlan, printerNote } from './print.js';
 
 export const MODE_LABELS = { text: 'Text', binary: 'Binary', hex: 'Hex', media: 'Image/Multimedia', html: 'HTML/Markdown', table: 'Table' };
 const MEDIA_LIMIT = 256 * 1024 * 1024; // larger media files are not read into the page
 const CHUNK = 4 * 1024 * 1024;
 const WORD = /[\p{L}\p{N}_]/u;
-const MAC_ALIASES = { 'Cmd+C': 'Ctrl+C', 'Cmd+A': 'Ctrl+A', 'Cmd+F': 'Ctrl+F', 'Cmd+G': 'F3', 'Shift+Cmd+G': 'Shift+F3', 'Cmd+S': 'Ctrl+S',
+const MAC_ALIASES = { 'Cmd+C': 'Ctrl+C', 'Cmd+A': 'Ctrl+A', 'Cmd+F': 'Ctrl+F', 'Cmd+G': 'F3', 'Shift+Cmd+G': 'Shift+F3', 'Cmd+S': 'Ctrl+S', 'Cmd+P': 'Ctrl+P',
   'Cmd+L': 'Ctrl+G', 'Cmd+=': 'Ctrl+=', 'Cmd+-': 'Ctrl+-', 'Cmd+Up': 'Ctrl+Home', 'Cmd+Down': 'Ctrl+End' };
 
 // The settings of the Lister ("lister" in settings.json) and their defaults are in lister-defaults.js.
@@ -1071,6 +1072,24 @@ export class ListerView {
     });
   }
 
+  // print sends the shown file to the printer (Ctrl+P, File > Print…, F-581 / F-843), or only the selected text when text
+  // is selected in a text mode (as shown, in the encoding shown). It asks first: the system's print path (lp on macOS and
+  // Linux) prints at once, with no dialog of its own (feature_system_print.go).
+  async print() {
+    if (!this.id) return;
+    const plan = printPlan({ selection: this.selRange(), textMode: this.isTextMode(), name: this.info.name });
+    const b = await messageDialog({ Title: 'Print', Message: `${plan.question}\n\n${printerNote(this.app)}`, Buttons: ['Print', 'Cancel'], DefaultButton: 'Print', Kind: 'lister-print' });
+    this.focus();
+    if (b !== 'Print') return;
+    try {
+      if (plan.kind === 'text') {
+        const t = await track(go.Lister.Text(this.id, plan.start, plan.end, false));
+        await track(go.SystemLaunch.PrintText(plan.title, t));
+      } else await track(go.SystemLaunch.Print(this.info.path));
+      this.note(plan.kind === 'text' ? 'The selected text was sent to the printer.' : `${this.info.name} was sent to the printer.`);
+    } catch (e) { this.note(errText(e), true); }
+  }
+
   async mediaInfo() {
     if (!this.id) return;
     const m = this.info.media || normMedia(await track(go.Lister.Media(this.id)));
@@ -1135,6 +1154,7 @@ export class ListerView {
       case 'Ctrl+C': case 'Ctrl+Ins': this.copy(false); return true;
       case 'Ctrl+A': this.selectAll(); return true;
       case 'Ctrl+S': this.saveAs(); return true;
+      case 'Ctrl+P': this.print(); return true;
       case 'N': case 'P':
         if (!this.onNeighbor) return false;
         this.onNeighbor(m === 'N' ? 1 : -1);
@@ -1184,6 +1204,7 @@ export class ListerView {
         { label: ck(this.follow, 'Follow file (auto-reload)'), run: () => this.toggleFollow() },
         { sep: true },
         { label: this.selRange() ? 'Save selection as…' : 'Save as…', detail: k('Ctrl+S'), run: () => this.saveAs() },
+        { label: this.selRange() && textual ? 'Print selection…' : 'Print…', detail: k('Ctrl+P'), run: () => this.print(), disabled: !this.id },
         { label: 'Open with another app', detail: this.altKey(), run: () => this.app.run('cm_ListExternal', { path: this.info?.path, external: true }) },
         { sep: true },
         { label: 'Close', detail: 'Esc', run: () => this.onClose?.(), disabled: !this.onClose },
