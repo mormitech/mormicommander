@@ -854,3 +854,57 @@ func (f *Find) Volumes() []string {
 	}
 	return out
 }
+
+// ---- saved searches as filters (F-537) ----
+
+// TemplateMatch answers which of the given names in folder dir pass the saved search name: its name mask, text, date,
+// size, attributes, permissions and files/folders choice, as Find files would judge them. Select group (Num +) and the
+// custom filter (Ctrl+F12) use it for ">name" when name is a saved search and not a saved filter. The search's own
+// folders, depth, archives and duplicate options don't apply: only the entries given are judged, nothing else is read.
+func (f *Find) TemplateMatch(name, dir string, names []string) ([]int, error) {
+	st, err := f.openStore()
+	if err != nil {
+		return nil, err
+	}
+	o, ok := st.Get(strings.TrimSpace(name))
+	if !ok {
+		return nil, fmt.Errorf("There is no saved search named %q.", name)
+	}
+	o.SearchIn, o.Within, o.Levels = []string{dir}, nil, 0
+	o.SearchArchives, o.Archives, o.Duplicates, o.FS = false, nil, find.DupOptions{}, nil
+	if f.app.mock != nil || strings.Contains(dir, "://") {
+		o.FS = &findVFS{def: f.app.fs, demo: f.app.mock != nil}
+	}
+	q, err := find.Compile(o)
+	if err != nil {
+		return nil, errors.New(findErrText(err))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	fsys := vfs.For(dir, f.app.fs)
+	out := []int{}
+	for i, n := range names {
+		if n == "" || n == ".." {
+			continue
+		}
+		if ok, err := q.Match(ctx, fsys.Join(dir, n)); err == nil && ok {
+			out = append(out, i)
+		} else if ctx.Err() != nil {
+			return nil, errors.New("Checking the files against the saved search took too long.")
+		}
+	}
+	return out, nil
+}
+
+// TemplateNames lists the saved searches (for the drop-down lists of Select group and the custom filter); none when
+// there is no settings folder.
+func (f *Find) TemplateNames() []string {
+	st, err := f.openStore()
+	if err != nil {
+		return []string{}
+	}
+	if n := st.Names(); n != nil {
+		return n
+	}
+	return []string{}
+}

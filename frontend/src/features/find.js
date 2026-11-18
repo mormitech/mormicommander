@@ -177,7 +177,8 @@ function html(setup) {
           <select id="ff-saved" size="8" aria-label="Saved searches"></select>
           <div class="mc-find-col"><button type="button" class="ff-load">Load</button><button type="button" class="ff-save">Save…</button><button type="button" class="ff-delete">Delete…</button></div>
         </div>
-        <p class="mc-note">"Last search" is the search you started last. Load fills in the fields; it doesn't start the search.</p>
+        <p class="mc-note">"Last search" is the search you started last. Load fills in the fields; it doesn't start the search.
+          A saved search also works as "&gt;name" in Select files (Num +) and in the custom filter (Ctrl+F12).</p>
       </div>
       ${extraTabs.map((t) => `<div class="mc-find-page" data-page="${esc(t.id)}" hidden>${t.html?.() || ''}</div>`).join('')}
     </div>

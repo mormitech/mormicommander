@@ -17,6 +17,7 @@ import { addControlCommand } from '../core/control.js';
 import { attr } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { maskKey } from './select-mask-keys.js';
+import { templateName, kindIndexes } from './find-select-lib.js';
 import './selection.css';
 
 const markDirs = (app) => !!app.setting('markDirectories', false);
@@ -161,13 +162,15 @@ function groupDialog(app, select, kind) {
   const history = app.setting('selectHistory', []) || [];
   const value = history[0] || '*.*';
   let onKey = () => false; // set once the box is built
+  let searches = []; // the saved Find files searches, also usable as ">name" (F-537)
+  go.Find.TemplateNames().then((n) => { searches = Array.isArray(n) ? n : []; }).catch(() => {});
   return modal((box, done) => {
     box.innerHTML = `<h2>${esc(TITLES[select][kind])}</h2>
       <div class="mc-row"><label for="mask">${select ? 'Select' : 'Unselect'} the ${kind === 'both' ? 'files and folders' : kind} that match:</label>
         <div class="mc-select-combo"><input id="mask" type="text" spellcheck="false" autocomplete="off" value="${esc(value)}" autofocus data-select="0,${value.length}">
         <button type="button" class="mc-select-drop" title="Masks used before (Alt+Down)" aria-label="Masks used before">▾</button></div></div>
       <ul class="mc-select-list" role="listbox" hidden></ul>
-      <p class="mc-note">* and ? are wildcards; separate masks with spaces or ";"; after "|" come the masks to leave out (|*.bak); "dir\\" or "dir/" is a folder; "&lt;" starts a regular expression; "&gt;name" is a saved filter.</p>
+      <p class="mc-note">* and ? are wildcards; separate masks with spaces or ";"; after "|" come the masks to leave out (|*.bak); "dir\\" or "dir/" is a folder; "&lt;" starts a regular expression; "&gt;name" is a saved filter or a saved Find files search.</p>
       <div class="mc-select-tools"><button type="button" class="mc-select-define" title="Save a mask under a name">Define…</button></div>
       <p class="mc-err" hidden></p>
       <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
@@ -179,7 +182,9 @@ function groupDialog(app, select, kind) {
     let on = -1;
     const fill = () => {
       const fl = Object.keys(filters(app)).sort((a, b) => a.localeCompare(b));
-      items = [...(app.setting('selectHistory', []) || []).map((m) => ({ text: m })), ...fl.map((n) => ({ text: `>${n}`, filter: true }))];
+      const sl = searches.filter((n) => templateName(`>${n}`, fl, searches));
+      items = [...(app.setting('selectHistory', []) || []).map((m) => ({ text: m })), ...fl.map((n) => ({ text: `>${n}`, filter: true })),
+        ...sl.map((n) => ({ text: `>${n}`, filter: true }))];
       list.innerHTML = items.length
         ? items.map((it, i) => `<li role="option" data-i="${i}" class="${it.filter ? 'mc-select-filter' : ''}">${esc(it.text)}</li>`).join('')
         : '<li class="mc-select-empty">No masks used yet</li>';
@@ -218,6 +223,7 @@ function groupDialog(app, select, kind) {
       ev.preventDefault();
       const mask = input.value.trim();
       if (!mask) { done(''); return; }
+      if (templateName(mask, Object.keys(filters(app)), searches)) { done(mask); return; }
       const problem = await go.Select.Check(mask, filters(app)).catch((e) => errText(e));
       if (problem) { err.hidden = false; err.textContent = problem; input.focus(); return; }
       done(mask);
@@ -261,8 +267,13 @@ async function group(app, args, select, kind) {
   if (mask === null) mask = await groupDialog(app, select, kind);
   if (!mask) return false; // cancelled, or empty: nothing happens, nothing is kept
   let idx;
-  try { idx = await go.Select.Group(rows(app, p), mask, kind, filters(app)); }
-  catch (e) { app.flash(errText(e), 'err'); return false; }
+  try {
+    // ">name" of a saved Find files search (F-537): Go judges the rows by the search's filters
+    const searches = mask.startsWith('>') ? await go.Find.TemplateNames().catch(() => []) : [];
+    const tpl = templateName(mask, Object.keys(filters(app)), searches);
+    if (tpl) idx = kindIndexes(p.entries, await go.Find.TemplateMatch(tpl, p.path, p.entries.map((e) => (e.up ? '' : e.name))), kind);
+    else idx = await go.Select.Group(rows(app, p), mask, kind, filters(app));
+  } catch (e) { app.flash(errText(e), 'err'); return false; }
   remember(app, mask);
   mark(p, idx, select);
   return true;

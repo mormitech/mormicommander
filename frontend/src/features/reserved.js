@@ -10,6 +10,8 @@ import { inputDialog } from '../core/dialogs.js';
 import { cmdline } from '../core/cmdline.js';
 import { splitPath } from '../core/panel.js';
 import { maskFilter, execFilter, historyItems, selectionFilter } from './reserved-lib.js';
+import { templateName } from './find-select-lib.js';
+import { go, errText } from '../core/go.js';
 
 const USER_MASK = 'srcUserMask'; // the setting that keeps the custom filter's mask between runs
 
@@ -37,9 +39,28 @@ command({
   run: (app) => { app.cur.setFilter(execFilter(), 'Programs'); return true; },
 });
 
-// applyUserMask puts the custom mask on the active panel.
-function applyUserMask(app, mask) {
-  app.cur.setFilter(maskFilter(mask), mask);
+// userFilter makes the custom filter for panel p: the mask, or for ">name" a saved Find files search (F-537), which Go
+// judges against the folder's entries now (folders always stay, as with a mask). null when that failed (said in a
+// flash). A saved filter of Select files is not a search, so ">name" of one stays a plain mask as before.
+async function userFilter(app, p, mask) {
+  if (!mask.startsWith('>')) return maskFilter(mask);
+  const tpl = templateName(mask, Object.keys(app.setting('selectFilters', {}) || {}), await go.Find.TemplateNames().catch(() => []));
+  if (!tpl) return maskFilter(mask);
+  const files = p.all.filter((e) => !e.up && !e.dir);
+  let idx;
+  try { idx = await go.Find.TemplateMatch(tpl, p.path, files.map((e) => e.name)); } catch (e) { app.flash(errText(e), 'err'); return null; }
+  const keep = new Set((idx || []).map((i) => files[i]?.name));
+  const fn = (e) => !!e.up || !!e.dir || keep.has(e.name);
+  fn.mcSrc = 'user';
+  fn.mcMask = mask;
+  return fn;
+}
+
+// applyUserMask puts the custom mask on panel p (the active one when not given).
+async function applyUserMask(app, mask, p = app.cur) {
+  const fn = await userFilter(app, p, mask);
+  if (!fn) return false;
+  p.setFilter(fn, mask);
   return true;
 }
 
@@ -55,7 +76,7 @@ async function askUserMask(app, args = {}) {
   if (mask === null) {
     mask = await inputDialog({
       title: 'Custom filter', label: 'Show files matching:', value: app.setting(USER_MASK, '') || '*.*',
-      note: 'For example *.txt *.md, or *.* | *.bak *.tmp to leave files out. Folders always stay.',
+      note: 'For example *.txt *.md, or *.* | *.bak *.tmp to leave files out; >name uses a saved Find files search. Folders always stay.',
       validate: (v) => (v.trim() ? '' : 'Type a file mask, for example *.txt.'), kind: 'srcuserdef',
     });
     if (mask === null) return null;
@@ -105,8 +126,7 @@ for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Ri
     run: async (app, args) => {
       let mask = app.setting(USER_MASK, '');
       if (!mask) { mask = await askUserMask(app, args); if (mask === null) return false; }
-      pick(app).setFilter(maskFilter(mask), mask);
-      return true;
+      return applyUserMask(app, mask, pick(app));
     },
   });
   command({
@@ -114,8 +134,7 @@ for (const [pre, pick, w] of [['Left', (app) => app.left, ' (left panel)'], ['Ri
     run: async (app, args) => {
       const mask = await askUserMask(app, args);
       if (mask === null) return false;
-      pick(app).setFilter(maskFilter(mask), mask);
-      return true;
+      return applyUserMask(app, mask, pick(app));
     },
   });
 }

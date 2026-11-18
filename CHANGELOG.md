@@ -8,6 +8,8 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Find files: a saved search can be used as a filter: ">name" in Select files (Num +, also in its list) and in
+  the custom filter (Ctrl+F12) picks the files the saved search would find in the folder.
 - Change start menu: each entry can have an icon (a PNG, JPEG, GIF, BMP or WebP file), shown before its title in the
   Start menu.
 - Help menu: Report a problem opens the issues page in the browser, and Help shows its key (F1).

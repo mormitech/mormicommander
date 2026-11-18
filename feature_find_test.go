@@ -279,3 +279,35 @@ func TestFindResultLimit(t *testing.T) {
 		t.Errorf("limit 3: %d results", len(got))
 	}
 }
+
+// A saved search judges the names of one folder for Select group and the custom filter (F-537).
+func TestFindTemplateMatch(t *testing.T) {
+	f := newTestFind(t)
+	dir := t.TempDir()
+	findWriteFile(t, filepath.Join(dir, "a.txt"), "hello world")
+	findWriteFile(t, filepath.Join(dir, "old.txt"), "hello")
+	findWriteFile(t, filepath.Join(dir, "b.txt"), "nothing")
+	findWriteFile(t, filepath.Join(dir, "c.md"), "hello")
+	findWriteFile(t, filepath.Join(dir, "sub", "x.txt"), "hello")
+	if err := f.Save("Texts", FindRequest{SearchFor: "*.txt|old*", SearchIn: dir, Depth: -1, Kind: "files"}, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Save("Hello", FindRequest{SearchFor: "*.txt", SearchIn: dir, TextOn: true, Text: "hello", Encodings: []string{"utf8"}}, false); err != nil {
+		t.Fatal(err)
+	}
+	names := []string{"..", "a.txt", "old.txt", "b.txt", "c.md", "sub", "gone.txt"}
+	got, err := f.TemplateMatch("Texts", dir, names)
+	if err != nil || !reflect.DeepEqual(got, []int{1, 3}) {
+		t.Fatalf("Texts: %v %v", got, err)
+	}
+	got, err = f.TemplateMatch("hello", dir, names) // names compare ignoring case
+	if err != nil || !reflect.DeepEqual(got, []int{1, 2}) {
+		t.Fatalf("Hello: %v %v", got, err)
+	}
+	if _, err := f.TemplateMatch("none", dir, names); err == nil {
+		t.Fatal("unknown search: want error")
+	}
+	if n := f.TemplateNames(); len(n) != 2 {
+		t.Fatalf("TemplateNames: %v", n)
+	}
+}
