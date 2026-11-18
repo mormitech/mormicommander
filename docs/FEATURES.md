@@ -433,18 +433,18 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 11. Button bar (toolbar)
 
-- [~] F-304 Main button bar with default buttons (reread, brief, full, thumbnails, tree, invert selection, back, forward, pack, unpack, find, view, multi-rename, sync, FTP, hotlist, edit, compare) — — — default bar shows icon buttons with data-tip tooltips; clicking runs the command
-- [~] F-305 Customize button bar (cm_ButtonConfig) — — — dialog to add/remove/reorder buttons; each button: command (cm_* or program), parameters, start path, icon, tooltip, run minimized
-- [~] F-306 Drag & drop a program/file onto bar adds a button — — — dropping a file adds a button that launches it
-- [~] F-307 Drag & drop files onto a button — — — dropped files are passed as parameters to that button's program
-- [~] F-308 Sub-bars (buttons opening another bar as dropdown) — — — button can open a nested bar as a menu
-- [~] F-309 Multiple bar files (.bar) and switching — — — user can save and load different bars
-- [~] F-310 Button bar parameters placeholders %P %N %S %T %L %F etc. — — — placeholders expand: %P source path, %N name under cursor, %T target path, %S selected names, %L list file of selected names, %F list of names only, %O name without ext, %E ext, %M name in target, %Z list file UTF-8 etc.; tested via command
-- [~] F-311 Button "user command" (usercmd.ini em_ commands) — — — user-defined em_ commands appear in command list and can be used by buttons/hotkeys/menus
-- [~] F-312 Button bar large/small icons, flat look, wrap to multiple lines — — — options apply
-- [~] F-313 Right-click on button: change, delete, copy, paste — — — context menu works
-- [ ] F-314 Vertical button bar config — — — separate bar config for the middle bar
-- [~] F-814 Parameter prompt in buttons and start menu items — — — a '?' at the start of the parameters shows an edit box with the expanded parameters before running; Cancel runs nothing
+- [~] F-304 Main button bar with default buttons (reread, brief, full, thumbnails, tree, invert selection, back, forward, pack, unpack, find, view, multi-rename, sync, FTP, hotlist, edit, compare) — — — default bar shows icon buttons with data-tip tooltips; clicking runs the command — audit #59: a fresh install shows internal/config DefaultBar (all 18 commands, each with a tooltip; TestDefaultBarCommands); buttons render with data-tip and run their command, old TC names mapped by run.js ALIASES (test/buttonbar-run.test.js)
+- [~] F-305 Customize button bar (cm_ButtonConfig) — — — dialog to add/remove/reorder buttons; each button: command (cm_* or program), parameters, start path, icon, tooltip, run minimized — audit #59: Configuration > Change button bar (cm_ButtonConfig, features/config/buttonbar.js) adds/deletes/reorders buttons and separators with command, parameters, start folder, icon, tooltip and window state; saved as a TC .bar file (TestBarEditAndSave)
+- [~] F-306 Drag & drop a program/file onto bar adds a button — — — dropping a file adds a button that launches it — audit #59: dropping a file on an empty part of the bar adds a button for it (ConfigBar.ButtonForFile, TestButtonForFileRoot)
+- [~] F-307 Drag & drop files onto a button — — — dropped files are passed as parameters to that button's program — audit #59: dropping files on a button runs it with them (dropped paths go to ConfigBar.Prepare; TestDroppedFiles, test/buttonbar-run.test.js)
+- [~] F-308 Sub-bars (buttons opening another bar as dropdown) — — — button can open a nested bar as a menu — audit #59: a button whose command is a .bar file drops the other bar down as a list and runs the button chosen (run.js openSubBar; test/buttonbar-run.test.js)
+- [~] F-309 Multiple bar files (.bar) and switching — — — user can save and load different bars — audit #59: the Change button bar dialog opens/saves other .bar files and makes them the main or vertical bar (ConfigBar.LoadBar/SaveBar/UseBar/ListBars)
+- [~] F-310 Button bar parameters placeholders %P %N %S %T %L %F etc. — — — placeholders expand: %P source path, %N name under cursor, %T target path, %S selected names, %L list file of selected names, %F list of names only, %O name without ext, %E ext, %M name in target, %Z list file UTF-8 etc.; tested via command — audit #59: internal/params expands %P %T %N %M %O %E %S %R %Q %L %F %D %Z %X %Y and %[question;default] (TestExpand*, TestListFiles, TestExpandParams*)
+- [~] F-311 Button "user command" (usercmd.ini em_ commands) — — — user-defined em_ commands appear in command list and can be used by buttons/hotkeys/menus — audit #59: usercmd.ini em_ commands are edited in Options > User commands and registered as commands (features/config/usercmds.js), so buttons, keys, menus and the command line run them (TestUserCommands)
+- [~] F-312 Button bar large/small icons, flat look, wrap to multiple lines — — — options apply — audit #59: the dialog sets icon size (small/medium/large), flat buttons and wrapping; stored by ConfigBar.SetOptions and applied as classes/CSS variable on the bar
+- [~] F-313 Right-click on button: change, delete, copy, paste — — — context menu works — audit #59: right-click a button for Change, Delete, Cut, Copy, Paste and Change button bar; copy uses TC's clipboard text (TestButtonClipboard)
+- [~] F-314 Vertical button bar config — — — separate bar config for the middle bar — audit #59: the vertical middle bar has its own .bar file ([ButtonbarVertical] in wincmd.ini, vertical.bar by default), edited in the same dialog ("Bar: Vertical button bar"), shown with cm_VisButtonbar2 / Layout.ButtonBarVertical
+- [~] F-814 Parameter prompt in buttons and start menu items — — — a '?' at the start of the parameters shows an edit box with the expanded parameters before running; Cancel runs nothing — audit #59: a leading "?" in the parameters shows the filled-in line for editing; OK runs the edited line, Cancel discards it and runs nothing (TestPromptAndAsk, test/buttonbar-run.test.js)
 
 ## 12. Files menu
 
