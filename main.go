@@ -48,6 +48,7 @@ func main() {
 		startDemo()
 	}
 	app := NewApp(o)
+	app.standalone = standaloneWanted(o)
 	width, height := windowW, windowH
 	if st, ok := loadWinState(); ok && !o.About {
 		width, height = st.W, st.H

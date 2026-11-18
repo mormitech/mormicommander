@@ -299,6 +299,22 @@ func (lw *ListerWindows) closing(v *listerWin) {
 	if session != 0 && listerInstance != nil {
 		listerInstance.Close(session)
 	}
+	if shown && lw.app.isStandalone() && lw.shownCount() == 0 { // (-S=L: the last Lister window ends the app, F-852)
+		go lw.app.endStandalone()
+	}
+}
+
+// shownCount is the number of Lister windows on screen (the hidden spare is not counted).
+func (lw *ListerWindows) shownCount() int {
+	lw.mu.Lock()
+	defer lw.mu.Unlock()
+	n := 0
+	for _, v := range lw.wins {
+		if v.shown {
+			n++
+		}
+	}
+	return n
 }
 
 // show shows a window that was asked to show a file (once).

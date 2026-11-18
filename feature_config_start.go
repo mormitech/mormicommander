@@ -152,11 +152,66 @@ func (s *ConfigStart) SaveMenu(items []configStartItem) error {
 // StartParams is what the command line asked for beyond the panel folders the page opens at start (F-730 to F-734,
 // F-852): new tabs, source and target, a tool to start on its own.
 func (s *ConfigStart) StartParams() map[string]any {
-	return configStartParams(s.app.opts)
+	m := configStartParams(s.app.opts)
+	m["standalone"] = s.app.isStandalone()
+	return m
+}
+
+// ShowManager is called by the page when a standalone Lister (-S=L, F-852) could not open: the file manager's window
+// shows after all, so the start is never a window-less process.
+func (s *ConfigStart) ShowManager() {
+	a := s.app
+	a.mu.Lock()
+	a.standalone = false
+	a.mu.Unlock()
+	a.reveal()
+}
+
+// ---- standalone tools: -S=L (F-852) ----
+
+// standaloneWanted says whether this start opens only the Lister window: -S=L with an existing file, and Options >
+// Operation > "-S=L on the command line opens only the Lister window" on (off by default, so the file manager opens too).
+func standaloneWanted(o startOpts) bool {
+	if !standaloneCandidate(o) {
+		return false
+	}
+	loc, err := configLocate(o)
+	if err != nil {
+		return false
+	}
+	cfg, err := config.Open(loc)
+	if err != nil {
+		return false
+	}
+	return cfg.Settings.Operation.StandaloneTools
+}
+
+// standaloneCandidate is the command-line half of standaloneWanted: -S=L naming an existing file, not a demo run or the
+// About window.
+func standaloneCandidate(o startOpts) bool {
+	return o.Tool == "lister" && isFile(o.ToolFile1) && !o.About && !o.Demo && !o.Version && !o.Help
+}
+
+// isStandalone says whether the file manager's window is kept hidden for a standalone Lister.
+func (a *App) isStandalone() bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.standalone
+}
+
+// endStandalone ends a standalone Lister run once its last window closed. The hidden file manager's window is not saved
+// (it was never shown, so its place and size stay as they were).
+func (a *App) endStandalone() {
+	a.mu.Lock()
+	a.quitting = true
+	a.mu.Unlock()
+	if a.wapp != nil {
+		a.wapp.Quit()
+	}
 }
 
 func configStartParams(o startOpts) map[string]any {
-	return map[string]any{"left": o.TCLeft, "right": o.TCRight, "newTab": o.NewTab, "sourceTarget": o.SourceTarget,
+	return map[string]any{"standalone": false, "left": o.TCLeft, "right": o.TCRight, "newTab": o.NewTab, "sourceTarget": o.SourceTarget,
 		"active": o.Active, "tool": o.Tool, "toolOpts": o.ToolOpts, "file1": o.ToolFile1, "file2": o.ToolFile2,
 		"openInRunning": o.OpenInRunning, "newInstance": o.NewInstance, "ini": o.IniPath, "ftpIni": o.FtpIniPath}
 }
@@ -258,7 +313,7 @@ func configForwardToRunning(args []string) bool {
 }
 
 func configStartServer(a *App) {
-	if a.mode != "" || a.mock != nil {
+	if a.mode != "" || a.mock != nil || a.isStandalone() { // (a standalone Lister is not the window others hand folders to)
 		return
 	}
 	loc, err := configLocate(a.opts)

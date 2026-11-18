@@ -183,6 +183,9 @@ type OperationPage struct {
 	// the option existed; off stops the recording and leaves the entries already there. The page bridges it to the
 	// settings key "undoJournal" (features/config/optbridge.js), which feature_undo.go and the overwrite question read.
 	UndoJournal bool `ini:"Configuration:UndoJournal" def:"1" label:"Keep an undo journal of file operations (Cmd+Z on macOS)"`
+	// StandaloneTools (F-852, TC's /S=L): "mormicommander -S=L file" opens only a Lister window, without the file
+	// manager's window, and the app ends when that window closes. Off by default: the file manager opens too, as before.
+	StandaloneTools bool `ini:"Configuration:StandaloneTools" def:"0" label:"-S=L on the command line opens only the Lister window"`
 }
 
 // ViewerEditorPage (F-420).

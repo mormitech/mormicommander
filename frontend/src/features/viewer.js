@@ -54,8 +54,10 @@ const inListerWindow = () => !!globalThis.document?.body?.classList.contains('mc
 
 // openViewer opens the Lister on a file: in a window when the setting says so and Go has Lister windows, else over the
 // panels.
+// o.standalone (-S=L with Options > Operation > StandaloneTools, F-852): always a window, as the file manager's own
+// window is hidden; should the window not open, the file manager shows after all and the Lister opens over it.
 async function openViewer(app, o) {
-  if (inWindowSetting(app) && !inListerWindow() && !lister) {
+  if ((o.standalone || inWindowSetting(app)) && !inListerWindow() && !lister) {
     try {
       await go.ListerWindows.Open({
         path: o.path, names: o.names || [], dir: o.dir || '', sources: o.sources || [], at: o.at ?? -1,
@@ -65,9 +67,11 @@ async function openViewer(app, o) {
       });
       return;
     } catch (e) {
+      if (o.standalone) await go.ConfigStart.ShowManager().catch(() => {});
       if (!/is not available/.test(errText(e))) { app.flash(errText(e), 'err'); return; }
     }
   }
+  if (o.standalone) await go.ConfigStart.ShowManager().catch(() => {});
   return openLister(app, o);
 }
 
@@ -185,6 +189,7 @@ async function view(app, args = {}) {
     return openViewer(app, {
       path, names: [fileOf(path, sep)], dir: args.dir ?? (path.slice(0, path.lastIndexOf(sep)) || sep),
       sources: at >= 0 ? sources : [], at, side: args.side || '', internalOnly: !!args.internalOnly, mode: args.mode || 'auto',
+      standalone: !!args.standalone,
     });
   }
   const e = p.cur;

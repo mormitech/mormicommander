@@ -7,7 +7,7 @@ version is changed only when a round of features is merged.
 ## Unreleased
 
 ### Added
-
+- Options > Operation: "-S=L on the command line opens only the Lister window" starts just a Lister window for `mormicommander -S=L file` and quits when it closes (off by default).
 - Commands > Rename volume… changes the name of a disk or USB drive (macOS and Windows), after asking twice.
 - Commands > Drive list as folder shows all drives as a folder ("My computer"); an option makes ".." in a drive's root go there.
 - Option to show a small bar under each drive button telling how full the drive is (Options > Layout, off by default).

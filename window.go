@@ -36,6 +36,7 @@ func (a *App) newMainWindow(width, height int) {
 		MinHeight:        minWinH,
 		URL:              "/",
 		BackgroundColour: windowBackground,
+		Hidden:           a.isStandalone(), // (only the Lister window shows: -S=L, F-852)
 		// Files dropped from Finder / Explorer reach the page with their paths (the "filedrop" event, used by
 		// frontend/src/features/system-dnd.js and config/buttonbar.js); drags between the panels stay ordinary HTML
 		// drags.

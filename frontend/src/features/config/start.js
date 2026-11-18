@@ -1,6 +1,7 @@
 // Start-up parameters the page applies once the panels are ready (FEATURES.md section 41): -T opens the folders in new
 // tabs (F-730), -S takes them as source and target (F-731), -P= picks the active panel (F-732), -S=L / -S=C / -S=S start
-// the viewer, compare or synchronize on their own (F-852). A second start with -O (or with "Allow only one copy" on)
+// the viewer, compare or synchronize on their own (F-852; -S=L opens only a Lister window with Options > Operation >
+// StandaloneTools on). A second start with -O (or with "Allow only one copy" on)
 // sends its command line here instead of opening a window (F-729, F-735): Go emits "config:open" with the same fields.
 // A path to a file opens its folder with the cursor on the file, as Total Commander does.
 
@@ -38,6 +39,9 @@ async function startTool(app, info) {
   const f1 = info.file1, f2 = info.file2;
   switch (info.tool) {
     case 'lister':
+      // only the Lister window (Options > Operation > StandaloneTools; Go hid the file manager's window): the panels
+      // stay as they are, so nothing of this run changes the saved session
+      if (info.standalone && f1) return app.run('cm_List', { path: f1, standalone: true });
       if (!f1) { app.flash('Give the file to view: mormicommander -S=L file'); return; }
       await show(app, app.left, f1, false);
       app.setActive(app.left);

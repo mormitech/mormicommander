@@ -36,7 +36,10 @@ type App struct {
 	winH     int
 	menuBar  *application.Menu // the menu bar (see menu.go)
 	quitting bool
-	title    string // the window title the page set last (control mode's "info" tells it)
+	// standalone: started with -S=L and Options > Operation > StandaloneTools, so the file manager's window stays hidden
+	// and only the Lister window shows; the app ends when that closes (F-852, feature_config_start.go)
+	standalone bool
+	title      string // the window title the page set last (control mode's "info" tells it)
 
 	wapp  *application.App           // the Wails application
 	win   *application.WebviewWindow // the file manager's window ("main")
@@ -66,7 +69,7 @@ func (a *App) startup() {
 		}
 	}
 	a.reveal()
-	if w := a.mainWindow(); w != nil && a.saved != nil {
+	if w := a.mainWindow(); w != nil && a.saved != nil && !a.isStandalone() {
 		maximiseSaved(w, *a.saved)
 	}
 	if a.opts.Control != "" {
@@ -101,7 +104,7 @@ func (a *App) shutdown() {
 // unhide it on its own.
 func (a *App) reveal() {
 	w := a.mainWindow()
-	if w == nil {
+	if w == nil || a.isStandalone() {
 		return
 	}
 	w.Show()
