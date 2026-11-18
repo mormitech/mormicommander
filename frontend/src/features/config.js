@@ -28,6 +28,7 @@ import { initListOpts } from './config/listopts.js';
 import { initFileIcons } from './config/fileicons.js';
 import { initSounds } from './config/sounds.js';
 import { initSessionOpts } from './config/sessionopts.js';
+import { importCmdHistory } from './config/cmdhist.js';
 import { initButtonBar, loadBars } from './config/buttonbar.js';
 import { initStartMenu, loadStartMenu } from './config/startmenu.js';
 import { registerUserCommands } from './config/usercmds.js';
@@ -49,7 +50,7 @@ async function reloadAll(app) {
   await loadColors();
   await mergeKeymap(app);
   applyAll(app.startTheme);
-  await Promise.all([loadBars(), loadStartMenu(), registerUserCommands(app)]);
+  await Promise.all([loadBars(), loadStartMenu(), registerUserCommands(app), importCmdHistory(app)]);
   app.emit('config', null);
   app.emit('settings');
 }
@@ -65,6 +66,7 @@ export async function init(app) {
   await initFileIcons(app);
   initSounds(app);
   initSessionOpts(app);
+  importCmdHistory(app); // (F-295: the lines a TC import brought over join the command line history)
   initLayout(app);
   await mergeKeymap(app);
   applyAll(app.startTheme);

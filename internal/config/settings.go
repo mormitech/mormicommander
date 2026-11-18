@@ -349,7 +349,13 @@ type MiscPage struct {
 	CheckUpdates   bool   `ini:"Configuration:CheckUpdates" def:"0" label:"Check for updates"`
 	BeepOnError    bool   `ini:"Configuration:BeepOnError" def:"0" label:"Beep on errors"`
 	CmdLineAutoCmp bool   `ini:"Configuration:CmdLineAutoComplete" def:"1" label:"Command line auto-complete"`
-	DialogWindows  bool   `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
+	// CmdLineOutput (F-293): console programs and shell commands typed on the command line run without a terminal and
+	// what they print is shown in a window of the app. Off by default: they open in a terminal as before.
+	CmdLineOutput bool `ini:"Configuration:CmdLineOutputWindow" def:"0" label:"Show command line output in a window instead of a terminal"`
+	// CmdLineSuggest (F-296): while a path is typed on the command line, the first matching folder is suggested after
+	// the caret (Tab or Right takes it). Off by default: typing works as before.
+	CmdLineSuggest bool `ini:"Configuration:CmdLineSuggest" def:"0" label:"Suggest folders while typing in the command line"`
+	DialogWindows  bool `ini:"Configuration:DialogsInWindows" def:"1" label:"Open dialogs in windows of their own"`
 
 	// HideNoEffect (board issue #94): the Options dialog leaves out the options the program does not act on yet
 	// (noeffect.go). Off by default, so the dialog shows every option as before, with those marked.

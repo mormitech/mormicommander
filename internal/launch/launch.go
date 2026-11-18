@@ -89,6 +89,9 @@ type Launcher struct {
 	Start func(Command) error
 	// Output runs a command, waits for it and returns its combined output (used for captured command-line output).
 	Output func(context.Context, Command) ([]byte, error)
+	// Capture runs a command with no input, waits for it and returns at most limit bytes of its output; cancelling the
+	// context stops it (captured command-line output with a Stop button, capture.go). Nil means the real one.
+	Capture func(ctx context.Context, c Command, limit int) (CaptureResult, error)
 	// LookPath finds a program in PATH, like exec.LookPath.
 	LookPath func(string) (string, error)
 	// LookupEnv reads an environment variable, like os.LookupEnv.

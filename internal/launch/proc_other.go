@@ -14,3 +14,5 @@ func applyPlatform(cmd *exec.Cmd, c Command, detached bool) {}
 func shellExecute(c Command) (bool, error) { return false, nil }
 
 func shortName(path string) string { return path }
+
+func ownGroup(cmd *exec.Cmd) {}

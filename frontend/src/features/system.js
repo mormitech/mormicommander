@@ -18,6 +18,8 @@ import { go, on, errText } from '../core/go.js';
 import { showList } from '../core/popup.js';
 import { inputDialog, modal, esc } from '../core/dialogs.js';
 import { addCmdlineHandler } from '../core/cmdline.js';
+import { showOutputWindow } from './cmdline-output.js';
+import { outputWanted } from './cmdline-output-lib.js';
 import { addControlCommand } from '../core/control.js';
 import { plural } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
@@ -136,6 +138,13 @@ command({
 
 addCmdlineHandler(async (text, { shift }) => {
   const app = theApp, p = app.cur;
+  // the option "Show command line output in a window instead of a terminal" (F-293, off by default): a console program
+  // or shell command runs without a terminal and its output shows in the app (features/cmdline-output.js)
+  if (outputWanted(app.config?.values, shift)) {
+    let captured = false;
+    try { captured = await go.SystemLaunch.LineCaptures(text, p.path); } catch { captured = false; }
+    if (captured) { showOutputWindow(app, text, p.path); return true; }
+  }
   let r;
   try { r = await go.SystemLaunch.RunLine(text, p.path, !!shift); } catch (e) { app.flash(errText(e), 'err'); return true; }
   if (r.kind === 'cd') await p.go(r.target);

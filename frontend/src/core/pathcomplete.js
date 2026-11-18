@@ -34,8 +34,10 @@ function split(text, base) {
 }
 
 // attachPathComplete makes input complete folder names. base() is the folder a relative path starts from ('' for
-// none). Returns a function that takes the completion off again.
-export function attachPathComplete(input, base = () => '') {
+// none). opts.word(text), when given, picks the part of the text that is the path (the command line's last word,
+// F-296), or null for no suggestion; without it the whole text is the path. Returns a function that takes the
+// completion off again.
+export function attachPathComplete(input, base = () => '', opts = {}) {
   let busy = 0;
   const win = () => app.platform === 'windows';
   const onInput = async (ev) => {
@@ -43,7 +45,9 @@ export function attachPathComplete(input, base = () => '') {
     const caret = input.selectionStart;
     if (caret !== input.value.length || input.selectionEnd !== caret) return;
     const typed = input.value;
-    const { dir, prefix } = split(typed, base());
+    const part = opts.word ? opts.word(typed) : typed;
+    if (!part) return;
+    const { dir, prefix } = split(part, base());
     if (!dir || !prefix) return;
     const my = ++busy;
     let names;

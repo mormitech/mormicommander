@@ -53,6 +53,16 @@ function wire() {
   i.addEventListener('blur', () => { typed = false; });
 }
 
+// dropSuggestion removes a folder suggested after the caret while typing (features/cmdline-suggest.js, F-296) that was
+// not taken with Tab or Right: Enter runs what was typed, never a name only suggested.
+function dropSuggestion() {
+  const i = el();
+  if (!i?.dataset?.mcCompleted) return;
+  delete i.dataset.mcCompleted;
+  const a = i.selectionStart, b = i.selectionEnd;
+  if (b === i.value.length && a < b) i.value = i.value.slice(0, a);
+}
+
 export const cmdline = {
   get text() { return el()?.value || ''; },
   get focused() { return document.activeElement === el(); },
@@ -145,6 +155,7 @@ export const cmdline = {
   // submit runs the text: the first handler that takes it wins. The line is cleared afterwards. The history keeps
   // the line without a password typed in a server URL (see withoutUrlPasswords), like quick connect's history.
   async submit({ shift = false } = {}) {
+    dropSuggestion();
     const text = this.text.trim();
     if (!text) return false;
     const kept = withoutUrlPasswords(text);

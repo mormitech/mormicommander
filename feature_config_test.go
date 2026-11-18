@@ -84,3 +84,25 @@ func TestConfigSearchWords(t *testing.T) {
 		t.Errorf("SearchWords(two, true) = %v, want the drive bars only", r["fields"])
 	}
 }
+
+// F-295: the command line history a Total Commander import brings over is given to the page, which merges it into the
+// history it shows.
+func TestConfigCmdHistoryAfterImport(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("MORMICOMMANDER_CONFIG_DIR", dir)
+	old := thInstance
+	defer func() { thInstance = old }()
+	thInstance = thOpen(&App{}, filepath.Join(dir, "folders.ini"))
+	tc := filepath.Join(t.TempDir(), "wincmd.ini")
+	if err := os.WriteFile(tc, []byte("[Configuration]\r\nSaveCommands=1\r\n[Command line history]\r\n0=git status\r\n1=make all\r\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c := &Configuration{app: &App{}}
+	if _, err := c.ImportTC(tc, false); err != nil {
+		t.Fatal(err)
+	}
+	h, err := c.CmdHistory()
+	if err != nil || len(h) != 2 || h[0] != "git status" || h[1] != "make all" {
+		t.Errorf("CmdHistory = %q %v", h, err)
+	}
+}

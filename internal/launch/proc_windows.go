@@ -91,3 +91,6 @@ func shortName(path string) string {
 	}
 	return windows.UTF16ToString(buf[:n])
 }
+
+// ownGroup: on Windows a cancelled context kills the process itself (the default); the console it runs in is hidden.
+func ownGroup(cmd *exec.Cmd) {}

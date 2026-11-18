@@ -28,3 +28,11 @@
 .mc-system-props table { border-collapse: collapse; margin: 6px 0; -webkit-user-select: text; user-select: text; }
 .mc-system-props th { text-align: left; font-weight: normal; color: var(--muted); padding: 2px 14px 2px 0; vertical-align: top; white-space: nowrap; }
 .mc-system-props td { padding: 2px 0; word-break: break-all; }
+
+/* The command line's output window (F-293): the program's output, selectable and scrollable. */
+.mc-cmdout { width: min(820px, 94vw); }
+.mc-cmdout h2 { font: var(--mono); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc-cmdout-text {
+  margin: 6px 0; padding: 6px 8px; min-height: 8em; max-height: 60vh; overflow: auto; border: 1px solid var(--line); border-radius: 4px;
+  font: var(--mono); white-space: pre-wrap; word-break: break-all; -webkit-user-select: text; user-select: text;
+}

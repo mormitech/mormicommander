@@ -356,6 +356,18 @@ func (c *Configuration) Info() (map[string]any, error) {
 		"settingsJson": c.app.settings.Path()}, nil
 }
 
+// CmdHistory returns the command line history kept in mormicommander.ini ([Command line history], newest first): the
+// lines a Total Commander import brought over (F-295). The page keeps its own history in settings.json and merges
+// these into it (features/cmdline-import.js).
+func (c *Configuration) CmdHistory() ([]string, error) {
+	cfg, err := c.get()
+	if err != nil {
+		return nil, err
+	}
+	defer c.mu.Unlock()
+	return append([]string{}, cfg.CmdHistory.Items()...), nil
+}
+
 // Save writes the settings file now (cm_ConfigSaveSettings, F-440).
 func (c *Configuration) Save() error {
 	cfg, err := c.get()

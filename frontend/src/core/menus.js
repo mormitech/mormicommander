@@ -40,7 +40,7 @@ export const MENUS = [
     ['Target = source', 'cm_MatchSrc'], ['Swap panels', 'cm_Exchange'], ['Swap panels with tabs', 'cm_ExchangeWithTabs'],
     ['Show folder under cursor in left panel', 'cm_TransferLeft'], ['Show folder under cursor in right panel', 'cm_TransferRight'], '-',
     ['Branch view (all files in subfolders)', 'cm_DirBranch'], ['Branch view of selected folders', 'cm_DirBranchSel'], '-',
-    ['Open terminal here', 'cm_ExecuteDOS'], ['__REVEAL__', 'cm_Explorer'], ['Go to desktop folder', 'cm_OpenDesktop'], ['Go to home folder', 'cm_GoToHome'],
+    ['Open terminal here', 'cm_ExecuteDOS'], ['__REVEAL__', 'cm_Explorer'], ['Open folder in new window', 'cm_OpenNewWindow'], ['Go to desktop folder', 'cm_OpenDesktop'], ['Go to home folder', 'cm_GoToHome'],
     ['Go to root folder', 'cm_GoToRoot'], '-',
     ['Command line', 'cm_FocusCmdLine'], ['Command line history…', 'cm_ShowCmdLineHistory'], ['Path to command line', 'cm_AddPathToCmdline'],
     ['Name to command line', 'cm_AddFilenameToCmdline'], ['Path and name to command line', 'cm_AddPathAndNameToCmdline'],

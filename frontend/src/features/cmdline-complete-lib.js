@@ -41,3 +41,12 @@ export function writeMatch(dir, entry, { sep = '/', quoted = false, windows = fa
   const path = dir + entry.name + (entry.dir ? sep : '');
   return quoted || needsQuotes(path, windows) ? `"${path.replace(/"/g, '')}"` : path;
 }
+
+// suggestWord is the path a live suggestion completes (F-296): the word at the end of the line, when it is an argument
+// (not the first word, which names the program) or has a separator or ~ in it; null otherwise.
+export function suggestWord(text) {
+  const w = wordAt(text, text.length);
+  if (!w.word) return null;
+  if (w.start === 0 && !/[\\/]/.test(w.word) && !w.word.startsWith('~')) return null;
+  return w.word;
+}

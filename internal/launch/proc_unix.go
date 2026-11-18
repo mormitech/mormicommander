@@ -24,3 +24,18 @@ func applyPlatform(cmd *exec.Cmd, c Command, detached bool) {
 func shellExecute(c Command) (bool, error) { return false, nil }
 
 func shortName(path string) string { return path }
+
+// ownGroup puts a captured command into a session of its own (no terminal to read a password from, and a process
+// group to kill as a whole), and makes cancelling its context kill that whole group, children included.
+func ownGroup(cmd *exec.Cmd) {
+	if cmd.SysProcAttr == nil {
+		cmd.SysProcAttr = &syscall.SysProcAttr{}
+	}
+	cmd.SysProcAttr.Setsid = true
+	cmd.Cancel = func() error {
+		if cmd.Process == nil {
+			return nil
+		}
+		return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	}
+}

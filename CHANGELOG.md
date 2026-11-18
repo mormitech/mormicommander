@@ -8,6 +8,13 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Command line: Options > Misc > "Show command line output in a window instead of a terminal" (off by default) runs
+  console programs and shell commands without a terminal and shows what they print in a window, with Copy and Stop
+  (the program gets no input, and output over 1 MB stops it).
+- Command line: Options > Misc > "Suggest folders while typing in the command line" (off by default) fills in the
+  first matching folder after the caret while a path is typed; Tab or Right takes it, Enter runs only what was typed.
+- Commands > Open folder in new window starts a second window in the current folder (not with "Allow only one copy
+  of the program" on, which is then explained).
 - Lister: File > Print… (Ctrl+P, Cmd+P on macOS) prints the shown file after asking, or only the selected text.
 - Lister: the place of the last Lister window is kept; Options > Lister > "Open Lister windows where the last one
   was closed" (off by default) opens the next one there.
@@ -35,6 +42,8 @@ version is changed only when a round of features is merged.
 
 ### Fixed
 
+- Command line: the command line history imported from Total Commander now shows in the history list (Alt+F8)
+  and with Ctrl+E, after the commands typed here.
 - The copy dialog's target list (Alt+Down) now also lists the folders of the other panel's tabs.
 
 ## 0.14.32 – 2026-11-18

@@ -7,6 +7,7 @@ package main
 // this file only turns their answers into plain sentences for the page (frontend/src/features/system.js).
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"mormicommander/internal/launch"
 	"mormicommander/internal/links"
@@ -24,6 +26,9 @@ type SystemLaunch struct {
 	app *App
 	// newLauncher makes the launcher for one action; tests replace it with one that records commands.
 	newLauncher func() *launch.Launcher
+
+	capMu    sync.Mutex
+	captures map[string]context.CancelFunc // the running captured command lines, by the page's id (F-293)
 }
 
 func init() {
@@ -315,6 +320,74 @@ func (s *SystemLaunch) RunLine(line, dir string, keepOpen bool) (SystemLineResul
 		return SystemLineResult{}, fmt.Errorf("Can't run %q: %v", line, err)
 	}
 	return SystemLineResult{Kind: "run"}, nil
+}
+
+// LineCaptures says whether a command line typed in dir would open a terminal (a shell command or a console program),
+// so that with the option "Show command line output in a window" (F-293) the page runs it with RunLineCaptured
+// instead. Folders, cm_* names, GUI programs and documents: false, they go to RunLine as before.
+func (s *SystemLaunch) LineCaptures(line, dir string) bool {
+	if s.app.mock != nil {
+		return false
+	}
+	l := s.launcher()
+	start := systemStartDir(dir)
+	if l.ParseLine(line, start).Kind != launch.LineRun {
+		return false
+	}
+	return l.LineWantsTerminal(line, start)
+}
+
+// SystemCaptureResult is what a captured command line printed (F-293): the text (at most launch.CaptureLimit bytes),
+// whether it was cut there (the program was then stopped), whether the user stopped it, and its exit code.
+type SystemCaptureResult struct {
+	Output    string `json:"output"`
+	Truncated bool   `json:"truncated"`
+	Stopped   bool   `json:"stopped"`
+	ExitCode  int    `json:"exitCode"`
+}
+
+// RunLineCaptured runs a command line through the shell in dir without a terminal and returns what it printed, for the
+// page's output window. id names the run for StopCapture. The program gets no input; it runs until it ends, prints
+// more than the cap, or StopCapture(id) stops it.
+func (s *SystemLaunch) RunLineCaptured(id, line, dir string) (SystemCaptureResult, error) {
+	if s.app.mock != nil {
+		return SystemCaptureResult{}, errors.New("This is the demo: it can't run programs.")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	s.capMu.Lock()
+	if s.captures == nil {
+		s.captures = map[string]context.CancelFunc{}
+	}
+	if old := s.captures[id]; old != nil {
+		old()
+	}
+	s.captures[id] = cancel
+	s.capMu.Unlock()
+	defer func() {
+		s.capMu.Lock()
+		delete(s.captures, id)
+		s.capMu.Unlock()
+	}()
+	r, err := s.launcher().CaptureLineLimited(ctx, line, systemStartDir(dir), 0)
+	if err != nil {
+		return SystemCaptureResult{}, fmt.Errorf("Can't run %q: %v", line, err)
+	}
+	return SystemCaptureResult{Output: strings.ToValidUTF8(string(r.Output), "\uFFFD"), Truncated: r.Truncated,
+		Stopped: ctx.Err() != nil && !r.Truncated, ExitCode: r.ExitCode}, nil
+}
+
+// StopCapture stops the captured command line id (the output window's Stop button, or closing it); false when it is
+// not running (any more).
+func (s *SystemLaunch) StopCapture(id string) bool {
+	s.capMu.Lock()
+	cancel := s.captures[id]
+	s.capMu.Unlock()
+	if cancel == nil {
+		return false
+	}
+	cancel()
+	return true
 }
 
 // ExpandEnv replaces the environment variables in s ("$HOME", "${HOME}", and "%HOME%" as in Total Commander; on
