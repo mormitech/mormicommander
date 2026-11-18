@@ -11,3 +11,9 @@ export function archiveRefusal(info) {
   if (!info || info.kind !== 'archive' || !info.readOnly) return '';
   return info.readOnlyWhy || "This archive can't be changed.";
 }
+
+// drivesRefusal returns the sentence to show when a file command would change the drive list folder (drives://, F-716),
+// whose names stand for whole drives: they are opened, never copied, moved, renamed or deleted from there.
+export function drivesRefusal(...paths) {
+  return paths.some((p) => /^drives:\/\//i.test(String(p || '').trim())) ? "The drive list can't be changed: open a drive first." : '';
+}

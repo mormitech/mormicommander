@@ -17,6 +17,13 @@ import { hiddenMarkHTML } from './hidden.js';
 import { historyFocus } from './histfocus.js';
 import { attachMiddlePan } from './midpan.js';
 import { attachPathComplete } from './pathcomplete.js';
+import { usedPercent } from '../features/drives-lib.js';
+
+// usageBar is the thin "how full" bar under a drive button (Options > Layout, off by default: F-714).
+function usageBar(on, v) {
+  const pct = on ? usedPercent(v) : null;
+  return pct == null ? '' : `<i class="mc-drive-use${pct >= 90 ? ' full' : ''}" style="--use:${pct}%" aria-hidden="true"></i>`;
+}
 
 // The columns of the Full view: id, title, extra class. Sort commands per column live in the sorting feature.
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
@@ -32,6 +39,7 @@ export function toEntry(row) {
 
 const UP = { name: '..', base: '..', ext: '', size: 0, mtime: 0, flags: F.DIR, mode: 0, dir: true, up: true };
 // ".." in a root folder (Options > Display > Show .. in root folders): it opens the drive list instead of a parent
+// (or, with Display > ".. in a drive's root opens the drive list as a folder", the drives:// folder: F-716)
 const UP_ROOT = { ...UP, root: true };
 
 // splitPath cuts a path into the parts the path bar shows, each with the path it stands for.
@@ -275,7 +283,7 @@ export class Panel {
     const list = this.all.filter((e) => (show || !(e.hidden || (!sys && e.flags & F.SYSTEM))) && (!this.filter || this.filter(e)) && !Panel.hideHooks.some((h) => h(this, e)));
     for (const e of list) e.dirSize = e.dir ? this.dirSizes.get(e.name) : undefined;
     if (this.parent) list.push(UP);
-    else if (this.path && !/^[a-z][a-z0-9+.-]*:\/\//i.test(this.path) && this.app.config?.values?.['Display.ShowParentInRoot'] === '1') list.push(UP_ROOT);
+    else if (this.path && !/^[a-z][a-z0-9+.-]*:\/\//i.test(this.path) && (this.app.config?.values?.['Display.ShowParentInRoot'] === '1' || this.app.config?.values?.['Display.DrivesFolderInRoot'] === '1')) list.push(UP_ROOT);
     this.entries = sortEntries(list, this.sort, {
       natural: this.app.setting('naturalSort', true), dirsLikeFiles: this.app.setting('dirsLikeFiles', false),
       method: this.app.setting('sortMethod', ''), locale: this.app.setting('sortLocale', ''),
@@ -581,13 +589,15 @@ export class Panel {
     // Home and Network show only their icon (the tooltip names them); Network sits at the right end of the bar
     const inNet = /^(network|smb|nfs|afp):\/\//i.test(currentPath ?? this.path ?? '');
     const net = this.app.openNetwork ? `<button type="button" class="mc-drive-net mc-drive-icon${inNet ? ' on' : ''}" data-net="1" title="Network: servers and shared folders on the local network" aria-label="Network">${driveIcon('lan')}</button>` : '';
+    // Options > Layout > "Show how full each drive is under its drive button" (F-714): a thin bar along each button
+    const usage = this.app.config?.values?.['Layout.DriveBarUsage'] === '1';
     this.$.drives.innerHTML = volumes.map((v, i) => {
       if (v.hidden) return ''; // (a mounted share a mapped button stands for: core/drivemerge.js)
       const iconOnly = v.kind === 'home';
       const name = esc(shortName(v, this.app.platform));
       const g = group(v), sep = last >= 0 && g !== last;
       last = g;
-      return `${sep ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.net ? 'network' : v.kind)}${iconOnly ? '' : name}</button>`;
+      return `${sep ? '<span class="mc-drive-sep" aria-hidden="true"></span>' : ''}<button type="button" data-i="${i}" class="${v === on && !inNet ? 'on' : ''}${iconOnly ? ' mc-drive-icon' : ''}"${iconOnly ? ` aria-label="${name}"` : ''} title="${esc(v.label ? `${v.name} ${v.label}` : v.name)} – ${esc(v.path)}${v.total ? ` – ${esc(size(v.free))} free of ${esc(size(v.total))}` : ''}">${driveIcon(v.net ? 'network' : v.kind)}${iconOnly ? '' : name}${usageBar(usage, v)}</button>`;
     }).join('') + net;
     this.$.drives.onclick = (ev) => {
       const b = ev.target.closest('button');

@@ -4,6 +4,7 @@
 import { command } from '../core/registry.js';
 import { showList } from '../core/popup.js';
 import { size } from '../core/format.js';
+import { DRIVES, isDrivesPath } from './drives-lib.js';
 
 async function openDrives(app, panel) {
   await app.loadVolumes();
@@ -26,3 +27,17 @@ command({ name: 'cm_LeftOpenDrives', label: 'Drive list, left panel', run: (app)
 command({ name: 'cm_RightOpenDrives', label: 'Drive list, right panel', run: (app) => openDrives(app, app.right) });
 command({ name: 'cm_SrcOpenDrives', label: 'Drive list', run: (app) => openDrives(app, app.cur) });
 command({ name: 'cm_TrgOpenDrives', label: 'Drive list, other panel', run: (app) => openDrives(app, app.other) });
+
+// cm_OpenDrives (F-716, TC's "My computer"): the panel shows the drive list as a folder, drives:// (Go:
+// feature_drives_fs.go), one folder per drive with its free space in the size column; Enter opens the drive's top.
+// Options > Display > ".. in a drive's root opens the drive list as a folder" makes ".." of a drive's top lead here
+// (features/navigation.js).
+command({
+  name: 'cm_OpenDrives', label: 'Drive list as folder', menu: 'Commands', menuAfter: 'cm_GoToRoot',
+  run: async (app) => {
+    if (app.demo) { app.flash('This is the demo: it has no drives of its own.'); return false; }
+    const p = app.cur;
+    const on = app.driveFor(p.path);
+    return p.go(DRIVES, { focus: on && !isDrivesPath(p.path) ? on.name : null });
+  },
+});

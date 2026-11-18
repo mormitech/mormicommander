@@ -81,6 +81,7 @@ type LayoutPage struct {
 	KeyButtons        bool `ini:"Layout:KeyButtons" def:"1" label:"Show function key buttons"`
 	HistoryHotlist    bool `ini:"Layout:HistoryHotlistButtons" def:"1" label:"Show history and hotlist buttons"`
 	FreeSpace         bool `ini:"Layout:FreeSpace" def:"1" label:"Show free space in drive combo"`
+	DriveBarUsage     bool `ini:"Layout:DriveBarUsage" def:"0" label:"Show how full each drive is under its drive button"`
 	HiddenMarker      bool `ini:"Layout:HiddenMarker" def:"1" label:"Show \"Hidden: shown\" in the status bar while hidden files are shown"`
 	MenuBar           bool `ini:"Layout:MenuBar" def:"1" label:"Show main menu bar"`
 	Horizontal        bool `ini:"Layout:HorizontalPanels" def:"0" label:"Panels above each other"`
@@ -103,6 +104,7 @@ type DisplayPage struct {
 	Time24             bool   `ini:"Configuration:Time24" def:"1" label:"24-hour clock"`
 	ShowSeconds        bool   `ini:"Configuration:ShowSeconds" def:"0" label:"Show seconds in file times"`
 	ShowParentInRoot   bool   `ini:"Configuration:ShowParentDirInRoot" def:"0" label:"Show .. in root folders"`
+	DrivesFolderInRoot bool   `ini:"Configuration:DrivesFolderInRoot" def:"0" label:".. in a drive's root opens the drive list as a folder"`
 	FullRowSelect      bool   `ini:"Configuration:FullRowSelect" def:"1" label:"Cursor bar across all columns"`
 	HoverHighlight     bool   `ini:"Configuration:HoverHighlight" def:"0" label:"Highlight the row under the mouse"`
 	ThousandsSeparator bool   `ini:"Configuration:ThousandsSeparator" def:"1" label:"Thousands separator in sizes"`

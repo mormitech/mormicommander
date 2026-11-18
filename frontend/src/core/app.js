@@ -183,6 +183,7 @@ export const app = {
     if (info.moved) {
       p.renderDrives(this.volumes);
       if (/^(network|smb|nfs|afp):\/\//i.test(p.path)) p.renderDriveInfo({ name: 'Network' }); // the Network panel (#148)
+      else if (/^drives:\/\//i.test(p.path)) p.renderDriveInfo({ name: 'Drives' }); // the drive list as a folder (F-716)
       else go.FS.VolumeOf(p.path).then((v) => p.renderDriveInfo(v), () => p.renderDriveInfo(null));
     }
     if (p === this.cur) this.updateTitle();

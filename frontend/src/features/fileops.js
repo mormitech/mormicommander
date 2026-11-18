@@ -35,7 +35,7 @@ import { app as theApp } from '../core/app.js';
 import { sameNameTarget, targetHistory } from './fileops-target.js';
 import { tabList } from './tabs.js';
 import { copiedNames } from './fileops-sel.js';
-import { archiveRefusal } from './fileops-readonly.js';
+import { archiveRefusal, drivesRefusal } from './fileops-readonly.js';
 import { noteXattrLoss } from './fileops-xattr.js';
 import { overwriteNote } from './undo-lib.js';
 import { noTrashReason } from './trash-lib.js';
@@ -307,6 +307,8 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
   const src = app.cur, dst = app.other;
   const items = targetsOf(app);
   if (!items.length) return false;
+  const drv = drivesRefusal(src.path, same ? '' : dst.path);
+  if (drv) { await messageDialog({ Title: move ? 'Move' : 'Copy', Message: drv }); return false; }
   let a;
   if (!same && !opt(app, 'confirmCopy')) {
     // no dialog (Configuration: confirmCopy off): straight to the other panel with the default options
@@ -321,7 +323,7 @@ async function copyOrMove(app, { move = false, same = false } = {}) {
   }
   const t = a.t;
   // into an archive that can't be changed: say why now, before any "Replace file?" question (board #143)
-  const why = archiveRefusal(await go.FS.PathInfo(t.dir).catch(() => null));
+  const why = drivesRefusal(t.dir) || archiveRefusal(await go.FS.PathInfo(t.dir).catch(() => null));
   if (why) { await messageDialog({ Title: move ? 'Move' : 'Copy', Message: why }); return false; }
   let rename = t.rename === '*.*' || t.rename === '*' ? '' : t.rename;
   let overwrite = a.overwrite;
@@ -395,6 +397,7 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
   const src = app.cur;
   const items = targetsOf(app);
   if (!items.length) return false;
+  if (drivesRefusal(src.path)) { await messageDialog({ Title: 'Delete', Message: drivesRefusal(src.path) }); return false; }
   // inside an archive or on a server there is no trash: the entries are removed for good (VfsJobs), as TC asks
   let place = isRemote(src.path) ? 'server' : '';
   let why = '';
@@ -471,7 +474,7 @@ async function makeFolder(app) {
   const src = app.cur;
   const e = src.cur;
   // in an archive that can't be changed: say why instead of offering the dialog (board #143)
-  const why = isFeed(src.path) ? '' : archiveRefusal(await go.FS.PathInfo(src.path).catch(() => null));
+  const why = drivesRefusal(src.path) || (isFeed(src.path) ? '' : archiveRefusal(await go.FS.PathInfo(src.path).catch(() => null)));
   if (why) { await messageDialog({ Title: 'New folder', Message: why }); return false; }
   const initial = e && !e.up ? (e.dir ? e.name : e.base) : '';
   const first = await modal((box, done) => {
@@ -554,6 +557,7 @@ function startRename(app) {
     return true;
   }
   if (!e || e.up) { app.flash('No file under the cursor.'); return false; }
+  if (drivesRefusal(p.path)) { app.flash(drivesRefusal(p.path), 'err'); return false; }
   // In a result list or a branch view a name can hold folders ("sub/a.txt"): only the file's own name is edited, as a
   // rename never moves a file, and the folder part is put back for the panel's name afterwards.
   const pre = isFeed(p.path) ? subPathPrefix(e.name, app.platform) : '';

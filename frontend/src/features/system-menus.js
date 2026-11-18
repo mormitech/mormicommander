@@ -13,7 +13,8 @@ import { commandIcon } from './config/icons.js';
 import { command, hasCommand, getCommand } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { showList } from '../core/popup.js';
-import { modal, esc } from '../core/dialogs.js';
+import { modal, esc, inputDialog, messageDialog } from '../core/dialogs.js';
+import { canRenameVolume, volumeLabelError } from './drives-lib.js';
 import { size, bytes, plural } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
@@ -238,12 +239,11 @@ command({
 
 // cm_VolumeId (Commands > Volume information, board issue #38): Total Commander's "Volume label" dialog changes the
 // label of a drive. Here it shows the Properties box of the volume the active panel is on (name, mount point, file
-// system, device, size, free space). Changing the label is deliberately not offered: on macOS it means running
-// diskutil rename on a mounted disk, and a mistake there renames the wrong volume, so the box says where the system
-// lets the user do it safely instead.
+// system, device, size, free space); changing the name is the command of its own below, cm_RenameVolume (F-713), so
+// this box never changes anything.
 const RENAME_NOTE = {
-  darwin: 'To change the name of the volume, rename it in Finder or in Disk Utility.',
-  windows: 'To change the label of the drive, use its Properties in Explorer.',
+  darwin: 'To change the name of the volume, use Commands > Rename volume…, or rename it in Finder or in Disk Utility.',
+  windows: 'To change the label of the drive, use Commands > Rename volume…, or its Properties in Explorer.',
   linux: 'To change the label of the volume, use the disk tool of your desktop or the file system\'s own label tool.',
 };
 command({
@@ -254,6 +254,40 @@ command({
     if (!v || /^[a-z][a-z0-9+.-]*:\/\//i.test(path)) { app.flash('The active panel is not on a volume of this computer.'); return false; }
     return volumeProps(app, v, RENAME_NOTE[app.platform] || RENAME_NOTE.linux);
   },
+});
+
+// cm_RenameVolume (Commands > Rename volume…, F-713): changes the name (label) of the volume the active panel is on,
+// after asking with its name and where it is mounted. Only disks and removable drives of the drive list, on macOS
+// (diskutil rename by mount point; not the startup disk) and Windows (the drive label); Go checks the same again
+// (feature_volume_rename.go). Not offered to the AI tools.
+async function renameVolume(app) {
+  const path = app.cur?.path || '';
+  const v = /^[a-z][a-z0-9+.-]*:\/\//i.test(path) ? null : app.volumeFor(path);
+  if (!v) { app.flash('The active panel is not on a volume of this computer.'); return false; }
+  if (app.demo) { app.flash('This is the demo: its volumes are not real, so they can\'t be renamed.'); return false; }
+  if (!canRenameVolume(app.platform, v)) {
+    app.flash(app.platform !== 'darwin' && app.platform !== 'windows' ? RENAME_NOTE.linux : `${v.name} can't be renamed here.`, 'err');
+    return false;
+  }
+  const old = v.label || (app.platform === 'windows' ? '' : v.name); // (a Windows drive without a label is just "C:")
+  const name = await inputDialog({ title: 'Rename volume', label: `New name for ${old || v.name} (${v.path}):`, value: old, okLabel: 'Rename', validate: volumeLabelError, kind: 'rename-volume' });
+  if (name == null || name.trim() === old) return false;
+  const ok = await messageDialog({ Title: 'Rename volume', Message: `Rename the volume ${old || v.name}, mounted at ${v.path}, to ${name.trim()}?`, Buttons: ['Rename', 'Cancel'], Kind: 'rename-volume-confirm' });
+  if (ok !== 'Rename') return false;
+  try {
+    await go.SystemFiles.RenameVolume(v.path, name.trim());
+  } catch (e) {
+    app.flash(errText(e), 'err');
+    return false;
+  }
+  app.flash(`Renamed ${old || v.name} to ${name.trim()}.`);
+  await app.loadVolumes();
+  return true;
+}
+command({
+  name: 'cm_RenameVolume', label: 'Rename volume…', menu: 'Commands', menuAfter: 'cm_EjectVolume',
+  enabled: (app) => !app.demo && canRenameVolume(app.platform, app.volumeFor(app.cur?.path || '')),
+  run: (app) => renameVolume(app),
 });
 
 // ---- the command ----

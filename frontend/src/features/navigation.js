@@ -52,7 +52,11 @@ async function enter(app, opts = {}) {
 function goParent(p) {
   if (!p.parent) {
     // the ".." of a root folder (Options > Display > Show .. in root folders) opens the drive list
-    if (p.cur?.root) return p.app.run(p === p.app.left ? 'cm_LeftOpenDrives' : 'cm_RightOpenDrives');
+    if (p.cur?.root) {
+      // ... or, with Options > Display > ".. in a drive's root opens the drive list as a folder", drives:// (F-716)
+      if (p.app.config?.values?.['Display.DrivesFolderInRoot'] === '1' && !p.app.demo) return p.go('drives://', { focus: p.app.driveFor(p.path)?.name ?? null });
+      return p.app.run(p === p.app.left ? 'cm_LeftOpenDrives' : 'cm_RightOpenDrives');
+    }
     return Promise.resolve(false);
   }
   return p.go(p.parent, { focus: base(p.path) });

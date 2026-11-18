@@ -71,6 +71,11 @@ func (f *FS) PathInfo(path string) PathInfo {
 		// commands that ask (quick view, F3, the copy target); the branch feature marks the path bar itself
 		return PathInfo{Kind: "local"}
 	}
+	if drivesPath(path) {
+		// the drive list as a folder (feature_drives_fs.go): its names stand for whole drives, which are opened, never
+		// copied, moved or deleted from here
+		return PathInfo{Kind: "drives", ReadOnly: true, ReadOnlyWhy: "The drive list can't be changed: open a drive first."}
+	}
 	if networkPath(path) {
 		// the Network panel's servers and shares (feature_network_fs.go): nothing can be copied there; a mounted
 		// share is a local folder and gets here as one

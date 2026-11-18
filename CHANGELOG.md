@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Commands > Rename volume… changes the name of a disk or USB drive (macOS and Windows), after asking twice.
+- Commands > Drive list as folder shows all drives as a folder ("My computer"); an option makes ".." in a drive's root go there.
+- Option to show a small bar under each drive button telling how full the drive is (Options > Layout, off by default).
+
 ## 0.14.35 – 2026-11-18
 
 Parity rounds for Thumbnails, File properties and attributes, Split / combine / checksums, Drag and drop, and

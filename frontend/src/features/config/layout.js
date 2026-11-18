@@ -40,6 +40,7 @@ export function applyLayout() {
   go.App.SetMenuBar(on('Layout.MenuBar')).catch(() => {}); // (Windows and Linux; the macOS menu bar always stays)
   syncSeparateTree();
   b.toggle('mc-config-flat-drives', on('Layout.DriveBarFlat'));
+  for (const p of app?.panels || []) p.renderDrives?.(app.volumes || []); // (Layout.DriveBarUsage, F-714)
   const tb = document.getElementById('toolbar'), vb = document.getElementById('vbar');
   if (tb) tb.hidden = !on('Layout.ButtonBar') || !tb.childElementCount;
   if (vb) vb.hidden = !on('Layout.ButtonBarVertical') || !vb.childElementCount;
