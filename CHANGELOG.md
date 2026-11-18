@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.33 – 2026-11-18
+
+Parity rounds for the Start menu, Help, Copy/Move, Delete, Rename, Make folder, Find files, Synchronize, Compare
+by content and the Lister (#66–#75), and the open parts of #58, #60, #62, #63, #65 and #108. Every new behaviour that
+changes what you see is an option that is off by default.
+
 ### Added
 
 - Drag & drop: with "Drag files to other programs as real files" on, files inside archives and on servers can be
