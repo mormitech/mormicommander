@@ -10,6 +10,7 @@ version is changed only when a round of features is merged.
 
 - Change start menu: each entry can have an icon (a PNG, JPEG, GIF, BMP or WebP file), shown before its title in the
   Start menu.
+- Help menu: Report a problem opens the issues page in the browser, and Help shows its key (F1).
 
 ## 0.14.32 – 2026-11-18
 

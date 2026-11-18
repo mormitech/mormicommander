@@ -621,11 +621,11 @@ Root operations stay at F-720 (a macOS privileged helper is a large job; revisit
 
 ## 19. Help menu and About
 
-- [~] F-451 Help index / keyboard help / registration info — F1 — built-in HTML help pages: index, keyboard, menus
-- [~] F-452 Keyboard help page — — — lists all active hotkeys (generated from the registry, so it is always current)
-- [~] F-453 About box — — — shows "mormi" + "Commander" wordmark, version from wails.json, Mormitech copyright, license, link to website; style like other mormi apps
-- [ ] F-454 Check for updates (optional, manual) — — — menu item opens release page; no automatic network calls without user action
-- [ ] F-455 Visit website / support — — — opens link in browser
+- [~] F-451 Help index / keyboard help / registration info — F1 — built-in HTML help pages: index, keyboard, menus — audit #67: F1 / Help > Help (cm_HelpIndex) opens the help with Welcome, Keyboard shortcuts, Menus, Start-up parameters and Settings pages, and F1 in a dialog opens it on that dialog (features/config/help.js); cm_Register opens the About window with the license; built: the Help menu shows the key (Help (F1), menuKey) (help-menu.test.js)
+- [~] F-452 Keyboard help page — — — lists all active hotkeys (generated from the registry, so it is always current) — audit #67: Help > Keyboard shortcuts (cm_Keyboard) shows docs/keyboard.md followed by a table of every key as it is set now, built from registry allKeys() with the user's own keys (keysTable in help.js)
+- [~] F-453 About box — — — shows "mormi" + "Commander" wordmark, version from wails.json, Mormitech copyright, license, link to website; style like other mormi apps — audit #67: Help > About (cm_About, and the app menu on macOS) opens its own window (window.go openAbout) with the logo, the mormi/Commander wordmark, App.Version (productVersion of wails.json, version.go), the MIT license and Mormitech copyright, and links to the website, issues, license and support page that open in the browser (core/about.js); Esc / Cmd+W close it
+- [~] F-454 Check for updates (optional, manual) — — — menu item opens release page; no automatic network calls without user action — audit #67: Help > Check for updates (cm_CheckForUpdates) only opens the latest releases page in the browser (App.OpenURL) when chosen; nothing is fetched by the app itself (features/window.js, help-menu.test.js)
+- [~] F-455 Visit website / support — — — opens link in browser — audit #67: Help > Website (cm_VisitHomepage) opens the project page in the browser; built: Help > Report a problem (cm_ReportProblem) opens the issues page (features/window.js, help-menu.test.js); the About window links the support page too
 - [N/A] F-456 Registration nag / key — mormiCommander is free — no nag screen; About shows license
 
 ## 20. Copy / Move dialogs and engine

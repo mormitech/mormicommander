@@ -27,6 +27,9 @@ command({ name: 'cm_Maximize', label: 'Maximize', run: () => go.App.ToggleMaximi
 command({ name: 'cm_Restore', label: 'Restore window size', run: () => go.App.ToggleMaximize() });
 command({ name: 'cm_About', label: 'About mormiCommander', run: () => go.App.ShowAbout() });
 command({ name: 'cm_VisitHomepage', label: 'Website', run: () => go.App.OpenURL(SITE) });
+command({ name: 'cm_ReportProblem', label: 'Report a problem', run: () => go.App.OpenURL(`${SITE}/issues`) });
+// Check for updates never goes online by itself: it only opens the releases page in the browser when the user asks
+// (F-454; the zero-network rule).
 command({ name: 'cm_CheckForUpdates', label: 'Check for updates', run: () => go.App.OpenURL(`${SITE}/releases/latest`) });
 
 // Text size: the font of the panels, saved (F-101). The row height follows it.

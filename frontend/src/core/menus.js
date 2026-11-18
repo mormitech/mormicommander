@@ -69,7 +69,7 @@ export const MENUS = [
   ]],
   ['Start', [['Change start menu…', 'cm_ConfigStartMenu']]],
   ['Help', [
-    ['Help', 'cm_HelpIndex'], ['Keyboard shortcuts', 'cm_Keyboard'], '-', ['Website', 'cm_VisitHomepage'], ['Check for updates', 'cm_CheckForUpdates'], '-',
+    ['Help', 'cm_HelpIndex'], ['Keyboard shortcuts', 'cm_Keyboard'], '-', ['Website', 'cm_VisitHomepage'], ['Report a problem', 'cm_ReportProblem'], ['Check for updates', 'cm_CheckForUpdates'], '-',
     ['About mormiCommander', 'cm_About'],
   ]],
 ];

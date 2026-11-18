@@ -157,7 +157,7 @@ document.addEventListener('click', (ev) => {
   box.querySelector('.mc-config-helpbody').scrollTop = 0;
 });
 
-command({ name: 'cm_HelpIndex', label: 'Help', run: (app, args) => openHelp(args?.topic || 'intro') });
+command({ name: 'cm_HelpIndex', menuKey: true, label: 'Help', run: (app, args) => openHelp(args?.topic || 'intro') });
 setDialogHelp((d) => { openHelp('intro', d).catch((e) => console.error(e)); });
 command({ name: 'cm_Keyboard', label: 'Keyboard shortcuts', run: () => openHelp('keys') });
 command({ name: 'cm_Register', label: 'License', run: () => go.App.ShowAbout() });
