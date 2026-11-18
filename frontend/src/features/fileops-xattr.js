@@ -1,5 +1,6 @@
 // The one-time note when a copy or move goes onto a file system that keeps no extended attributes (FAT, exFAT; board
-// #29, F-NEW-13): Finder tags, colour labels and other attributes of the sources are lost there. The check runs beside
+// #29, F-NEW-13), or into a cloud-synced folder that may not keep them (iCloud Drive, ~/Library/CloudStorage): Finder
+// tags, colour labels and other attributes of the sources are lost there. The check runs beside
 // the copy (Tools.XattrLossCheck only looks) and shows a flash at most once per session, so the copy itself starts and
 // runs exactly as before. Setting "tools" → xattrLossNote: false turns the note off. Not a feature of its own: it
 // exports one function that features/fileops.js calls.

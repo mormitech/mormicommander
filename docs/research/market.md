@@ -278,6 +278,7 @@ Ranked by user value, then differentiation, then effort. Items marked **Parity**
 23. **New: extended attributes and quarantine (§34).**
    `- [ ] F-NEW-13 Extended attributes column and actions, including remove macOS quarantine flag — — — xattr names listed in properties; "Remove quarantine" clears com.apple.quarantine on selected files; copying to a filesystem that drops xattrs (FAT, exFAT, cloud) warns once`
    Rationale: a common Mac power-user chore. It extends F-475, which only preserves xattrs. Effort: S.
+   Status (#29): built as F-870: names in Properties, Remove quarantine flag… and Remove attribute… (both ask first), the [=mc.xattrs] column fields, and the copy note for FAT/exFAT and cloud-synced folders.
 24. **New: cloud placeholder awareness (§38).**
    `- [ ] F-NEW-14 iCloud Drive and OneDrive placeholder awareness — — — a column/icon shows online-only vs downloaded; opening or copying an online-only file triggers the download with progress instead of failing; search and size calculation don't force downloads`
    Rationale: open DC bugs #3066 (OneDrive) and #2675 (iCloud search), and Marta crashes with iCloud (#1181). Effort: M.

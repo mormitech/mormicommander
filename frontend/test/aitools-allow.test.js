@@ -50,6 +50,7 @@ const DANGEROUS = [
   'cm_CutToClipboard', 'cm_SetAttrib', 'cm_UndoFileOp', 'cm_SyncDirs', 'cm_ClearThumbnailCache', 'cm_FtpSendCommand', 'cm_MkDir',
   'cm_FileSplit', 'cm_FileCombine', 'cm_CreateSymbolicLink', 'cm_CreateHardLink', 'cm_UUDecode', 'cm_CloseAllTabs', 'cm_SrcQuickView',
   'cm_AIAsk', 'cm_Explorer', 'cm_ContextMenu', 'cm_LoadSelectionFromFile', 'cm_SaveSelectionToFile', 'cm_DirectoryHotlist', 'cm_FocusCmdLine',
+  'cm_RemoveQuarantine',
 ];
 
 test('dangerous commands are refused, with a reason, whether or not they exist', () => {
@@ -67,7 +68,7 @@ test('dangerous commands are refused, with a reason, whether or not they exist',
 });
 
 test('no allow-listed name has a word that means changing files or running something', () => {
-  const bad = Object.keys(ALLOWED_COMMANDS).filter((n) => /Delete|Wipe|Rename|RenMov|Exec|Edit|Pack|Paste|Exit|MkDir|Attrib|Undo|Sync|Ftp/.test(n));
+  const bad = Object.keys(ALLOWED_COMMANDS).filter((n) => /Delete|Wipe|Rename|RenMov|Exec|Edit|Pack|Paste|Exit|MkDir|Attrib|Undo|Sync|Ftp|Remove|Quarantine|Xattr/.test(n));
   expect(bad).toEqual([]);
 });
 

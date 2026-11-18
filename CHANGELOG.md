@@ -8,6 +8,11 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Extended attributes: Properties has a "Remove attribute…" button that removes one attribute of the file after
+  asking, and custom columns can show attribute names, their number and the quarantine flag with [=mc.xattrs],
+  [=mc.xattrcount] and [=mc.quarantine]. The one-time note about lost attributes also shows when copying into a
+  cloud-synced folder (iCloud Drive or ~/Library/CloudStorage). Remove quarantine flag… now asks first and names
+  the files.
 - File tags: Finder tags on macOS and user.xdg.tags on Linux. Show > File tags (off by default) puts a coloured dot
   per tag after each name and the tags of the current item in the status line; Files > Tags… (also in the right-click
   menu and in Properties) adds and removes tags, and Cmd+Z takes the change back; Mark > Select by tag… and

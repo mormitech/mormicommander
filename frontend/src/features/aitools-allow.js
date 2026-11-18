@@ -156,12 +156,13 @@ export const DENIED_COMMANDS = {
   cm_CloseAllTabs: 'it closes every tab at once', cm_FtpSendCommand: 'it sends commands to a server',
   cm_SrcQuickView: 'quick view may use an external viewer program; cm_SrcQuickInternalOnly uses the built-in one',
   cm_QuickLook: 'it hands the file to the system\'s Quick Look', cm_GitStatus: 'it runs the git program',
+  cm_RemoveQuarantine: 'it removes macOS\'s quarantine flag, a security check, from files',
 };
 
 // Words in a command's name that mean it changes files, runs something or changes settings. A name with one of these
 // is refused with this reason unless it is on the allow-list (reviewed: cm_OpenNewTab has "Open", cm_SaveSelection
 // "Save", and neither does any of that).
-const RISKY_WORDS = /Delete|Wipe|Move|Rename|RenMov|Exec|Run|Open|Edit|Pack|Copy|Paste|Cut|Exit|Config|Undo|Sync|Attrib|Split|Combine|Encode|Decode|Create|MkDir|Ftp|Save|Load|Import|Reset|Clear|Setup|Register|Update/;
+const RISKY_WORDS = /Delete|Wipe|Move|Rename|RenMov|Exec|Run|Open|Edit|Pack|Copy|Paste|Cut|Exit|Config|Undo|Sync|Attrib|Split|Combine|Encode|Decode|Create|MkDir|Ftp|Save|Load|Import|Reset|Clear|Setup|Register|Update|Remove|Quarantine|Xattr/;
 
 // commandVerdict answers whether the model may run a command: {ok: true, reason} or {ok: false, reason}, the reason
 // being the sentence the model reads. exists tells whether the registry has the command.

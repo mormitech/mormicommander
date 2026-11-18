@@ -1,6 +1,7 @@
 // The wording around extended attributes (board #29, F-NEW-13), kept free of the DOM and of Go so vitest can test
 // it: the lines the Properties dialog shows for a file's attribute names, the sentence after "Remove quarantine
-// flag", and the one-time note when a copy goes onto a file system that drops extended attributes (FAT, exFAT).
+// flag", the questions before removing the flag or an attribute (they name the files), and the one-time note when a
+// copy goes onto a file system that drops extended attributes (FAT, exFAT) or into a cloud-synced folder.
 // features/tools/xattr.js and features/fileops-xattr.js use it.
 
 export const QUARANTINE = 'com.apple.quarantine';
@@ -47,16 +48,46 @@ export function quarantineMessage(r) {
   return s;
 }
 
+// baseName is the last part of a path.
+const baseName = (p) => String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop() || String(p || '');
+
+// nameList names up to max files by their names: "a.app", "a.app and b.dmg", "a.app, b.dmg, c.pkg and 2 more".
+export function nameList(paths, max = 5) {
+  const names = (paths || []).map(baseName).filter(Boolean);
+  if (names.length <= 1) return names[0] ? `"${names[0]}"` : '';
+  const shown = names.slice(0, names.length > max ? max : names.length).map((n) => `"${n}"`);
+  if (names.length > max) return `${shown.join(', ')} and ${names.length - max} more`;
+  return `${shown.slice(0, -1).join(', ')} and ${shown.at(-1)}`;
+}
+
+// quarantineQuestion is the question before "Remove quarantine flag"; anyDir tells whether a folder is among the
+// paths (its contents lose the flag too).
+export function quarantineQuestion(paths, anyDir = false) {
+  const n = (paths || []).length;
+  const inside = anyDir ? ' and from everything inside the selected folders' : '';
+  return `Remove the quarantine flag from ${nameList(paths)}${inside}?\n\nmacOS then opens ${n === 1 && !anyDir ? 'it' : 'them'} without asking whether you trust where ${n === 1 && !anyDir ? 'it' : 'they'} came from. Only do this for files you trust.`;
+}
+
+// removeAttrQuestion is the question before removing one extended attribute from one file.
+export function removeAttrQuestion(path, name) {
+  const words = KNOWN[name];
+  return `Remove the extended attribute "${name}"${words ? ` (${words})` : ''} from "${baseName(path)}"?\n\nThis cannot be undone.`;
+}
+
 // FS_WORDS names file systems the way people know them.
 const FS_WORDS = { msdos: 'FAT', vfat: 'FAT', fat: 'FAT', fat12: 'FAT', fat16: 'FAT', fat32: 'FAT32', exfat: 'exFAT', 'fuse.exfat': 'exFAT', udf: 'UDF', cd9660: 'CD', iso9660: 'CD' };
 
 // xattrLossNote is the one-time note when a copy loses extended attributes: {loses, fileSystem, example, attribute}.
 // It is '' when nothing is lost.
+// A cloud target ({cloud: "Dropbox"}) may keep some of them, so its note says "may not keep".
 export function xattrLossNote(check) {
   if (!check || !check.loses) return '';
+  const what = check.example ? String(check.example).replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '';
+  if (check.cloud) {
+    return `The target is in a cloud-synced folder (${check.cloud}), which may not keep extended attributes such as Finder tags${what ? `: ${what} and others may lose them` : ''}. The copy goes on; this note is shown once.`;
+  }
   const fs = String(check.fileSystem || '');
   const name = FS_WORDS[fs.toLowerCase()] || fs || 'this';
-  const what = check.example ? String(check.example).replace(/[\\/]+$/, '').split(/[\\/]/).pop() : '';
   return `The target drive (${name}) keeps no extended attributes such as Finder tags${what ? `: ${what} and others lose them` : ''}. The copy goes on; this note is shown once.`;
 }
 

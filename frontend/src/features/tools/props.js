@@ -1,7 +1,7 @@
 // Properties (cm_Properties, Alt+Enter, Cmd+I on macOS; F-184, F-263, F-324, F-681, F-682, F-691): our own window on
 // every platform with name, type, place, size and size on disk (folders are counted at once, internal/dirsize), dates,
-// permissions, owner, attributes, link target, extended attribute names (with "Remove quarantine flag" on macOS when the
-// file has it, board #29); a button for the system's own window (Finder Get Info, Explorer
+// permissions, owner, attributes, link target, extended attribute names (with "Remove quarantine flag…" on macOS when the
+// file has it, and "Remove attribute…", both asking first, board #29); a button for the system's own window (Finder Get Info, Explorer
 // properties, the file manager's properties); checksums of a file on demand, and a field to compare a pasted
 // checksum. With several items selected it shows what they hold together.
 
@@ -11,7 +11,7 @@ import { modal } from '../../core/dialogs.js';
 import { bytes, size, date, plural } from '../../core/format.js';
 import { esc, needLocal, targets, showError, newId, onProgress, dirName, copyText } from './common.js';
 import { xattrLines, hasQuarantine } from './xattr-lib.js';
-import { removeQuarantine } from './xattr.js';
+import { removeQuarantine, removeAttribute } from './xattr.js';
 import { noteFor, saveNote, pickerHTML, pickerSetup, pickerValue } from '../notes.js';
 import { tagsFor, tagsLine } from '../tags.js';
 import { onServer, remoteProps } from '../net-attrs.js';
@@ -127,7 +127,8 @@ async function showProps(app, path, entry) {
     box.innerHTML = `<button type="button" class="mc-close" aria-label="Close" title="Close (Esc)">×</button>
       <h2>Properties of ${esc(pr.name)}</h2>${propsTable(app, pr)}${tagList ? tagsPart(tagList) : ''}${notePart(noteBefore)}${algs.length ? checksumPart(algs) : ''}
       <div class="mc-btns"><button type="button" class="mc-tools-sys">${esc(SYS_LABEL[app.platform] || SYS_LABEL.linux)}</button>
-      ${quarantined ? '<button type="button" class="mc-tools-unq">Remove quarantine flag</button>' : ''}
+      ${quarantined ? '<button type="button" class="mc-tools-unq">Remove quarantine flag…</button>' : ''}
+      ${pr.xattrs?.length ? '<button type="button" class="mc-tools-unxa">Remove attribute…</button>' : ''}
       <button type="button" class="mc-tools-attr">Change attributes…</button><button type="submit" class="primary">Close</button></div>`;
     box.querySelector('.mc-close').onclick = () => done();
     box.onsubmit = (ev) => { ev.preventDefault(); done(); };
@@ -138,20 +139,36 @@ async function showProps(app, path, entry) {
     const ta = box.querySelector('#tp-note');
     ta.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' && !ev.ctrlKey && !ev.metaKey) ev.stopPropagation(); });
     readNote = () => ({ note: ta.value, color: pickerValue(box, 'tp') });
-    const unq = box.querySelector('.mc-tools-unq');
+    let attrs = pr.xattrs || [];
+    const unq = box.querySelector('.mc-tools-unq'), unxa = box.querySelector('.mc-tools-unxa');
+    // refreshAttrs reads the attributes again and redraws their row and the two buttons.
+    const refreshAttrs = async () => {
+      const fresh = await go.Tools.Properties(path).catch(() => null);
+      if (!fresh) return;
+      attrs = fresh.xattrs || [];
+      const cell = box.querySelector('#tp-xattrs');
+      const lines = xattrLines(attrs);
+      if (cell) {
+        if (lines.length) cell.innerHTML = lines.map(esc).join('<br>');
+        else cell.closest('tr')?.remove();
+      }
+      if (unq && !hasQuarantine(attrs)) unq.remove();
+      if (unxa && !attrs.length) unxa.remove();
+    };
     if (unq) {
       unq.onclick = async () => {
         unq.disabled = true;
-        const r = await removeQuarantine(app, [path]);
-        if (!r || r.failed?.length) { unq.disabled = false; return; }
-        unq.remove();
-        const fresh = await go.Tools.Properties(path).catch(() => null);
-        const cell = box.querySelector('#tp-xattrs');
-        if (fresh && cell) {
-          const lines = xattrLines(fresh.xattrs);
-          if (lines.length) cell.innerHTML = lines.map(esc).join('<br>');
-          else cell.closest('tr')?.remove();
-        }
+        const r = await removeQuarantine(app, [path], pr.isDir);
+        unq.disabled = false;
+        if (r && !r.failed?.length) await refreshAttrs();
+      };
+    }
+    if (unxa) {
+      unxa.onclick = async () => {
+        unxa.disabled = true;
+        const gone = await removeAttribute(app, path, attrs);
+        unxa.disabled = false;
+        if (gone) await refreshAttrs();
       };
     }
     box.querySelector('.mc-tools-sys').onclick = () => go.Tools.OpenSystemProperties(path).catch((e) => app.flash(String(e?.message ?? e), 'err'));
