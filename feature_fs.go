@@ -113,6 +113,9 @@ func (f *FS) List(key, path string) (vfs.Listing, error) {
 		}
 		f.mu.Unlock()
 	}()
+	if f.router != nil {
+		f.router.Archives.SetEncoding(zipNameEncoding()) // (a no-op unless Options > Zip changed it; open archives are read again)
+	}
 	fsys := f.fsFor(path)
 	// The read runs in a goroutine of its own (internal/hang): on a share whose server is gone the system call can block
 	// for minutes, and Esc (CancelList) or a newer listing must still bring the panel back at once. At most a few

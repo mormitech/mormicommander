@@ -374,10 +374,11 @@ func (a *ArchiveFS) acquire(file, display string, ro, nested bool) (*arcHandle, 
 		}
 		a.dropHandleLocked(h)
 	}
+	enc := a.Encoding
 	a.mu.Unlock()
 
 	// Opening may ask for a password, so it runs without the lock.
-	be, err := openBackend(file, openOptions{password: a.Password, encoding: a.Encoding})
+	be, err := openBackend(file, openOptions{password: a.Password, encoding: enc})
 	if err != nil {
 		return nil, err
 	}
@@ -923,7 +924,8 @@ func (a *ArchiveFS) modifyLocked(ctx context.Context, p string, mode locateMode,
 	}
 	if !h.be.writable() {
 		a.release(h)
-		if _, ok := h.be.(*sevenBackend); ok {
+		switch h.be.(type) {
+		case *sevenBackend, *isoBackend:
 			return "", opErr("write", p, ErrUnsupported)
 		}
 		return "", opErr("write", p, ErrReadOnly)

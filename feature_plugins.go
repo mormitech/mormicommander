@@ -144,6 +144,18 @@ func archiveOptions() {
 	tarfmt.NoOwner = !s.Packer.TarOwner
 }
 
+// zipNameEncodings maps Options > Zip > Names in old zips without UTF-8 to the archive engines' code page names.
+var zipNameEncodings = []string{"auto", "cp437", "cp850", "cp852", "windows-1250", "windows-1252", "cp866", "windows-1251", "shift_jis"}
+
+// zipNameEncoding is the code page chosen for names in old non-UTF-8 zips ("auto" guesses from the system, F-848).
+func zipNameEncoding() string {
+	s, ok := currentSettings()
+	if !ok || s.Zip.NameEncoding < 0 || s.Zip.NameEncoding >= len(zipNameEncodings) {
+		return "auto"
+	}
+	return zipNameEncodings[s.Zip.NameEncoding]
+}
+
 func init() {
 	onStartup(func(*App) { archiveOptions() })
 }

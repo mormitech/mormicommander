@@ -78,7 +78,7 @@ func jobLog(a *App, e fileops.Entry) {
 func vfsLog(a *App, r VfsRequest, state string) {
 	cat := "copy"
 	switch r.Kind {
-	case "pack", "unpack", "test":
+	case "pack", "unpack", "test", "convert":
 		cat = "pack"
 	case "delete", "trash", "wipe":
 		cat = "delete"

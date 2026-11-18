@@ -120,6 +120,36 @@ func vfsArchiveReadOnly(r *vfs.Router, p string, folder bool) string {
 		name, strings.ToUpper(ai.Format))
 }
 
+// PackedInfo is "Info on packed file" (F-847): sizes, ratio, date, CRC, method and comments of an entry inside an
+// archive (the archive's own root gives the archive comment).
+func (f *FS) PackedInfo(path string) (vfs.PackedInfo, error) {
+	if f.router == nil || vfsPathKind(f.router, path) != "archive" {
+		return vfs.PackedInfo{}, errors.New("This is not a file inside an archive.")
+	}
+	in, err := f.router.Archives.PackedInfo(f.router.Clean(path))
+	if err != nil {
+		return vfs.PackedInfo{}, errors.New(vfsErrText(err))
+	}
+	return in, nil
+}
+
+// SetArchiveComment replaces the comment of the zip archive path is in, or removes it with "" (F-622). The archive is
+// rewritten atomically.
+func (f *FS) SetArchiveComment(path, comment string) error {
+	if f.router == nil || vfsPathKind(f.router, path) != "archive" {
+		return errors.New("This is not inside an archive.")
+	}
+	if why := vfsArchiveReadOnly(f.router, path, true); why != "" {
+		return errors.New(why)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	defer cancel()
+	if err := f.router.Archives.SetComment(ctx, f.router.Clean(path), comment); err != nil {
+		return errors.New(vfsErrText(err))
+	}
+	return nil
+}
+
 // IsArchive says whether Enter opens a file of this name as a folder (by its extension, like TC's packers).
 func (f *FS) IsArchive(name string) bool {
 	if f.router == nil {

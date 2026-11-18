@@ -16,6 +16,7 @@ import { tr } from './i18n.js';
 export const MENUS = [
   ['Files', [
     ['Change attributes…', 'cm_SetAttrib'], ['Pack…', 'cm_PackFiles'], ['Unpack…', 'cm_UnpackFiles'], ['Test archives', 'cm_TestArchive'],
+    ['Convert archives…', 'cm_ConvertArchive'], ['Archive comment…', 'cm_EditArchiveComment'],
     ['Compare by content…', 'cm_CompareFilesByContent'], ['Internal associations…', 'cm_InternalAssociate'], ['Properties…', 'cm_Properties'],
     ['Calculate occupied space…', 'cm_GetFileSpace'], ['Multi-rename tool…', 'cm_MultiRenameFiles'], ['Edit comment…', 'cm_EditComment'], '-',
     ['Split file…', 'cm_FileSplit'], ['Combine files…', 'cm_FileCombine'], ['Encode file…', 'cm_UUEncode'], ['Decode file…', 'cm_UUDecode'],

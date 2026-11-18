@@ -14,6 +14,12 @@ version is changed only when a round of features is merged.
   editor for F4 on text files" (off by default) makes F4 and Shift+F4 use it for text files on this computer.
 - Files menu: Edit (F4) and Edit new file… (Shift+F4).
 - F4 on a file inside an archive on a server opens a temporary copy instead of saying it is not ready yet.
+- ISO disc images can be browsed like a folder with Ctrl+PgDn (read-only; files can be viewed, copied out, unpacked
+  and tested). Options > Packer > "Enter opens ISO disc images like folders" (off by default) makes Enter do the same.
+- Alt+Enter on a file inside an archive shows Info on packed file: sizes, ratio, date, CRC, method and comments.
+- Files > Archive comment… shows and edits the comment of a ZIP archive.
+- Files > Convert archives… converts the selected archives to another format (the originals are kept).
+- Options > Zip > "Names in old zips without UTF-8" picks the code page for names in old zips (default: automatic).
 
 ## 0.14.33 – 2026-11-18
 

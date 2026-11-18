@@ -8,17 +8,22 @@
 // F4 on a file inside an archive edits a watched temporary copy (Go: feature_archive_edit.go); each save asks whether
 // to update the archive.
 //
-// Dialog kinds for control mode: "pack", "unpack", "password", "test-report", "archive-edit", "server-edit", "archive-edit-error";
+// Alt+Enter inside an archive shows "Info on packed file" (sizes, ratio, date, CRC, method; F-847), where a ZIP's comment
+// can be edited (F-622, also Files > Archive comment); Files > Convert archives turns archives into another format (F-628).
+//
+// Dialog kinds for control mode: "pack", "unpack", "password", "test-report", "archive-edit", "server-edit", "archive-edit-error",
+// "packed-info", "archive-comment", "convert";
 // the jobs show the usual "job" progress box and "overwrite" question. Control command "vfs" tells what kind of place each panel shows.
 
 import { command, commandForKey, hasCommand } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { runJob, jobBackends, holdProgress } from '../core/jobs.js';
-import { formDialog, infoDialog, messageDialog, esc } from '../core/dialogs.js';
+import { formDialog, infoDialog, messageDialog, modal, esc } from '../core/dialogs.js';
 import { updateQuestion, panelsShowing, UPDATE } from './archive-edit-lib.js';
+import { packedInfoHTML, convertTargets } from './archive-info-lib.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
-import { plural } from '../core/format.js';
+import { plural, date as fmtDate } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { num as optNum } from './config/util.js';
 import './vfs.css';
@@ -63,7 +68,9 @@ async function openArchive(panel, entry, path, opts = {}) {
   if (!opts.intoArchive && optNum('Operation.ArchiveEnter', 0) === 1) return false;
   // Options > Packer > Treat archives like folders off: Enter gives archives to their program; Ctrl+PgDn still opens them
   if (!opts.intoArchive && theApp.config?.values?.['Packer.OpenFolderLike'] === '0') return false;
-  if (!(await go.FS.IsArchive(entry.name).catch(() => false))) return false;
+  // Options > Packer > Enter opens ISO disc images like folders (off by default: the system mounts them; Ctrl+PgDn browses)
+  const iso = theApp.config?.values?.['Packer.EnterISO'] === '1' && /\.iso$/i.test(entry.name);
+  if (!iso && !(await go.FS.IsArchive(entry.name).catch(() => false))) return false;
   await panel.go(path);
   return true;
 }
@@ -366,6 +373,93 @@ command({
     const rows = (final.report || []).map((r) => `<li class="${r.ok ? 'ok' : 'bad'}"><b>${esc(base(r.archive))}</b>: ${r.ok ? `OK (${esc(plural(r.files, 'file'))})` : esc(r.problems.join(' · '))}</li>`).join('');
     const msg = final.report?.length ? final.summary : (final.errors || []).join(' ');
     await infoDialog(`<h2>Test archives</h2><p class="mc-msg">${esc(msg)}</p>${rows ? `<ul class="mc-vfs-report">${rows}</ul>` : ''}`, 'mc-vfs-test', 'test-report');
+    return final.state === 'done';
+  },
+});
+
+// ---- Info on packed file (Alt+Enter inside an archive, F-847) ----
+command({
+  name: 'cm_PackedFileInfo', label: 'Info on packed file',
+  run: async (app) => {
+    const p = app.cur;
+    if (p?.vfs?.kind !== 'archive') { app.flash('Info on packed file works inside an archive.', 'err'); return false; }
+    const e = p.cur;
+    let info;
+    try { info = await go.FS.PackedInfo(e && !e.up ? p.fullPath(e.name) : p.path); } catch (err) { app.flash(errText(err), 'err'); return false; }
+    const canComment = info.canComment && !p.vfs.nested && !p.vfs.readOnly;
+    const edit = await modal((box, done) => {
+      box.classList.add('mc-info');
+      box.innerHTML = `<h2>Info on packed file</h2>${packedInfoHTML(info, fmtDate)}<div class="mc-btns">${canComment ? '<button type="button" class="mc-vfs-comment">Archive comment…</button>' : ''}<button type="submit" class="primary">OK</button></div>`;
+      box.querySelector('.mc-vfs-comment')?.addEventListener('click', () => done(true));
+      box.onsubmit = (ev) => { ev.preventDefault(); done(false); };
+    }, false, { kind: 'packed-info' });
+    if (edit) return app.run('cm_EditArchiveComment');
+    return true;
+  },
+});
+
+// ---- the comment of a ZIP archive (F-622) ----
+command({
+  name: 'cm_EditArchiveComment', label: 'Archive comment…',
+  run: async (app, args = {}) => {
+    const p = app.cur;
+    if (p?.vfs?.kind !== 'archive') { app.flash('Open a ZIP archive first (Enter on it); its comment can then be edited here.', 'err'); return false; }
+    if (p.vfs.readOnly || p.vfs.nested) { app.flash(p.vfs.readOnlyWhy || 'This archive can\'t be changed here.', 'err'); return false; }
+    let info;
+    try { info = await go.FS.PackedInfo(p.vfs.archive); } catch (err) { app.flash(errText(err), 'err'); return false; }
+    if (!info.canComment) { app.flash('Only ZIP archives have a comment that can be changed.', 'err'); return false; }
+    let text = args.comment;
+    if (text == null) {
+      const r = await formDialog('Archive comment', `<p class="mc-msg">${esc(`Comment of ${base(info.archive)}:`)}</p>
+        <div class="mc-row"><textarea id="mc-arc-comment" rows="8" spellcheck="false">${esc(info.archiveComment || '')}</textarea></div>
+        <p class="mc-note">Leave it empty to remove the comment.</p>`,
+      (box) => ({ text: box.querySelector('#mc-arc-comment').value }), null, { kind: 'archive-comment' });
+      if (!r) return false;
+      text = r.text;
+    }
+    if (text === (info.archiveComment || '')) return false;
+    try { await go.FS.SetArchiveComment(p.path, text); } catch (err) { app.flash(errText(err), 'err'); return false; }
+    for (const pn of panelsShowing(app.panels, info.archive)) pn.reload();
+    app.flash(text ? `Saved the comment of ${base(info.archive)}.` : `Removed the comment of ${base(info.archive)}.`);
+    return true;
+  },
+});
+
+// ---- Convert archives to another format (unpack + pack, F-628) ----
+command({
+  name: 'cm_ConvertArchive', label: 'Convert archives…',
+  run: async (app, args = {}) => {
+    const p = app.cur;
+    const items = p.targets().filter((e) => !e.dir);
+    if (!items.length) { app.flash('No supported archive selected.', 'err'); return false; }
+    const list = convertTargets(await packers());
+    if (!list.length) { app.flash('No packer is available.', 'err'); return false; }
+    const saved = app.setting('convert', {});
+    const req = { kind: 'convert', sources: items.map((e) => p.fullPath(e.name)), target: args.target || app.other.path,
+      format: args.format || saved.format || 'zip', level: args.level ?? saved.level ?? 0 };
+    if (!list.some((x) => x.name === req.format)) req.format = list[0].name;
+    if (!args.noDialog) {
+      const opts = list.map((x) => `<option value="${esc(x.name)}"${x.name === req.format ? ' selected' : ''}>${esc(x.label)}</option>`).join('');
+      const levels = ['<option value="0">Default</option>', ...[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<option value="${n}"${n === req.level ? ' selected' : ''}>${n}</option>`)].join('');
+      const html = `<p class="mc-msg">${esc(items.length === 1 ? `Convert ${items[0].name} to:` : `Convert ${plural(items.length, 'archive')} to:`)}</p>
+        <div class="mc-pack-grid">
+          <div class="mc-row"><label for="mc-conv-format">Packer</label><select id="mc-conv-format">${opts}</select></div>
+          <div class="mc-row"><label for="mc-conv-level">Compression level</label><select id="mc-conv-level">${levels}</select></div>
+        </div>
+        <div class="mc-row"><label for="mc-conv-target">Into the folder</label><input id="mc-conv-target" type="text" spellcheck="false" value="${esc(req.target)}"></div>
+        <p class="mc-note">Each archive is unpacked to a temporary folder and packed again under its own name with the new extension. The original archives are kept; an archive that is already there is not overwritten.</p>`;
+      const r = await formDialog('Convert archives', html, (box) => {
+        const $ = (s) => box.querySelector(s);
+        const target = $('#mc-conv-target').value.trim();
+        if (!target) return 'Type the folder for the converted archives.';
+        return { format: $('#mc-conv-format').value, level: Number($('#mc-conv-level').value) || 0, target: app.resolvePath(target, p.path) };
+      }, null, { kind: 'convert', okLabel: 'Convert' });
+      if (!r) return false;
+      Object.assign(req, r);
+      app.setSetting('convert', { format: r.format, level: r.level });
+    }
+    const final = await runJob(req, { title: 'Converting archives' });
+    if (final.state === 'done') { p.clearSelection?.(); app.flash(final.summary || 'Converted.'); }
     return final.state === 'done';
   },
 });

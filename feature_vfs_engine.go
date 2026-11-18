@@ -23,12 +23,13 @@ import (
 
 	"mormicommander/internal/archive"
 	"mormicommander/internal/archive/arcapi"
+	"mormicommander/internal/archive/isoarc"
 	"mormicommander/internal/archive/sevenrar"
 	"mormicommander/internal/archive/tarfmt"
 	"mormicommander/internal/archive/ziparc"
 )
 
-// vfsEngineOf names the engine that reads a local file: "zip", "tar", "7z" or "" (not an archive). The content
+// vfsEngineOf names the engine that reads a local file: "zip", "tar", "7z", "iso" or "" (not an archive). The content
 // decides first (a renamed archive still opens, a .jar is a zip), then the name — the same rule as the panels.
 func vfsEngineOf(file string) string {
 	if d, err := sevenrar.DetectFile(file); err == nil {
@@ -40,6 +41,9 @@ func vfsEngineOf(file string) string {
 		case sevenrar.FormatTar, sevenrar.FormatGzip, sevenrar.FormatBzip2, sevenrar.FormatXz, sevenrar.FormatZstd:
 			return "tar"
 		}
+	}
+	if isoarc.Detect(file) { // ISO 9660 disc images, read-only (F-610)
+		return "iso"
 	}
 	name := filepath.Base(file)
 	switch {
@@ -120,9 +124,15 @@ func vfsExtract(ctx context.Context, file, dest string, o vfsExtractOpts) (files
 		problems = append(problems, fmt.Sprintf("%s: %s", p, vfsErrText(e)))
 		return true
 	}
-	switch vfsEngineOf(file) {
-	case "zip":
-		r, err := ziparc.Open(file, archive.OpenOptions{Password: vfsArchivePassword(o.Password)})
+	switch kind := vfsEngineOf(file); kind {
+	case "zip", "iso":
+		var r archive.Archive
+		var err error
+		if kind == "iso" {
+			r, err = isoarc.Open(file)
+		} else {
+			r, err = ziparc.Open(file, archive.OpenOptions{Password: vfsArchivePassword(o.Password), Encoding: zipNameEncoding()})
+		}
 		if err != nil {
 			return 0, nil, err
 		}
@@ -236,9 +246,15 @@ func vfsSevenPassword(f vfsPasswordFunc) func(sevenrar.PasswordRequest) (string,
 // vfsTest tests one local archive (Alt+Shift+F9): the number of files checked and the damaged ones as sentences. err
 // is set when the test could not run at all (not an archive, cancelled, no password).
 func vfsTest(ctx context.Context, file string, pw vfsPasswordFunc, progress vfsProgressFunc) (files int, problems []string, err error) {
-	switch vfsEngineOf(file) {
-	case "zip":
-		r, err := ziparc.Open(file, archive.OpenOptions{Password: vfsArchivePassword(pw)})
+	switch kind := vfsEngineOf(file); kind {
+	case "zip", "iso":
+		var r archive.Archive
+		var err error
+		if kind == "iso" {
+			r, err = isoarc.Open(file)
+		} else {
+			r, err = ziparc.Open(file, archive.OpenOptions{Password: vfsArchivePassword(pw), Encoding: zipNameEncoding()})
+		}
 		if err != nil {
 			return 0, nil, err
 		}

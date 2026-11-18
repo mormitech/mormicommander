@@ -16,3 +16,8 @@
 .mc-vfs-report { margin: 0; padding: 0 0 0 18px; max-height: 50vh; overflow: auto; -webkit-user-select: text; user-select: text; }
 .mc-vfs-report li { margin: 2px 0; }
 .mc-vfs-report li.bad { color: var(--danger); }
+/* Info on packed file (F-847) and the archive comment (F-622) */
+.mc-vfs-info { border-collapse: collapse; margin: 4px 0 8px; -webkit-user-select: text; user-select: text; }
+.mc-vfs-info th { text-align: left; font-weight: normal; color: var(--muted, inherit); padding: 2px 12px 2px 0; vertical-align: top; white-space: nowrap; }
+.mc-vfs-info td { padding: 2px 0; word-break: break-word; max-width: 420px; }
+#mc-arc-comment { width: 100%; min-width: 360px; box-sizing: border-box; font-family: inherit; resize: vertical; }

@@ -24,6 +24,7 @@ import (
 
 	"mormicommander/internal/archive"
 	"mormicommander/internal/archive/arcapi"
+	"mormicommander/internal/archive/isoarc"
 	"mormicommander/internal/archive/sevenrar"
 	"mormicommander/internal/archive/tarfmt"
 	"mormicommander/internal/archive/ziparc"
@@ -49,6 +50,8 @@ type arcChanges struct {
 	Rename [][2]string
 	Mkdir  []string
 	Add    []arcAdd
+	// Comment, when set, replaces the archive comment (zip only).
+	Comment *string
 }
 
 // arcAdd packs the local file or folder Source as Dest inside the archive.
@@ -88,7 +91,7 @@ type openOptions struct {
 // errNotArchive is returned by openBackend for files no engine can read.
 var errNotArchive = errors.New("vfs: not a supported archive")
 
-// arcKind names the engine for a file: "zip", "tar", "7z" or "" (none).
+// arcKind names the engine for a file: "zip", "tar", "7z", "iso" or "" (none).
 func arcKind(file string) string {
 	d, err := sevenrar.DetectFile(file)
 	if err == nil {
@@ -100,6 +103,9 @@ func arcKind(file string) string {
 		case sevenrar.FormatTar, sevenrar.FormatGzip, sevenrar.FormatBzip2, sevenrar.FormatXz, sevenrar.FormatZstd:
 			return "tar"
 		}
+	}
+	if isoarc.Detect(file) {
+		return "iso"
 	}
 	name := filepath.Base(file)
 	switch {
@@ -148,6 +154,12 @@ func openBackend(file string, o openOptions) (arcBackend, error) {
 			return nil, err
 		}
 		return &sevenBackend{a: a}, nil
+	case "iso":
+		r, err := isoarc.Open(file)
+		if err != nil {
+			return nil, err
+		}
+		return &isoBackend{r: r}, nil
 	}
 	return nil, fmt.Errorf("%s: %w", file, errNotArchive)
 }
@@ -231,7 +243,7 @@ func (z *zipBackend) open(ctx context.Context, p string) (io.ReadCloser, error) 
 func (z *zipBackend) writable() bool { return !z.r.Spanned() }
 
 func (z *zipBackend) update(ctx context.Context, host string, ch arcChanges) error {
-	c := archive.Changes{Delete: ch.Delete, Mkdir: ch.Mkdir}
+	c := archive.Changes{Delete: ch.Delete, Mkdir: ch.Mkdir, Comment: ch.Comment}
 	for _, r := range ch.Rename {
 		c.Rename = append(c.Rename, archive.Rename{From: r[0], To: r[1]})
 	}
@@ -303,6 +315,9 @@ func (t *tarBackend) open(ctx context.Context, p string) (io.ReadCloser, error) 
 func (t *tarBackend) writable() bool { return t.r.Format().IsTar() }
 
 func (t *tarBackend) update(ctx context.Context, host string, ch arcChanges) error {
+	if ch.Comment != nil {
+		return ErrUnsupported
+	}
 	c := tarfmt.Changes{Delete: ch.Delete, Mkdir: ch.Mkdir}
 	for _, r := range ch.Rename {
 		c.Rename = append(c.Rename, tarfmt.Rename{From: r[0], To: r[1]})
@@ -377,3 +392,55 @@ func (s *sevenBackend) writable() bool { return false }
 func (s *sevenBackend) update(context.Context, string, arcChanges) error { return ErrUnsupported }
 
 func (s *sevenBackend) close() error { return s.a.Close() }
+
+// ---- ISO 9660 disc images (read-only) -------------------------------------
+
+type isoBackend struct{ r *isoarc.Reader }
+
+func (b *isoBackend) format() string { return "iso" }
+
+func (b *isoBackend) readDir(_ context.Context, dir string) ([]arcEntry, error) {
+	if dir != "" {
+		if e, err := b.r.Stat(dir); err == nil && !e.IsDir {
+			return nil, ErrNotFolder
+		}
+	}
+	es, err := b.r.ReadDir(dir)
+	if err != nil {
+		return nil, notExist(err, dir)
+	}
+	out := make([]arcEntry, len(es))
+	for i, e := range es {
+		out[i] = zipEntry(e)
+	}
+	return out, nil
+}
+
+func (b *isoBackend) stat(_ context.Context, p string) (arcEntry, error) {
+	e, err := b.r.Stat(p)
+	if err != nil {
+		return arcEntry{}, notExist(err, p)
+	}
+	return zipEntry(e), nil
+}
+
+func (b *isoBackend) open(ctx context.Context, p string) (io.ReadCloser, error) {
+	e, err := b.r.Stat(p)
+	if err != nil {
+		return nil, notExist(err, p)
+	}
+	if e.IsDir {
+		return nil, ErrIsFolder
+	}
+	rc, err := b.r.Open(e)
+	if err != nil {
+		return nil, err
+	}
+	return ctxReader{ctx, rc}, nil
+}
+
+func (b *isoBackend) writable() bool { return false }
+
+func (b *isoBackend) update(context.Context, string, arcChanges) error { return ErrUnsupported }
+
+func (b *isoBackend) close() error { return b.r.Close() }

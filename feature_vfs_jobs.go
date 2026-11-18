@@ -49,7 +49,7 @@ func init() {
 // VfsRequest is a job for VfsJobs.Start: the fields of fileops.Request the copy dialog fills, plus the options of the
 // Pack and Unpack dialogs.
 type VfsRequest struct {
-	Kind      string         `json:"kind"` // copy, move, delete, trash, wipe, pack, unpack, test
+	Kind      string         `json:"kind"` // copy, move, delete, trash, wipe, pack, unpack, test, convert
 	Sources   []string       `json:"sources"`
 	Target    string         `json:"target"` // copy/move/unpack: a folder; pack: the archive (may hold * with separate)
 	Rename    string         `json:"rename"`
@@ -100,7 +100,7 @@ type vfsJob struct {
 func (js *VfsJobs) Start(req VfsRequest) (int, error) {
 	r := vfsRouter(js.app)
 	if r == nil {
-		if js.app.mock != nil && (req.Kind == "pack" || req.Kind == "unpack" || req.Kind == "test") {
+		if js.app.mock != nil && (req.Kind == "pack" || req.Kind == "unpack" || req.Kind == "test" || req.Kind == "convert") {
 			return 0, errors.New("This is the demo: its files are not real, so they can't be packed or unpacked.")
 		}
 		return 0, nil
@@ -114,7 +114,7 @@ func (js *VfsJobs) Start(req VfsRequest) (int, error) {
 		if local {
 			return 0, nil
 		}
-	case "pack", "unpack", "test":
+	case "pack", "unpack", "test", "convert":
 	default:
 		return 0, fmt.Errorf("Unknown job %q.", req.Kind)
 	}
@@ -264,6 +264,8 @@ func (job *vfsJob) run() {
 		err = job.runUnpack()
 	case "test":
 		err = job.runTest()
+	case "convert":
+		err = job.runConvert()
 	}
 	job.mu.Lock()
 	switch {
@@ -304,7 +306,7 @@ func vfsSentence(err error) string {
 
 func vfsSummary(p *vfsProgress) string {
 	verb := map[fileops.Kind]string{"copy": "Copied", "move": "Moved", "delete": "Deleted", "trash": "Deleted", "wipe": "Deleted",
-		"pack": "Packed", "unpack": "Unpacked", "test": "Tested"}[p.Kind]
+		"pack": "Packed", "unpack": "Unpacked", "test": "Tested", "convert": "Converted"}[p.Kind]
 	s := fmt.Sprintf("%s %d file(s)", verb, p.FilesDone)
 	if p.Skipped > 0 {
 		s += fmt.Sprintf(", skipped %d", p.Skipped)
@@ -1222,6 +1224,81 @@ func (job *vfsJob) runUnpack() error {
 			}
 		}
 		os.RemoveAll(stage)
+	}
+	return nil
+}
+
+// runConvert converts each selected archive to another format (F-628): it is unpacked to a temporary folder and
+// packed again as <target folder>/<archive name>.<new extension>. The source archives are never changed, and an
+// archive that is already there under the new name is left alone (the job says so instead of overwriting it).
+func (job *vfsJob) runConvert() error {
+	r := vfsRouter(job.js.app)
+	pk, ok := vfsPackerFor(job.req.Format)
+	if !ok {
+		return fmt.Errorf("mormiCommander has no packer called %q", job.req.Format)
+	}
+	if !pk.Available {
+		return errors.New(pk.Note)
+	}
+	target := r.Clean(job.req.Target)
+	if vfsPathKind(r, target) != "local" {
+		return errors.New("converted archives can only be written to a folder on this computer")
+	}
+	arcs, err := job.archives(r)
+	if err != nil {
+		return err
+	}
+	for _, a := range arcs {
+		if job.ctx.Err() != nil {
+			return nil
+		}
+		src, file := a[0], a[1]
+		dst := filepath.Join(target, vfsArchiveStem(vfsBase(src))+"."+pk.Ext)
+		if _, err := os.Lstat(dst); err == nil {
+			job.fail(fmt.Sprintf("%s: %s is already there; it was not overwritten", vfsBase(src), vfsBase(dst)))
+			continue
+		}
+		if r.Clean(dst) == r.Clean(file) {
+			job.fail(fmt.Sprintf("%s is already a %s archive", vfsBase(src), pk.Label))
+			continue
+		}
+		job.update(func(p *vfsProgress) { p.Current = vfsBase(src) })
+		stage, err := vfsTempDir("convert")
+		if err != nil {
+			return err
+		}
+		_, problems, err := vfsExtract(job.ctx, file, stage, vfsExtractOpts{Password: job.password(), Progress: job.progressFn()})
+		if err == nil && len(problems) > 0 {
+			err = errors.New(strings.Join(problems, "; "))
+		}
+		if err == nil {
+			names, _ := vfsTopNames(stage)
+			paths := make([]string, len(names))
+			for i, n := range names {
+				paths[i] = filepath.Join(stage, n)
+			}
+			switch {
+			case len(paths) == 0:
+				err = errors.New("the archive is empty")
+			case pk.Single && (len(paths) > 1 || vfsCountFiles(stage) != 1):
+				err = fmt.Errorf("%s packs one file only, and this archive holds more", pk.Label)
+			default:
+				err = os.MkdirAll(target, 0o755)
+				if err == nil {
+					err = vfsPack(job.ctx, dst, paths, vfsPackOpts{Format: pk.Name, Level: job.req.Level, Password: job.req.Password,
+						Encryption: job.req.Encryption, Progress: job.progressFn()})
+				}
+			}
+		}
+		n := vfsCountFiles(stage)
+		os.RemoveAll(stage)
+		if err != nil {
+			if job.ctx.Err() == nil {
+				job.fail(fmt.Sprintf("%s: %s", vfsBase(src), vfsErrText(err)))
+			}
+			continue
+		}
+		job.update(func(p *vfsProgress) { p.FilesDone += n; p.Files += n })
 	}
 	return nil
 }

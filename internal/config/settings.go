@@ -332,6 +332,7 @@ type PackerPage struct {
 	ArchiveSubdirs bool   `ini:"Packer:IncludeSubdirs" def:"1" label:"Include subfolders"`
 	OpenFolderLike bool   `ini:"Packer:ZipLikeDirectory" def:"1" label:"Treat archives like folders"`
 	SearchInside   bool   `ini:"Packer:SearchArchives" def:"0" label:"Find files searches inside archives"`
+	EnterISO       bool   `ini:"Packer:EnterISO" def:"0" label:"Enter opens ISO disc images like folders (off: the system opens them; Ctrl+PgDn always browses)"`
 }
 
 // ZipPage (F-430).
@@ -342,6 +343,8 @@ type ZipPage struct {
 	TempDir   string `ini:"Packer:ZipTempDir" def:"" label:"Temporary folder (empty = system)"`
 	AES       bool   `ini:"Packer:ZipAES" def:"1" label:"Use AES-256 when encrypting"`
 	Zip64     bool   `ini:"Packer:Zip64" def:"1" label:"Allow ZIP64 for big archives"`
+	// NameEncoding (F-848): the code page of names in old zips that are not marked as UTF-8; 0 guesses as before.
+	NameEncoding int `ini:"Packer:ZipNameEncoding" def:"0" min:"0" max:"8" opts:"0=Automatic|1=DOS US (437)|2=DOS Western (850)|3=DOS Central European (852)|4=Windows Central European (1250)|5=Windows Western (1252)|6=DOS Cyrillic (866)|7=Windows Cyrillic (1251)|8=Japanese (Shift JIS)" label:"Names in old zips without UTF-8"`
 }
 
 // MiscPage (F-431, F-828).

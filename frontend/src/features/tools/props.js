@@ -5,7 +5,7 @@
 // properties, the file manager's properties); checksums of a file on demand, and a field to compare a pasted
 // checksum. With several items selected it shows what they hold together.
 
-import { command } from '../../core/registry.js';
+import { command, hasCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { modal } from '../../core/dialogs.js';
 import { bytes, size, date, plural } from '../../core/format.js';
@@ -216,6 +216,8 @@ command({
   name: 'cm_Properties', menuKey: true, label: 'Properties…',
   enabled: (app) => !app.demo,
   run: async (app) => {
+    // inside an archive: TC's "Info on packed file" (features/vfs.js, F-847) instead of "works on local files only"
+    if (app.cur?.vfs?.kind === 'archive' && hasCommand('cm_PackedFileInfo')) return app.run('cm_PackedFileInfo');
     if (!needLocal(app)) return;
     const { entries, paths } = targets(app);
     if (!paths.length) { // on "..": the folder itself, as the system's file managers do
