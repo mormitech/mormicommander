@@ -213,3 +213,28 @@ func TestTHTabsHistoryPerTab(t *testing.T) {
 		t.Fatalf("other histories: %v %+v", got.LeftHistory, got.Right)
 	}
 }
+
+// F-114 (board issue #103): a tab's second sort key comes back after a restart; one that cannot be a second key, or
+// equals the first, is not saved.
+func TestTHTabsSecondSortKey(t *testing.T) {
+	th, path := thTest(t)
+	s := THTabs{Left: THTabSet{Tabs: []THTab{{Path: "/a", Sort: "ext", Sort2: "size", Desc2: true}, {Path: "/b", Sort: "name", Sort2: "date"},
+		{Path: "/c", Sort: "size", Sort2: "size"}, {Path: "/d", Sort2: "col3"}, {Path: "/e"}}}}
+	if err := th.SaveTabs(s); err != nil {
+		t.Fatal(err)
+	}
+	th.flush()
+	got := thOpen(&App{}, path).Tabs().Left.Tabs
+	if len(got) != 5 || got[0].Sort2 != "size" || !got[0].Desc2 || got[1].Sort2 != "date" || got[1].Desc2 {
+		t.Fatalf("second sort keys after a restart: %+v", got)
+	}
+	for _, x := range got[2:] {
+		if x.Sort2 != "" || x.Desc2 {
+			t.Fatalf("a second sort key was kept that should not be: %+v", x)
+		}
+	}
+	b, _ := os.ReadFile(path)
+	if !strings.Contains(string(b), "0_sort2=size|1") {
+		t.Fatalf("the second key is not written as <n>_sort2:\n%s", b)
+	}
+}

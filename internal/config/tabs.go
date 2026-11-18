@@ -54,6 +54,7 @@ type Tab struct {
 	ColumnSet string   // custom column set name when View is "custom"
 	LockPath  string   // the folder the tab was locked to, when it differs from Path ("" = Path)
 	History   []string // the tab's own folder history, newest first (saved for tabs that are not active)
+	Sort2     string   // ours (F-114): the second sort key as "key|negative" ("size|1"), "" = none
 }
 
 // TabSet is the tabs of one panel.
@@ -84,7 +85,7 @@ func loadTabSet(m map[string]string, prefix string) TabSet {
 			lock = 0
 		}
 		ts.Tabs = append(ts.Tabs, Tab{Path: p, Caption: m[n+"caption"], Options: m[n+"options"], Lock: LockMode(lock),
-			View: m[n+"view"], ColumnSet: m[n+"columnset"]})
+			View: m[n+"view"], ColumnSet: m[n+"columnset"], Sort2: m[n+"sort2"]})
 		if lock != 0 {
 			ts.Tabs[len(ts.Tabs)-1].LockPath = m[n+"lockpath"]
 		}
@@ -122,6 +123,9 @@ func (t TabSet) kvs(prefix string) []KV {
 		}
 		if tab.ColumnSet != "" {
 			kvs = append(kvs, KV{n + "columnset", tab.ColumnSet})
+		}
+		if tab.Sort2 != "" {
+			kvs = append(kvs, KV{n + "sort2", tab.Sort2})
 		}
 		if tab.Lock != TabUnlocked && tab.LockPath != "" && tab.LockPath != tab.Path {
 			kvs = append(kvs, KV{n + "lockpath", tab.LockPath})

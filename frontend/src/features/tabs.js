@@ -28,7 +28,10 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
 import { TAB_DEFAULTS } from './tabs-defaults.js';
-import { tabFields, lockField, tabHistory, backFromHistory } from './tabs-saved.js';
+import { tabFields, lockField, tabHistory, backFromHistory, sortSaved, sameSort } from './tabs-saved.js';
+import { favKeyFor, favForKey, setFavKey, renameFavKey, dropFavKey } from './favtabkeys-lib.js';
+import { keyText, hotkeyOK } from './config/keys.js';
+import { normalizeCombo } from '../core/keys.js';
 
 export const LOCK_NONE = 0, LOCK_FULL = 1, LOCK_DIRS = 2;
 
@@ -313,7 +316,7 @@ async function replaceTabs(side, set) {
 function tabSet(side) {
   const s = sides[side], p = panelOf(side);
   if (!s) return { tabs: [], active: 0 };
-  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); const path = tabPath(p, t); return { path, caption: t.caption, lock: t.lock, ...lockField(t.lock, t.lockPath, path), sort: so.key, desc: !!so.desc, ...tabExtra(p, t) }; }), active: s.active };
+  return { tabs: s.tabs.map((t) => { const so = tabSort(p, t); const path = tabPath(p, t); return { path, caption: t.caption, lock: t.lock, ...lockField(t.lock, t.lockPath, path), ...sortSaved(so), ...tabExtra(p, t) }; }), active: s.active };
 }
 
 // ---- the lock rule ----
@@ -618,7 +621,8 @@ export async function saveBothTabs(path) {
 
 async function favoritesMenu({ anchor = null } = {}) {
   const favs = await go.TabsHotlist.Favorites();
-  const items = favs.map((f) => ({ label: f.name, detail: `${f.left.tabs.length} + ${f.right.tabs.length} tabs`, value: f }));
+  const keys = favKeys();
+  const items = favs.map((f) => { const k = favKeyFor(keys, f.name); return { label: f.name, detail: `${f.left.tabs.length} + ${f.right.tabs.length} tabs${k ? ` · ${keyText(k)}` : ''}`, value: f }; });
   if (items.length) items.push({ sep: true });
   items.push({ label: 'Add current tabs to favourites…', value: 'add' }, { label: 'Configure favourite tabs…', value: 'config' });
   const r = await showList({ title: 'Favourite tabs', items, anchor: anchor || theApp.cur.$.tabbar, kind: 'favorite-tabs' });
@@ -647,15 +651,48 @@ async function applyFavorite(f) {
   return true;
 }
 
+// The keys of favourite tab sets (F-775): {combo: name} in the setting "favTabKeys" (favtabkeys-lib.js).
+const favKeys = () => theApp.setting('favTabKeys', {}) || {};
+const setFavKeys = (m) => theApp.setSetting('favTabKeys', m);
+
+// askFavKey asks for the key of the favourite tabs `name`: a combo with Ctrl, Alt or Cmd (or a function key), so it
+// cannot take typing away; empty removes the key. A key a command already has is allowed, the favourite wins; the
+// dialog says which command it was.
+async function askFavKey(name) {
+  const cur = favKeyFor(favKeys(), name);
+  const v = await formDialog(`Key for the favourite tabs ${name}`,
+    `<div class="mc-row"><label for="fav-key">Key</label><input id="fav-key" data-keycapture="1" autocomplete="off" value="${esc(cur ? normalizeCombo(cur) : '')}" placeholder="Press a key combination"></div>
+     <p class="mc-note" id="fav-key-note">Press the keys, for example Ctrl+Alt+1. Backspace clears the key.</p>`,
+    (box) => {
+      const c = normalizeCombo(box.querySelector('#fav-key').value);
+      if (c && !hotkeyOK(c)) return 'Please use a key with Ctrl, Alt or Cmd, or a function key, so typing is not taken away.';
+      const other = c && favForKey(favKeys(), c);
+      if (other && other.toLowerCase() !== name.toLowerCase()) return `${keyText(c)} already opens the favourite tabs ${other}.`;
+      return { combo: c };
+    },
+    (box) => {
+      const inp = box.querySelector('#fav-key'), note = box.querySelector('#fav-key-note');
+      inp.addEventListener('input', () => {
+        const c = normalizeCombo(inp.value), cmd = c && commandForKey(c);
+        note.textContent = cmd ? `${keyText(c)} now runs ${cmd}; for the favourite tabs it opens them instead.` : 'Press the keys, for example Ctrl+Alt+1. Backspace clears the key.';
+      });
+      inp.focus();
+    }, { kind: 'favorite-key' });
+  if (!v) return false;
+  await setFavKeys(setFavKey(favKeys(), name, v.combo));
+  theApp.flash(v.combo ? `${keyText(v.combo)} opens the favourite tabs ${name}.` : `The favourite tabs ${name} have no key now.`);
+  return true;
+}
+
 async function configFavorites() {
   let favs = await go.TabsHotlist.Favorites();
   return modal((box, done) => {
     const draw = (sel = 0) => {
       box.innerHTML = `<h2>Favourite tabs</h2>
-        <div class="mc-row"><label for="fav-list">Saved tab sets</label><select id="fav-list" size="8">${favs.map((f, i) => `<option value="${esc(f.name)}"${i === sel ? ' selected' : ''}>${esc(f.name)} (${f.left.tabs.length} + ${f.right.tabs.length} tabs)</option>`).join('')}</select></div>
+        <div class="mc-row"><label for="fav-list">Saved tab sets</label><select id="fav-list" size="8">${favs.map((f, i) => `<option value="${esc(f.name)}"${i === sel ? ' selected' : ''}>${esc(f.name)} (${f.left.tabs.length} + ${f.right.tabs.length} tabs)${favKeyFor(favKeys(), f.name) ? ` – ${esc(keyText(favKeyFor(favKeys(), f.name)))}` : ''}</option>`).join('')}</select></div>
         ${favs.length ? '' : '<p class="mc-note">No favourite tabs yet. Use "Add current tabs" to save the tabs of both panels under a name.</p>'}
         <p class="mc-err" hidden></p>
-        <div class="mc-btns"><button type="button" data-a="add">Add current tabs…</button><button type="button" data-a="rename"${favs.length ? '' : ' disabled'}>Rename…</button><button type="button" data-a="delete"${favs.length ? '' : ' disabled'}>Delete</button><button type="button" data-a="open"${favs.length ? '' : ' disabled'}>Open</button><button type="button" data-a="close" class="primary">Close</button></div>`;
+        <div class="mc-btns"><button type="button" data-a="add">Add current tabs…</button><button type="button" data-a="rename"${favs.length ? '' : ' disabled'}>Rename…</button><button type="button" data-a="delete"${favs.length ? '' : ' disabled'}>Delete</button><button type="button" data-a="key"${favs.length ? '' : ' disabled'}>Key…</button><button type="button" data-a="open"${favs.length ? '' : ' disabled'}>Open</button><button type="button" data-a="close" class="primary">Close</button></div>`;
     };
     const err = (m) => { const e = box.querySelector('.mc-err'); e.hidden = !m; e.textContent = m || ''; };
     const selected = () => favs.find((f) => f.name === box.querySelector('#fav-list')?.value);
@@ -671,11 +708,11 @@ async function configFavorites() {
         else if (a === 'add') { const n = await saveFavorite(); if (n) await reload(n); }
         else if (a === 'rename' && f) {
           const n = await inputDialog({ title: 'Rename favourite tabs', label: 'New name', value: f.name, kind: 'favorite-rename' });
-          if (n && n !== f.name) { await go.TabsHotlist.RenameFavorite(f.name, n); await reload(n.trim()); }
+          if (n && n !== f.name) { await go.TabsHotlist.RenameFavorite(f.name, n); await setFavKeys(renameFavKey(favKeys(), f.name, n)); await reload(n.trim()); }
         } else if (a === 'delete' && f) {
           const y = await messageDialog({ Title: 'Delete favourite tabs', Message: `Delete the favourite tabs ${f.name}?`, Buttons: ['Delete', 'Cancel'], Kind: 'favorite-delete' });
-          if (y === 'Delete') { await go.TabsHotlist.DeleteFavorite(f.name); await reload(''); }
-        }
+          if (y === 'Delete') { await go.TabsHotlist.DeleteFavorite(f.name); if (favKeyFor(favKeys(), f.name)) await setFavKeys(dropFavKey(favKeys(), f.name)); await reload(''); }
+        } else if (a === 'key' && f) { if (await askFavKey(f.name)) await reload(f.name); }
       } catch (e) { err(errText(e)); }
     });
     draw();
@@ -798,9 +835,11 @@ command({ name: 'cm_SaveFavoriteTabs', label: 'Add current tabs to favourites…
 command({
   name: 'cm_LoadFavoriteTabs', label: 'Favourite tabs…',
   run: async (app, args) => {
-    if (!args.name) return favoritesMenu();
-    const f = (await go.TabsHotlist.Favorites()).find((x) => x.name.toLowerCase() === String(args.name).toLowerCase());
-    if (!f) { app.flash(`There are no favourite tabs named ${args.name}.`, 'err'); return false; }
+    // the name comes as args.name, or as the parameters of a button, user command or key (ours, F-775)
+    const name = String(args.name || args.params || '').trim();
+    if (!name) return favoritesMenu();
+    const f = (await go.TabsHotlist.Favorites()).find((x) => x.name.toLowerCase() === name.toLowerCase());
+    if (!f) { app.flash(`There are no favourite tabs named ${name}.`, 'err'); return false; }
     return applyFavorite(f);
   },
 });
@@ -830,6 +869,16 @@ addControlCommand('tab_menu', async (m) => { const side = m.side || theApp.cur.s
 // ---- start-up ----
 
 export function init(app) {
+  // the key of a favourite tab set (F-775) opens it; only combos with a modifier or function keys are ever saved
+  addKeyHandler((ev, combo) => {
+    const name = favForKey(favKeys(), normalizeCombo(combo));
+    if (!name || document.querySelector('.mc-modal:not(.mc-modeless)')) return false;
+    go.TabsHotlist.Favorites().then((favs) => {
+      const f = favs.find((x) => x.name.toLowerCase() === name.toLowerCase());
+      if (f) applyFavorite(f); else app.flash(`There are no favourite tabs named ${name}.`, 'err');
+    }).catch((e) => app.flash(errText(e), 'err'));
+    return true;
+  });
   // Options > Folder tabs > Ctrl+Up opens folder under cursor in a new tab: off, the key opens it in the current tab
   // (the command itself, from a menu or a button, still makes a tab)
   addKeyHandler((ev, combo) => {
@@ -870,7 +919,7 @@ export function init(app) {
         if (!tabOpt('restoreTabs')) { tabs = [tabs[active]]; active = 0; }
         // the active tab is what the panel shows now (the start folder from the command line wins over the saved one)
         if (samePath(tabs[active].path, p.path) && !p.back.length) p.back = [...hist].reverse().filter((x) => !samePath(x, p.path));
-        if (tabs[active].sort) { const so = tabs[active].sort; if (so.key !== p.sort.key || so.desc !== p.sort.desc) p.sortBy(so.key, so.desc); }
+        if (tabs[active].sort) { const so = tabs[active].sort; if (!sameSort(so, p.sort)) { p.sort = { ...so }; p.rebuild(); app.panelChanged(p, { moved: false }); } }
         tabs[active].path = p.path;
         // the active tab's saved view (and other registered state) is what the panel shows; the panel is told below
         let changed = false;

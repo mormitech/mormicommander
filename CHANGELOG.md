@@ -7,6 +7,8 @@ version is changed only when a round of features is merged.
 ## Unreleased
 
 ### Added
+- Favourite tab sets can each have a key: Configure favourite tabs > Key… (the Favourite tabs menu shows it).
+- The second sort key (Ctrl/Cmd+click on a column title) is now kept with each tab after a restart.
 - Options > Operation: "-S=L on the command line opens only the Lister window" starts just a Lister window for `mormicommander -S=L file` and quits when it closes (off by default).
 - Commands > Rename volume… changes the name of a disk or USB drive (macOS and Windows), after asking twice.
 - Commands > Drive list as folder shows all drives as a folder ("My computer"); an option makes ".." in a drive's root go there.

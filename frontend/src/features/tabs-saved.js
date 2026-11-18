@@ -9,8 +9,20 @@
 // tabFields is the options for a new tab made from a saved one (the makeTab options of tabs.js).
 export function tabFields(x) {
   const lock = +x.lock || 0;
-  return { path: x.path, caption: x.caption, lock, lockPath: lock ? x.lockPath || x.path : '', sort: { key: x.sort || 'name', desc: !!x.desc }, saved: x };
+  return { path: x.path, caption: x.caption, lock, lockPath: lock ? x.lockPath || x.path : '', sort: sortFields(x), saved: x };
 }
+
+// sortFields is a saved tab's sort as the panel keeps it, with the second sort key (sort.then, F-114) when one was saved.
+export function sortFields(x) {
+  const key = x.sort || 'name';
+  return x.sort2 && x.sort2 !== key ? { key, desc: !!x.desc, then: { key: x.sort2, desc: !!x.desc2 } } : { key, desc: !!x.desc };
+}
+
+// sortSaved is what a tab saves of a panel sort: the key and direction, and the second key when there is one (F-114).
+export const sortSaved = (so) => ({ sort: so.key, desc: !!so.desc, ...(so.then?.key ? { sort2: so.then.key, desc2: !!so.then.desc } : {}) });
+
+// sameSort says whether two panel sorts are the same, the second key included.
+export const sameSort = (a, b) => a.key === b.key && !!a.desc === !!b.desc && (a.then?.key || '') === (b.then?.key || '') && !!a.then?.desc === !!b.then?.desc;
 
 // lockField is the lockPath to save with a tab: only for a locked tab whose lock folder is not the folder it shows.
 export function lockField(lock, lockPath, path) {

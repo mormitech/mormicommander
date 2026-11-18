@@ -1,7 +1,7 @@
 // Tests for tabs-saved.js (board issue #12): a saved tab comes back with its folder, caption, lock, sort and the
 // folder a "locked, but folder changes allowed" tab was locked to, and only a lock folder that differs is saved.
 import { describe, it, expect } from 'vitest';
-import { tabFields, lockField, tabHistory, backFromHistory } from '../src/features/tabs-saved.js';
+import { tabFields, lockField, tabHistory, backFromHistory, sortFields, sortSaved, sameSort } from '../src/features/tabs-saved.js';
 
 describe('tabFields', () => {
   it('restores a tab locked to another folder than it shows', () => {
@@ -51,5 +51,25 @@ describe('backFromHistory', () => {
   });
   it('gives an empty list for a tab saved without history (older files)', () => {
     expect(backFromHistory(undefined, '/a', same)).toEqual([]);
+  });
+});
+
+// F-114 (board issue #103): the second sort key is saved with the tab and comes back
+describe('second sort key', () => {
+  it('saves and restores sort.then', () => {
+    const so = { key: 'ext', desc: false, then: { key: 'size', desc: true } };
+    const saved = sortSaved(so);
+    expect(saved).toEqual({ sort: 'ext', desc: false, sort2: 'size', desc2: true });
+    expect(sortFields(saved)).toEqual(so);
+    expect(tabFields({ path: '/a', ...saved }).sort).toEqual(so);
+  });
+  it('saves no second key when there is none, and ignores one equal to the first', () => {
+    expect(sortSaved({ key: 'name', desc: true })).toEqual({ sort: 'name', desc: true });
+    expect(sortFields({ sort: 'size', sort2: 'size' })).toEqual({ key: 'size', desc: false });
+  });
+  it('compares sorts with the second key', () => {
+    expect(sameSort({ key: 'ext', desc: false }, { key: 'ext', desc: false })).toBe(true);
+    expect(sameSort({ key: 'ext', desc: false, then: { key: 'size', desc: true } }, { key: 'ext', desc: false })).toBe(false);
+    expect(sameSort({ key: 'ext', then: { key: 'size', desc: true } }, { key: 'ext', desc: false, then: { key: 'size', desc: true } })).toBe(true);
   });
 });

@@ -79,6 +79,8 @@ type THTab struct {
 	Set      string   `json:"set,omitempty"`
 	LockPath string   `json:"lockPath,omitempty"`
 	History  []string `json:"history,omitempty"`
+	Sort2    string   `json:"sort2,omitempty"` // ours (F-114): the second sort key (name, ext, size, date), "" = none
+	Desc2    bool     `json:"desc2,omitempty"`
 }
 
 // THTabSet is the tabs of one panel and which one is active.
@@ -459,6 +461,26 @@ func (t *TabsHotlist) RunProgram(program, params, dir string) error {
 // thSortOrder is TC's sortorder number for a sort key (the <n>_options of a tab start with "sortorder|negative").
 var thSortOrder = map[string]int{"name": 0, "ext": 1, "size": 2, "date": 3, "none": 4}
 
+// thSort2To and thSort2From turn a tab's second sort key (F-114) into the "<n>_sort2" value ("size|1") and back; only
+// keys that can be a second key are kept.
+func thSort2To(tb THTab) string {
+	if o, ok := thSortOrder[tb.Sort2]; !ok || o > 3 || tb.Sort2 == tb.Sort {
+		return ""
+	}
+	if tb.Desc2 {
+		return tb.Sort2 + "|1"
+	}
+	return tb.Sort2 + "|0"
+}
+
+func thSort2From(v string) (string, bool) {
+	k, neg, _ := strings.Cut(strings.TrimSpace(v), "|")
+	if o, ok := thSortOrder[k]; !ok || o > 3 {
+		return "", false
+	}
+	return k, strings.TrimSpace(neg) == "1"
+}
+
 func thTabsTo(s THTabSet) config.TabSet {
 	ts := config.TabSet{Active: s.Active}
 	for _, tb := range s.Tabs {
@@ -475,7 +497,7 @@ func thTabsTo(s THTabSet) config.TabSet {
 			lock = config.TabUnlocked
 		}
 		ts.Tabs = append(ts.Tabs, config.Tab{Path: thOneLine(tb.Path), Caption: thOneLine(tb.Caption), Options: fmt.Sprintf("%d|%d", o, neg), Lock: lock,
-			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set), History: tb.History})
+			View: thOneLine(tb.View), ColumnSet: thOneLine(tb.Set), History: tb.History, Sort2: thSort2To(tb)})
 		if lock != config.TabUnlocked {
 			ts.Tabs[len(ts.Tabs)-1].LockPath = thOneLine(tb.LockPath)
 		}
@@ -501,6 +523,7 @@ func thTabsFrom(ts config.TabSet) THTabSet {
 		if len(parts) > 1 && strings.TrimSpace(parts[1]) == "1" {
 			x.Desc = true
 		}
+		x.Sort2, x.Desc2 = thSort2From(tb.Sort2)
 		out.Tabs = append(out.Tabs, x)
 	}
 	return out
