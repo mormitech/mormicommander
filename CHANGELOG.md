@@ -6,6 +6,15 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- HEIC, AVIF and JPEG XL pictures on Windows and Linux too: when the web view or the built-in decoders can't read
+  one, the thumbnails view, the Lister and Quick View convert it with a program you have (Windows' own picture
+  codecs, or libheif, libavif, libjxl, ImageMagick, vips or ffmpeg), or with the one named in Options > Plugins >
+  "Program for HEIC, AVIF and JPEG XL pictures". Turning external tools off turns this off too.
+- JPEG XL files are recognised in the Lister, and their picture size shows in the Lister, the Pictures columns and
+  the file list tooltips; AVIF and JPEG XL images also get the picture size line in tooltips.
+
 ## 0.14.36 – 2026-11-18
 
 Parity rounds for Drives and volumes, Logging and safety, Scripted control, Command-line parameters and

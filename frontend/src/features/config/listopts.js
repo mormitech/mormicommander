@@ -18,7 +18,7 @@ import { on, num, opt, applyOptions, compileMask } from './util.js';
 let app = null;
 
 const REMOTE = /^[a-z][a-z0-9+.-]*:\/\//i;
-const IMAGE = /\.(jpe?g|png|gif|bmp|webp|tiff?|heic|heif)$/i;
+const IMAGE = /\.(jpe?g|png|gif|bmp|webp|tiff?|heic|heif|avif|jxl)$/i;
 
 // onNetwork: the panel shows a server folder or a folder on a network volume.
 function onNetwork(p) {

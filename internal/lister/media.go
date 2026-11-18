@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"mormicommander/internal/imgconv"
 )
 
 // MediaInfo describes an image, audio, video or document file.
@@ -140,6 +142,8 @@ func sniffMedia(b []byte) (mediaFormat, bool) {
 			return mediaFormat{"WebM", "video/webm", "video"}, true
 		}
 		return mediaFormat{"Matroska", "video/x-matroska", "video"}, true
+	case has(0, "\x00\x00\x00\x0cJXL \r\n\x87\n"), has(0, "\xff\x0a") && jxlCodestream(b):
+		return mediaFormat{"JPEG XL", "image/jxl", "image"}, true
 	case has(4, "ftyp"):
 		brand := ""
 		if len(b) >= 12 {
@@ -164,6 +168,13 @@ func sniffMedia(b []byte) (mediaFormat, bool) {
 		return mediaFormat{"SVG", "image/svg+xml", "image"}, true
 	}
 	return mediaFormat{}, false
+}
+
+// jxlCodestream tells a bare JPEG XL codestream (FF 0A) from other data that happens to start the same way: its size
+// header must read as a sensible picture size.
+func jxlCodestream(b []byte) bool {
+	_, _, ok := imgconv.JXLSize(bytes.NewReader(b), int64(len(b)))
+	return ok
 }
 
 // ProbeMediaFile is ProbeMedia for a file on disk.
@@ -223,6 +234,10 @@ func ProbeMedia(r io.ReaderAt, size int64) (*MediaInfo, error) {
 		p.mp3()
 	case "WebM", "Matroska":
 		p.mkv()
+	case "JPEG XL":
+		if w, h, ok := imgconv.JXLSize(p.r, p.size); ok {
+			m.Width, m.Height, m.Frames = w, h, 1
+		}
 	case "HEIC", "AVIF", "MP4", "QuickTime", "M4A":
 		p.isobmff()
 	case "SVG":

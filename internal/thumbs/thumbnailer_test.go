@@ -9,6 +9,7 @@ import (
 	"errors"
 	"image"
 	"os"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -222,5 +223,33 @@ func TestThumbnailerLeaderCancelled(t *testing.T) {
 	}
 	if err := <-followerErr; err != nil {
 		t.Errorf("follower should retry and succeed: %v", err)
+	}
+}
+
+func TestChainSystem(t *testing.T) {
+	if Chain(nil, nil) != nil {
+		t.Fatal("an empty chain must be nil")
+	}
+	var calls []string
+	fail := func(ctx context.Context, path string, w, h int) (image.Image, error) {
+		calls = append(calls, "fail")
+		return nil, ErrUnsupported
+	}
+	ok := func(ctx context.Context, path string, w, h int) (image.Image, error) {
+		calls = append(calls, "ok")
+		return image.NewRGBA(image.Rect(0, 0, 4, 4)), nil
+	}
+	img, err := Chain(fail, nil, ok, fail)(context.Background(), "x.heic", 8, 8)
+	if err != nil || img == nil || strings.Join(calls, ",") != "fail,ok" {
+		t.Fatalf("%v %v %v", img, err, calls)
+	}
+	if _, err := Chain(fail)(context.Background(), "x", 8, 8); !errors.Is(err, ErrUnsupported) {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	calls = nil
+	if _, err := Chain(fail, ok)(ctx, "x", 8, 8); !errors.Is(err, context.Canceled) || len(calls) != 1 {
+		t.Fatal(err, calls)
 	}
 }

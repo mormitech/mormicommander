@@ -6,7 +6,8 @@ panel code wires it up.
 
 Backs FEATURES.md section 33: **F-675** (thumbnail view data), **F-676**
 (JPEG/PNG/GIF/BMP/WebP/TIFF natively, HEIC/PDF/video through QuickLook on
-macOS and the freedesktop cache on Linux, icons for the rest, generated in the
+macOS and the freedesktop cache on Linux, HEIC/AVIF/JPEG XL through an installed
+converter as the last link of `Chain(DefaultSystem(), ...)` (issue #25), icons for the rest, generated in the
 background, cached on disk), **F-677** (size 32..512 px), **F-678** ("Delete
 thumbnails cache" = `Cache.Clear`), **F-679** (`Meta` gives format and original
 dimensions for field lines under the picture), **F-680** (cache persists

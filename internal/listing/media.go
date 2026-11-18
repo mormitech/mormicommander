@@ -20,6 +20,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf16"
+
+	"mormicommander/internal/imgconv"
 )
 
 // Keys under which media facts are cached in Item.Extra.
@@ -131,6 +133,18 @@ func loadImageOwn(it *Item) {
 	n, _ := io.ReadFull(f, head)
 	if t, ok := ExifDate(head[:n]); ok {
 		setExtra(it, ExtraExifDate, t)
+		return
+	}
+	if imgconv.Sniff(head[:n]) == imgconv.JXL {
+		// JPEG XL: the size from its header (Go has no JPEG XL decoder)
+		size := it.Size
+		if fi, err := f.Stat(); err == nil {
+			size = fi.Size()
+		}
+		if w, h, ok := imgconv.JXLSize(f, size); ok {
+			setExtra(it, ExtraImgWidth, int64(w))
+			setExtra(it, ExtraImgHeight, int64(h))
+		}
 		return
 	}
 	if isHEIF(head[:n]) {

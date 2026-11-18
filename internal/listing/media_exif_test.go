@@ -153,3 +153,20 @@ func TestHEIFFacts(t *testing.T) {
 		t.Error("an MP4 video is taken for HEIF")
 	}
 }
+
+// TestNewImageFormatSizes: the picture size of AVIF (HEIF boxes) and JPEG XL (its header) samples, for the Pictures
+// columns and the file list tooltips (issue #25).
+func TestNewImageFormatSizes(t *testing.T) {
+	for _, name := range []string{"s.avif", "s.heic", "s.jxl", "s_c.jxl"} {
+		dir := filepath.Join("..", "imgconv", "testdata")
+		fi, err := os.Stat(filepath.Join(dir, name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		it := FromFileInfo(dir, fi)
+		LoadImageFacts(&it)
+		if it.Extra[ExtraImgWidth] != int64(40) || it.Extra[ExtraImgHeight] != int64(24) {
+			t.Errorf("%s: %v", name, it.Extra)
+		}
+	}
+}

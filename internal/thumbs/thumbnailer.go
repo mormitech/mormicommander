@@ -22,6 +22,41 @@ import (
 // at roughly w x h pixels. It returns ErrUnsupported when it has nothing.
 type SystemFunc func(ctx context.Context, path string, w, h int) (image.Image, error)
 
+// DefaultSystem is the platform's own system thumbnailer (QuickLook on macOS,
+// the freedesktop cache on Linux), or nil where there is none.
+func DefaultSystem() SystemFunc { return systemThumbnailer() }
+
+// Chain tries each non-nil SystemFunc in turn and returns the first picture.
+// A cancelled context stops the chain; when all fail, the last error is
+// returned (ErrUnsupported when there was nothing to try).
+func Chain(fs ...SystemFunc) SystemFunc {
+	var list []SystemFunc
+	for _, f := range fs {
+		if f != nil {
+			list = append(list, f)
+		}
+	}
+	if len(list) == 0 {
+		return nil
+	}
+	return func(ctx context.Context, path string, w, h int) (image.Image, error) {
+		err := error(ErrUnsupported)
+		for _, f := range list {
+			var img image.Image
+			if img, err = f(ctx, path, w, h); err == nil && img != nil {
+				return img, nil
+			}
+			if ctx.Err() != nil {
+				return nil, ctx.Err()
+			}
+		}
+		if err == nil {
+			err = ErrUnsupported
+		}
+		return nil, err
+	}
+}
+
 // Thumbnailer produces thumbnails with caching. It is safe for concurrent
 // use; the Pool in pool.go runs many Thumbnail calls in parallel.
 type Thumbnailer struct {

@@ -208,7 +208,7 @@ func (k ViewKind) String() string {
 
 var mediaExt = map[string]bool{
 	".png": true, ".jpg": true, ".jpeg": true, ".jpe": true, ".gif": true, ".bmp": true, ".webp": true,
-	".tif": true, ".tiff": true, ".ico": true, ".cur": true, ".heic": true, ".heif": true, ".avif": true,
+	".tif": true, ".tiff": true, ".ico": true, ".cur": true, ".heic": true, ".heif": true, ".avif": true, ".jxl": true,
 	".svg": true, ".psd": true, ".pdf": true, ".mp3": true, ".wav": true, ".flac": true, ".ogg": true,
 	".oga": true, ".opus": true, ".m4a": true, ".aac": true, ".mp4": true, ".m4v": true, ".mov": true,
 	".avi": true, ".mkv": true, ".webm": true,

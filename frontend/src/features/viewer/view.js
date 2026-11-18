@@ -16,7 +16,7 @@ import { label as keyLabel } from '../../core/keys.js';
 import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
-import { mediaTag } from './mediael.js';
+import { mediaTag, convertible } from './mediael.js';
 import { TableGrid, FORMAT_NAMES, rowsLabel } from './table.js';
 import { LISTER_DEFAULTS } from './lister-defaults.js';
 import { printPlan, printerNote } from './print.js';
@@ -542,6 +542,9 @@ export class ListerView {
       el.alt = this.info.name;
       el.draggable = false;
       el.addEventListener('load', () => this.transform());
+      // HEIC, AVIF or JPEG XL the web view can't draw (Windows, Linux): Go converts it with a program the computer
+      // has (feature_imgconv.go); on macOS WebKit draws these itself and this never runs
+      if (convertible(m.mime)) el.addEventListener('error', () => this.convertImage(id, el), { once: true });
     } else if (tag === 'video' || tag === 'audio') {
       el.controls = true;
       // the Lister (F3) starts a film or sound at once, as a player does; Quick View doesn't, or moving the cursor over
@@ -554,6 +557,19 @@ export class ListerView {
     el.src = this.blobURL;
     this.$.media.append(el);
     this.transform();
+  }
+
+  // convertImage swaps a picture the web view could not draw for the copy Go converted, or says why there is none.
+  async convertImage(id, el) {
+    let d = null;
+    try { d = await go.Lister.Decoded(id); } catch { d = null; }
+    if (this.id !== id || !el.isConnected) return;
+    if (d?.url) {
+      el.src = d.url;
+      if (d.tool) this.note(`Converted for viewing (${d.tool})`);
+      return;
+    }
+    this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(d?.error || `${this.info.name} can't be shown here.`)}<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
   }
 
   // playStream shows a <video> or <audio> that plays from the address Go gave (st.url: the file itself, or an HLS playlist

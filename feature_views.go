@@ -398,6 +398,8 @@ func (v *Views) thumbnailer() (*thumbs.Thumbnailer, *thumbs.Pool) {
 			cache, _ = thumbs.OpenCache(d, int64(maxMB)<<20) // no cache only means thumbnails are made again next time
 		}
 		v.tn = thumbs.New(thumbs.DefaultOptions(), cache)
+		// HEIC, AVIF and JPEG XL that neither Go nor the system thumbnailer read go to an installed converter (issue #25)
+		v.tn.SetSystem(thumbs.Chain(thumbs.DefaultSystem(), imgconvThumb))
 		v.pool = thumbs.NewPool(v.tn, 0)
 	}
 	return v.tn, v.pool

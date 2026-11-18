@@ -295,6 +295,7 @@ type PluginsPage struct {
 	UnrarPath        string `ini:"Plugins:Unrar" def:"" label:"unrar program (empty = search PATH)"`
 	ExifToolPath     string `ini:"Plugins:ExifTool" def:"" label:"exiftool program for metadata columns"`
 	FFprobePath      string `ini:"Plugins:FFprobe" def:"" label:"ffprobe program for media columns"`
+	ImageDecoder     string `ini:"Plugins:ImageDecoder" def:"" label:"Program for HEIC, AVIF and JPEG XL pictures (empty = search for an installed one)"`
 }
 
 // ThumbnailsPage (F-426).

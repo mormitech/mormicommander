@@ -20,7 +20,8 @@ import (
 )
 
 // ImageSize is the picture size of an image file, for the tooltip of an image in the file list (Tooltips > Use
-// per-type tooltip fields). Zero when the file is not a picture Go can read the size of.
+// per-type tooltip fields). Zero when the file is not a picture Go can read the size of (HEIC, AVIF and JPEG XL are
+// read from their headers).
 func (v *Views) ImageSize(path string) map[string]int {
 	f, err := os.Open(path)
 	if err != nil {
@@ -29,6 +30,10 @@ func (v *Views) ImageSize(path string) map[string]int {
 	defer f.Close()
 	cfg, _, err := image.DecodeConfig(f)
 	if err != nil {
+		// HEIC, AVIF and JPEG XL (issue #25): the size from the file's boxes or header, as the Pictures columns read it
+		if facts := v.TipFacts(path, []string{"image"}); facts["w"].(int) > 0 {
+			return map[string]int{"w": facts["w"].(int), "h": facts["h"].(int)}
+		}
 		return map[string]int{"w": 0, "h": 0}
 	}
 	return map[string]int{"w": cfg.Width, "h": cfg.Height}

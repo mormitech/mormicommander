@@ -20,3 +20,9 @@ export function mediaTag(kind, mime) {
   const type = String(mime || '').split(';')[0].trim().toLowerCase();
   return EMBED_SAFE.has(type) ? 'embed' : '';
 }
+
+// convertible says whether a picture type is one Go can convert (feature_imgconv.go: HEIC, AVIF, JPEG XL) when the web
+// view can't draw it, as WebView2 on Windows and WebKitGTK on Linux often can't.
+export function convertible(mime) {
+  return /^image\/(heic|heif|avif|jxl)$/i.test(String(mime || '').split(';')[0].trim());
+}

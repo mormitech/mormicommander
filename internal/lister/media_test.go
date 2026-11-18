@@ -289,6 +289,10 @@ func TestProbeImagesHandmade(t *testing.T) {
 		{"ico", ico, "ICO", 256, 256, 2, 32},
 		{"psd", psd, "PSD", 200, 100, 1, 24},
 		{"heic", heic, "HEIC", 4032, 3024, 1, 0},
+		{"jxl", readTestdata(t, "../imgconv/testdata/s.jxl"), "JPEG XL", 40, 24, 1, 0},
+		{"jxl container", readTestdata(t, "../imgconv/testdata/s_c.jxl"), "JPEG XL", 40, 24, 1, 0},
+		{"jxl ratio", readTestdata(t, "../imgconv/testdata/wide.jxl"), "JPEG XL", 1000, 563, 1, 0},
+		{"avif", readTestdata(t, "../imgconv/testdata/s.avif"), "AVIF", 40, 24, 1, 0},
 		{"svg", svg, "SVG", 120, 80, 1, 0},
 		{"svg viewBox", svgVB, "SVG", 301, 150, 1, 0},
 	}
@@ -514,4 +518,13 @@ func TestSniffVideoContainers(t *testing.T) {
 	if f, ok := sniffMedia([]byte("Gimport { x } from './y';\nexport const z = 1;\n")); ok {
 		t.Errorf("TypeScript taken for %+v", f)
 	}
+}
+
+func readTestdata(t *testing.T, path string) []byte {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
 }
