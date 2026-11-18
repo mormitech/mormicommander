@@ -28,3 +28,5 @@ func platformTrashDirs(path string) []string {
 	}
 	return dirs
 }
+
+func homeTrashFolder() string { return xdgHomeTrash() }

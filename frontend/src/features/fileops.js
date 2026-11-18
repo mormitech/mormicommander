@@ -38,6 +38,7 @@ import { copiedNames } from './fileops-sel.js';
 import { archiveRefusal } from './fileops-readonly.js';
 import { noteXattrLoss } from './fileops-xattr.js';
 import { overwriteNote } from './undo-lib.js';
+import { noTrashReason } from './trash-lib.js';
 
 const DEFAULTS = {
   useTrash: true, confirmDelete: true, confirmDeleteDirs: true, confirmDeleteRO: true, confirmOverwriteRO: true, confirmCopy: true,
@@ -408,7 +409,11 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
   const useTrash = !!opt(app, 'useTrash');
   const trashOK = place ? false : await go.Jobs.TrashSupported().catch(() => false);
   let toTrash = !place && !wipe && (useTrash ? !permanent : permanent); // F-810: with the trash off, Shift+F8 is the trash
-  const noTrash = toTrash && !trashOK;
+  // F-833, Options > Copy/Delete "Say when a drive has no trash" (off by default): a drive known to have no trash gets
+  // the permanent delete question at once, instead of offering the trash
+  const volReason = toTrash && trashOK && app.config?.values?.['CopyDelete.CheckVolumeTrash'] === '1'
+    ? noTrashReason(app.platform, app.volumeFor?.(src.path), src.path) : '';
+  const noTrash = toTrash && (!trashOK || !!volReason);
   if (noTrash) toTrash = false;
   const T = trashWord(app);
   const what = describe(items);
@@ -431,11 +436,11 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
     button = `Move to ${T}`;
   } else {
     title = 'Delete permanently';
-    msg = noTrash ? `There is no ${T} here, so ${what} will be deleted permanently.\n\nDelete ${items.length === 1 ? 'it' : 'them'}? This can't be undone.`
+    msg = noTrash ? `There is no ${T} here${volReason ? ` (${volReason})` : ''}, so ${what} will be deleted permanently.\n\nDelete ${items.length === 1 ? 'it' : 'them'}? This can't be undone.`
       : `Delete ${what} permanently?\n\n${items.length === 1 ? 'It' : 'They'} will not go to the ${T}, and can't be brought back.`;
     button = 'Delete';
   }
-  if (wipe || opt(app, 'confirmDelete')) {
+  if (wipe || volReason || opt(app, 'confirmDelete')) { // (F-833: a delete that would have gone to the trash always asks)
     const b = await messageDialog({ Title: title, Message: msg, Buttons: [button, 'Cancel'], DefaultButton: button, Danger: !toTrash, Kind: wipe ? 'wipe' : 'delete' });
     if (b !== button) return false;
   }

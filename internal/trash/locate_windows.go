@@ -9,6 +9,8 @@ package trash
 import (
 	"os"
 	"path/filepath"
+
+	"golang.org/x/sys/windows"
 )
 
 func platformTrashDirs(path string) []string {
@@ -28,4 +30,17 @@ func platformTrashDirs(path string) []string {
 		}
 	}
 	return dirs
+}
+
+// homeTrashFolder is the user's own folder (named by the user's SID) in the Recycle Bin of the system drive.
+func homeTrashFolder() string {
+	drive := os.Getenv("SystemDrive")
+	if len(drive) != 2 {
+		drive = "C:"
+	}
+	bin := drive + `\$Recycle.Bin`
+	if u, err := windows.GetCurrentProcessToken().GetTokenUser(); err == nil && u.User.Sid != nil {
+		return filepath.Join(bin, u.User.Sid.String())
+	}
+	return bin
 }

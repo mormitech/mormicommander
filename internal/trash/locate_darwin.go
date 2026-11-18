@@ -23,3 +23,11 @@ func platformTrashDirs(path string) []string {
 	}
 	return []string{filepath.Join(top, ".Trashes", strconv.Itoa(os.Getuid()))}
 }
+
+func homeTrashFolder() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return ""
+	}
+	return filepath.Join(home, ".Trash")
+}

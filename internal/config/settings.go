@@ -218,6 +218,10 @@ type CopyDeletePage struct {
 	FollowLinks            bool `ini:"Configuration:CopyFollowLinks" def:"0" label:"Copy link targets instead of links"`
 	CheckFreeSpace         bool `ini:"Configuration:CheckFreeSpace" def:"1" label:"Check free space before copying"`
 	MoveDeleteAfterCopy    bool `ini:"Configuration:MoveSafe" def:"0" label:"Move across drives: delete only after a full copy"`
+	// CheckVolumeTrash (F-833): F8 on a drive that has no trash (a network share; a USB stick on Windows) says before
+	// anything happens that the files will be deleted permanently, instead of offering the trash. Off keeps today's
+	// question.
+	CheckVolumeTrash bool `ini:"Configuration:CheckVolumeTrash" def:"0" label:"Say when a drive has no trash before deleting (network shares, USB sticks on Windows)"`
 
 	// SkipErrorsBackground (board issue #15): background jobs note failed files and go on, and list them at the end.
 	SkipErrorsBackground bool `ini:"Configuration:SkipErrorsInBackground" def:"0" label:"Skip errors in background jobs (list them at the end)"`

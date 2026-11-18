@@ -150,6 +150,7 @@ export const DENIED_COMMANDS = {
   cm_RunKeepOpen: 'it runs a program in a terminal', cm_Exit: 'it quits mormiCommander',
   cm_Config: 'use list_settings, get_setting and set_setting', cm_ConfigChangeIniFiles: 'it opens the settings file in an editor',
   cm_PasteFromClipboard: 'pasting copies or moves files', cm_CutToClipboard: 'cutting moves files when pasted',
+  cm_RestoreFromTrash: 'it moves files out of the trash',
   cm_SetAttrib: 'it changes file attributes', cm_UndoFileOp: 'undoing can move or delete files', cm_SyncDirs: 'synchronizing copies and deletes files',
   cm_ClearThumbnailCache: 'it deletes the thumbnail cache', cm_ClearDirHistory: 'it clears the folder history',
   cm_CloseAllTabs: 'it closes every tab at once', cm_FtpSendCommand: 'it sends commands to a server',

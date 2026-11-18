@@ -17,6 +17,11 @@ version is changed only when a round of features is merged.
   replaces a hidden file (a dot name on macOS and Linux, hidden or system on Windows).
 - Options > Copy/Delete > Show a summary when a copy or move ends (off by default): the status line says how many
   files and bytes went across, and how many were skipped or failed.
+- Files > Go to the trash folder, and Files > Put back from the trash…: items picked in the trash folder go back to
+  where they came from (Linux and Windows from the trash's own record; macOS for items mormiCommander put in the
+  Trash). Nothing is ever replaced.
+- Options > Copy/Delete > Say when a drive has no trash before deleting (off by default): F8 on a network share (or
+  a USB stick on Windows) says at once that the files will be deleted permanently, instead of offering the trash.
 
 ### Fixed
 

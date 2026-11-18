@@ -19,6 +19,10 @@ Windows Recycle Bin. Used by `internal/fileops` for Trash jobs (F8/Delete with "
 - `Restore(trashed, original string) error`: moves a trashed item back and removes its `.trashinfo` / `$I` record.
   It never overwrites (`ErrOccupied` when something is at the old place) and only takes items that lie directly in a
   trash folder of the old place's volume (`ErrNotInTrash` otherwise).
+- `Original(trashed string) (string, error)`: where an item picked in a trash folder came from, read from its
+  `.trashinfo` / `$I` record (F-501); `ErrNoRecord` when there is none (the macOS Trash keeps its notes in .DS_Store).
+- `Folder() string`: the trash folder of the home volume (`~/.Trash`, the freedesktop.org home trash's `files`, the
+  user's folder in the system drive's Recycle Bin).
 
 ## Platform notes
 
