@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.32 – 2026-11-18
+
+Parity checks of the Mark (#61), Commands (#62), Net (#63), Show (#64) and Configuration (#65) menus found most
+items already built; every menu entry with a key now shows it, and docs/FEATURES.md notes what was found.
+
 ### Added
 
 - Mark > Select search results: selects in the active panel the files and folders the last Find files search found.
