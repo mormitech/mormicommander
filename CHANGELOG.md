@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.35 – 2026-11-18
+
+Parity rounds for Thumbnails, File properties and attributes, Split / combine / checksums, Drag and drop, and
+Context menus (#81–#85). Every new behaviour that changes what you see is an option that is off by default; the Windows
+Attr column now shows the real archive attribute.
+
 ### Added
 - Rubber-band selection: with Options > Drag & drop > "Rubber-band selection on empty space" on, dragging on the empty space of a file list selects the files in the rectangle (Full, Brief and Thumbnails). Off by default.
 - Thumbnails can show your own field lines under each picture (Configuration > Thumbnails, or Options > Thumbnails > Field lines), such as size, date or image dimensions. Empty keeps the view as before.
