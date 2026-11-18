@@ -25,3 +25,5 @@
 .mc-tm-b .n, .mc-tm-b .s { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .mc-tm-b .s { font-weight: 400; color: var(--muted); }
 .mc-tm-empty { position: absolute; left: 0; right: 0; top: 40px; text-align: center; color: var(--muted); }
+/* a remembered size from an earlier session (Operation.TreemapRemember): dimmed until the new count replaces it */
+.mc-tm-b.old { opacity: 0.6; }

@@ -462,4 +462,4 @@ Running it again, or Esc, returns to the list.
 
 | command | answer |
 |---|---|
-| `{"cmd": "treemap"}` / `{"cmd": "treemap", "side": "left"}` | `{ok, open, side}`, and while open `path`, `counting`, `hot` (highlighted block or -1) and `blocks: [{name, bytes, dir, counting, others, x, y, w, h}]`, biggest first |
+| `{"cmd": "treemap"}` / `{"cmd": "treemap", "side": "left"}` | `{ok, open, side}`, and while open `path`, `counting`, `hot` (highlighted block or -1) and `blocks: [{name, bytes, dir, counting, old, others, x, y, w, h}]`, biggest first (`old`: a remembered size from an earlier session, Operation.TreemapRemember) |

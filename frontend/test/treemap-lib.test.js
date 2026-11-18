@@ -1,8 +1,8 @@
-// The folder size treemap's pure part (features/treemap-lib.js, board #24, F-872): which entries become blocks, the
+// The folder size treemap's pure part (shared/treemap-lib.js, board #24, F-872): which entries become blocks, the
 // squarified layout (every block inside the area, areas proportional to sizes, the area filled exactly, shapes close
 // to squares), the "others" block for very many items, colours, labels, shares and the arrow-key order.
 import { describe, expect, test } from 'vitest';
-import { treemapItems, squarify, blockHue, labelFits, share, stepIndex, MAX_BLOCKS } from '../src/features/treemap-lib.js';
+import { treemapItems, squarify, blockHue, labelFits, share, stepIndex, ageText, MAX_BLOCKS } from '../src/shared/treemap-lib.js';
 
 const file = (name, size, ext = name.includes('.') ? name.split('.').pop() : '') => ({ name, size, ext, dir: false });
 const dir = (name, dirSize) => ({ name, size: 0, dir: true, dirSize });
@@ -118,5 +118,24 @@ describe('looks and keys', () => {
     expect(stepIndex(3, 5, 'Home')).toBe(0);
     expect(stepIndex(1, 5, 'End')).toBe(4);
     expect(stepIndex(0, 0, 'Down')).toBe(-1);
+  });
+});
+
+describe('remembered sizes (#24)', () => {
+  test('oldOf marks folders whose size is a remembered one', () => {
+    const r = treemapItems([dir('old', 50), dir('new', 30), file('f.txt', 5)], { sizeOf, doneOf: (e) => e.name !== 'old', oldOf: (e) => e.name === 'old' || e.name === 'f.txt' });
+    expect(r.items.find((i) => i.name === 'old')).toMatchObject({ old: true, counting: true, value: 50 });
+    expect(r.items.find((i) => i.name === 'new').old).toBeUndefined();
+    expect(r.items.find((i) => i.name === 'f.txt').old).toBeUndefined(); // files are never remembered sizes
+  });
+
+  test('ageText words how long ago', () => {
+    const now = new Date(2026, 10, 19, 15, 0, 0).getTime();
+    const at = (y, m, d, h = 12) => new Date(y, m, d, h).getTime() / 1000;
+    expect(ageText(at(2026, 10, 19, 1), now)).toBe('today');
+    expect(ageText(at(2026, 10, 18, 23), now)).toBe('yesterday');
+    expect(ageText(at(2026, 10, 14), now)).toBe('5 days ago');
+    expect(ageText(at(2025, 0, 2), now)).toBe('on 2025-01-02');
+    expect(ageText(0, now)).toBe('earlier');
   });
 });

@@ -8,6 +8,10 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Folder size treemap: Options > Operation > "Folder size treemap remembers folder sizes between sessions" (off by
+  default) keeps the folder sizes the treemap counted, so next time the blocks show at once, dimmed and striped with
+  "remembered today/yesterday/…" in the tooltip, while the folders are counted again. Remembered sizes never show in
+  the size column; turning the option off deletes them.
 - iCloud Drive and OneDrive online-only files: Options > Display > "Mark online-only cloud files" (off by default)
   puts a small cloud after the names of files that are not downloaded, and custom columns can show [=mc.cloud].
   Options > Operation > "Don't download online-only cloud files for searches and thumbnails" (off by default) keeps

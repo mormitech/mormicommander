@@ -164,6 +164,10 @@ type OperationPage struct {
 	MouseMode       int  `ini:"Configuration:Mouse" def:"1" min:"0" max:"1" opts:"0=Commander: right button selects|1=Standard: left button selects" label:"Mouse selection mode"`
 	MarkDirectories bool `ini:"Configuration:MarkDirectories" def:"0" label:"Num+ also selects folders"`
 	SpaceCalcSize   bool `ini:"Configuration:SpaceCalcSize" def:"1" label:"Space calculates folder size"`
+	// TreemapRemember (#24): the folder size treemap keeps the folder sizes it counted in a file in the settings folder
+	// and shows them at once next time (marked as remembered, with their date) while it counts again. Off by default
+	// (nothing is kept between sessions); turning it off forgets them.
+	TreemapRemember bool `ini:"Configuration:TreemapRemember" def:"0" label:"Folder size treemap remembers folder sizes between sessions"`
 	// CloudNoDownload (#30): content search, duplicate search by content and thumbnails leave online-only cloud files
 	// alone instead of making the system download them. Off by default (they are read, and so downloaded, as before).
 	CloudNoDownload bool `ini:"Configuration:CloudNoDownload" def:"0" label:"Don't download online-only cloud files for searches and thumbnails"`

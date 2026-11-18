@@ -14,7 +14,16 @@
 // Additive only: nothing changes until the command is run, and closing it leaves the panel as it was. Folders that
 // are not on this computer (archives, servers) show their files; their folders cannot be counted. Control mode:
 // "treemap" ({side}) returns whether the treemap is open in a panel, its folder, what is still counted, and the blocks
-// with their sizes and places. The layout and the choice of blocks are pure (treemap-lib.js).
+// with their sizes and places. The layout and the choice of blocks are pure (shared/treemap-lib.js).
+//
+// Remembered sizes (opt-in): with Options > Operation > "Folder size treemap remembers folder sizes between sessions"
+// (Operation.TreemapRemember, off by default) the sizes counted while the treemap is open are kept by Go
+// (feature_treemap.go, a file in the settings folder), and the next time a folder is shown its folders that are not
+// counted yet are drawn at once with their remembered size, striped and dimmed, with "remembered <when>" in the
+// tooltip, until the new count replaces them. Remembered sizes never go into the size column.
+//
+// Deleting from the treemap is the normal delete: a highlighted block puts the panel's cursor on its entry, so F8 /
+// Delete run cm_Delete with its usual confirmation (on the marked files when there are any, as in the list).
 
 import './treemap.css';
 import { command } from '../core/registry.js';
@@ -24,9 +33,10 @@ import { cmdline } from '../core/cmdline.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { size, plural } from '../core/format.js';
+import { go } from '../core/go.js';
 import { countSizes, stopCounting, counting } from './tools/space.js';
 import { isLocal } from './tools/common.js';
-import { treemapItems, squarify, blockHue, labelFits, share, stepIndex } from './treemap-lib.js';
+import { treemapItems, squarify, blockHue, labelFits, share, stepIndex, ageText } from '../shared/treemap-lib.js';
 
 const OWNER = 'treemap';
 const open = new Map(); // panel → view state {el, area, head, blocks, rects, hot, path, cache, ro}
@@ -34,13 +44,46 @@ const open = new Map(); // panel → view state {el, area, head, blocks, rects, 
 const isOpen = (p) => open.has(p);
 
 // sizeOf / doneOf: what the treemap knows about an entry's size, from the panel (the size column) and the remembered
-// counts of this treemap.
-const sizeOf = (p) => (e) => (e.dir ? (e.dirSize ?? p.dirSizes.get(e.name) ?? null) : e.size);
+// counts of this treemap; a remembered size from an earlier session (oldOf) stands in until the new count is done or
+// has counted more.
+const oldSize = (p, v, e) => {
+  if (!e.dir || p.dirSizes.has(e.name)) return null;
+  const r = v.old?.get(p.fullPath(e.name));
+  return r && (e.dirSize ?? 0) <= r.bytes ? r : null;
+};
+const sizeOf = (p, v) => (e) => (e.dir ? (oldSize(p, v, e)?.bytes ?? e.dirSize ?? p.dirSizes.get(e.name) ?? null) : e.size);
 const doneOf = (p) => (e) => !e.dir || p.dirSizes.has(e.name);
+const oldOf = (p, v) => (e) => oldSize(p, v, e) != null;
+
+// rememberOn says whether the sizes are kept between sessions (Operation.TreemapRemember, off by default).
+const rememberOn = (app) => app.config?.values?.['Operation.TreemapRemember'] === '1' && !app.demo;
 
 // remember copies the folder sizes the panel knows now into the treemap's memory, by full path.
 function remember(p, v) {
-  for (const [name, n] of p.dirSizes) v.cache.set(p.fullPath(name), n);
+  const keep = {};
+  let any = false;
+  for (const [name, n] of p.dirSizes) {
+    const full = p.fullPath(name);
+    v.cache.set(full, n);
+    if (v.sent.get(full) !== n) { v.sent.set(full, n); keep[full] = n; any = true; }
+  }
+  // with the option on, the counted sizes are kept for the next session too (only real, finished counts)
+  if (any && v.app && rememberOn(v.app) && isLocal(v.app, p.path)) go.Treemap.Remember(keep).catch(() => {});
+}
+
+// loadOld asks Go for the remembered sizes of the panel's folders that are not counted yet, and draws again when they
+// come.
+function loadOld(app, p, v) {
+  if (!rememberOn(app) || !isLocal(app, p.path)) return;
+  const paths = p.entries.filter((e) => e.dir && !e.up && !p.dirSizes.has(e.name)).map((e) => p.fullPath(e.name)).filter((f) => !v.old.has(f));
+  if (!paths.length) return;
+  const path = p.path;
+  go.Treemap.Remembered(paths).then((m) => {
+    if (open.get(p) !== v || !m) return;
+    let any = false;
+    for (const [f, r] of Object.entries(m)) { if (r && r.bytes >= 0) { v.old.set(f, r); any = true; } }
+    if (any && p.path === path) draw(app, p, v);
+  }).catch(() => {});
 }
 
 // prefill gives the panel the sizes the treemap remembers for its folders, so they are neither counted again nor shown
@@ -74,7 +117,7 @@ function startCount(app, p, v) {
 
 // draw lays the blocks out for the panel's current entries and size of the area, and writes the header line.
 function draw(app, p, v) {
-  const { items, pending, empty, total, others } = treemapItems(p.entries, { sizeOf: sizeOf(p), doneOf: doneOf(p) });
+  const { items, pending, empty, total, others } = treemapItems(p.entries, { sizeOf: sizeOf(p, v), doneOf: doneOf(p), oldOf: oldOf(p, v) });
   const w = v.area.clientWidth, h = v.area.clientHeight;
   const rects = squarify(items, { x: 0, y: 0, w, h });
   const byKey = new Map(items.map((it) => [it.key, it]));
@@ -86,9 +129,10 @@ function draw(app, p, v) {
   v.path = p.path;
   v.area.innerHTML = v.blocks.map((b, i) => {
     const hue = blockHue(b);
-    const cls = ['mc-tm-b', b.dir ? 'dir' : 'file', b.counting ? 'counting' : '', b.others ? 'others' : '', i === v.hot ? 'hot' : '', hue == null ? 'grey' : ''].filter(Boolean).join(' ');
+    const cls = ['mc-tm-b', b.dir ? 'dir' : 'file', b.counting ? 'counting' : '', b.old ? 'old' : '', b.others ? 'others' : '', i === v.hot ? 'hot' : '', hue == null ? 'grey' : ''].filter(Boolean).join(' ');
     const style = `left:${b.x.toFixed(1)}px;top:${b.y.toFixed(1)}px;width:${Math.max(0, b.w).toFixed(1)}px;height:${Math.max(0, b.h).toFixed(1)}px${hue == null ? '' : `;--h:${hue}`}`;
-    const tip = `${b.name}${b.dir ? '/' : ''} — ${size(b.value)}${b.counting ? ' so far' : ''} (${share(b.value, total)})`;
+    const when = b.old ? ` remembered ${ageText(v.old.get(p.fullPath(b.name))?.when)}, counting again` : b.counting ? ' so far' : '';
+    const tip = `${b.name}${b.dir ? '/' : ''} — ${size(b.value)}${when} (${share(b.value, total)})`;
     const label = labelFits(b) ? `<span class="n">${esc(b.name)}${b.dir ? '/' : ''}</span>${b.h >= 34 ? `<span class="s">${esc(size(b.value))}</span>` : ''}` : '';
     return `<div class="${cls}" data-i="${i}" style="${style}" title="${esc(tip)}">${label}</div>`;
   }).join('');
@@ -96,6 +140,8 @@ function draw(app, p, v) {
     v.area.innerHTML = `<div class="mc-tm-empty">${pending.length ? 'Counting folder sizes…' : 'Nothing here takes any space.'}</div>`;
   }
   const notes = [];
+  const olds = items.filter((it) => it.old).length;
+  if (olds) notes.push(`${plural(olds, 'remembered size')}`);
   if (pending.length) notes.push(isLocal(app, p.path) ? `counting ${plural(pending.length, 'folder')}…` : `${plural(pending.length, 'folder')} not counted (not on this computer)`);
   if (empty.length) notes.push(`${plural(empty.length, 'empty item')} not shown`);
   if (others) notes.push(`${plural(others, 'small item')} in one block`);
@@ -148,7 +194,7 @@ export function openTreemap(app, p = app.cur) {
     el.innerHTML = `<div class="mc-tm-head"><button type="button" class="up" title="Parent folder (Backspace)">Up</button>
       <span class="p"></span><span class="t"></span><button type="button" class="close" title="Back to the list (Esc)">List</button></div>
       <div class="mc-tm-area" role="img" aria-label="Folder size treemap"></div>`;
-    v = { el, head: el.querySelector('.mc-tm-head'), area: el.querySelector('.mc-tm-area'), blocks: [], rects: [], items: [], hot: -1, path: '', cache: new Map() };
+    v = { app, el, head: el.querySelector('.mc-tm-head'), area: el.querySelector('.mc-tm-area'), blocks: [], rects: [], items: [], hot: -1, path: '', cache: new Map(), sent: new Map(), old: new Map() };
     p.el.insertBefore(el, p.$.status);
     p.el.classList.add('mc-treemap-on');
     open.set(p, v);
@@ -164,6 +210,7 @@ export function openTreemap(app, p = app.cur) {
   remember(p, v);
   prefill(p, v);
   draw(app, p, v);
+  loadOld(app, p, v);
   startCount(app, p, v);
   return v;
 }
@@ -197,6 +244,7 @@ export function init(app) {
     if (!v) return;
     if (info?.moved || p.path !== v.path) { v.hot = -1; prefill(p, v); }
     draw(app, p, v);
+    loadOld(app, p, v);
     startCount(app, p, v);
   });
   // the keys of the treemap, in the active panel only; every other key works as usual
@@ -225,6 +273,6 @@ addControlCommand('treemap', async (m) => {
   if (!v) return { ok: true, open: false, side: p?.side };
   return {
     ok: true, open: true, side: p.side, path: p.path, counting: counting(OWNER, p), hot: v.hot,
-    blocks: v.blocks.map((b) => ({ name: b.name, bytes: b.value, dir: b.dir, counting: !!b.counting, others: !!b.others, x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })),
+    blocks: v.blocks.map((b) => ({ name: b.name, bytes: b.value, dir: b.dir, counting: !!b.counting, old: !!b.old, others: !!b.others, x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) })),
   };
 });

@@ -2,6 +2,10 @@
 // blocks and how big, the squarified layout that turns sizes into rectangles, the colour of a block and the order the
 // arrow keys walk through the blocks. No DOM here, so it is unit-tested (test/treemap-lib.test.js).
 //
+// Shared engine: this file lives in frontend/src/shared because it imports nothing (no app, no DOM, no Wails), so it
+// can be copied or imported as is by another app such as mormiDiskFree, next to the Go counting engine in
+// pkg/dirsize. An entry is any object {name, dir, ext, up}; the app says how big it is through sizeOf.
+//
 // A block's area is proportional to its size: a file's size, or a folder's counted size (from the size column, which
 // Space, Alt+Shift+Enter and the treemap itself fill). Folders whose size is not known yet are left out of the layout
 // and reported as "pending", so the picture never shows a guess. Empty items take no area. A folder with thousands of
@@ -13,8 +17,9 @@ export const MAX_BLOCKS = 300;
 // treemapItems picks the blocks for a panel's entries. sizeOf(entry) → bytes or null (unknown); doneOf(entry) → true
 // when a folder's size is final (counted to the end), false while it is still being counted. It returns the items
 // sorted by size (biggest first; equal sizes by name), the folders without a size, the empty items, the total of what
-// is drawn and how many items the "others" block holds.
-export function treemapItems(entries, { sizeOf, doneOf = () => true, max = MAX_BLOCKS } = {}) {
+// is drawn and how many items the "others" block holds. oldOf(entry) → true when the size sizeOf gave is a remembered
+// one from an earlier session (shown until the new count ends); such items get old: true.
+export function treemapItems(entries, { sizeOf, doneOf = () => true, oldOf = () => false, max = MAX_BLOCKS } = {}) {
   const items = [], pending = [], empty = [];
   for (const e of entries) {
     if (!e || e.up) continue;
@@ -23,7 +28,9 @@ export function treemapItems(entries, { sizeOf, doneOf = () => true, max = MAX_B
     const n = Math.max(0, Number(v) || 0);
     const counting = e.dir && !doneOf(e);
     if (n <= 0) { if (counting) pending.push(e.name); else empty.push(e.name); continue; }
-    items.push({ key: e.name, name: e.name, value: n, dir: !!e.dir, counting, ext: e.dir ? '' : (e.ext || '') });
+    const it = { key: e.name, name: e.name, value: n, dir: !!e.dir, counting, ext: e.dir ? '' : (e.ext || '') };
+    if (e.dir && oldOf(e)) it.old = true;
+    items.push(it);
   }
   items.sort((a, b) => b.value - a.value || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
   let others = 0;
@@ -130,4 +137,18 @@ export function stepIndex(i, count, key) {
     case 'End': return count - 1;
     default: return i;
   }
+}
+
+// ageText says how long ago a remembered size was counted, for its tooltip: "today", "yesterday", "5 days ago", or the
+// date for anything older than a month. when is in Unix seconds (as the Go store keeps it), now in milliseconds.
+export function ageText(when, now = Date.now()) {
+  if (!(when > 0)) return 'earlier';
+  const day = 86400000;
+  const startOf = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+  const days = Math.round((startOf(now) - startOf(when * 1000)) / day);
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days <= 31) return `${days} days ago`;
+  const d = new Date(when * 1000);
+  return `on ${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }

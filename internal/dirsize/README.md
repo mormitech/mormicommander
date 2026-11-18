@@ -70,6 +70,22 @@ sparse files use `GetCompressedFileSize`, rounded up to the cluster size.
 because any change inside a folder changes every size above it. Keys are cleaned
 and case-insensitive on Windows and macOS.
 
+## Store (sizes kept between sessions)
+
+`OpenStore(file)` loads a `Store` of `Remembered{Path, Bytes, Allocated, When}`
+(gzip-compressed gob; a missing or bad file gives an empty store). `Put`,
+`PutResult` (complete folder results only), `Get`, `Invalidate` (same rule as
+`Cache`), `Clear` (also removes the file), `Save` (only when changed; temp file
+and rename). At most `Max` folders (default 20,000); the oldest go first. A
+remembered size may be out of date: show it as remembered and count again. The
+folder size treemap uses it (feature_treemap.go, option Operation.TreemapRemember).
+
+## Sharing with other apps
+
+Go cannot import an `internal` package from another module, so `pkg/dirsize`
+re-exports this API (type aliases and the same functions). The page's pure
+treemap layout is `frontend/src/shared/treemap-lib.js`, which imports nothing.
+
 ## Volumes
 
 - `VolumeOf(path) (VolumeInfo, error)`: `Root` (mount point / drive root),
