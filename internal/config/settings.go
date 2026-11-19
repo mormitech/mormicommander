@@ -531,6 +531,11 @@ type AIPage struct {
 	ClaudeModel     string `ini:"Configuration:AIClaudeModel" def:"" label:"Claude model (empty = default)"`
 	OpenRouterModel string `ini:"Configuration:AIOpenRouterModel" def:"" label:"OpenRouter model (like anthropic/claude-sonnet-4.5)"`
 	OpenRouterURL   string `ini:"Configuration:AIOpenRouterURL" def:"https://openrouter.ai/api/v1" label:"OpenRouter API address (any OpenAI-compatible API)"`
+	// The AI rename plan of the Multi-Rename tool (issue #33): a model on this computer (Ollama, LM Studio,
+	// llama.cpp) proposes the tool's settings from a plain-English instruction. Empty address = off, and the tool shows
+	// no AI button; only a localhost address is accepted, so file names never leave the computer.
+	LocalRenameURL   string `ini:"Configuration:AILocalRenameURL" def:"" label:"Local model address for rename plans (empty = off; localhost only, like http://localhost:11434/v1)"`
+	LocalRenameModel string `ini:"Configuration:AILocalRenameModel" def:"" label:"Local model for rename plans (like llama3.2)"`
 }
 
 // FieldInfo describes one option for dialogs, search and control mode.

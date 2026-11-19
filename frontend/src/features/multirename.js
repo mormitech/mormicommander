@@ -12,7 +12,7 @@ import { modal, messageDialog, inputDialog, formDialog, infoDialog, esc } from '
 import { go, on, errText } from '../core/go.js';
 import { addControlCommand } from '../core/control.js';
 import { size as fmtSize, date as fmtDate, plural } from '../core/format.js';
-import { fieldMenuItems } from './multirename-lib.js';
+import { fieldMenuItems, applyRenamePlan, renamePlanEnabled } from './multirename-lib.js';
 import { isBranchPath } from './branch-lib.js';
 
 const SETTING = 'multiRename';
@@ -202,6 +202,7 @@ function build(st, box, done, saved, hist) {
     <button type="button" class="mc-multirename-menu-btn" title="F2">Load/save settings…</button>
     <button type="button" class="mc-multirename-edit" title="F3: edit the new names in the editor">Edit names…</button>
     <button type="button" class="mc-multirename-next" title="F5: take the new names as the start of another step">Next step</button>
+    ${renamePlanEnabled(st.app.config?.values) ? '<button type="button" class="mc-multirename-ai" title="Describe the new names in plain words; the local model fills in the settings for you to check in the preview">AI plan…</button>' : ''}
     <span class="mc-multirename-gap"></span>
     <button type="button" class="mc-multirename-undo" title="Give the files of the last rename their old names back">Undo</button>
     <button type="button" class="mc-multirename-resbtn">Result list…</button>
@@ -222,6 +223,8 @@ function build(st, box, done, saved, hist) {
   box.querySelector('.mc-multirename-menu-btn').onclick = (ev) => settingsMenu(st, ev.currentTarget);
   box.querySelector('.mc-multirename-edit').onclick = () => editNames(st);
   box.querySelector('.mc-multirename-next').onclick = () => nextStep(st);
+  const aiBtn = box.querySelector('.mc-multirename-ai');
+  if (aiBtn) aiBtn.onclick = () => aiPlan(st);
   box.querySelector('.mc-multirename-undo').onclick = () => undo(st);
   box.querySelector('.mc-multirename-resbtn').onclick = () => resultList(st);
 
@@ -747,6 +750,37 @@ function saveHistory(st, f) {
   pushHistory(hist, 'replace', f.replace);
   st.app.setSetting(SETTING, { ...s, history: hist });
   st.histNow = hist;
+}
+
+// ---- AI rename plan (issue #33) ----
+
+// aiPlan asks the local model (Options > AI: local model address, localhost only) to turn a plain-English instruction
+// into the tool's settings, and fills them in. It only proposes: the new names show in the preview as usual, and
+// nothing is renamed until the user presses Start! (which Undo covers).
+async function aiPlan(st) {
+  if (st.busy) return;
+  closeMenu(st);
+  const instr = await inputDialog({
+    title: 'AI rename plan', label: 'How should the names change?', value: st.aiInstr || '', okLabel: 'Make plan',
+    note: 'A model on this computer proposes the settings; you check the new names in the preview and rename with Start!. Nothing leaves this computer.',
+    validate: (v) => (v.trim() ? '' : 'Write how the names should change.'), kind: 'multirename-ai',
+  });
+  if (instr == null || !st.box) return;
+  st.aiInstr = instr;
+  const names = (st.preview?.rows || st.rows || []).map((r) => r.old).slice(0, 41);
+  st.busy = true;
+  st.box.classList.add('mc-multirename-busy');
+  setStatus(st, 'Asking the local model for a rename plan…');
+  let plan = null, err = null;
+  try { plan = await go.AI.RenamePlan(instr, names); } catch (e) { err = errText(e); }
+  st.busy = false;
+  st.box?.classList.remove('mc-multirename-busy');
+  if (!st.box) return;
+  if (err) { setStatus(st, ''); await messageDialog({ Title: 'AI rename plan', Message: err, Kind: 'multirename-ai-error' }); return; }
+  writeForm(st.box, applyRenamePlan(readForm(st.box), plan));
+  st.stale = false;
+  await refresh(st);
+  setStatus(st, `AI plan: ${plan.explanation || 'settings filled in'}. Check the new names, then press Start! to rename.`);
 }
 
 // ---- Undo ----

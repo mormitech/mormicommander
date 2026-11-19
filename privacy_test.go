@@ -365,8 +365,9 @@ func callSites(t *testing.T, dir string, name string) map[string][]string {
 
 // TestZeroNetworkAIClient follows the AI client's one network function back to what the user does: send is called by
 // Client.do only, do by Client.Complete (the run's loop) and Client.Models (the model list) only, and a Client is
-// made in two places only: startOpenRouter, when the user starts a run with that provider, and ModelsFrom, when the
-// user opens the model list of the AI settings.
+// made in three places only: startOpenRouter, when the user starts a run with that provider, ModelsFrom, when the
+// user opens the model list of the AI settings, and RenamePlan, when the user asks the local model for a rename plan
+// in the Multi-Rename tool (a LocalOnly client, loopback addresses only; issue #33).
 func TestZeroNetworkAIClient(t *testing.T) {
 	check := func(dir, name string, allowed ...string) {
 		t.Helper()
@@ -387,7 +388,7 @@ func TestZeroNetworkAIClient(t *testing.T) {
 	}
 	check("internal/ai", "send", "internal/ai/chat.go:Client.do")
 	check("internal/ai", "do", "internal/ai/chat.go:Client.Complete", "internal/ai/chat.go:Client.Models")
-	check("internal/ai", "Complete", "internal/ai/chat.go:Loop.Run")
+	check("internal/ai", "Complete", "internal/ai/chat.go:Loop.Run", "internal/ai/renameplan.go:Client.RenamePlan")
 	// Every Client made anywhere (ai.Client outside the package, Client inside it), by file and function: the
 	// methods above can only be called on one.
 	fset := token.NewFileSet()
@@ -416,7 +417,8 @@ func TestZeroNetworkAIClient(t *testing.T) {
 			return true
 		})
 	}
-	want := map[string]bool{"feature_ai_openrouter.go:AI.startOpenRouter": true, "feature_ai_openrouter.go:AI.ModelsFrom": true}
+	want := map[string]bool{"feature_ai_openrouter.go:AI.startOpenRouter": true, "feature_ai_openrouter.go:AI.ModelsFrom": true,
+		"feature_ai_renameplan.go:AI.RenamePlan": true}
 	for k := range made {
 		if !want[k] {
 			t.Errorf("an ai.Client is made in %s; only %v may make one", k, want)

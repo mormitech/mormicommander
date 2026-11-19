@@ -31,3 +31,26 @@ export function fieldMenuItems(fields = [], media = []) {
   }
   return out;
 }
+
+// The AI rename plan (issue #33): the fields a local model may set, by the names of the form (readForm/writeForm) and
+// of the plan (internal/ai.RenamePlan, whose `set` lists the ones it gave).
+const PLAN_FIELDS = ['nameMask', 'extMask', 'search', 'replace', 'regex', 'caseSensitive', 'onlyFirst', 'includeExt', 'case'];
+
+// applyRenamePlan gives the form with the plan's fields filled in: only the ones the plan set, so the counter, the
+// accents box and the rest stay as the user has them. A plan that sets a search without saying regex turns RegEx off
+// (its search is literal text), and Subst. goes off with RegEx. Nothing is renamed: the page only refreshes the
+// preview.
+export function applyRenamePlan(form, plan) {
+  const out = { ...form };
+  const set = new Set((plan?.set || []).filter((k) => PLAN_FIELDS.includes(k)));
+  for (const k of set) out[k] = plan[k];
+  if (set.has('search') && !set.has('regex')) out.regex = false;
+  if (!out.regex) out.subst = false;
+  return out;
+}
+
+// renamePlanEnabled says whether the AI plan button is shown: only when a local model address is set in Options > AI
+// (empty by default, so the feature is hidden and nothing is ever contacted).
+export function renamePlanEnabled(values) {
+  return !!String(values?.['AI.LocalRenameURL'] ?? '').trim();
+}

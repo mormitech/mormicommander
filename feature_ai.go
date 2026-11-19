@@ -130,6 +130,9 @@ type aiOptions struct {
 	Model    string
 	ORModel  string // OpenRouter's model
 	ORURL    string // OpenRouter's API address ("" = OpenRouter's own)
+	// LocalURL and LocalModel are the local model of the Multi-Rename tool's AI rename plan ("" = off; issue #33).
+	LocalURL   string
+	LocalModel string
 }
 
 // readAIOptions reads the AI page of the Options dialog (the defaults when the settings can't be read).
@@ -143,7 +146,8 @@ func readAIOptions() aiOptions {
 	}
 	defer configFeature.mu.Unlock()
 	opt := cfg.Settings.AI
-	return aiOptions{Provider: opt.Provider, Path: opt.ClaudePath, Model: opt.ClaudeModel, ORModel: opt.OpenRouterModel, ORURL: opt.OpenRouterURL}
+	return aiOptions{Provider: opt.Provider, Path: opt.ClaudePath, Model: opt.ClaudeModel, ORModel: opt.OpenRouterModel, ORURL: opt.OpenRouterURL,
+		LocalURL: opt.LocalRenameURL, LocalModel: opt.LocalRenameModel}
 }
 
 // SetTools registers the page's tools (it may be called again; the latest list counts from the next tools/list on).

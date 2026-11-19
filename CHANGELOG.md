@@ -12,6 +12,10 @@ version is changed only when a round of features is merged.
   active panel's folder. It follows the panel's folder while the shell waits at its prompt (Commands > Terminal follows
   the panel), and Insert names / Insert full paths in terminal put the selected files at the prompt. Off until you open
   it; macOS and Linux only for now.
+- AI rename plan in the Multi-Rename tool: set a local model address (Ollama, LM Studio or llama.cpp on localhost) in
+  Configuration > Options > AI, and "AI plan…" turns a plain-English instruction into the tool's masks and search &
+  replace. You check the new names in the preview and rename with Start! as usual (Undo works too). Off until you set
+  an address; only addresses on this computer are accepted, so file names never leave it.
 
 ## 0.14.37 – 2026-11-19
 

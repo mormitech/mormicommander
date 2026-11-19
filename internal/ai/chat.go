@@ -217,6 +217,10 @@ func errorCode(c any) int {
 type Client struct {
 	BaseURL string // like https://openrouter.ai/api/v1
 	Key     string // the API key; "" sends no Authorization header
+	// LocalOnly limits the client to this computer: the address must be a localhost one (CheckLocalURL), and the
+	// connection is refused when it would reach any other address, after name resolution or a redirect (the rename
+	// plan of issue #33, whose file names must never leave localhost).
+	LocalOnly bool
 }
 
 // endpoint is BaseURL with a path added.
@@ -256,7 +260,12 @@ func (c *Client) do(ctx context.Context, method, path string, body []byte) ([]by
 	if err := CheckBaseURL(c.BaseURL); err != nil {
 		return nil, err
 	}
-	status, resp, err := send(ctx, method, c.endpoint(path), c.Key, isOpenRouter(c.BaseURL), body)
+	if c.LocalOnly {
+		if err := CheckLocalURL(c.BaseURL); err != nil {
+			return nil, err
+		}
+	}
+	status, resp, err := send(ctx, method, c.endpoint(path), c.Key, isOpenRouter(c.BaseURL), c.LocalOnly, body)
 	if err != nil {
 		if ctx.Err() != nil {
 			return nil, ctx.Err()
