@@ -6,6 +6,11 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+### Added
+
+- Options > Quick search > "Quick search finds": quick search can jump to folders only or files only. The default,
+  files and folders, works as before (FEATURES F-070, issue #103).
+
 ## 0.14.38 – 2026-11-19
 
 Embedded terminal pane on macOS and Linux (#31), a local AI rename plan in Multi-Rename (#33), versions from

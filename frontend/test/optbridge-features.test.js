@@ -143,3 +143,17 @@ test('the panel arrangement and text size are written where the dialog reads the
   BRIDGE['Font.PanelSize'].set(app, 'x');
   expect(BRIDGE['Font.PanelSize'].get(app)).toBe('16');
 });
+
+// Options > Quick search > "Quick search finds" (F-070) writes quickSearch.kind, which find-quick.js passes to Go.
+test('the quick search kind maps onto quickSearch.kind and keeps the other quick search settings', () => {
+  const app = fakeApp({ quickSearch: { mode: 'letter' } });
+  expect(BRIDGE['QuickSearch.Kind'].get(app)).toBe(undefined); // nothing stored: files and folders, as before
+  BRIDGE['QuickSearch.Kind'].set(app, '1');
+  expect(app.data.quickSearch).toEqual({ mode: 'letter', kind: 'dirs' });
+  expect(BRIDGE['QuickSearch.Kind'].get(app)).toBe('1');
+  BRIDGE['QuickSearch.Kind'].set(app, '2');
+  expect(app.data.quickSearch.kind).toBe('files');
+  BRIDGE['QuickSearch.Kind'].set(app, '0');
+  expect(app.data.quickSearch.kind).toBe('');
+  expect(BRIDGE['QuickSearch.Kind'].get(app)).toBe('0');
+});

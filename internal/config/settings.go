@@ -264,6 +264,8 @@ type QuickSearchPage struct {
 	Wildcards      bool `ini:"Configuration:QuickSearchWildcards" def:"1" label:"Allow * and ? wildcards"`
 	IgnoreAccents  bool `ini:"Configuration:QuickSearchIgnoreAccents" def:"1" label:"Ignore accents (á matches a)"`
 	ShowDropDown   bool `ini:"Configuration:QuickSearchDropDown" def:"0" label:"Show matching names in a list"`
+	// Kind (F-070): what quick search jumps to; the quick filter always shows both. Default keeps files and folders.
+	Kind int `ini:"Configuration:QuickSearchKind" def:"0" min:"0" max:"2" opts:"0=Files and folders|1=Only folders|2=Only files" label:"Quick search finds"`
 }
 
 // FTPPage (F-424).

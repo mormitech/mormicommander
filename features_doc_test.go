@@ -69,3 +69,16 @@ func TestFeaturesAudit103(t *testing.T) {
 		}
 	}
 }
+
+// TestFeaturesPartlyDoneHaveNotes keeps the second pass of board issue #103: every "[~]" item says what was found in
+// the code, in a note naming the board issue that checked or built it ("audit #103: ...", "#77: built ..."). A new
+// "[~]" without such a note would again hide what is missing behind the mark.
+func TestFeaturesPartlyDoneHaveNotes(t *testing.T) {
+	status, lines := readFeatures(t)
+	note := regexp.MustCompile(`#\d+`)
+	for id, st := range status {
+		if st == "~" && !note.MatchString(lines[id]) {
+			t.Errorf("%s is [~] without a note: add \"— audit #<issue>: <what works, what is missing>\"", id)
+		}
+	}
+}

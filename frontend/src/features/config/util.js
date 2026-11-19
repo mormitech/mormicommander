@@ -41,6 +41,7 @@ const merge = (app, key, part) => app.setSetting(key, { ...(app.setting(key, {})
 const bit = (v) => (v ? '1' : '0');
 const OVERWRITE = ['', 'overwrite', 'skip', 'older', 'rename', 'rename_target'];
 const QS_MODES = ['ctrlalt', 'alt', 'letter', 'off'];
+const QS_KINDS = ['', 'dirs', 'files'];
 const LISTER_MODES = ['auto', 'text', 'binary', 'hex'];
 
 // BRIDGE: options that other features read from settings.json under their own keys. get(app) gives the option's value
@@ -134,6 +135,11 @@ export const BRIDGE = {
   'QuickSearch.Filter': qsBool('autoFilter'),
   'QuickSearch.Wildcards': qsBool('wildcards'),
   'QuickSearch.IgnoreAccents': qsBool('ignoreAccents'),
+  // what quick search jumps to (F-070): find-quick.js reads quickSearch.kind ('' files and folders, 'dirs', 'files')
+  'QuickSearch.Kind': {
+    get: (app) => { const k = qs(app, 'kind'); if (k === undefined) return undefined; return String(Math.max(0, QS_KINDS.indexOf(k || ''))); },
+    set: (app, v) => merge(app, 'quickSearch', { kind: QS_KINDS[parseInt(v, 10)] || '' }),
+  },
   'Lister.Wrap': listerBool('wrap'),
   'Lister.UseHTML': listerBool('renderHTML'),
   'Lister.UseMedia': listerBool('showMedia'),
