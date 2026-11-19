@@ -8,6 +8,13 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Cloud remotes through rclone: if you have rclone installed and set up, Net > Cloud remotes (rclone)… lists the
+  remotes of your rclone configuration (S3, R2, B2, Azure, Google Cloud Storage, WebDAV, Google Drive, Dropbox,
+  OneDrive, SMB …) and opens one in the panel; rclone://remote/folder works in New FTP connection and the path bar too.
+  Copy, move, rename, make folder and delete work like on a server, also between two remotes. mormiCommander uses your
+  own rclone (on PATH, or the path set in Options > FTP), never downloads it and never changes your rclone
+  configuration; rclone only runs when you list or open a remote.
+
 - Versions from snapshots: Files > Versions from snapshots… lists the earlier copies of the file or folder under the
   cursor kept by ZFS and Btrfs (snapper) snapshots, macOS local snapshots and Time Machine backups, and Windows shadow
   copies, and opens the one you pick in the other panel to compare or copy back. Snapshots are only read, never

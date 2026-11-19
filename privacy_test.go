@@ -17,6 +17,9 @@
 //     allowed as that one function, not as the file or the package, and TestZeroNetworkAIClient checks the only ways
 //     to reach it: an AI run the user starts with that provider, and the model list the user opens.
 //
+// The user's own rclone program (issue #18) is no Go network call but a separate program that talks to the cloud
+// remotes of the user's rclone.conf; TestZeroNetworkRclone checks it only starts for a remote the user opens.
+//
 // Anything else, a new http.Get or net.Dial anywhere, fails the test with the file and line. The frontend half of the
 // promise is checked by frontend/test/privacy.test.js.
 package main
@@ -428,5 +431,70 @@ func TestZeroNetworkAIClient(t *testing.T) {
 		if !made[k] {
 			t.Errorf("no ai.Client made in %s; is the check still looking?", k)
 		}
+	}
+}
+
+// TestZeroNetworkRclone checks the one subprocess that talks to the cloud: the user's own rclone program (issue #18,
+// F-866), allowed because it only runs for a remote the user opens. No Go network call is involved (rclone is a
+// separate program), so instead of the sink list this follows the program's start back to the user: internal/rclone
+// starts processes in Client.command only; only feature_rclone.go (and feature_net_url.go, for the remote name check)
+// import it; a client is made only for the remote list the user opens (Net > Cloud remotes) or a remote being opened;
+// and a remote is opened only by Connect (the user opening it) and List (the user going to one of its folders).
+func TestZeroNetworkRclone(t *testing.T) {
+	fset := token.NewFileSet()
+	for _, file := range goSources(t) {
+		f, err := parser.ParseFile(fset, file, nil, parser.ImportsOnly)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, im := range f.Imports {
+			if p, _ := strconv.Unquote(im.Path.Value); p == "mormicommander/internal/rclone" &&
+				file != "feature_rclone.go" && file != "feature_net_url.go" {
+				t.Errorf("%s imports internal/rclone; only feature_rclone.go and feature_net_url.go may", file)
+			}
+		}
+	}
+	only := func(dir, file, name string, allowed ...string) {
+		t.Helper()
+		ok := set(allowed...)
+		n := 0
+		for f, fns := range callSites(t, dir, name) {
+			if file != "" && f != file {
+				continue
+			}
+			for _, fn := range fns {
+				n++
+				if !ok[fn] {
+					t.Errorf("%s: %s calls %s; only %v may", f, fn, name, allowed)
+				}
+			}
+		}
+		if n == 0 {
+			t.Errorf("no call of %s found; the check is not looking", name)
+		}
+	}
+	only("internal/rclone", "", "CommandContext", "Client.command")
+	only(".", "feature_rclone.go", "newClient", "netRclone.client", "netRclone.Remotes")
+	only(".", "feature_rclone.go", "Remotes", "Net.RcloneRemotes", "netRclone.Remotes") // (the second is the client's own listremotes)
+	// client(remote, true) opens a remote; every other call passes false
+	f, err := parser.ParseFile(fset, "feature_rclone.go", nil, parser.SkipObjectResolution)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opens := map[string]bool{}
+	ast.Inspect(f, func(n ast.Node) bool {
+		c, ok := n.(*ast.CallExpr)
+		if !ok || len(c.Args) != 2 {
+			return true
+		}
+		if sel, ok := c.Fun.(*ast.SelectorExpr); ok && sel.Sel.Name == "client" {
+			if id, ok := c.Args[1].(*ast.Ident); !ok || id.Name != "false" {
+				opens[enclosingFunc(f, c.Pos())] = true
+			}
+		}
+		return true
+	})
+	if len(opens) != 2 || !opens["netRclone.Connect"] || !opens["netRclone.List"] {
+		t.Errorf("an rclone remote may be opened by netRclone.Connect and netRclone.List only, got %v", opens)
 	}
 }

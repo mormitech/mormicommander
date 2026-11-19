@@ -312,7 +312,7 @@ func (n *Net) SaveSite(ns NetSite) (string, error) {
 	if ns.Host == "" {
 		return "", errors.New("Type the server's name or address.")
 	}
-	if netSchemes[ns.Protocol] == "" || ns.Protocol == "scp" || ns.Protocol == "dav" || ns.Protocol == "davs" {
+	if netSchemes[ns.Protocol] == "" || ns.Protocol == "scp" || ns.Protocol == "dav" || ns.Protocol == "davs" || ns.Protocol == "rclone" {
 		ns.Protocol = "ftp"
 	}
 	if ns.Port < 0 || ns.Port > 65535 {

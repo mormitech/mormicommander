@@ -282,6 +282,9 @@ type FTPPage struct {
 	AbortButton    bool   `ini:"FTP:AbortButton" def:"0" label:"Show an Abort button on the server bar"`
 	IdleMinutes    int    `ini:"FTP:IdleMinutes" def:"10" min:"1" max:"1440" label:"Close unused extra connections after (minutes)"`
 	MaxConns       int    `ini:"FTP:MaxConnections" def:"2" min:"1" max:"8" label:"Connections per FTP server (browsing and transfers at the same time)"`
+	// RclonePath is the user's rclone program for cloud remotes (issue #18); empty looks for rclone on PATH. It is
+	// only started when the user lists or opens an rclone remote, and is never downloaded.
+	RclonePath string `ini:"FTP:RclonePath" def:"" label:"rclone program for cloud remotes (empty = find rclone on PATH)"`
 }
 
 // ProxyPage (F-437). Passwords are not kept in the settings file; the UI

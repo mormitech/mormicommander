@@ -5,6 +5,7 @@
 //                                      system keychain" (off by default; switching moves the saved passwords)
 //   Ctrl+N        cm_FtpNew            quick connect: type ftp://user@host:port/folder (sftp://, webdav:// too); an
 //                                      http(s):// address of a file downloads it to the local panel's folder (F-644)
+//                 cm_RcloneRemotes     cloud remotes of the user's rclone.conf through the user's own rclone (#18)
 //   Ctrl+Shift+F  cm_FtpDisconnect     closes the connection of the panel and goes back to a local folder
 //   Ctrl+Shift+M  cm_FtpTransferMode   binary → ASCII → automatic
 //                 cm_FtpHiddenFiles    LIST -a (hidden files on FTP servers)
@@ -35,13 +36,13 @@ import { trackJob } from '../core/jobs.js';
 import { isWebURL, webFileName } from './net-attrs-lib.js';
 import { savePasswordLabel, passwordStoreNote, sitePasswordNote, keychainTitle, keychainResult } from './net-lib.js';
 
-const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\//i;
+const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs|rclone):\/\//i;
 export const isRemote = (p) => SCHEMES.test(p || '');
-const kindOf = (p) => { const s = (/^([a-z]+):/i.exec(p || '') || [])[1]?.toLowerCase() || ''; return s.startsWith('ftp') ? 'ftp' : s === 'sftp' || s === 'scp' ? 'sftp' : s ? 'webdav' : ''; };
-const keyOf = (p) => { const m = /^([a-z]+:\/\/[^/]*)/i.exec(p || ''); return m ? m[1].toLowerCase().replace(/^scp:/, 'sftp:') : ''; };
+const kindOf = (p) => { const s = (/^([a-z]+):/i.exec(p || '') || [])[1]?.toLowerCase() || ''; return s.startsWith('ftp') ? 'ftp' : s === 'sftp' || s === 'scp' ? 'sftp' : s === 'rclone' ? 'rclone' : s ? 'webdav' : ''; };
+const keyOf = (p) => { const m = /^([a-z]+:\/\/[^/]*)/i.exec(p || ''); return !m ? '' : /^rclone:/i.test(m[1]) ? 'rclone' + m[1].slice(6) : m[1].toLowerCase().replace(/^scp:/, 'sftp:'); }; // (rclone remote names keep their case)
 const base = (p) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 const MODE_LABEL = { auto: 'Automatic', binary: 'Binary', ascii: 'ASCII' };
-const KIND_LABEL = { ftp: 'FTP', sftp: 'SFTP', webdav: 'WebDAV' };
+const KIND_LABEL = { ftp: 'FTP', sftp: 'SFTP', webdav: 'WebDAV', rclone: 'rclone' };
 
 const opts = (app) => app.setting('net', {}) || {};
 async function setOpt(app, key, value) { await app.setSetting('net', { ...opts(app), [key]: value }); }
@@ -150,7 +151,7 @@ async function quickConnect(app, args = {}) {
     url = await formDialog('New FTP connection', `
       <div class="mc-row"><label for="url">Server address</label><input id="url" type="text" spellcheck="false" autofocus list="mc-net-hist" value="${esc(hist[0] || '')}" data-select="0,${(hist[0] || '').length}"></div>
       <datalist id="mc-net-hist">${hist.map((h) => `<option value="${esc(h)}">`).join('')}</datalist>
-      <p class="mc-note">For example ftp://user@example.com:21/pub, sftp://user@host/home/user or webdavs://host/remote.php/dav. A name alone means FTP. An http:// or https:// address of a file downloads it to the folder on this computer.</p>`,
+      <p class="mc-note">For example ftp://user@example.com:21/pub, sftp://user@host/home/user or webdavs://host/remote.php/dav, or rclone://remote/folder for a remote of your rclone configuration. A name alone means FTP. An http:// or https:// address of a file downloads it to the folder on this computer.</p>`,
     (box) => { const v = box.querySelector('#url').value.trim(); return v ? { url: v } : 'Type a server address.'; }, null, { okLabel: 'Connect', kind: 'net-quick' }).then((r) => r?.url);
     if (!url) return false;
   }
@@ -167,6 +168,33 @@ function downloadWeb(app, url) {
   const p = local(app.cur) ? app.cur : local(app.other) ? app.other : null;
   if (!p) { app.flash('A web file is downloaded to a folder on this computer: open one in a panel first.', 'err'); return false; }
   return runNetJob({ kind: 'copy', sources: [url], target: p.path, rename: '', overwrite: '' }, { title: `Downloading ${webFileName(url)}` });
+}
+
+// ---- cloud remotes through the user's own rclone (issue #18, F-866) ----
+
+// rcloneRemotes lists the remotes of the user's rclone.conf (rclone listremotes reads the config file only) and opens
+// the chosen one in the active panel. rclone runs only from here and from opening a remote; it is never downloaded.
+async function rcloneRemotes(app, args = {}) {
+  let list;
+  try { list = await go.Net.RcloneRemotes(); } catch (e) { await messageDialog({ Title: 'Cloud remotes (rclone)', Message: errText(e), Kind: 'net-rclone' }); return false; }
+  list = list || [];
+  let pick = args.name ? list.find((r) => r.name === args.name) : null;
+  if (args.name && !pick) { app.flash(`There is no rclone remote ${args.name}.`, 'err'); return false; }
+  if (!pick) {
+    if (!list.length) {
+      await messageDialog({ Title: 'Cloud remotes (rclone)', Message: 'Your rclone configuration has no remotes yet. Add one with "rclone config" in a terminal, then try again.', Kind: 'net-rclone' });
+      return false;
+    }
+    const opts = list.map((r, i) => `<option value="${i}"${i === 0 ? ' selected' : ''}>${esc(r.name)}${r.type ? ` (${esc(r.type)})` : ''}</option>`).join('');
+    pick = await formDialog('Cloud remotes (rclone)', `
+      <div class="mc-row"><select id="rc-list" size="${Math.min(12, Math.max(4, list.length))}" autofocus style="width:100%;min-width:28em">${opts}</select></div>
+      <p class="mc-note">The remotes of your rclone configuration. The chosen one opens in this panel through your rclone program; copy, move, rename and delete work as on a server.</p>`,
+    (box) => list[Number(box.querySelector('#rc-list').value)] || 'Choose a remote.',
+    (box, done) => { const sel = box.querySelector('#rc-list'); sel.addEventListener('dblclick', () => { const r = list[Number(sel.value)]; if (r) done(r); }); },
+    { okLabel: 'Open', kind: 'net-rclone' });
+    if (!pick) return false;
+  }
+  return openServer(app, () => go.Net.Connect(pick.url), `${pick.name} (rclone)`);
 }
 
 // ---- disconnect ----
@@ -708,6 +736,7 @@ command({ name: 'cm_FtpAddToList', label: 'Add to download list', run: (app) => 
 
 command({ name: 'cm_FtpConnect', menuKey: true, label: 'FTP connect…', short: 'FTP', run: (app, args) => manager(app, args) });
 command({ name: 'cm_FtpNew', menuKey: true, label: 'New FTP connection…', run: (app, args) => quickConnect(app, args) });
+command({ name: 'cm_RcloneRemotes', label: 'Cloud remotes (rclone)…', run: (app, args) => rcloneRemotes(app, args) });
 command({
   name: 'cm_FtpDisconnect', menuKey: true, label: 'Disconnect',
   run: (app, args = {}) => {

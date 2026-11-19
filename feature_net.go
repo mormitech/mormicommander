@@ -43,6 +43,7 @@ type Net struct {
 	own    *vfs.Router // a router this feature made, when no other feature registered one
 	hooked *vfs.Router // the router whose Configure hooks are ours
 	dav    *netDAV
+	rclone *netRclone // rclone remotes (feature_rclone.go)
 
 	store     *ftp.Store
 	storePath string
@@ -121,6 +122,8 @@ func newNet(a *App) *Net {
 	for _, s := range []string{"webdav", "webdavs", "dav", "davs"} {
 		vfs.Register(s, n.dav)
 	}
+	n.rclone = newNetRclone(rcloneProgram)
+	vfs.Register("rclone", n.rclone)
 	if dir := configDir(); dir != "" {
 		n.storePath = filepath.Join(dir, "ftpsites.json")
 	}
@@ -184,6 +187,7 @@ func (n *Net) close() {
 		own.Close() // F-650: disconnect on exit
 	}
 	n.dav.Close()
+	n.rclone.Close()
 	n.mu.Lock()
 	if n.tempDir != "" {
 		os.RemoveAll(n.tempDir)
@@ -606,6 +610,9 @@ func (n *Net) connect(u netURL, site *ftp.Site) (string, error) {
 		if ctx.Err() != nil || errors.Is(err, errNetCancelled) {
 			return "", errNetCancelled
 		}
+		if u.Scheme == "rclone" {
+			return "", rcloneConnectErr(u, err) // rclone logs in with its own config: there is no password to ask
+		}
 		if !netAuthFailed(err) || attempt >= 3 {
 			return "", netConnectErr(u, err)
 		}
@@ -656,6 +663,8 @@ func (n *Net) dial(ctx context.Context, u netURL) (string, error) {
 	switch netSchemes[u.Scheme] {
 	case "webdav":
 		return n.dav.Connect(ctx, u)
+	case "rclone":
+		return n.rclone.Connect(ctx, u)
 	default:
 		r := n.router()
 		p := u.String()
@@ -736,9 +745,12 @@ func (n *Net) disconnectSession(p string, forget bool) {
 	if key == "" {
 		return
 	}
-	if netSchemes[netSchemeOf(p)] == "webdav" {
+	switch netSchemes[netSchemeOf(p)] {
+	case "webdav":
 		n.dav.Disconnect(key)
-	} else {
+	case "rclone":
+		n.rclone.Disconnect(key)
+	default:
 		n.router().Disconnect(key + "/")
 	}
 	if forget {
@@ -786,6 +798,7 @@ func (n *Net) Sessions() []NetSession {
 		add(r.SFTP.Sessions(), "sftp")
 	}
 	add(n.dav.Sessions(), "webdav")
+	add(n.rclone.Sessions(), "rclone")
 	sort.Slice(out, func(i, j int) bool { return out[i].URL < out[j].URL })
 	return out
 }

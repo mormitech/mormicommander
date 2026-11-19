@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mormicommander/internal/rclone"
 	"mormicommander/internal/remotefs"
 )
 
@@ -32,7 +33,7 @@ type netURL struct {
 var netDefaultPorts = map[string]int{"ftp": 21, "ftpes": 21, "ftps": 990, "sftp": 22, "scp": 22, "webdav": 80, "dav": 80, "webdavs": 443, "davs": 443}
 
 // netSchemes are the URL schemes the network feature serves, with what they are.
-var netSchemes = map[string]string{"ftp": "ftp", "ftpes": "ftp", "ftps": "ftp", "sftp": "sftp", "scp": "sftp", "webdav": "webdav", "dav": "webdav", "webdavs": "webdav", "davs": "webdav"}
+var netSchemes = map[string]string{"ftp": "ftp", "ftpes": "ftp", "ftps": "ftp", "sftp": "sftp", "scp": "sftp", "webdav": "webdav", "dav": "webdav", "webdavs": "webdav", "davs": "webdav", "rclone": "rclone"}
 
 // netSchemeOf is the lower-case scheme of a URL, "" for a plain path.
 func netSchemeOf(p string) string {
@@ -68,9 +69,22 @@ func netParseURL(raw string) (netURL, error) {
 		u.Scheme = "webdavs"
 	}
 	if netSchemes[u.Scheme] == "" {
-		return netURL{}, fmt.Errorf("%s:// is not a server address mormiCommander can open (use ftp://, ftps://, ftpes://, sftp://, webdav:// or webdavs://).", u.Scheme)
+		return netURL{}, fmt.Errorf("%s:// is not a server address mormiCommander can open (use ftp://, ftps://, ftpes://, sftp://, webdav://, webdavs:// or rclone://).", u.Scheme)
 	}
 	rest := raw[i+3:]
+	if u.Scheme == "rclone" {
+		// rclone://remote/path (feature_rclone.go): the "host" is the remote's name in rclone.conf, kept as typed
+		// (rclone names are case-sensitive and may hold "@" or spaces); no user, password or port
+		name, rpath, _ := strings.Cut(rest, "/")
+		if !rclone.ValidRemote(name) {
+			return netURL{}, fmt.Errorf("%q is not the name of an rclone remote (rclone://remote/folder).", name)
+		}
+		u.Host = name
+		if rpath != "" {
+			u.Path = path.Clean("/" + strings.ReplaceAll(rpath, `\`, "/"))
+		}
+		return u, nil
+	}
 	auth, rpath := rest, ""
 	if j := strings.IndexByte(rest, '/'); j >= 0 {
 		auth, rpath = rest[:j], rest[j:]

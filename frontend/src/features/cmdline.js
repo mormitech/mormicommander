@@ -68,7 +68,7 @@ addCmdlineHandler(async (text) => {
 // null.
 export function serverUrlArg(text) {
   const t = text.trim().replace(/^"(.*)"$/, '$1');
-  return /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs):\/\/[^\s/]+(\/.*)?$/i.test(t) && (!/\s/.test(t) || /^".*"$/.test(text.trim())) ? t : null;
+  return /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs|rclone):\/\/[^\s/]+(\/.*)?$/i.test(t) && (!/\s/.test(t) || /^".*"$/.test(text.trim())) ? t : null;
 }
 
 addCmdlineHandler(async (text) => {

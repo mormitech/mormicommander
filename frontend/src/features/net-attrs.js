@@ -11,7 +11,7 @@ import { modal, formDialog, infoDialog, messageDialog, esc } from '../core/dialo
 import { size, date, plural } from '../core/format.js';
 import { PERM_ROWS, SPECIAL_BITS, parseOctal, octalText, bitsOfEntry, permString } from './net-attrs-lib.js';
 
-const KIND_LABEL = { ftp: 'FTP', sftp: 'SFTP', webdav: 'WebDAV' };
+const KIND_LABEL = { ftp: 'FTP', sftp: 'SFTP', webdav: 'WebDAV', rclone: 'rclone' };
 const row = (label, html) => `<tr><th>${esc(label)}</th><td>${html}</td></tr>`;
 const isServer = (app, p) => !!app.isRemote?.(p);
 

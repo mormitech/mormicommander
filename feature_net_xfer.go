@@ -518,7 +518,8 @@ func (x *netXfer) copyFile(r *vfs.Router, it netItem) bool {
 			x.fail(name, errors.New("a folder of that name is in the target folder"))
 			return false
 		}
-		canResume := de.Size > 0 && de.Size < it.size && (!srcLocal || (!dstLocal && netSchemes[netSchemeOf(it.dst)] != "webdav"))
+		canResume := de.Size > 0 && de.Size < it.size && (!srcLocal || (!dstLocal && netSchemes[netSchemeOf(it.dst)] != "webdav")) &&
+			netSchemes[netSchemeOf(it.src)] != "rclone" && netSchemes[netSchemeOf(it.dst)] != "rclone" // (rclone copies whole files)
 		choice := x.decide(it, de, canResume)
 		switch choice {
 		case "overwrite":
@@ -546,6 +547,8 @@ func (x *netXfer) copyFile(r *vfs.Router, it netItem) bool {
 	}}
 	var err error
 	switch {
+	case netSchemes[netSchemeOf(it.src)] == "rclone" && netSchemes[netSchemeOf(it.dst)] == "rclone":
+		err = x.n.rclone.CopyRemote(x.ctx, it.src, it.dst, opt) // one copyto: on the server when the provider can
 	case !srcLocal && dstLocal:
 		_, err = r.Download(x.ctx, it.src, it.dst, opt)
 	case srcLocal && !dstLocal:

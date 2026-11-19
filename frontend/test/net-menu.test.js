@@ -47,3 +47,18 @@ test('Disconnect and Send FTP command with no server panel say so and call nothi
   expect(flash).toHaveBeenCalledTimes(2);
   expect(calls).toEqual([]);
 });
+
+test('Cloud remotes (rclone) is in the Net menu and only asks Go for the remote list (issue #18)', async () => {
+  expect(netMenu()).toContain('cm_RcloneRemotes');
+  const flash = vi.fn();
+  const app = { cur: { path: '/home' }, other: { path: '/tmp' }, panels: [], flash, setting: (_, d) => d };
+  calls.length = 0;
+  expect(await reg.getCommand('cm_RcloneRemotes').run(app, { name: 'nothere' })).toBe(false);
+  expect(calls).toEqual(['Net.RcloneRemotes']);
+  expect(flash).toHaveBeenCalledTimes(1);
+  const { serverUrlArg } = await import('../src/features/cmdline.js');
+  expect(serverUrlArg('rclone://gdrive/Photos')).toBe('rclone://gdrive/Photos');
+  expect(app.isRemote).toBeUndefined();
+  const net = await import('../src/features/net.js');
+  expect(net.isRemote('rclone://gdrive/')).toBe(true);
+});
