@@ -20,7 +20,7 @@
 //   await formDialog(title, html, read, setup) → what read(box) returns, or null
 //   infoDialog(html) → a box with a close button
 
-import { tr, translateTree } from './i18n.js';
+import { tr, tText, Msg, translateTree } from './i18n.js';
 import './dialogs.css';
 import { waitForUser } from './busy.js';
 import { getSetting } from './settings.js';
@@ -282,7 +282,7 @@ export function messageDialog(o) {
   const buttons = o.Buttons?.length ? o.Buttons : ['OK'];
   const cancel = o.CancelButton || (buttons.includes('Cancel') ? 'Cancel' : buttons.includes('No') ? 'No' : buttons.at(-1));
   return modal((box, done) => {
-    box.innerHTML = `<h2>${esc(tr(o.Title))}</h2><p class="mc-msg">${esc(tr(o.Message)).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
+    box.innerHTML = `<h2>${esc(tr(o.Title))}</h2><p class="mc-msg">${esc(tText(o.Message)).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
     const row = box.querySelector('.mc-btns');
     for (const b of buttons) {
       const el = document.createElement('button');
@@ -311,7 +311,7 @@ export function inputDialog({ title, label = '', value = '', select, okLabel = '
       ev.preventDefault();
       const v = box.querySelector('#mc-input').value;
       const err = validate?.(v);
-      if (err) { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = err; return; }
+      if (err) { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = tText(err); return; }
       done(v);
     };
   }, null, { kind });
@@ -326,7 +326,7 @@ export function formDialog(title, html, read, setup, { okLabel = 'OK', kind = 'f
     box.onsubmit = (ev) => {
       ev.preventDefault();
       const v = read(box);
-      if (typeof v === 'string') { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = v; return; }
+      if (typeof v === 'string' || v instanceof Msg) { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = tText(v); return; }
       done(v);
     };
     setup?.(box, done);

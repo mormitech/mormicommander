@@ -12,7 +12,8 @@
 import './textedit.css';
 import { go, errText } from '../core/go.js';
 import { modal, esc, messageDialog } from '../core/dialogs.js';
-import { statusText, closeQuestion, changedQuestion, isChangedError, SAVE, DONT_SAVE, OVERWRITE } from './textedit-lib.js';
+import { lineCol, closeQuestion, changedQuestion, isChangedError, SAVE, DONT_SAVE, OVERWRITE } from './textedit-lib.js';
+import { translateTree, tm, tText } from '../core/i18n.js';
 
 // openTextEditor shows the file path in the built-in editor and resolves when it is closed: {shown: true}, or
 // {shown: false, why} when the file can't be edited there (Go's reason), so F4 can hand it to the external editor.
@@ -28,16 +29,21 @@ export async function openTextEditor(app, path) {
   let onClose = () => {};
   await modal((box, done) => {
     box.classList.add('mc-textedit');
-    box.innerHTML = `<h2>${esc(f.name)}</h2>
+    box.innerHTML = `<h2 data-notr>${esc(f.name)}</h2>
       <textarea id="te-text" class="mc-textedit-text" spellcheck="false" autocomplete="off" wrap="off" autofocus></textarea>
       <div class="mc-textedit-bar"><span class="mc-textedit-status"></span><span class="mc-err" hidden></span></div>
       <div class="mc-btns"><button type="button" class="te-close">Close</button><button type="button" class="primary te-save">Save</button></div>`;
+    translateTree(box);
     const ta = box.querySelector('#te-text');
     const status = box.querySelector('.mc-textedit-status');
     const err = box.querySelector('.mc-err');
     ta.value = f.text;
     const dirty = () => ta.value !== saved;
-    const show = () => { status.textContent = statusText({ text: ta.value, pos: ta.selectionStart, crlf: f.crlf, bom: f.bom, dirty: dirty() }); };
+    // (statusText of textedit-lib.js, with its words translated, #113)
+    const show = () => {
+      const { line, col } = lineCol(ta.value, ta.selectionStart);
+      status.textContent = [tm('Line {line}, column {col}', { line, col }), f.crlf ? 'CRLF' : 'LF', f.bom ? tm('UTF-8 with BOM') : 'UTF-8', ...(dirty() ? [tm('changed')] : [])].join(' · ');
+    };
     for (const ev of ['input', 'keyup', 'click', 'select']) ta.addEventListener(ev, show);
     setTimeout(() => { ta.focus(); ta.setSelectionRange(0, 0); ta.scrollTop = 0; show(); }, 0);
     let busy = false;
@@ -52,7 +58,7 @@ export async function openTextEditor(app, path) {
           r = await go.ListerEdit.WriteText({ ...f, text: '' }, text, false);
         } catch (e) {
           if (!isChangedError(errText(e))) throw e;
-          if ((await messageDialog(changedQuestion(f.name))) !== OVERWRITE) return false;
+          if ((await messageDialog({ ...changedQuestion(f.name), Message: tm('{name} was changed by another program since it was opened.\n\nOverwrite it with your text?', { name: f.name }) })) !== OVERWRITE) return false;
           r = await go.ListerEdit.WriteText({ ...f, text: '' }, text, true);
         }
         f = { ...f, mtime: r.mtime, size: r.size };
@@ -60,7 +66,7 @@ export async function openTextEditor(app, path) {
         app.flash?.(`Saved ${f.name}.`);
         return true;
       } catch (e) {
-        err.textContent = errText(e);
+        err.textContent = tText(errText(e));
         err.hidden = false;
         return false;
       } finally {
@@ -71,7 +77,7 @@ export async function openTextEditor(app, path) {
     };
     const close = async () => {
       if (!dirty()) { done(true); return; }
-      const a = await messageDialog(closeQuestion(f.name));
+      const a = await messageDialog({ ...closeQuestion(f.name), Message: tm('Save the changes to {name}?', { name: f.name }) });
       if (a === DONT_SAVE) done(true);
       else if (a === SAVE && await save()) done(true);
       else ta.focus();

@@ -19,6 +19,10 @@ version is changed only when a round of features is merged.
 - Translations (#113): the built-in Hungarian (interface language hu) now also covers the Options dialog, the column
   headers, the copy/move progress and question windows, background transfers, Find files, Multi-Rename, Synchronize
   folders, most messages and, on macOS, the application, Edit and Window menus. English stays exactly as it was.
+- Translations (#113, part 3): the Hungarian file also covers messages with names and numbers in them, the Lister
+  (also in its own window), the text editor, the tools (properties, checksums, split and combine, attributes, links,
+  occupied space), server connections and their bar, the AI dialogs, the tabs and hotlist dialogs, the command palette
+  (its Options pages too) and Compare by content; error messages from the program's core are shown translated too.
 
 ## 0.14.38 – 2026-11-19
 

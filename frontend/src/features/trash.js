@@ -10,12 +10,13 @@ import { go, errText } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
 import { plural } from '../core/format.js';
 import { restoreReport } from './trash-lib.js';
+import { tm } from '../core/i18n.js';
 
 const trashWord = (app) => (app.platform === 'windows' ? 'Recycle Bin' : app.platform === 'darwin' ? 'Trash' : 'trash');
 
 async function goToTrash(app) {
   const dir = await go.Jobs.TrashFolder().catch(() => '');
-  if (!dir) { app.flash(`This system has no ${trashWord(app)} mormiCommander can open.`, 'err'); return false; }
+  if (!dir) { app.flash(tm('This system has no {trash} mormiCommander can open.', { trash: tm(trashWord(app)) }), 'err'); return false; }
   return app.cur.go(dir);
 }
 
@@ -24,7 +25,7 @@ async function restoreFromTrash(app) {
   const T = trashWord(app);
   const items = src.targets();
   if (!items.length) { app.flash('No files selected.'); return false; }
-  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(src.path || '')) { app.flash(`Open the ${T} folder first.`, 'err'); return false; }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(src.path || '')) { app.flash(tm('Open the {trash} folder first.', { trash: tm(T) }), 'err'); return false; }
   const paths = items.map((e) => src.fullPath(e.name));
   const found = (await go.Jobs.TrashOriginals(paths).catch(() => [])) || [];
   const known = found.filter((r) => r.original);

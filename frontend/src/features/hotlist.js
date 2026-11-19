@@ -17,6 +17,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { openInNewTab, loadTabFile, saveBothTabs, saveSoon } from './tabs.js';
 import { hotlistMaskFilter, nestedEntries, appendImported } from './hotlist-lib.js';
+import { tm, translateTree, tText, tr } from '../core/i18n.js';
 
 const trimSep = (x) => (x.length > 1 ? x.replace(/[\\/]+$/, '') : x) || x;
 const folderName = (p) => { const t = trimSep(p || ''); return t.split(/[\\/]/).pop() || t; };
@@ -111,7 +112,7 @@ async function special(p, what) {
         note: both ? `Opens ${p.path} here and ${p.other.path} in the other panel.` : p.path });
       if (name === null) return false;
       await go.TabsHotlist.AddFolder(name.trim(), p.path, both ? p.other.path : '');
-      theApp.flash(`${name.trim() || p.path} is in the hotlist.`);
+      theApp.flash(tm('{name} is in the hotlist.', { name: name.trim() || p.path }));
       return true;
     }
     case 'addtabs': {
@@ -123,7 +124,7 @@ async function special(p, what) {
       const file = `${dir}${theApp.sepFor(dir)}${name.trim().replace(/[\\/:*?"<>|]/g, '_')}.tab`;
       await saveBothTabs(file);
       await go.TabsHotlist.AddFolder(name.trim(), file, '');
-      theApp.flash(`${name.trim()} is in the hotlist.`);
+      theApp.flash(tm('{name} is in the hotlist.', { name: name.trim() }));
       return true;
     }
     case 'search': return searchHotlist(p);
@@ -137,7 +138,7 @@ async function searchHotlist(p, query) {
   query ??= await inputDialog({ title: 'Search the hotlist', label: 'Words to look for in names and folders', kind: 'hotlist-search' });
   if (query === null) return false;
   const found = await go.TabsHotlist.Filter(query);
-  if (!found.length) { theApp.flash(`No hotlist entry has ${query}.`); return false; }
+  if (!found.length) { theApp.flash(tm('No hotlist entry has {query}.', { query })); return false; }
   const r = await showList({ title: `Hotlist: ${query}`, kind: 'hotlist-search-results', anchor: anchorFor(p),
     items: found.map((m) => ({ label: m.breadcrumb ? `${m.breadcrumb} › ${m.title}` : m.title, detail: shortCmd(m), value: m })) });
   if (!r) return false;
@@ -169,7 +170,7 @@ function configHotlist(app) {
       walk(tree, '', 0);
       return out;
     };
-    const text = (it) => (it.kind === 'sep' ? '────────────' : it.kind === 'menu' ? `▸ ${it.title}` : it.title || shortCmd(it) || '(no name)');
+    const text = (it) => (it.kind === 'sep' ? '────────────' : it.kind === 'menu' ? `▸ ${it.title}` : it.title || shortCmd(it) || tr('(no name)'));
     box.classList.add('mc-hotlist-box');
     box.innerHTML = `<h2>Folder hotlist</h2>
       <div class="mc-hotlist-cfg">
@@ -187,9 +188,10 @@ function configHotlist(app) {
         <div class="mc-hotlist-line"><input type="text" id="hl-target" spellcheck="false"><button type="button" data-a="target">Target: other folder</button><button type="button" data-a="notarget">No target</button></div></div>
       <p class="mc-err" hidden></p>
       <div class="mc-btns"><button type="button" data-a="import" class="mc-hotlist-left">Import from Total Commander…</button><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+    translateTree(box);
     const $ = (s) => box.querySelector(s);
     const list = $('#hl-list'), cmd = $('#hl-cmd'), target = $('#hl-target');
-    const err = (m) => { const e = $('.mc-err'); e.hidden = !m; e.textContent = m || ''; };
+    const err = (m) => { const e = $('.mc-err'); e.hidden = !m; e.textContent = tText(m || ''); };
     const draw = () => {
       const rows = flat();
       if (sel && !rows.some((r) => r.path === sel)) sel = rows.length ? rows[Math.min(rows.length - 1, 0)].path : '';
@@ -298,7 +300,7 @@ function configHotlist(app) {
             tree.splice(0, tree.length, ...appendImported(tree, items));
             draw();
             err('');
-            theApp.flash(`${items.length} entries were imported; OK keeps them.`);
+            theApp.flash(tm('{n} entries were imported; OK keeps them.', { n: items.length }));
             return;
           }
         }
@@ -321,7 +323,7 @@ async function importTC() {
     Buttons: ['Add', 'Cancel'], Kind: 'hotlist-import' });
   if (y !== 'Add') return false;
   await go.TabsHotlist.SetHotlist(appendImported(await go.TabsHotlist.Hotlist(), items));
-  theApp.flash(`${items.length} entries were added to the folder hotlist.`);
+  theApp.flash(tm('{n} entries were added to the folder hotlist.', { n: items.length }));
   return true;
 }
 

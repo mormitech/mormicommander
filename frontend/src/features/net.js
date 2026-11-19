@@ -35,6 +35,7 @@ import { jobWaiter } from '../core/jobwait.js';
 import { trackJob } from '../core/jobs.js';
 import { isWebURL, webFileName } from './net-attrs-lib.js';
 import { savePasswordLabel, passwordStoreNote, sitePasswordNote, keychainTitle, keychainResult } from './net-lib.js';
+import { tm, tn, te, tjoin, translateTree, tText, tr } from '../core/i18n.js';
 
 const SCHEMES = /^(ftp|ftps|ftpes|sftp|scp|webdav|webdavs|dav|davs|rclone):\/\//i;
 export const isRemote = (p) => SCHEMES.test(p || '');
@@ -59,18 +60,19 @@ function showAsk(q) {
   const secret = q.secret !== false;
   modal((box, done) => {
     asks.set(q.id, () => done(undefined));
-    box.innerHTML = `<h2>${esc(q.title)}</h2>${q.message ? `<p class="mc-msg">${esc(q.message).replace(/\n/g, '<br>')}</p>` : ''}
+    box.innerHTML = `<h2>${esc(tText(q.title))}</h2>${q.message ? `<p class="mc-msg">${esc(tText(q.message)).replace(/\n/g, '<br>')}</p>` : ''}
       <div class="mc-row"><label for="value">${two ? 'Master password' : secret ? 'Password' : 'Answer'}</label><input id="value" type="${secret ? 'password' : 'text'}" class="mc-net-in" autofocus spellcheck="false"></div>
       ${two ? '<div class="mc-row"><label for="confirm">Type it again</label><input id="confirm" type="password" class="mc-net-in" spellcheck="false"></div>' : ''}
       <p class="mc-err" hidden></p>
       <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+    translateTree(box);
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();
       const v = box.querySelector('#value').value;
       const err = box.querySelector('.mc-err');
-      if (two && !v) { err.hidden = false; err.textContent = 'Type a master password.'; return; }
-      if (two && v !== box.querySelector('#confirm').value) { err.hidden = false; err.textContent = 'The two passwords are not the same.'; return; }
+      if (two && !v) { err.hidden = false; err.textContent = tr('Type a master password.'); return; }
+      if (two && v !== box.querySelector('#confirm').value) { err.hidden = false; err.textContent = tr('The two passwords are not the same.'); return; }
       done(v);
     };
   }, null, { kind: `net-${q.kind}` }).then((v) => {
@@ -83,11 +85,12 @@ function askHostKey(q) {
   modal((box, done) => {
     asks.set(q.id, () => done(undefined));
     const known = (q.known || []).map((k) => `<li><code>${esc(k)}</code></li>`).join('');
-    box.innerHTML = `<h2>${esc(q.title)}</h2><p class="mc-msg">${esc(q.message)}</p>
+    box.innerHTML = `<h2>${esc(tText(q.title))}</h2><p class="mc-msg">${esc(tText(q.message))}</p>
       <dl class="mc-net-key"><dt>Server</dt><dd>${esc(q.host)}</dd><dt>Key</dt><dd>${esc(q.keyType)}</dd><dt>Fingerprint</dt><dd><code>${esc(q.fingerprint)}</code></dd>
       ${known ? `<dt>Saved before</dt><dd><ul>${known}</ul></dd>` : ''}</dl>
-      <p class="mc-note">"Accept and save" remembers the key${q.saveFile ? ` in ${esc(q.saveFile)}` : ''}, so you are not asked again.</p>
+      <p class="mc-note">${esc(q.saveFile ? tm('"Accept and save" remembers the key in {file}, so you are not asked again.', { file: q.saveFile }) : tm('"Accept and save" remembers the key, so you are not asked again.'))}</p>
       <div class="mc-btns"><button type="button" data-c="reject">Cancel</button><button type="button" data-c="once">Accept once</button><button type="submit" class="primary${q.status === 'changed' ? ' danger' : ''}" data-c="save">Accept and save</button></div>`;
+    translateTree(box);
     box.querySelectorAll('button[data-c]').forEach((b) => { b.onclick = (ev) => { ev.preventDefault(); done(b.dataset.c); }; });
     box.onsubmit = (ev) => { ev.preventDefault(); done(q.status === 'changed' ? 'reject' : 'save'); };
     // a changed key never gets Enter as "accept": the person has to choose it
@@ -109,8 +112,9 @@ async function connecting(label, fn) {
     if (asks.size) { timer = setTimeout(show, 300); return; } // a question is open: it stays on top
     modal((box, done) => {
       close = () => done(true);
-      box.innerHTML = `<h2>Connecting</h2><p class="mc-msg">Connecting to ${esc(label)}…</p><div class="mc-progress mc-net-busy"><i></i></div>
+      box.innerHTML = `<h2>Connecting</h2><p class="mc-msg">${esc(tm('Connecting to {name}…', { name: label }))}</p><div class="mc-progress mc-net-busy"><i></i></div>
         <div class="mc-btns"><button type="button" class="cancel">Cancel</button></div>`;
+      translateTree(box);
       box.querySelector('.cancel').onclick = () => done(false);
       box.onsubmit = (ev) => ev.preventDefault();
     }, false, { kind: 'net-connecting' }).then((ok) => { if (!ok) { cancelled = true; go.Net.CancelConnect().catch(() => {}); } });
@@ -134,7 +138,7 @@ async function openServer(app, call, label, panel = app.cur) {
   if (!r) return false;
   const ok = await panel.go(r.path);
   if (ok && r.localDir) await panel.other.go(r.localDir);
-  if (ok) app.flash(`Connected to ${label}.`);
+  if (ok) app.flash(tm('Connected to {name}.', { name: label }));
   return ok;
 }
 
@@ -179,7 +183,7 @@ async function rcloneRemotes(app, args = {}) {
   try { list = await go.Net.RcloneRemotes(); } catch (e) { await messageDialog({ Title: 'Cloud remotes (rclone)', Message: errText(e), Kind: 'net-rclone' }); return false; }
   list = list || [];
   let pick = args.name ? list.find((r) => r.name === args.name) : null;
-  if (args.name && !pick) { app.flash(`There is no rclone remote ${args.name}.`, 'err'); return false; }
+  if (args.name && !pick) { app.flash(tm('There is no rclone remote {name}.', { name: args.name }), 'err'); return false; }
   if (!pick) {
     if (!list.length) {
       await messageDialog({ Title: 'Cloud remotes (rclone)', Message: 'Your rclone configuration has no remotes yet. Add one with "rclone config" in a terminal, then try again.', Kind: 'net-rclone' });
@@ -209,7 +213,7 @@ async function disconnect(app, path) {
   const key = keyOf(path);
   await go.Net.Disconnect(path);
   for (const p of app.panels) if (keyOf(p.path) === key) await p.go(localBefore(p));
-  app.flash(`Disconnected from ${key.replace(/^[a-z]+:\/\//, '')}.`);
+  app.flash(tm('Disconnected from {name}.', { name: key.replace(/^[a-z]+:\/\//, '') }));
   refreshBars(app);
   return true;
 }
@@ -248,6 +252,7 @@ async function manager(app, args = {}) {
       <label class="mc-check mc-net-kc"><input type="checkbox" id="keychain"> Keep saved passwords in the system keychain</label>
       <p class="mc-note mc-net-info"></p><p class="mc-err" hidden></p>
       <div class="mc-btns"><button type="button" class="cancel">Close</button></div>`;
+    translateTree(box);
     const sel = box.querySelector('#site'), info = box.querySelector('.mc-net-info'), err = box.querySelector('.mc-err');
     const kc = box.querySelector('#keychain');
     const showErr = (e) => { err.hidden = !e; err.textContent = e ? errText(e) : ''; };
@@ -269,7 +274,7 @@ async function manager(app, args = {}) {
       };
       for (const f of list.folders.filter((x) => !x.includes('/'))) addFolder(f);
       for (const s of list.sites.filter((x) => !x.folder)) rows.push({ v: `s:${s.id}`, t: `${s.name}  —  ${s.host}` });
-      sel.innerHTML = rows.length ? rows.map((r) => `<option value="${esc(r.v)}">${esc(r.t)}</option>`).join('') : '<option value="" disabled>No saved connections yet: use "New connection…".</option>';
+      sel.innerHTML = rows.length ? rows.map((r) => `<option value="${esc(r.v)}">${esc(r.t)}</option>`).join('') : `<option value="" disabled>${esc(tr('No saved connections yet: use "New connection…".'))}</option>`;
       const want = selected && rows.find((r) => r.v === selected || r.v === `s:${selected}`);
       sel.value = want ? want.v : rows[0]?.v || '';
       update();
@@ -306,7 +311,7 @@ async function manager(app, args = {}) {
           case 'copy': { if (!s) return; const id = await go.Net.CopySite(s.id); await reload(`s:${id}`); const c = list.sites.find((x) => x.id === id); if (c && await editSite(app, c, list)) await reload(`s:${id}`); return; }
           case 'folder': {
             const parent = folderOf(v);
-            const name = await inputDialog({ title: 'New folder', label: parent ? `Folder in ${parent}` : 'Folder name', kind: 'net-folder',
+            const name = await inputDialog({ title: 'New folder', label: parent ? tm('Folder in {name}', { name: parent }) : 'Folder name', kind: 'net-folder',
               validate: (t) => (!t.trim() ? 'Type a name.' : /[/\\]/.test(t) ? 'A folder name can\'t have / or \\ in it.' : '') });
             if (!name) return;
             const f = parent ? `${parent}/${name.trim()}` : name.trim();
@@ -331,12 +336,12 @@ async function manager(app, args = {}) {
           }
           case 'delete': {
             if (s) {
-              const b = await messageDialog({ Title: 'Delete connection', Message: `Delete the saved connection "${s.name}"?`, Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'net-delete' });
+              const b = await messageDialog({ Title: 'Delete connection', Message: tm('Delete the saved connection "{name}"?', { name: s.name }), Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'net-delete' });
               if (b !== 'Delete') return;
               await go.Net.DeleteSite(s.id);
             } else if (v.startsWith('f:')) {
               const f = v.slice(2), n = list.sites.filter((x) => x.folder === f || x.folder.startsWith(f + '/')).length;
-              const b = await messageDialog({ Title: 'Delete folder', Message: n ? `Delete the folder "${f}" and the ${plural(n, 'connection')} in it?` : `Delete the folder "${f}"?`, Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'net-delete' });
+              const b = await messageDialog({ Title: 'Delete folder', Message: n ? tm('Delete the folder "{name}" and the {what} in it?', { name: f, what: tn(n, 'connection') }) : tm('Delete the folder "{name}"?', { name: f }), Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'net-delete' });
               if (b !== 'Delete') return;
               await go.Net.DeleteFolder(f);
             } else return;
@@ -497,34 +502,35 @@ async function paintBar(p) {
   el.hidden = false;
   const server = `${KIND_LABEL[st.kind] || 'server'}${st.name ? ` ${st.name}` : ''}`;
   const what = el.querySelector('.mc-net-what');
-  what.textContent = st.connected === false ? 'not connected' : ''; // the kind and the server are in the path already
+  what.textContent = st.connected === false ? tr('not connected') : ''; // the kind and the server are in the path already
   what.hidden = st.connected !== false;
   const mode = el.querySelector('.mc-net-mode');
   const m = MODE_ICON[st.mode] ? st.mode : 'auto';
   mode.hidden = st.kind !== 'ftp';
   mode.innerHTML = MODE_ICON[m];
-  mode.title = `Transfer mode: ${MODE_LABEL[m]}. Click to change it${keyText('cm_FtpTransferMode')}.`;
-  mode.setAttribute('aria-label', `Transfer mode: ${MODE_LABEL[m]}`);
+  mode.title = `${tm('Transfer mode: {mode}. Click to change it', { mode: tm(MODE_LABEL[m]) })}${keyText('cm_FtpTransferMode')}.`;
+  mode.setAttribute('aria-label', tm('Transfer mode: {mode}', { mode: tm(MODE_LABEL[m]) }));
   const log = el.querySelector('.mc-net-log');
   log.hidden = !st.log;
-  log.title = `Show the protocol log of ${server}`;
+  log.title = tm('Show the protocol log of {server}', { server });
   const abort = el.querySelector('.mc-net-abort');
   abort.hidden = !abortWanted();
   if (!abort.hidden) {
     const running = await go.Net.RunningOn(p.path).catch(() => 0);
     abort.disabled = !running;
-    abort.title = running ? `Abort the ${running > 1 ? `${running} transfers` : 'transfer'} to or from ${server} (a partial file stays for "Resume")` : `No transfer to or from ${server} is running`;
+    abort.title = running > 1 ? tm('Abort the {n} transfers to or from {server} (a partial file stays for "Resume")', { n: running, server })
+      : running ? tm('Abort the transfer to or from {server} (a partial file stays for "Resume")', { server }) : tm('No transfer to or from {server} is running', { server });
   }
   const off = el.querySelector('.mc-net-off');
-  off.title = `Disconnect from ${server}${keyText('cm_FtpDisconnect')}`;
-  off.setAttribute('aria-label', `Disconnect from ${server}`);
+  off.title = `${tm('Disconnect from {server}', { server })}${keyText('cm_FtpDisconnect')}`;
+  off.setAttribute('aria-label', tm('Disconnect from {server}', { server }));
 }
 
 function refreshBars(app) { for (const p of app.panels) paintBar(p); }
 
 async function showLog(app, path) {
   const lines = await go.Net.Log(path).catch(() => []);
-  infoDialog(`<h2>Protocol log</h2><p class="mc-note">${esc(keyOf(path))}</p><pre class="mc-net-logtext">${esc(lines.join('\n') || 'Nothing logged yet.')}</pre>`, 'mc-net-logbox', 'net-log');
+  infoDialog(`<h2>${esc(tr('Protocol log'))}</h2><p class="mc-note">${esc(keyOf(path))}</p><pre class="mc-net-logtext">${esc(lines.join('\n') || tr('Nothing logged yet.'))}</pre>`, 'mc-net-logbox', 'net-log');
   setTimeout(() => { const pre = document.querySelector('.mc-net-logtext'); if (pre) pre.scrollTop = pre.scrollHeight; });
 }
 
@@ -557,7 +563,7 @@ function liveJob(p, running) {
 // abortOn stops the transfers of the server panel p shows; it resolves with how many were stopped.
 export async function abortOn(app, p) {
   const n = await go.Net.AbortOn(p.path).catch(() => 0);
-  app.flash(n ? `Stopped ${plural(n, 'transfer')}. Copy again and choose "Resume" to finish a file.` : 'No transfer to or from this server is running.');
+  app.flash(n ? tm('Stopped {what}. Copy again and choose "Resume" to finish a file.', { what: tn(n, 'transfer') }) : tm('No transfer to or from this server is running.'));
   return n;
 }
 
@@ -570,7 +576,9 @@ async function askOverwrite(p) {
 
 async function askOverwriteNow(p, c, name) {
   const buttons = Object.keys(JOB_BUTTONS).filter((b) => c.canResume || !b.startsWith('Resume'));
-  const msg = `${name} is already in the target folder.\n\nNew: ${size(c.srcSize)}, ${date(c.srcTime)}\nThere: ${size(c.dstSize)}, ${date(c.dstTime)}${c.canResume ? '\n\nThe file there is shorter: "Resume" copies only the rest.' : ''}`;
+  const v = { name, newSize: size(c.srcSize), newDate: date(c.srcTime), oldSize: size(c.dstSize), oldDate: date(c.dstTime) };
+  const msg = c.canResume ? tm('{name} is already in the target folder.\n\nNew: {newSize}, {newDate}\nThere: {oldSize}, {oldDate}\n\nThe file there is shorter: "Resume" copies only the rest.', v)
+    : tm('{name} is already in the target folder.\n\nNew: {newSize}, {newDate}\nThere: {oldSize}, {oldDate}', v);
   // (Options > FTP > Resume interrupted downloads: Resume is the answer Enter gives when the file there is shorter)
   const b = await messageDialog({ Title: 'Overwrite?', Message: msg, Buttons: buttons, DefaultButton: c.canResume && theApp.config?.values?.['FTP.ResumeDefault'] !== '0' ? 'Resume' : 'Overwrite', CancelButton: 'Cancel', Kind: 'net-overwrite' });
   const a = { choice: JOB_BUTTONS[b] || 'cancel', newName: '' };
@@ -605,12 +613,13 @@ export function runNetJob(req, { title } = {}) {
         close = () => done();
         box.innerHTML = `<h2>${esc(title || (req.kind === 'move' ? 'Moving' : 'Copying'))}</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p>
           <div class="mc-btns">${listed ? '<button type="button" class="bg" title="Go on in the background (F2)">Background</button>' : ''}<button type="button" class="cancel">Cancel</button></div>`;
+        translateTree(box);
         const msg = box.querySelector('.mc-msg'), barEl = box.querySelector('.mc-progress i'), note = box.querySelector('.mc-note');
         paint = () => {
           msg.textContent = p.current ? base(p.current) : '';
           const frac = p.bytes > 0 ? p.bytesDone / p.bytes : p.files > 0 ? p.filesDone / p.files : 0;
           barEl.style.width = `${Math.round(Math.min(1, frac) * 100)}%`;
-          note.textContent = `${p.filesDone} of ${plural(p.files, 'file')}${p.bytes ? ` · ${size(p.bytesDone)} of ${size(p.bytes)}` : ''}`;
+          note.textContent = `${tm('{done} of {total}', { done: p.filesDone, total: tn(p.files, 'file') })}${p.bytes ? ` · ${tm('{done} of {total}', { done: size(p.bytesDone), total: size(p.bytes) })}` : ''}`;
         };
         paint();
         box.querySelector('.cancel').onclick = () => go.Net.CancelJob(id);
@@ -628,7 +637,7 @@ export function runNetJob(req, { title } = {}) {
     cancelShow();
     close();
     await Promise.all(theApp.panels.map((pn) => pn.reload()));
-    if (final.state === 'failed') theApp.flash(final.errors.slice(0, 3).join('\n') + (final.errors.length > 3 ? `\n…and ${final.errors.length - 3} more.` : ''), 'err');
+    if (final.state === 'failed') theApp.flash(tjoin([...final.errors.slice(0, 3).map(te), ...(final.errors.length > 3 ? [tm('…and {n} more.', { n: final.errors.length - 3 })] : [])]), 'err');
     else if (final.state === 'cancelled') theApp.flash('The transfer was stopped. Copy again and choose "Resume" to finish a file.');
     return final;
   })());
@@ -660,7 +669,7 @@ function addToDownloadList(app) {
     n++;
   }
   dlSave(app, list);
-  app.flash(n ? `Added ${plural(n, 'item')} to the download list.` : 'Those files are on the download list already.');
+  app.flash(n ? tm('Added {what} to the download list.', { what: tn(n, 'item') }) : tm('Those files are on the download list already.'));
   return n > 0;
 }
 
@@ -672,11 +681,11 @@ async function runDownloadList(app) {
     if (!list.length) break;
     const it = list[0];
     const final = await runNetJob({ kind: 'copy', sources: [it.src], target: it.target, rename: '', overwrite: '' }, { title: `Downloading ${base(it.src)}` });
-    if (final.state !== 'done') { app.flash(`The download list stopped at ${base(it.src)}; it stays on the list.`, 'err'); return done; }
+    if (final.state !== 'done') { app.flash(tm('The download list stopped at {name}; it stays on the list.', { name: base(it.src) }), 'err'); return done; }
     dlSave(app, dlList(app).filter((x) => !(x.src === it.src && x.target === it.target)));
     done++;
   }
-  if (done) app.flash(`Downloaded ${plural(done, 'item')} from the download list.`);
+  if (done) app.flash(tm('Downloaded {what} from the download list.', { what: tn(done, 'item') }));
   return done;
 }
 
@@ -688,14 +697,15 @@ async function downloadList(app) {
         <div class="mc-net-side"><button type="button" class="add" title="The selection of the server panel, to the other panel's folder">Add selected</button>
           <button type="button" class="up">Up</button><button type="button" class="down">Down</button><button type="button" class="remove">Remove</button></div></div>
       <div class="mc-btns"><button type="button" class="close">Close</button><button type="submit" class="primary">Start</button></div>`;
+    translateTree(box);
     const $ = (q) => box.querySelector(q);
     const sel = $('#items');
     const paint = (at = sel.selectedIndex) => {
       const list = dlList(app);
       sel.innerHTML = list.map((x, i) => `<option value="${i}">${esc(base(x.src))}  →  ${esc(x.target)}</option>`).join('');
       if (list.length) sel.selectedIndex = Math.max(0, Math.min(list.length - 1, at < 0 ? 0 : at));
-      $('.mc-msg').textContent = list.length ? `${plural(list.length, 'item')} to download. Start fetches them one after the other.`
-        : 'The list is empty. Select files in a server panel and press "Add selected".';
+      $('.mc-msg').textContent = list.length ? tm('{what} to download. Start fetches them one after the other.', { what: tn(list.length, 'item') })
+        : tr('The list is empty. Select files in a server panel and press "Add selected".');
       for (const c of ['.up', '.down', '.remove']) $(c).disabled = !list.length;
       box.querySelector('button[type=submit]').disabled = !list.length;
     };
@@ -770,7 +780,7 @@ command({
       await setOpt(app, 'transferMode', mode);
     }
     refreshBars(app);
-    app.flash(`Transfer mode: ${MODE_LABEL[mode] || mode}${p ? '' : ' (for new FTP connections)'}.`);
+    app.flash(p ? tm('Transfer mode: {mode}.', { mode: tm(MODE_LABEL[mode] || mode) }) : tm('Transfer mode: {mode} (for new FTP connections).', { mode: tm(MODE_LABEL[mode] || mode) }));
     return mode;
   },
 });
@@ -784,7 +794,7 @@ command({
     app.setSetting('netLastCommand', line);
     const reply = await go.Net.SendCommand(p.path, line);
     refreshBars(app);
-    await messageDialog({ Title: 'Server reply', Message: reply || '(no reply)', Kind: 'net-reply' });
+    await messageDialog({ Title: 'Server reply', Message: reply || tm('(no reply)'), Kind: 'net-reply' });
     await p.reload();
     return reply;
   },
@@ -809,10 +819,10 @@ export function init(app) {
   // Enter on a server file opens a downloaded copy with its app
   app.openHandlers.push(async (panel, entry, path) => {
     if (!isRemote(path)) return false;
-    app.flash(`Downloading ${entry.name}…`);
+    app.flash(tm('Downloading {name}…', { name: entry.name }));
     const local = await go.Net.OpenCopy(path);
     await go.FS.OpenFile(local);
-    app.flash(`Opened a copy of ${entry.name}.`);
+    app.flash(tm('Opened a copy of {name}.', { name: entry.name }));
     return true;
   });
   app.on('panel', (p, info) => { if (info?.moved || isRemote(p.path)) paintBar(p); });

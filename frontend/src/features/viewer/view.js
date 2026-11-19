@@ -17,7 +17,8 @@ import { markdownToHTML } from './markdown.js';
 import { sanitizeHTML } from './sanitize.js';
 import { quickMenuItems } from './quickmenu.js';
 import { mediaTag, convertible } from './mediael.js';
-import { TableGrid, FORMAT_NAMES, rowsLabel, findFrom } from './table.js';
+import { TableGrid, FORMAT_NAMES, rowsLabelMsg, findFrom } from './table.js';
+import { tm, tn, te, Msg, translateTree } from '../../core/i18n.js';
 import { LISTER_DEFAULTS } from './lister-defaults.js';
 import { printPlan, printerNote } from './print.js';
 
@@ -124,6 +125,7 @@ export class ListerView {
         <div class="mc-viewer-note" hidden></div>
       </div>
       <div class="mc-viewer-status"><span class="mc-viewer-st-l"></span><span class="mc-viewer-st-r"></span></div>`;
+    translateTree(el);
     const $ = (s) => el.querySelector(s);
     this.el = el;
     this.$ = { main: $('.mc-viewer-main'), text: $('.mc-viewer-text'), rows: $('.mc-viewer-rows'), sb: $('.mc-viewer-sb'), thumb: $('.mc-viewer-thumb'),
@@ -151,7 +153,7 @@ export class ListerView {
         const root = this.$.doc.querySelector('.mc-viewer-dochost')?.shadowRoot;
         const t = root?.getElementById(decodeURIComponent(h.slice(1))) || root?.querySelector(`[name="${CSS.escape(decodeURIComponent(h.slice(1)))}"]`);
         t?.scrollIntoView();
-      } else if (h) this.note(`Link: ${h}`);
+      } else if (h) this.note(tm('Link: {url}', { url: h }));
     });
     el.addEventListener('mousedown', (ev) => { if (!ev.target.closest('input, select, button, video, audio')) setTimeout(() => this.focus(), 0); });
 
@@ -412,37 +414,48 @@ export class ListerView {
   }
 
   status() {
-    if (!this.info) { this.$.stl.textContent = this.folder ? 'Folder' : ''; this.$.str.textContent = ''; return; }
-    const parts = [MODE_LABELS[this.mode] + (this.asText === 'html' ? ' (HTML as text)' : this.asText === 'rtf' ? ' (RTF as text)' : '')];
+    // (the parts are Msgs, core/i18n.js: the status line shows them translated, control mode reads the English text)
+    if (!this.info) { this.setStatus(this.folder ? [tm('Folder')] : [], []); return; }
+    const mode = tm(MODE_LABELS[this.mode]);
+    const parts = [this.asText === 'html' ? tm('{mode} (HTML as text)', { mode }) : this.asText === 'rtf' ? tm('{mode} (RTF as text)', { mode }) : mode];
     if (this.isTextMode() && this.mode !== 'hex') parts.push(this.asText ? 'UTF-8' : this.info.encodingName || this.info.encoding);
-    if (this.mode === 'text' && this.wrap) parts.push('Wrap');
-    if (this.variable && this.mode !== 'hex' && this.isTextMode()) parts.push('Variable width');
-    if (this.follow) parts.push('Following');
+    if (this.mode === 'text' && this.wrap) parts.push(tm('Wrap'));
+    if (this.variable && this.mode !== 'hex' && this.isTextMode()) parts.push(tm('Variable width'));
+    if (this.follow) parts.push(tm('Following'));
     if (this.mode === 'media' && this.info.media) {
       const m = this.info.media;
       parts.push(m.format + (m.width ? ` ${m.width}×${m.height}` : ''));
-      if (this.mode === 'media' && m.kind === 'image') parts.push(this.fit ? 'Fit to window' : `${Math.round(this.zoom * 100)}%`);
+      if (this.mode === 'media' && m.kind === 'image') parts.push(this.fit ? tm('Fit to window') : `${Math.round(this.zoom * 100)}%`);
     }
     const g = this.mode === 'table' ? this.grid.shape : null;
     if (g) {
       parts.push(FORMAT_NAMES[g.format] || g.format);
       if (g.current) parts.push(g.current);
-      parts.push(`${fmtBytes((g.columns || []).length)} ${(g.columns || []).length === 1 ? 'column' : 'columns'}`);
+      const nc = (g.columns || []).length;
+      parts.push(tn(nc, 'column', 'columns', fmtBytes(nc)));
     }
     const sr = this.selRange();
-    if (sr && this.isTextMode()) parts.push(`${fmtBytes(sr[1] - sr[0])} bytes selected`);
-    this.$.stl.textContent = this.msg || parts.join(' · ');
+    if (sr && this.isTextMode()) parts.push(tm('{n} bytes selected', { n: fmtBytes(sr[1] - sr[0]) }));
     this.$.stl.classList.toggle('mc-viewer-msg', !!this.msg);
     const right = [];
     const p = this.page;
     if (p && this.isTextMode()) {
-      if (this.mode === 'text' && p.line) right.push(`Line ${fmtBytes(p.line)}${p.linesComplete ? ` of ${fmtBytes(p.lines)}` : ''}`);
-      if (this.mode !== 'text') right.push(`Offset ${hexOffset(p.top, this.info.offsetDigits || 8)}`);
+      if (this.mode === 'text' && p.line) right.push(p.linesComplete ? tm('Line {line} of {lines}', { line: fmtBytes(p.line), lines: fmtBytes(p.lines) }) : tm('Line {line}', { line: fmtBytes(p.line) }));
+      if (this.mode !== 'text') right.push(tm('Offset {offset}', { offset: hexOffset(p.top, this.info.offsetDigits || 8) }));
       right.push(`${Math.round(p.percent)}%`);
     }
-    if (g) right.push(g.rows ? `Row ${fmtBytes(this.grid.cursor + 1)} of ${rowsLabel(g)}` : rowsLabel(g));
+    if (g) right.push(g.rows ? tm('Row {row} of {rows}', { row: fmtBytes(this.grid.cursor + 1), rows: rowsLabelMsg(g) }) : rowsLabelMsg(g));
     right.push(fmtSize(this.info.size));
-    this.$.str.textContent = right.join(' · ');
+    this.setStatus(this.msg ? [this.msg instanceof Msg ? this.msg : te(this.msg)] : parts, right);
+  }
+
+  // setStatus writes the status line's two halves (lists of texts and Msgs) and keeps their English text for state().
+  setStatus(left, right) {
+    const en = (a) => a.map((x) => (x instanceof Msg ? x.en : String(x))).join(' · ');
+    const shown = (a) => a.map(String).join(' · ');
+    this.statusEn = [en(left), en(right)];
+    this.$.stl.textContent = shown(left);
+    this.$.str.textContent = shown(right);
   }
 
   // note shows a short message in the status line (errors stay longer).
@@ -506,19 +519,19 @@ export class ListerView {
       if (this.id !== id) return;
       if (st?.url) { this.playStream(id, m.kind, st); return; }
       if (st?.error && !(st.error.startsWith('Playing this kind') && m.mime && this.info.size <= MEDIA_LIMIT)) {
-        this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(st.error)}<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+        this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(te(st.error))}<br>${esc(tm('Press {key} to open it with another app.', { key: this.altKey() }))}</p>`;
         this.mediaFor = id;
         return;
       }
     }
     if (this.info.size > MEDIA_LIMIT) {
-      this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(this.info.name)} is too large to show here (${esc(fmtSize(this.info.size))}).<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+      this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(tm('{name} is too large to show here ({size}).', { name: this.info.name, size: fmtSize(this.info.size) }))}<br>${esc(tm('Press {key} to open it with another app.', { key: this.altKey() }))}</p>`;
       this.mediaFor = id;
       return;
     }
     const tag = mediaTag(m.kind, m.mime);
     if (!tag) { // a type that is not safe to draw as live content (viewer/mediael.js); never true for today's formats
-      this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(this.info.name)} can't be shown here.<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+      this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(tm('{name} can\'t be shown here.', { name: this.info.name }))}<br>${esc(tm('Press {key} to open it with another app.', { key: this.altKey() }))}</p>`;
       this.mediaFor = id;
       return;
     }
@@ -530,7 +543,7 @@ export class ListerView {
         if (this.id !== id) return;
         parts.push(b);
         if (!b.length) break;
-        if (this.info.size > CHUNK) { this.msg = `Loading… ${Math.round(Math.min(100, ((off + CHUNK) / this.info.size) * 100))}%`; this.status(); }
+        if (this.info.size > CHUNK) { this.msg = tm('Loading… {n}%', { n: Math.round(Math.min(100, ((off + CHUNK) / this.info.size) * 100)) }); this.status(); }
       }
     } finally {
       this.loading = false;
@@ -568,10 +581,10 @@ export class ListerView {
     if (this.id !== id || !el.isConnected) return;
     if (d?.url) {
       el.src = d.url;
-      if (d.tool) this.note(`Converted for viewing (${d.tool})`);
+      if (d.tool) this.note(tm('Converted for viewing ({tool})', { tool: d.tool }));
       return;
     }
-    this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(d?.error || `${this.info.name} can't be shown here.`)}<br>Press ${esc(this.altKey())} to open it with another app.</p>`;
+    this.$.media.innerHTML = `<p class="mc-viewer-big">${esc(d?.error ? te(d.error) : tm('{name} can\'t be shown here.', { name: this.info.name }))}<br>${esc(tm('Press {key} to open it with another app.', { key: this.altKey() }))}</p>`;
   }
 
   // playStream shows a <video> or <audio> that plays from the address Go gave (st.url: the file itself, or an HLS playlist
@@ -589,7 +602,7 @@ export class ListerView {
     });
     el.src = st.url;
     this.$.media.append(el);
-    if (st.hls) { this.msg = 'Converted while it plays (ffmpeg)'; this.status(); }
+    if (st.hls) { this.msg = tm('Converted while it plays (ffmpeg)'); this.status(); }
   }
 
   transform() {
@@ -653,14 +666,15 @@ export class ListerView {
     this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = this.$.table.hidden = true;
     const n = this.$.note;
     n.hidden = false;
-    n.innerHTML = `<div class="mc-viewer-folder"><b>${esc(name)}</b><span>Folder</span><span class="mc-viewer-count">Counting…</span></div>`;
+    n.innerHTML = `<div class="mc-viewer-folder"><b data-notr>${esc(name)}</b><span>Folder</span><span class="mc-viewer-count">Counting…</span></div>`;
+    translateTree(n);
     this.status();
     try {
       const r = await track(go.Lister.FolderSize('quickview', path));
       if (this.folder?.path !== path) return;
-      n.querySelector('.mc-viewer-count').textContent = `${fmtSize(r.bytes)} (${fmtBytes(r.bytes)} bytes) in ${fmtBytes(r.files)} ${r.files === 1 ? 'file' : 'files'} and ${fmtBytes(r.dirs)} ${r.dirs === 1 ? 'folder' : 'folders'}`;
+      n.querySelector('.mc-viewer-count').textContent = tm('{size} ({bytes} bytes) in {files} and {folders}', { size: fmtSize(r.bytes), bytes: fmtBytes(r.bytes), files: tn(r.files, 'file', 'files', fmtBytes(r.files)), folders: tn(r.dirs, 'folder', 'folders', fmtBytes(r.dirs)) });
     } catch (e) {
-      if (this.folder?.path === path) n.querySelector('.mc-viewer-count').textContent = errText(e);
+      if (this.folder?.path === path) n.querySelector('.mc-viewer-count').textContent = te(errText(e));
     }
   }
 
@@ -669,7 +683,7 @@ export class ListerView {
     this.close();
     this.$.text.hidden = this.$.sb.hidden = this.$.media.hidden = this.$.doc.hidden = this.$.table.hidden = true;
     this.$.note.hidden = false;
-    this.$.note.innerHTML = `<p>${esc(text)}</p>`;
+    this.$.note.innerHTML = `<p>${esc(te(text))}</p>`;
     this.status();
   }
 
@@ -933,7 +947,7 @@ export class ListerView {
 
   progress(d) {
     if (!this.searching) return;
-    this.msg = `Searching… ${d.size ? Math.round((d.pos / d.size) * 100) : 0}% (Esc stops)`;
+    this.msg = tm('Searching… {n}% (Esc stops)', { n: d.size ? Math.round((d.pos / d.size) * 100) : 0 });
     this.status();
   }
 
@@ -989,7 +1003,7 @@ export class ListerView {
     const at = this.match ? [this.match.o, this.match.o + this.match.l] : sr;
     const from = backward ? (at ? at[0] : this.page?.rows.at(-1)?.e ?? this.top) : at ? (at[1] > at[0] ? at[1] : at[0] + 1) : this.top;
     this.searching = true;
-    this.msg = 'Searching…';
+    this.msg = tm('Searching…');
     this.status();
     let m;
     try {
@@ -1008,7 +1022,7 @@ export class ListerView {
     this.msg = '';
     if (!m.found) {
       this.status();
-      await messageDialog({ Title: 'Find', Message: `"${q.pattern}" was not found${backward ? ' before this point' : ''}.`, Kind: 'lister-notfound' });
+      await messageDialog({ Title: 'Find', Message: backward ? tm('"{text}" was not found before this point.', { text: q.pattern }) : tm('"{text}" was not found.', { text: q.pattern }), Kind: 'lister-notfound' });
       this.focus();
       return;
     }
@@ -1063,7 +1077,7 @@ export class ListerView {
       return;
     }
     if (!m?.found) {
-      await messageDialog({ Title: 'Find', Message: `"${q.pattern}" was not found${backward ? ' before this cell' : ' after this cell'}.`, Kind: 'lister-notfound' });
+      await messageDialog({ Title: 'Find', Message: backward ? tm('"{text}" was not found before this cell.', { text: q.pattern }) : tm('"{text}" was not found after this cell.', { text: q.pattern }), Kind: 'lister-notfound' });
       this.focus();
       return;
     }
@@ -1094,7 +1108,7 @@ export class ListerView {
     if ((m = s.match(/^(\d+(?:\.\d+)?)\s*%$/))) { await this.refresh(+m[1] >= 100 ? 'end' : 'percent', +m[1]); return; }
     if ((m = s.match(/^(?:0x|\$)([0-9a-f]+)$/i))) { await this.refresh('offset', parseInt(m[1], 16)); return; }
     if (this.mode === 'hex') { await this.refresh('offset', parseInt(s, 16)); return; }
-    if (!/^\d+$/.test(s)) { this.note('Type a line number, an offset or a percentage.', true); return; }
+    if (!/^\d+$/.test(s)) { this.note(tm('Type a line number, an offset or a percentage.'), true); return; }
     if (text) {
       await this.queue(async () => {
         this.searching = true;
@@ -1109,7 +1123,7 @@ export class ListerView {
   // goToRow is Go to in table mode: a row number.
   async goToRow() {
     const n = this.grid.shape?.rows || 0;
-    const v = await inputDialog({ title: 'Go to', label: `Row number (1 to ${fmtBytes(n)}):`, value: '', kind: 'lister-goto', okLabel: 'Go',
+    const v = await inputDialog({ title: 'Go to', label: tm('Row number (1 to {n}):', { n: fmtBytes(n) }), value: '', kind: 'lister-goto', okLabel: 'Go',
       validate: (s) => (/^\s*\d+\s*$/.test(s) ? '' : 'Type a row number.') });
     this.focus();
     if (v == null) return;
@@ -1133,7 +1147,7 @@ export class ListerView {
     let overwrite = false;
     try {
       await go.FS.Stat(path);
-      const a = await messageDialog({ Title: 'Save as', Message: `${path} is already there. Replace it?`, Buttons: ['Replace', 'Cancel'], DefaultButton: 'Cancel', Kind: 'lister-replace' });
+      const a = await messageDialog({ Title: 'Save as', Message: tm('{path} is already there. Replace it?', { path }), Buttons: ['Replace', 'Cancel'], DefaultButton: 'Cancel', Kind: 'lister-replace' });
       this.focus();
       if (a !== 'Replace') return;
       overwrite = true;
@@ -1141,7 +1155,7 @@ export class ListerView {
     await this.queue(async () => {
       const [a, b] = sr || [0, this.info.viewSize];
       const n = await go.Lister.SaveRange(this.id, a, b, path, overwrite);
-      this.note(`Saved ${fmtBytes(n)} bytes to ${path}.`);
+      this.note(tm('Saved {n} bytes to {path}.', { n: fmtBytes(n), path }));
     });
   }
 
@@ -1151,7 +1165,9 @@ export class ListerView {
   async print() {
     if (!this.id) return;
     const plan = printPlan({ selection: this.selRange(), textMode: this.isTextMode(), name: this.info.name });
-    const b = await messageDialog({ Title: 'Print', Message: `${plan.question}\n\n${printerNote(this.app)}`, Buttons: ['Print', 'Cancel'], DefaultButton: 'Print', Kind: 'lister-print' });
+    const q = plan.kind === 'text' ? tm('Print the selected text of {name}?', { name: this.info.name }) : tm('Print {name}?', { name: this.info.name });
+    const pn = tm(printerNote(this.app));
+    const b = await messageDialog({ Title: 'Print', Message: new Msg(`${q.en}\n\n${pn.en}`, `${q}\n\n${pn}`), Buttons: ['Print', 'Cancel'], DefaultButton: 'Print', Kind: 'lister-print' });
     this.focus();
     if (b !== 'Print') return;
     try {
@@ -1159,7 +1175,7 @@ export class ListerView {
         const t = await track(go.Lister.Text(this.id, plan.start, plan.end, false));
         await track(go.SystemLaunch.PrintText(plan.title, t));
       } else await track(go.SystemLaunch.Print(this.info.path));
-      this.note(plan.kind === 'text' ? 'The selected text was sent to the printer.' : `${this.info.name} was sent to the printer.`);
+      this.note(plan.kind === 'text' ? tm('The selected text was sent to the printer.') : tm('{name} was sent to the printer.', { name: this.info.name }));
     } catch (e) { this.note(errText(e), true); }
   }
 
@@ -1367,7 +1383,7 @@ export class ListerView {
       selection: sr ? { start: sr[0], end: sr[1] } : null, match: this.match ? { offset: this.match.o, length: this.match.l } : null,
       size: this.info?.size ?? 0, suggest: this.info?.suggest ?? '', media: this.info?.media ? { kind: this.info.media.kind, format: this.info.media.format, width: this.info.media.width, height: this.info.media.height } : null,
       mediaShown: !!this.$.media.querySelector('img, video, audio, embed'), mediaLoaded: !!this.$.media.querySelector('img')?.naturalWidth, playing: !!this.$.media.querySelector('video, audio') && !this.$.media.querySelector('video, audio').paused, mediaTime: this.$.media.querySelector('video, audio')?.currentTime ?? null, mediaSize: (() => { const v = this.$.media.querySelector('video'); return v ? `${v.videoWidth}x${v.videoHeight}` : null; })(), docShown: !!this.$.doc.firstChild, fit: this.fit, zoom: this.zoom, rotate: this.rot,
-      follow: this.follow, searching: this.searching, status: this.$.stl.textContent, statusRight: this.$.str.textContent, folder: this.folder?.path ?? null,
+      follow: this.follow, searching: this.searching, status: this.statusEn?.[0] ?? this.$.stl.textContent, statusRight: this.statusEn?.[1] ?? this.$.str.textContent, folder: this.folder?.path ?? null,
       note: this.$.note.hidden ? '' : this.$.note.textContent.trim(), table: this.info?.table ?? '', grid: this.mode === 'table' ? this.grid.state() : null,
     };
   }

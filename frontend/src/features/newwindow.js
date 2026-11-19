@@ -5,6 +5,7 @@
 
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
+import { tm } from '../core/i18n.js';
 
 command({
   name: 'cm_OpenNewWindow', label: 'Open folder in new window',
@@ -13,7 +14,7 @@ command({
     if (!dir) return;
     try {
       await go.ConfigNewWindow.Open(dir);
-      app.flash(`Opening ${dir} in a new window…`);
+      app.flash(tm('Opening {path} in a new window…', { path: dir }));
     } catch (e) { app.flash(errText(e), 'err'); }
   },
 });

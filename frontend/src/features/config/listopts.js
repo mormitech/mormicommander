@@ -14,6 +14,7 @@ import { esc } from '../../core/dialogs.js';
 import { cellSize, date, attr } from '../../core/format.js';
 import { setTipMore } from '../../core/tooltip.js';
 import { on, num, opt, applyOptions, compileMask } from './util.js';
+import { tm } from '../../core/i18n.js';
 
 let app = null;
 
@@ -171,7 +172,7 @@ command({
     const now = !on('IgnoreList.Enabled');
     await applyOptions({ 'IgnoreList.Enabled': now ? '1' : '0' });
     await applyIgnoreList();
-    if (now && !masks.length) app.flash(`The ignore list is on, but ${loadedFor || 'its file'} has no masks yet.`);
+    if (now && !masks.length) app.flash(loadedFor ? tm('The ignore list is on, but {name} has no masks yet.', { name: loadedFor }) : tm('The ignore list is on, but its file has no masks yet.'));
     else app.flash(now ? 'Files from the ignore list are hidden.' : 'Files from the ignore list are shown.');
     return true;
   },

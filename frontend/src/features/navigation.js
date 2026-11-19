@@ -4,6 +4,7 @@
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { cmdline } from '../core/cmdline.js';
+import { tm } from '../core/i18n.js';
 
 const base = (p) => p.replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 
@@ -43,9 +44,9 @@ async function enter(app, opts = {}) {
   const path = p.fullPath(e.name);
   if (e.dir) return p.go(path);
   for (const h of app.openHandlers) if (await h(p, e, path, opts)) return true;
-  if (e.broken) { app.flash(`${e.name} is a link to something that is not there.`, 'err'); return false; }
+  if (e.broken) { app.flash(tm('{name} is a link to something that is not there.', { name: e.name }), 'err'); return false; }
   await go.FS.OpenFile(path);
-  app.flash(`Opened ${e.name}.`);
+  app.flash(tm('Opened {name}.', { name: e.name }));
   return true;
 }
 

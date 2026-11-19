@@ -19,6 +19,7 @@ import { popupArea } from '../core/overlay.js';
 import { FolderTree, folderReader, rootOf } from './foldertree.js';
 import { treePaneOn, treePaneLevel, setTreePane, focusTreePane } from './treepane.js';
 import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, folderItems, fileListText, subEntries } from './reserved-more-lib.js';
+import { tm } from '../core/i18n.js';
 
 const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 
@@ -187,7 +188,7 @@ async function printFile(app) {
   const b = await messageDialog({ Title: 'Print', Message: `Print ${e.name}?\n\n${printerNote(app)}`, Buttons: ['Print', 'Cancel'], Kind: 'print-file' });
   if (b !== 'Print') return false;
   try { await go.SystemLaunch.Print(path); } catch (err) { app.flash(errText(err), 'err'); return false; }
-  app.flash(`${e.name} was sent to the printer.`);
+  app.flash(tm('{name} was sent to the printer.', { name: e.name }));
   return true;
 }
 command({ name: 'cm_PrintFile', label: 'Print file', run: (app) => printFile(app) });

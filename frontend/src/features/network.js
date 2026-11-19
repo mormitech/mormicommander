@@ -21,6 +21,7 @@ import { formDialog, inputDialog, esc } from '../core/dialogs.js';
 import { go, on, errText } from '../core/go.js';
 import { networkVolumes, typedAddress, hasShare, typedPath, isNetworkRoot, bannerText, netKey, isNetFolder, netParent } from './network-lib.js';
 import { Panel } from '../core/panel.js';
+import { tm } from '../core/i18n.js';
 
 let status = { searching: false, count: 0, note: '', opening: [] };
 
@@ -137,7 +138,7 @@ async function netConnect(app, panel = app.cur) {
   if (!hasShare(address)) { app.setActive(panel); return panel.go(typedPath(address)); }
   const opts = await mapOptions(app, address);
   if (!opts) return false;
-  app.flash(`Connecting ${address}…`);
+  app.flash(tm('Connecting {address}…', { address }));
   let r;
   try {
     r = await withAuth(address, { address, ...opts }, (req) => go.Network.Map(req));
@@ -146,7 +147,7 @@ async function netConnect(app, panel = app.cur) {
     return false;
   }
   if (!r) { app.flash(''); return false; }
-  app.flash(`Connected: ${r.path}`);
+  app.flash(tm('Connected: {path}', { path: r.path }));
   await app.loadVolumes();
   app.setActive(panel);
   return panel.go(r.path);
@@ -169,7 +170,7 @@ async function netDisconnect(app, panel = app.cur) {
   const home = (app.volumes.find((x) => x.kind === 'home') || app.volumes[0])?.path;
   for (const p of app.panels) if (home && app.driveFor(p.path) === v) await p.go(home);
   await app.loadVolumes();
-  app.flash(`Disconnected ${v.name}.`);
+  app.flash(tm('Disconnected {name}.', { name: v.name }));
   return true;
 }
 

@@ -5,6 +5,7 @@
 import { command, getCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { runButton } from './run.js';
+import { tm } from '../../core/i18n.js';
 
 const known = new Map(); // em_ name (lower case) → the user command as last read
 
@@ -24,7 +25,7 @@ export async function registerUserCommands(app) {
       name: u.name, label, mcConfigUser: true,
       run: (a) => {
         const cur = known.get(key);
-        if (!cur) { a.flash(`The user command ${u.name} was deleted.`); return false; }
+        if (!cur) { a.flash(tm('The user command {name} was deleted.', { name: u.name })); return false; }
         return runButton(a, { cmd: cur.cmd, params: cur.params, path: cur.path, iconic: cur.iconic, tooltip: cur.menu || cur.name }, { title: cur.menu || cur.name });
       },
     });

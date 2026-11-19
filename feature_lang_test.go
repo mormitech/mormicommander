@@ -2,9 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -127,5 +132,82 @@ func TestOptionTextsFile(t *testing.T) {
 	got, err := os.ReadFile(file)
 	if err != nil || string(got) != string(want) {
 		t.Fatalf("%s is out of date with the Options labels: run MC_WRITE_LANG_TEMPLATE=1 go test -run TestOptionTextsFile . (and translate the new texts in lang/hu.lng)", file)
+	}
+}
+
+// goErrorTexts are the messages of the Go source that reach the user as errors (#113): the texts of errors.New and
+// fmt.Errorf that read as a sentence (they start with a capital letter or a verb such as "%s " and have a space, and
+// have a word besides the verbs; API names such as GlobalLock are left out). The
+// frontend shows them translated when the language file has them (tText in core/i18n.js matches the verbs); the program
+// itself keeps the English text.
+func goErrorTexts(t *testing.T) []string {
+	sentence := regexp.MustCompile(`^(%[a-z]\s|[A-Z])`)
+	technical := regexp.MustCompile(`^[A-Z][a-z]+[A-Z]|^[A-Z]+_|^HTTP `) // (API names: GlobalLock, CF_HDROP, BinHex…)
+	verbs := regexp.MustCompile(`%[-+# 0-9.]*[a-zA-Z]`)
+	words := regexp.MustCompile(`[a-z]{3,}`) // (at least one word besides the verbs: not "%w (%v)")
+	seen := map[string]bool{}
+	err := filepath.WalkDir(".", func(p string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			if n := d.Name(); p != "." && (strings.HasPrefix(n, ".") || n == "frontend" || n == "build" || n == "node_modules" || n == "rclonetest") {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(p, ".go") || strings.HasSuffix(p, "_test.go") {
+			return nil
+		}
+		f, err := parser.ParseFile(token.NewFileSet(), p, nil, 0)
+		if err != nil {
+			return err
+		}
+		ast.Inspect(f, func(n ast.Node) bool {
+			c, ok := n.(*ast.CallExpr)
+			if !ok || len(c.Args) == 0 {
+				return true
+			}
+			sel, ok := c.Fun.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			x, ok := sel.X.(*ast.Ident)
+			if !ok || !(x.Name == "errors" && sel.Sel.Name == "New" || x.Name == "fmt" && sel.Sel.Name == "Errorf") {
+				return true
+			}
+			if lit, ok := c.Args[0].(*ast.BasicLit); ok && lit.Kind == token.STRING {
+				if s, err := strconv.Unquote(lit.Value); err == nil && sentence.MatchString(s) && strings.Contains(s, " ") && !technical.MatchString(s) && words.MatchString(verbs.ReplaceAllString(s, "")) {
+					seen[s] = true
+				}
+			}
+			return true
+		})
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := make([]string, 0, len(seen))
+	for s := range seen {
+		out = append(out, s)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// frontend/test/error-texts.json lists the Go error messages for the language template and the Hungarian file's test.
+func TestErrorTextsFile(t *testing.T) {
+	want, _ := json.MarshalIndent(goErrorTexts(t), "", "  ")
+	want = append(want, '\n')
+	file := filepath.Join("frontend", "test", "error-texts.json")
+	if os.Getenv("MC_WRITE_LANG_TEMPLATE") != "" {
+		if err := os.WriteFile(file, want, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := os.ReadFile(file)
+	if err != nil || string(got) != string(want) {
+		t.Fatalf("%s is out of date with the Go error messages: run MC_WRITE_LANG_TEMPLATE=1 go test -run TestErrorTextsFile . (and translate the new texts in lang/hu.lng)", file)
 	}
 }

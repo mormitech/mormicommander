@@ -32,6 +32,7 @@ import { tabFields, lockField, tabHistory, backFromHistory, sortSaved, sameSort 
 import { favKeyFor, favForKey, setFavKey, renameFavKey, dropFavKey } from './favtabkeys-lib.js';
 import { keyText, hotkeyOK } from './config/keys.js';
 import { normalizeCombo } from '../core/keys.js';
+import { tm, translateTree, tText } from '../core/i18n.js';
 
 export const LOCK_NONE = 0, LOCK_FULL = 1, LOCK_DIRS = 2;
 
@@ -647,7 +648,7 @@ async function applyFavorite(f) {
     if (replace) await replaceTabs(side, f[side]);
     else for (const x of f[side].tabs) await newTab(side, { ...tabFields(x), background: true });
   }
-  theApp.flash(`Favourite tabs ${f.name} are open.`);
+  theApp.flash(tm('Favourite tabs {name} are open.', { name: f.name }));
   return true;
 }
 
@@ -693,8 +694,9 @@ async function configFavorites() {
         ${favs.length ? '' : '<p class="mc-note">No favourite tabs yet. Use "Add current tabs" to save the tabs of both panels under a name.</p>'}
         <p class="mc-err" hidden></p>
         <div class="mc-btns"><button type="button" data-a="add">Add current tabs…</button><button type="button" data-a="rename"${favs.length ? '' : ' disabled'}>Rename…</button><button type="button" data-a="delete"${favs.length ? '' : ' disabled'}>Delete</button><button type="button" data-a="key"${favs.length ? '' : ' disabled'}>Key…</button><button type="button" data-a="open"${favs.length ? '' : ' disabled'}>Open</button><button type="button" data-a="close" class="primary">Close</button></div>`;
+      translateTree(box);
     };
-    const err = (m) => { const e = box.querySelector('.mc-err'); e.hidden = !m; e.textContent = m || ''; };
+    const err = (m) => { const e = box.querySelector('.mc-err'); e.hidden = !m; e.textContent = tText(m || ''); };
     const selected = () => favs.find((f) => f.name === box.querySelector('#fav-list')?.value);
     const reload = async (name) => { favs = await go.TabsHotlist.Favorites(); draw(Math.max(0, favs.findIndex((f) => f.name === name))); };
     box.onsubmit = (ev) => { ev.preventDefault(); done(true); };
@@ -710,7 +712,7 @@ async function configFavorites() {
           const n = await inputDialog({ title: 'Rename favourite tabs', label: 'New name', value: f.name, kind: 'favorite-rename' });
           if (n && n !== f.name) { await go.TabsHotlist.RenameFavorite(f.name, n); await setFavKeys(renameFavKey(favKeys(), f.name, n)); await reload(n.trim()); }
         } else if (a === 'delete' && f) {
-          const y = await messageDialog({ Title: 'Delete favourite tabs', Message: `Delete the favourite tabs ${f.name}?`, Buttons: ['Delete', 'Cancel'], Kind: 'favorite-delete' });
+          const y = await messageDialog({ Title: 'Delete favourite tabs', Message: tm('Delete the favourite tabs {name}?', { name: f.name }), Buttons: ['Delete', 'Cancel'], Kind: 'favorite-delete' });
           if (y === 'Delete') { await go.TabsHotlist.DeleteFavorite(f.name); if (favKeyFor(favKeys(), f.name)) await setFavKeys(dropFavKey(favKeys(), f.name)); await reload(''); }
         } else if (a === 'key' && f) { if (await askFavKey(f.name)) await reload(f.name); }
       } catch (e) { err(errText(e)); }
@@ -727,7 +729,7 @@ async function saveFavorite(name) {
     if (!name) return '';
   }
   await go.TabsHotlist.SaveFavorite({ name, left: tabSet('left'), right: tabSet('right') });
-  theApp.flash(`The tabs of both panels are saved as ${name.trim()}.`);
+  theApp.flash(tm('The tabs of both panels are saved as {name}.', { name: name.trim() }));
   return name.trim();
 }
 
@@ -819,7 +821,7 @@ command({
     const path = args.file || await chooseTabFile(true);
     if (!path) return false;
     await go.TabsHotlist.SaveTabFile(path, { active: tabSet(curSide(app)), inactive: { tabs: [], active: 0 } });
-    app.flash(`The tabs are saved to ${folderName(path)}.`);
+    app.flash(tm('The tabs are saved to {name}.', { name: folderName(path) }));
     return true;
   },
 });
@@ -839,7 +841,7 @@ command({
     const name = String(args.name || args.params || '').trim();
     if (!name) return favoritesMenu();
     const f = (await go.TabsHotlist.Favorites()).find((x) => x.name.toLowerCase() === name.toLowerCase());
-    if (!f) { app.flash(`There are no favourite tabs named ${name}.`, 'err'); return false; }
+    if (!f) { app.flash(tm('There are no favourite tabs named {name}.', { name }), 'err'); return false; }
     return applyFavorite(f);
   },
 });
@@ -875,7 +877,7 @@ export function init(app) {
     if (!name || document.querySelector('.mc-modal:not(.mc-modeless)')) return false;
     go.TabsHotlist.Favorites().then((favs) => {
       const f = favs.find((x) => x.name.toLowerCase() === name.toLowerCase());
-      if (f) applyFavorite(f); else app.flash(`There are no favourite tabs named ${name}.`, 'err');
+      if (f) applyFavorite(f); else app.flash(tm('There are no favourite tabs named {name}.', { name }), 'err');
     }).catch((e) => app.flash(errText(e), 'err'));
     return true;
   });

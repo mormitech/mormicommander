@@ -30,7 +30,7 @@ import { modal, messageDialog, esc } from '../core/dialogs.js';
 import { runJob, showTransfers, jobList, backgroundSpeedLimit } from '../core/jobs.js';
 import { onErrorFor } from '../core/joberrors.js';
 import { plural, F } from '../core/format.js';
-import { t as tt } from '../core/i18n.js';
+import { t as tt, tm, tText } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { sameNameTarget, targetHistory } from './fileops-target.js';
@@ -254,7 +254,7 @@ function copyDialog(app, { move, same, items }) {
     $('.cancel').onclick = () => done(null);
     let queued = false;
     $('.queue').onclick = () => { queued = true; box.requestSubmit(); };
-    const err = (msg) => { const e = $('.mc-err'); e.hidden = !msg; e.textContent = msg || ''; };
+    const err = (msg) => { const e = $('.mc-err'); e.hidden = !msg; e.textContent = tText(msg || ''); };
     let busy = false;
     box.onsubmit = async (ev) => {
       ev.preventDefault();
@@ -410,7 +410,7 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
     if (info?.kind === 'archive') place = 'archive';
     why = archiveRefusal(info);
   }
-  if (place && wipe) { app.flash(`Wiping works only for files on this computer, not in ${place === 'archive' ? 'an archive' : 'a server folder'}.`, 'err'); return false; }
+  if (place && wipe) { app.flash(place === 'archive' ? tm('Wiping works only for files on this computer, not in an archive.') : tm('Wiping works only for files on this computer, not in a server folder.'), 'err'); return false; }
   // an archive that can't be changed says so instead of asking to delete "for good" first (board #143)
   if (why) { await messageDialog({ Title: 'Delete', Message: why }); return false; }
   const useTrash = !!opt(app, 'useTrash');
@@ -511,7 +511,7 @@ async function makeFolder(app) {
     };
     box.querySelector('.mc-fileops-hist').onclick = () => box._history();
     box.querySelector('.cancel').onclick = () => done(null);
-    const err = (msg) => { const x = box.querySelector('.mc-err'); x.hidden = !msg; x.textContent = msg || ''; };
+    const err = (msg) => { const x = box.querySelector('.mc-err'); x.hidden = !msg; x.textContent = tText(msg || ''); };
     let busy = false;
     box.onsubmit = async (ev) => {
       ev.preventDefault();

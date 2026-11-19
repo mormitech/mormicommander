@@ -20,6 +20,7 @@ import { comboFromEvent, eventInit } from './core/keys.js';
 import { popupOpen, currentPopup, choosePopup } from './core/popup.js';
 import { currentDialog, answerDialog, dialogOpen } from './core/dialogs.js';
 import { idle } from './core/busy.js';
+import { setTranslations, tr } from './core/i18n.js';
 import { ListerView, applyListerOptions, listerSettings } from './features/viewer/view.js';
 import { makeWalker, walkList } from './features/viewer/walk.js';
 // The view's menus run cm_ListExternal ("Open with another app") and cm_ListerConfig (Lister options); importing the
@@ -157,6 +158,12 @@ async function ctl(m) {
   throw new Error(`unknown Lister window command "${m.cmd}"`);
 }
 
+// loadLanguage reads the language file of Options > Language (#113), as the file manager's page does; without one, or
+// when it can't be read, the window stays English.
+async function loadLanguage() {
+  try { setTranslations(await go.Configuration.Language()); } catch { setTranslations(null); }
+}
+
 async function start() {
   const [platform, info, sep, home] = await Promise.all([
     go.App.Platform().catch(() => 'darwin'), go.App.StartInfo().catch(() => ({})), go.FS.Separator().catch(() => '/'), go.FS.Home().catch(() => '/'),
@@ -167,9 +174,10 @@ async function start() {
   applyTheme(info);
   setupKeys(platform, getSetting('keymap', {}));
   setApp(app);
+  await loadLanguage();
 
   const menus = document.getElementById('viewer-menus');
-  menus.innerHTML = MENUS.map((m) => `<button type="button" class="mc-viewer-menu" data-menu="${m}">${m}</button>`).join('');
+  menus.innerHTML = MENUS.map((m) => `<button type="button" class="mc-viewer-menu" data-menu="${m}">${tr(m)}</button>`).join('');
   menus.querySelectorAll('.mc-viewer-menu').forEach((b) => { b.onclick = () => cur?.view.menu(b.dataset.menu, b); });
   window.addEventListener('keydown', onKey, true);
 

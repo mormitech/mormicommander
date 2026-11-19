@@ -25,6 +25,7 @@ import { tabList, activate } from './tabs.js';
 import { runEntry } from './hotlist.js';
 import { loadSchema } from './config/util.js';
 import { EXTRA_PAGES } from './config/options.js';
+import { tm, translateTree, tn, tr } from '../core/i18n.js';
 
 const SELF = new Set(['cm_CommandPalette', 'cm_CommandBrowser']);
 const SHOW_MAX = 200; // rows drawn at once; typing narrows the rest down
@@ -45,8 +46,10 @@ function commandItems(app) {
     let off = false;
     try { off = !!(c.enabled && !c.enabled(app)); } catch { off = false; }
     const keys = keysFor(c.name).map((k) => keyLabel(k, app.platform));
-    out.push({ key: `cmd:${c.name}`, group: 'cmd', label: String(c.label || c.name), hint: keys.join(', '), detail: c.name,
-      words: commandWords(c.name), disabled: off, run: () => app.run(c.name) });
+    // (the label is shown and searched translated when a language file is set, #113; the English label is a search word too)
+    const en = String(c.label || c.name), label = tr(en);
+    out.push({ key: `cmd:${c.name}`, group: 'cmd', label, en, hint: keys.join(', '), detail: c.name,
+      words: label === en ? commandWords(c.name) : [...commandWords(c.name), en], disabled: off, run: () => app.run(c.name) });
   }
   out.sort((a, b) => a.label.localeCompare(b.label));
   return out;
@@ -57,7 +60,7 @@ function tabItems(app) {
   for (const side of ['left', 'right']) {
     for (const t of tabList(side)) {
       if (t.active && tabList(side).length < 2) continue; // a lone tab is just the panel
-      out.push({ key: `tab:${side}:${t.path}`, group: 'tab', label: t.caption || t.path, detail: t.path, hint: `${side === 'left' ? 'Left' : 'Right'}${t.active ? ', shown' : ''}`,
+      out.push({ key: `tab:${side}:${t.path}`, group: 'tab', label: t.caption || t.path, detail: t.path, hint: t.active ? tr(side === 'left' ? 'Left, shown' : 'Right, shown') : tr(side === 'left' ? 'Left' : 'Right'),
         run: async () => { const ok = await activate(side, t.index); app.setActive(app.panel(side)); return ok; } });
     }
   }
@@ -82,7 +85,11 @@ function folderItems(app) {
 async function pageItems(app) {
   const schema = await loadSchema().catch(() => null);
   const pages = [...(schema?.pages || []).map((p) => ({ id: p.id, title: p.title })), ...Object.entries(EXTRA_PAGES).map(([id, x]) => ({ id, title: x.title, words: x.words }))];
-  return pages.map((p) => ({ key: `page:${p.id}`, group: 'page', label: `Options: ${p.title}`, words: p.words ? [p.words] : [], run: () => app.run('cm_Config', { page: p.id }) }));
+  return pages.map((p) => {
+    const label = String(tm('Options: {title}', { title: tr(p.title) })), en = `Options: ${p.title}`;
+    const words = [...(p.words ? [p.words] : []), ...(label === en ? [] : [en])];
+    return { key: `page:${p.id}`, group: 'page', label, words, run: () => app.run('cm_Config', { page: p.id }) };
+  });
 }
 
 // gather collects the items: only 'commands' for the command browser, everything for the palette. A source that fails
@@ -110,6 +117,7 @@ async function openPalette(app, { only = '', query = '' } = {}) {
       <div class="mc-palette-foot"><span class="mc-palette-count"></span>
         ${browser ? '<button type="button" class="mc-palette-assign" title="Give the highlighted command a key (F2)">Assign key…</button><button type="button" class="mc-palette-keys">Keyboard shortcuts…</button>' : ''}
         <button type="button" class="cancel">Close</button></div>`;
+    translateTree(box);
     const input = box.querySelector('#palette-q');
     const list = box.querySelector('.mc-palette-list');
     const count = box.querySelector('.mc-palette-count');
@@ -123,10 +131,10 @@ async function openPalette(app, { only = '', query = '' } = {}) {
       shown = all.slice(0, SHOW_MAX);
       at = Math.max(0, shown.findIndex((it) => !it.disabled));
       list.innerHTML = shown.length ? shown.map((it, i) => `<div class="mc-palette-it${it.disabled ? ' off' : ''}" data-i="${i}" role="option">
-          ${browser ? '' : `<span class="mc-palette-g">${esc(GROUPS[it.group] || '')}</span>`}<span class="mc-palette-l">${esc(it.label)}</span>
+          ${browser ? '' : `<span class="mc-palette-g">${esc(tr(GROUPS[it.group] || ''))}</span>`}<span class="mc-palette-l">${esc(it.label)}</span>
           ${it.detail && it.detail !== it.label ? `<span class="mc-palette-d">${esc(it.detail)}</span>` : ''}${it.hint ? `<span class="mc-palette-k">${esc(it.hint)}</span>` : ''}</div>`).join('')
-        : '<p class="mc-palette-none">Nothing matches.</p>';
-      count.textContent = all.length > shown.length ? `${shown.length} of ${all.length} shown` : `${all.length} ${all.length === 1 ? 'item' : 'items'}`;
+        : `<p class="mc-palette-none">${esc(tr('Nothing matches.'))}</p>`;
+      count.textContent = all.length > shown.length ? tm('{n} of {total} shown', { n: shown.length, total: all.length }) : tn(all.length, 'item', 'items', String(all.length));
       paint();
     };
     const move = (d) => {
@@ -137,7 +145,7 @@ async function openPalette(app, { only = '', query = '' } = {}) {
     const choose = (i) => {
       const it = shown[i];
       if (!it) return;
-      if (it.disabled) { app.flash(`${it.label.replace(/…$/, '')} is not available now.`); return; }
+      if (it.disabled) { app.flash(tm('{name} is not available now.', { name: tm((it.en || it.label).replace(/…$/, '')) })); return; }
       done(it);
     };
     input.addEventListener('input', refresh);

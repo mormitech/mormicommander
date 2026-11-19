@@ -11,20 +11,35 @@
 
 let table = null; // Map English → translation, or null
 let collected = null; // Set of the texts asked while collecting, or null
+let patterns = null; // [regex, translation] of the texts with Go verbs (%s, %v, %d, %q…), made when first needed
 
 export function setTranslations(map) {
   const entries = map ? Object.entries(map).filter(([k, v]) => k && typeof v === 'string' && v !== '') : [];
   table = entries.length ? new Map(entries) : null;
+  patterns = null;
 }
 
-// fill puts vars into the {name} placeholders of s (a placeholder without a value stays as it is).
-function fill(s, vars) {
-  return s.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(vars, k) ? String(vars[k]) : m));
+// Msg is a message with both its English and its translated text (tm below): app.flash shows the translation and keeps
+// the English for control mode; anywhere else it reads as the translated text.
+export class Msg {
+  constructor(en, text) { this.en = en; this.text = text; }
+  toString() { return this.text; }
+}
+
+// fill puts vars into the {name} placeholders of s (a placeholder without a value stays as it is). A Msg value gives
+// its English text (en) or its translation.
+function fill(s, vars, en = false) {
+  return s.replace(/\{(\w+)\}/g, (m, k) => {
+    if (!Object.hasOwn(vars, k)) return m;
+    const v = vars[k];
+    return v instanceof Msg ? (en ? v.en : v.text) : String(v);
+  });
 }
 
 // t is the translation of an English text (the text itself when there is none). A trailing "…" is kept, so "Pack" also
 // translates "Pack…".
 export function t(s, vars) {
+  if (s instanceof Msg) return s.text;
   if (typeof s !== 'string' || !s) return s;
   collected?.add(s);
   let out = s;
@@ -37,6 +52,55 @@ export function t(s, vars) {
 }
 
 export const tr = t; // (the older name, used by the menus, popups and dialogs)
+
+// tm is t() as a Msg: the English text with its placeholders filled in (for control mode and the program's logic) and
+// the translated one (shown). Without a language file both are the same English text.
+export function tm(s, vars = {}) {
+  return new Msg(fill(s, vars, true), t(s, vars));
+}
+
+// tn is "3 files" as a Msg: the number and the English word, and the number and the translated word (Hungarian keeps
+// the singular after a number: "files=fájl"). Used as a value of tm()'s placeholders.
+const group = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }); // (as plural() in core/format.js)
+export function tn(n, word, many = `${word}s`, num = group.format(n)) {
+  const w = n === 1 ? word : many;
+  return new Msg(`${num} ${w}`, `${num} ${t(w)}`);
+}
+
+// tjoin joins texts and Msgs into one Msg (lines of a message, parts of a status line).
+export const tjoin = (parts, sep = '\n') => new Msg(parts.map((x) => (x instanceof Msg ? x.en : String(x))).join(sep), parts.map(String).join(sep));
+
+// te is a text that may come from Go (an error) as a Msg: the English text and its translation (tText below), for use
+// as a value of tm()'s placeholders.
+export const te = (s) => new Msg(String(s ?? ''), tText(String(s ?? '')));
+
+// tText translates a whole message shown to the user that may come from Go (an error): the language file's text for it,
+// else the most specific text with Go verbs (%s, %v, %d, %q…, as written in the Go source; frontend/test/error-texts.json lists
+// them) that matches it, with the parts the verbs stand for put into the translation's verbs (in order, or by %[n]s).
+// The program itself keeps the English text; without a language file the text comes back unchanged.
+export function tText(s) {
+  if (s instanceof Msg) return s.text;
+  if (typeof s !== 'string' || !s || !table) return t(s);
+  const hit = t(s);
+  if (hit !== s) return hit;
+  if (!patterns) {
+    patterns = [];
+    for (const [en, x] of table) {
+      if (!/%[-+# 0-9.]*[a-zA-Z]/.test(en.replace(/%%/g, ''))) continue;
+      const parts = en.split(/(%%|%[-+# 0-9.]*[a-zA-Z])/);
+      const re = parts.map((p, i) => (i % 2 ? (p === '%%' ? '%' : '([\\s\\S]*?)') : p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))).join('');
+      patterns.push([new RegExp(`^${re}$`), x, parts.filter((p, i) => i % 2 === 0).join('').length]);
+    }
+    patterns.sort((a, b) => b[2] - a[2]); // (the most specific text first: "Can't %s %s: it is not there." before "Can't %s %s: %v")
+  }
+  for (const [re, x] of patterns) {
+    const m = re.exec(s);
+    if (!m) continue;
+    let i = 0;
+    return x.replace(/%%|%(?:\[(\d+)\])?[-+# 0-9.]*[a-zA-Z]/g, (v, n) => (v === '%%' ? '%' : (m[n ? +n : ++i] ?? '')));
+  }
+  return s;
+}
 
 export const translating = () => !!table;
 
@@ -74,7 +138,7 @@ export function translateTree(root) {
 export function htmlTexts(src) {
   const out = [];
   const keep = (s) => {
-    s = s.replace(/\s+/g, ' ').trim().replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    s = s.replace(/\s+/g, ' ').trim().replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/\\'/g, "'");
     if (/[A-Za-z]{2}/.test(s) && !/[${}=;|]|&&/.test(s)) out.push(s);
   };
   for (const m of src.matchAll(/>([^<>`]+)</g)) keep(m[1]);
@@ -89,10 +153,10 @@ export function stopCollecting() { const s = collected ? [...collected] : []; co
 // lngLine is one "English=Translation" line of a .lng file ("=" in the English text written "\=").
 export const lngLine = (en, tr2 = '') => `${en.replace(/=/g, '\\=')}=${tr2}`;
 
-// literalTexts finds the texts of t('…') / tr('…') / tt('…') calls with a plain string (no ${} inside) in source code.
+// literalTexts finds the texts of t('…') / tr('…') / tt('…') / tm('…') calls with a plain string (no ${} inside) in source code.
 export function literalTexts(src) {
   const out = [];
-  const re = /\b(?:t|tr|tt)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\$]|\\.)*)`)/g;
+  const re = /\b(?:t|tr|tt|tm)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\$]|\\.)*)`)/g;
   for (const m of src.matchAll(re)) {
     const s = (m[1] ?? m[2] ?? m[3]).replace(/\\(.)/g, (x, c) => (c === 'n' ? '\n' : c));
     if (s) out.push(s);

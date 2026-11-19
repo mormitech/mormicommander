@@ -9,7 +9,7 @@
 import './multirename.css';
 import { command } from '../core/registry.js';
 import { modal, messageDialog, inputDialog, formDialog, infoDialog, esc } from '../core/dialogs.js';
-import { t as tt, translateTree } from '../core/i18n.js';
+import { t as tt, translateTree, tm, tn } from '../core/i18n.js';
 import { go, on, errText } from '../core/go.js';
 import { addControlCommand } from '../core/control.js';
 import { size as fmtSize, date as fmtDate, plural } from '../core/format.js';
@@ -621,7 +621,7 @@ async function savePresetAs(st) {
   });
   if (name === null) return;
   if (st.presets.includes(name) && name !== st.preset) {
-    const b = await messageDialog({ Title: 'Save settings', Message: `Settings named "${name}" are saved already. Replace them?`, Buttons: ['Replace', 'Cancel'], Kind: 'multirename-replace' });
+    const b = await messageDialog({ Title: 'Save settings', Message: tm('Settings named "{name}" are saved already. Replace them?', { name }), Buttons: ['Replace', 'Cancel'], Kind: 'multirename-replace' });
     if (b !== 'Replace') return;
   }
   await savePreset(st, name);
@@ -713,7 +713,7 @@ async function startRename(st) {
     const bad = pv.rows.filter((r) => r.problems?.length);
     const lines = bad.slice(0, 12).map((r) => `${r.old} → ${r.new}: ${r.problems.map((x) => x.detail).join(' ')}`);
     if (bad.length > 12) lines.push(`… and ${bad.length - 12} more`);
-    await messageDialog({ Title: 'Can\'t rename', Message: `These new names can't be used:\n\n${lines.join('\n')}\n\nChange the masks or the names first.`, Kind: 'multirename-conflicts' });
+    await messageDialog({ Title: 'Can\'t rename', Message: tm('These new names can\'t be used:\n\n{lines}\n\nChange the masks or the names first.', { lines: lines.join('\n') }), Kind: 'multirename-conflicts' });
     return;
   }
   const f = readForm(st.box);
@@ -798,7 +798,7 @@ async function undo(st) {
   if (st.busy) return;
   const info = await go.MultiRename.UndoInfo().catch(() => null);
   if (!info?.available) { setStatus(st, 'There is nothing to undo.'); return; }
-  const b = await messageDialog({ Title: 'Undo', Message: `Give the ${plural(info.count, 'file')} renamed at ${info.time} their old names back?`, Buttons: ['Undo', 'Cancel'], Kind: 'multirename-undo' });
+  const b = await messageDialog({ Title: 'Undo', Message: tm('Give the {what} renamed at {time} their old names back?', { what: tn(info.count, 'file'), time: info.time }), Buttons: ['Undo', 'Cancel'], Kind: 'multirename-undo' });
   if (b !== 'Undo') return;
   try {
     const n = await go.MultiRename.Undo();
@@ -819,12 +819,12 @@ async function undoFromPanel(app, ask) {
   const info = await go.MultiRename.UndoInfo().catch(() => null);
   if (!info?.available) { app.flash('There is no Multi-Rename batch to undo.'); return; }
   if (ask) {
-    const b = await messageDialog({ Title: 'Undo multi-rename', Message: `Give the ${plural(info.count, 'file')} renamed at ${info.time} their old names back?`, Buttons: ['Undo', 'Cancel'], Kind: 'multirename-undo' });
+    const b = await messageDialog({ Title: 'Undo multi-rename', Message: tm('Give the {what} renamed at {time} their old names back?', { what: tn(info.count, 'file'), time: info.time }), Buttons: ['Undo', 'Cancel'], Kind: 'multirename-undo' });
     if (b !== 'Undo') return;
   }
   try {
     const n = await go.MultiRename.Undo();
-    app.flash(`${plural(n, 'file')} got their old names back.`);
+    app.flash(tm('{what} got their old names back.', { what: tn(n, 'file') }));
   } catch (e) {
     await messageDialog({ Title: 'Undo failed', Message: errText(e), Kind: 'multirename-error' });
   }

@@ -27,7 +27,7 @@ import './syncdirs.css';
 import { command } from '../core/registry.js';
 import { go, on, errText, setClipboardText } from '../core/go.js';
 import { esc, modal, messageDialog, inputDialog, formDialog } from '../core/dialogs.js';
-import { t as tt, translateTree } from '../core/i18n.js';
+import { t as tt, translateTree, tm, tn, te, tjoin } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { size, bytes, date, plural, dateWidth } from '../core/format.js';
 import { openWindow, contextMenu, joinPath } from './synccompare-ui.js';
@@ -152,7 +152,7 @@ function syncWindow(app, id, args = {}) {
     await refresh(null);
     if (d.error) await messageDialog({ Title: 'Synchronize folders', Message: d.error, Kind: 'syncdirs-error' });
     else if (d.cancelled) app.flash('The compare was stopped; the list shows what was compared so far.');
-    else if (st.errors.length) app.flash(`${plural(st.errors.length, 'folder')} could not be read: ${st.errors[0]}`, 'err');
+    else if (st.errors.length) app.flash(tm('{what} could not be read: {error}', { what: tn(st.errors.length, 'folder'), error: te(st.errors[0]) }), 'err');
     else if (st.summary && allEqual(st.summary)) app.flash('All files are equal.');
     else if (readOnlyNote(st.sides)) app.flash(readOnlyNote(st.sides));
   };
@@ -205,21 +205,22 @@ function syncWindow(app, id, args = {}) {
   const actionTip = (r) => {
     const t = { none: 'No action', copyLeftToRight: 'Copy to the right', copyRightToLeft: 'Copy to the left', deleteLeft: 'Delete on the left',
       deleteRight: 'Delete on the right', deleteBoth: 'Delete on both sides' }[r.action] || r.action;
-    return (r.unselected && r.action !== 'none' ? `${t} (left out: click to include)` : t) + ' — click to change';
+    return `${r.unselected && r.action !== 'none' ? tm('{action} (left out: click to include)', { action: tm(t) }) : tt(t)} — ${tt('click to change')}`;
   };
   const paintStatus = () => {
     if (st.running) {
       const p = st.progress || {};
-      status.textContent = `Comparing… ${plural(p.dirs || 0, 'folder')}, ${plural(p.files || 0, 'file')}${p.current ? ` · ${p.current}` : ''}  (Esc stops)`;
+      status.textContent = `${tm('Comparing… {folders}, {files}', { folders: tn(p.dirs || 0, 'folder'), files: tn(p.files || 0, 'file') })}${p.current ? ` · ${p.current}` : ''}  ${tt('(Esc stops)')}`;
       return;
     }
     if (!st.compared) { status.textContent = tt(st.stale ? 'The folders changed: press Compare (Enter).' : 'Choose the folders and press Compare (Enter).'); return; }
     const s = st.summary || {};
     const files = st.rows.filter((r) => !r.isDir);
     const total = files.reduce((a, r) => a + Math.max(r.left?.size || 0, r.right?.size || 0), 0);
-    let t = `Shown: ${plural(files.length, 'file')} (${size(total)}) · Equal ${s.equal ?? 0} · Different ${s.unequal ?? 0} · Newer left ${s.leftNewer ?? 0} · Newer right ${s.rightNewer ?? 0} · Only left ${s.leftOnly ?? 0} · Only right ${s.rightOnly ?? 0}`;
-    if (st.errors.length) t += ` · ${plural(st.errors.length, 'error')}`;
-    if (st.sel.size) t += ` · ${st.sel.size} selected`;
+    let t = String(tm('Shown: {files} ({size}) · Equal {equal} · Different {unequal} · Newer left {leftNewer} · Newer right {rightNewer} · Only left {leftOnly} · Only right {rightOnly}',
+      { files: tn(files.length, 'file'), size: size(total), equal: s.equal ?? 0, unequal: s.unequal ?? 0, leftNewer: s.leftNewer ?? 0, rightNewer: s.rightNewer ?? 0, leftOnly: s.leftOnly ?? 0, rightOnly: s.rightOnly ?? 0 }));
+    if (st.errors.length) t += ` · ${tn(st.errors.length, 'error')}`;
+    if (st.sel.size) t += ` · ${tm('{n} selected', { n: st.sel.size })}`;
     status.textContent = t;
   };
   const paintTools = () => {
@@ -396,7 +397,7 @@ function syncWindow(app, id, args = {}) {
       case 'openr': openFile(one, 'right'); break;
       case 'showl': showInPanel(one, 'left'); break;
       case 'showr': showInPanel(one, 'right'); break;
-      case 'clip': if (await clip(ts.map((r) => r.path).join('\n') + '\n')) app.flash(`Copied ${plural(ts.length, 'name')}.`); else app.flash('The clipboard could not be written.', 'err'); break;
+      case 'clip': if (await clip(ts.map((r) => r.path).join('\n') + '\n')) app.flash(tm('Copied {what}.', { what: tn(ts.length, 'name') })); else app.flash('The clipboard could not be written.', 'err'); break;
     }
   };
 
@@ -447,10 +448,10 @@ function syncWindow(app, id, args = {}) {
       st.syncing = false;
       await Promise.all(app.panels.map((p) => p.reload().catch(() => {})));
       const errs = d.errors || [];
-      if (d.error) await messageDialog({ Title: 'Synchronize', Message: d.error, Kind: 'syncdirs-error' });
-      else if (errs.length) await messageDialog({ Title: 'Synchronize', Message: `${plural(errs.length, 'operation')} failed:\n\n${errs.slice(0, 12).join('\n')}${errs.length > 12 ? `\n…and ${errs.length - 12} more.` : ''}`, Kind: 'syncdirs-errors' });
-      else if (d.cancelled) app.flash(`Synchronization stopped after ${plural(d.done, 'operation')}.`);
-      else app.flash(`Synchronized: ${plural(d.done, 'operation')}${d.skipped ? `, ${d.skipped} skipped` : ''}.`);
+      if (d.error) await messageDialog({ Title: 'Synchronize', Message: te(d.error), Kind: 'syncdirs-error' });
+      else if (errs.length) await messageDialog({ Title: 'Synchronize', Message: tjoin([tm('{what} failed:', { what: tn(errs.length, 'operation') }), '', ...errs.slice(0, 12).map(te), ...(errs.length > 12 ? [tm('…and {n} more.', { n: errs.length - 12 })] : [])]), Kind: 'syncdirs-errors' });
+      else if (d.cancelled) app.flash(tm('Synchronization stopped after {what}.', { what: tn(d.done, 'operation') }));
+      else app.flash(d.skipped ? tm('Synchronized: {what}, {n} skipped.', { what: tn(d.done, 'operation'), n: d.skipped }) : tm('Synchronized: {what}.', { what: tn(d.done, 'operation') }));
       if (d.warnings?.length) await messageDialog({ Title: 'Synchronize', Message: d.warnings.join('\n\n'), Kind: 'syncdirs-warning' });
       await compare(); // TC compares again, so done rows show as equal
       resolve();
@@ -460,7 +461,10 @@ function syncWindow(app, id, args = {}) {
     offs2.push(on('syncdirs-ask', async (p) => {
       if (p.id !== st.id) return;
       const name = String(p.target).split('/').pop();
-      const msg = `${name} is already on the ${p.side} side.\n\nNew: ${size(p.srcSize || 0)}, ${date(p.srcTime)}\nThere: ${size(p.dstSize || 0)}, ${date(p.dstTime)}`;
+      const v = { name, newSize: size(p.srcSize || 0), newDate: date(p.srcTime), oldSize: size(p.dstSize || 0), oldDate: date(p.dstTime) };
+      const msg = p.side === 'left' ? tm('{name} is already on the left side.\n\nNew: {newSize}, {newDate}\nThere: {oldSize}, {oldDate}', v)
+        : p.side === 'right' ? tm('{name} is already on the right side.\n\nNew: {newSize}, {newDate}\nThere: {oldSize}, {oldDate}', v)
+        : `${name} is already on the ${p.side} side.\n\nNew: ${v.newSize}, ${v.newDate}\nThere: ${v.oldSize}, ${v.oldDate}`;
       const b = await messageDialog({ Title: 'Overwrite?', Message: msg, Buttons: Object.keys(OVERWRITE), DefaultButton: 'Overwrite', CancelButton: 'Cancel', Kind: 'overwrite' });
       go.SyncDirs.Answer(st.id, OVERWRITE[b] || 'cancel').catch(() => {});
     }));
@@ -470,10 +474,10 @@ function syncWindow(app, id, args = {}) {
       translateTree(b);
       const msg = b.querySelector('.mc-msg'), bar = b.querySelector('.mc-progress i'), note = b.querySelector('.mc-note');
       paintBox = () => {
-        msg.textContent = last.current ? `${last.kind === 'delete' || last.kind === 'removeDir' ? 'Deleting' : 'Copying'} ${last.current} (${last.side || ''})` : '';
+        msg.textContent = !last.current ? '' : last.kind === 'delete' || last.kind === 'removeDir' ? tm('Deleting {name} ({side})', { name: last.current, side: last.side || '' }) : tm('Copying {name} ({side})', { name: last.current, side: last.side || '' });
         const f = last.bytesTotal > 0 ? last.bytesDone / last.bytesTotal : last.opsTotal ? last.opsDone / last.opsTotal : 0;
         bar.style.width = `${Math.round(Math.min(1, f) * 100)}%`;
-        note.textContent = `${last.opsDone} of ${plural(last.opsTotal, 'operation')}${last.bytesTotal ? ` · ${size(last.bytesDone)} of ${size(last.bytesTotal)}` : ''}`;
+        note.textContent = `${tm('{done} of {total}', { done: last.opsDone, total: tn(last.opsTotal, 'operation') })}${last.bytesTotal ? ` · ${tm('{done} of {total}', { done: size(last.bytesDone), total: size(last.bytesTotal) })}` : ''}`;
       };
       paintBox();
       b.querySelector('.cancel').onclick = () => go.SyncDirs.Cancel(st.id);
@@ -496,13 +500,13 @@ function syncWindow(app, id, args = {}) {
       const { onlySelected, ...o } = readOpts();
       try {
         await go.SyncDirs.SaveProfile({ name: name.trim(), left: q('#sync-left').value.trim(), right: q('#sync-right').value.trim(), options: { ...o, filter: o.filter, case: 'auto' }, show: st.show });
-        app.flash(`Saved the settings as "${name.trim()}".`);
+        app.flash(tm('Saved the settings as "{name}".', { name: name.trim() }));
       } catch (e) { app.flash(errText(e), 'err'); }
     } else if (v.op === 'load') {
       loadProfile(v.p);
     } else if (v.op === 'delete') {
-      const b = await messageDialog({ Title: 'Delete saved settings', Message: `Delete the saved settings "${v.p.name}"?`, Buttons: ['Delete', 'Cancel'], Kind: 'syncdirs-delete-profile' });
-      if (b === 'Delete') go.SyncDirs.DeleteProfile(v.p.name).then(() => app.flash(`Deleted "${v.p.name}".`)).catch((e) => app.flash(errText(e), 'err'));
+      const b = await messageDialog({ Title: 'Delete saved settings', Message: tm('Delete the saved settings "{name}"?', { name: v.p.name }), Buttons: ['Delete', 'Cancel'], Kind: 'syncdirs-delete-profile' });
+      if (b === 'Delete') go.SyncDirs.DeleteProfile(v.p.name).then(() => app.flash(tm('Deleted "{name}".', { name: v.p.name }))).catch((e) => app.flash(errText(e), 'err'));
     }
   };
   const loadProfile = (p) => {
@@ -511,7 +515,7 @@ function syncWindow(app, id, args = {}) {
     invalidate();
     writeOpts({ ...DEFAULT_OPTS, ...(p.options || {}), filter: p.options?.filter || '*.*' });
     if (p.show) { st.show = { ...DEFAULT_SHOW, ...p.show }; writeShow(); }
-    app.flash(`Loaded "${p.name}". Press Compare.`);
+    app.flash(tm('Loaded "{name}". Press Compare.', { name: p.name }));
   };
 
   const toggleShow = (k) => { st.show[k] = !st.show[k]; writeShow(); remember(); if (st.compared && !st.running) refresh(); };

@@ -35,6 +35,7 @@ import { initStartMenu, loadStartMenu } from './config/startmenu.js';
 import { registerUserCommands } from './config/usercmds.js';
 import { initStart } from './config/start.js';
 import './config/help.js';
+import { tm } from '../core/i18n.js';
 
 // mergeKeymap lays the hotkeys of the settings file ([Shortcuts]: edited by hand or imported from Total Commander) over
 // the ones in settings.json.
@@ -75,7 +76,7 @@ export async function init(app) {
   initStart(app);
   await Promise.all([initButtonBar(app), initStartMenu(), registerUserCommands(app)]);
   onGo('config:changed', () => reloadAll(app).catch((e) => console.error(e)));
-  onGo('config:reloaded', (path) => app.flash(`The settings file was read again${path ? ` (${path.split(/[\\/]/).pop()})` : ''}.`));
+  onGo('config:reloaded', (path) => app.flash(path ? tm('The settings file was read again ({name}).', { name: path.split(/[\\/]/).pop() }) : tm('The settings file was read again.')));
 }
 
 addControlCommand('config', async (m) => {

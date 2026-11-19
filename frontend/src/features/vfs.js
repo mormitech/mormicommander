@@ -27,6 +27,7 @@ import { plural, date as fmtDate } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
 import { num as optNum } from './config/util.js';
 import './vfs.css';
+import { tm } from '../core/i18n.js';
 
 const base = (p) => String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop() || p;
 const dirOf = (p) => { const s = String(p).replace(/[\\/]+$/, ''); const i = Math.max(s.lastIndexOf('/'), s.lastIndexOf('\\')); return i <= 0 ? s.slice(0, i + 1) : s.slice(0, i); };
@@ -108,7 +109,7 @@ export function init(app) {
           await app.run('cm_List', { path: local, paths: [local], name: e.name, from: p.fullPath(e.name),
             sources: walk.map((x) => p.fullPath(x.name)), side: p.side, dir: p.path });
         }
-        else { await go.FS.OpenFile(local); app.flash(`Opened ${e.name}.`); }
+        else { await go.FS.OpenFile(local); app.flash(tm('Opened {name}.', { name: e.name })); }
       }, (err) => app.flash(errText(err), 'err'));
       return true;
     }

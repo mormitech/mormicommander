@@ -24,6 +24,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { isLocal } from './system-lib.js';
 import { tagsConfig, marksHTML, tagText, summary, parseNames, changes, folderTags, hasTag, colorOf, COLORS } from './tags-lib.js';
+import { tm, tn, te } from '../core/i18n.js';
 
 const cfg = () => tagsConfig(theApp.setting('tags', {}));
 let info = { supported: false, style: '', colors: false };
@@ -179,7 +180,7 @@ async function editTags(app, args = {}) {
   for (const k of paths) cache.delete(k);
   repaint();
   if (res.failed?.length) {
-    app.flash(`Tags could not be changed on ${plural(res.failed.length, 'item')}: ${res.failed[0].error}`, 'err');
+    app.flash(tm('Tags could not be changed on {what}: {error}', { what: tn(res.failed.length, 'item'), error: te(res.failed[0].error) }), 'err');
     return false;
   }
   app.flash(res.changed ? `Changed the tags of ${plural(res.changed, 'item')}.` : 'The tags were already so.');
@@ -208,7 +209,7 @@ async function selectByTag(app, args = {}) {
   const { p, tag, map } = r;
   const want = (e) => !e.up && hasTag(map[p.fullPath(e.name)], tag);
   const n = p.entries.filter(want).length;
-  if (!n) { app.flash(`Nothing here has the tag ${tag}.`); return false; }
+  if (!n) { app.flash(tm('Nothing here has the tag {tag}.', { tag })); return false; }
   p.selectWhere(want, args.select !== false);
   return true;
 }

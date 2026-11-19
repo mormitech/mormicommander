@@ -10,9 +10,10 @@ import { go, errText } from '../core/go.js';
 import { modal, formDialog, infoDialog, messageDialog, esc } from '../core/dialogs.js';
 import { size, date, plural } from '../core/format.js';
 import { PERM_ROWS, SPECIAL_BITS, parseOctal, octalText, bitsOfEntry, permString } from './net-attrs-lib.js';
+import { tm, tn, translateTree, tr } from '../core/i18n.js';
 
 const KIND_LABEL = { ftp: 'FTP', sftp: 'SFTP', webdav: 'WebDAV', rclone: 'rclone' };
-const row = (label, html) => `<tr><th>${esc(label)}</th><td>${html}</td></tr>`;
+const row = (label, html) => `<tr><th>${esc(tr(label))}</th><td data-notr>${html}</td></tr>`;
 const isServer = (app, p) => !!app.isRemote?.(p);
 
 // onServer says whether the active panel shows a server (the tools then use the functions below).
@@ -26,16 +27,16 @@ export async function remoteProps(app) {
   if (items.length > 1) {
     const files = items.filter((e) => !e.dir).length;
     const bytes = items.reduce((n, e) => n + (e.dir ? 0 : e.size || 0), 0);
-    await infoDialog(`<h2>Properties of ${plural(items.length, 'item')}</h2><table class="mc-tools-props">
-      ${row('Selected', esc(`${plural(files, 'file')}, ${plural(items.length - files, 'folder')}`))}${row('Location', esc(p.path))}
+    await infoDialog(`<h2>${esc(tm('Properties of {what}', { what: tn(items.length, 'item') }))}</h2><table class="mc-tools-props">
+      ${row('Selected', esc(`${tn(files, 'file')}, ${tn(items.length - files, 'folder')}`))}${row('Location', esc(p.path))}
       ${row('Size of the files', esc(size(bytes)))}</table>
-      <div class="mc-btns"><button type="submit" class="primary">Close</button></div>`, 'mc-tools-propsbox', 'properties');
+      <div class="mc-btns"><button type="submit" class="primary">${esc(tr('Close'))}</button></div>`, 'mc-tools-propsbox', 'properties');
     return true;
   }
   let info;
   try { info = await go.Net.RemoteInfo(path); } catch (e) { await messageDialog({ Title: 'Properties', Message: errText(e), Kind: 'net-error' }); return false; }
-  const type = info.isLink ? `Symbolic link to a ${info.isDir ? 'folder' : 'file'}${info.broken ? ' (target missing)' : ''}` : info.isDir ? 'Folder' : 'File';
-  const html = `<h2>Properties of ${esc(info.name)}</h2><table class="mc-tools-props">
+  const type = info.isLink ? tr(`Symbolic link to a ${info.isDir ? 'folder' : 'file'}${info.broken ? ' (target missing)' : ''}`) : tr(info.isDir ? 'Folder' : 'File');
+  const html = `<h2>${esc(tm('Properties of {name}', { name: info.name }))}</h2><table class="mc-tools-props">
     ${row('Type', esc(type))}
     ${info.linkTarget ? row('Points to', `<code>${esc(info.linkTarget)}</code>`) : ''}
     ${row('Server', esc(`${info.server} (${KIND_LABEL[info.kind] || info.kind})`))}
@@ -49,6 +50,7 @@ export async function remoteProps(app) {
   const after = await modal((box, done) => {
     box.classList.add('mc-info', 'mc-tools-propsbox');
     box.innerHTML = `<button type="button" class="mc-close" aria-label="Close" title="Close (Esc)">×</button>${html}`;
+    translateTree(box);
     box.querySelector('.mc-close').onclick = () => done();
     box.onsubmit = (ev) => { ev.preventDefault(); done(); };
     const attrs = box.querySelector('.mc-net-attrs');
@@ -125,7 +127,7 @@ export async function remoteAttrs(app) {
     const lines = res.failed.slice(0, 12).map((f) => `${f.path.split('/').pop()}: ${f.error}`);
     if (res.failed.length > 12) lines.push(`…and ${res.failed.length - 12} more.`);
     await messageDialog({ Title: 'Change attributes', Message: `${plural(res.done, 'item')} changed, ${res.failed.length} not:\n\n${lines.join('\n')}`, Kind: 'tools-failed' });
-  } else app.flash(`Changed ${plural(res.done, 'item')}.`);
+  } else app.flash(tm('Changed {what}.', { what: tn(res.done, 'item') }));
   return res;
 }
 
@@ -157,6 +159,6 @@ export async function remoteSymlink(app) {
   try { made = await go.Net.RemoteSymlink(p.path, values.link, values.target); } catch (e) { await messageDialog({ Title: 'Create symbolic link', Message: errText(e), Kind: 'net-error' }); return false; }
   await p.reload();
   p.focusName?.(values.link);
-  app.flash(`Made ${values.link}.`);
+  app.flash(tm('Made {name}.', { name: values.link }));
   return made;
 }

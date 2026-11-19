@@ -24,7 +24,7 @@ import './find.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { modal, messageDialog, inputDialog, formDialog, esc, keyOwnerBox, focusDialog } from '../core/dialogs.js';
-import { t as tt, translateTree } from '../core/i18n.js';
+import { t as tt, translateTree, tm, tn, te } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
@@ -540,7 +540,7 @@ async function feed() {
 
 async function copyList() {
   const list = (S.sel.size > 1 ? targets() : S.items).map((x) => x.p);
-  try { await go.Find.CopyText(list, false); theApp.flash(`Copied ${plural(list.length, 'name')}.`); } catch (e) { showErr(errText(e)); }
+  try { await go.Find.CopyText(list, false); theApp.flash(tm('Copied {what}.', { what: tn(list.length, 'name') })); } catch (e) { showErr(errText(e)); }
 }
 
 async function saveList() {
@@ -551,11 +551,11 @@ async function saveList() {
   try { await go.Find.SaveText(file, list, false, false); } catch (e) {
     const msg = errText(e);
     if (!/already there/.test(msg)) { showErr(msg); return; }
-    const a = await messageDialog({ Title: 'Save list', Message: `${msg}\nReplace it?`, Buttons: ['Replace', 'Cancel'], Kind: 'find-overwrite' });
+    const a = await messageDialog({ Title: 'Save list', Message: tm('{msg}\nReplace it?', { msg: te(msg) }), Buttons: ['Replace', 'Cancel'], Kind: 'find-overwrite' });
     if (a !== 'Replace') return;
     try { await go.Find.SaveText(file, list, false, true); } catch (e2) { showErr(errText(e2)); return; }
   }
-  theApp.flash(`Saved ${plural(list.length, 'name')} to ${file}.`);
+  theApp.flash(tm('Saved {what} to {path}.', { what: tn(list.length, 'name'), path: file }));
 }
 
 // ---- actions on duplicates (board issue #32, F-862) ----
@@ -564,21 +564,20 @@ const trashWord = () => (theApp.platform === 'windows' ? 'Recycle Bin' : theApp.
 
 // dupPreview tells what the chosen rule and action would do (the dialog's live summary).
 function dupPreview(plan, action) {
-  if (!plan.drop.length) return 'There is nothing to do: no group has two files that can be acted on.';
-  const copies = plural(plan.drop.length, 'copy', 'copies');
-  const groups = plural(plan.groups, 'group');
-  let t = action === 'mark' ? `Marks ${copies} in ${groups}; one file of each group stays unmarked.`
-    : action === 'link' ? `Replaces ${copies} in ${groups} with hard links to the kept file. Saves up to ${size(plan.bytes)}.`
-      : `Moves ${copies} in ${groups} to the ${trashWord()}. Saves ${size(plan.bytes)}.`;
-  if (action === 'link') t += ' Copies whose contents differ from the kept file are left as they are.';
-  else if (action === 'trash' && !S.req?.dupContent) t += ' This search did not compare contents, so the files of a group may differ.';
-  return t;
+  if (!plan.drop.length) return tt('There is nothing to do: no group has two files that can be acted on.');
+  const v = { copies: tn(plan.drop.length, 'copy', 'copies'), groups: tn(plan.groups, 'group'), size: size(plan.bytes), trash: tm(trashWord()) };
+  const parts = [action === 'mark' ? tm('Marks {copies} in {groups}; one file of each group stays unmarked.', v)
+    : action === 'link' ? tm('Replaces {copies} in {groups} with hard links to the kept file. Saves up to {size}.', v)
+      : tm('Moves {copies} in {groups} to the {trash}. Saves {size}.', v)];
+  if (action === 'link') parts.push(tm('Copies whose contents differ from the kept file are left as they are.'));
+  else if (action === 'trash' && !S.req?.dupContent) parts.push(tm('This search did not compare contents, so the files of a group may differ.'));
+  return parts.map(String).join(' ');
 }
 
 async function duplicateActions() {
   if (S.running || !hasDuplicates(S.items)) return;
   const ruleRows = DUP_RULES.map(([v, t], k) => `<label class="mc-check"><input type="radio" name="ff-dup-rule" value="${v}"${k ? '' : ' checked'}>${esc(t)}</label>`).join('');
-  const acts = [['mark', 'Mark the other copies in the list'], ['trash', `Move the other copies to the ${trashWord()}`], ['link', 'Replace the other copies with hard links']];
+  const acts = [['mark', 'Mark the other copies in the list'], ['trash', String(tm('Move the other copies to the {trash}', { trash: tm(trashWord()) }))], ['link', 'Replace the other copies with hard links']];
   const actRows = acts.map(([v, t], k) => `<label class="mc-check"><input type="radio" name="ff-dup-act" value="${v}"${k ? '' : ' checked'}>${esc(t)}</label>`).join('');
   const pick = (box, name) => box.querySelector(`input[name=${name}]:checked`)?.value;
   const r = await formDialog('Duplicates', `<div class="mc-find-dups"><div class="mc-find-sub">In every group:</div>${ruleRows}
@@ -600,30 +599,30 @@ async function duplicateActions() {
     S.cur = plan.drop[0].i; S.anchor = S.cur;
     ensureVisible(); render();
     $('.mc-find-list')?.focus();
-    theApp.flash(`Marked ${plural(plan.drop.length, 'copy', 'copies')} (${size(plan.bytes)}).`);
+    theApp.flash(tm('Marked {what} ({size}).', { what: tn(plan.drop.length, 'copy', 'copies'), size: size(plan.bytes) }));
     return;
   }
-  const copies = plural(plan.drop.length, 'copy', 'copies');
+  const copies = tn(plan.drop.length, 'copy', 'copies');
   if (action === 'trash') await trashDuplicates(plan, copies);
   else await linkDuplicates(plan, copies);
 }
 
 async function trashDuplicates(plan, copies) {
   const T = trashWord();
-  if (!(await go.Jobs.TrashSupported().catch(() => false))) { showErr(`There is no ${T} here, so nothing was deleted.`); return; }
-  const b = await messageDialog({ Title: 'Duplicates', Message: `Move ${copies} to the ${T}?\n\nOne file of each of ${plural(plan.groups, 'group')} is kept. This frees ${size(plan.bytes)}.`,
+  if (!(await go.Jobs.TrashSupported().catch(() => false))) { showErr(tm('There is no {trash} here, so nothing was deleted.', { trash: tm(T) })); return; }
+  const b = await messageDialog({ Title: 'Duplicates', Message: tm('Move {copies} to the {trash}?\n\nOne file of each of {groups} is kept. This frees {size}.', { copies, trash: tm(T), groups: tn(plan.groups, 'group'), size: size(plan.bytes) }),
     Buttons: [`Move to ${T}`, 'Cancel'], DefaultButton: `Move to ${T}`, Kind: 'find-dups-trash' });
   if (b !== `Move to ${T}`) return;
   const sources = plan.drop.map((d) => S.items[d.i].p);
-  try { await runJob({ kind: 'trash', sources, onError: 'ask' }, { title: `Moving to the ${T}` }); } catch (e) { showErr(errText(e)); }
+  try { await runJob({ kind: 'trash', sources, onError: 'ask' }, { title: tm('Moving to the {trash}', { trash: tm(T) }) }); } catch (e) { showErr(errText(e)); }
   const gone = await go.Find.Missing(sources).catch(() => []);
   if (!S.box) return;
   forgetResults(gone || []);
-  theApp.flash(`Moved ${plural((gone || []).length, 'copy', 'copies')} to the ${T}.`);
+  theApp.flash(tm('Moved {what} to the {trash}.', { what: tn((gone || []).length, 'copy', 'copies'), trash: tm(T) }));
 }
 
 async function linkDuplicates(plan, copies) {
-  const b = await messageDialog({ Title: 'Duplicates', Message: `Replace ${copies} with hard links to the kept files?\n\nEach copy is compared with its kept file first; a copy whose contents differ is left as it is. Afterwards the names share one file: changing one changes them all.`,
+  const b = await messageDialog({ Title: 'Duplicates', Message: tm('Replace {copies} with hard links to the kept files?\n\nEach copy is compared with its kept file first; a copy whose contents differ is left as it is. Afterwards the names share one file: changing one changes them all.', { copies }),
     Buttons: ['Replace', 'Cancel'], DefaultButton: 'Replace', Kind: 'find-dups-link' });
   if (b !== 'Replace') return;
   const pairs = plan.drop.map((d) => ({ keep: S.items[d.keep].p, dup: S.items[d.i].p }));
@@ -686,7 +685,7 @@ async function saveSearch() {
 async function deleteSaved() {
   const name = val('ff-saved');
   if (!name) { showErr('The last search can\'t be deleted; it is replaced by the next search.'); return; }
-  const a = await messageDialog({ Title: 'Delete saved search', Message: `Delete the saved search "${name}"?`, Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'find-delete' });
+  const a = await messageDialog({ Title: 'Delete saved search', Message: tm('Delete the saved search "{name}"?', { name }), Buttons: ['Delete', 'Cancel'], Danger: true, Kind: 'find-delete' });
   if (a !== 'Delete') return;
   try { await go.Find.DeleteSaved(name); await refreshSaved(); } catch (e) { showErr(errText(e)); }
 }
@@ -884,7 +883,7 @@ command({
     if (!hit.length) { app.flash('None of the search results is in this folder.'); return false; }
     for (const e of hit) p.select(e, true);
     p.selectionChanged();
-    app.flash(`Selected ${plural(hit.length, 'search result')}.`);
+    app.flash(tm('Selected {what}.', { what: tn(hit.length, 'search result') }));
     return true;
   },
 });

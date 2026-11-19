@@ -33,6 +33,7 @@ import { editNote } from './archive-edit-lib.js';
 import { viewEditAssociated } from './assoc.js';
 import { openTextEditor } from './textedit.js';
 import { wantInternal } from './textedit-lib.js';
+import { tm, tn, te, translateTree } from '../core/i18n.js';
 
 let lister = null; // the open Lister window: {view, close, list, dir, panel, title}
 let qv = null; // quick view: {panel, view, el, timer, internalOnly, off: [unsubscribe...], copies: archive entry -> local copy}
@@ -153,6 +154,7 @@ async function openLister(app, { path, names = [], dir = '', sources = [], at = 
       box.classList.add('mc-viewer-box');
       box.innerHTML = `<div class="mc-viewer-head"><h2></h2><div class="mc-viewer-menus">${['File', 'Edit', 'Options', 'Image', 'Encoding']
         .map((m) => `<button type="button" class="mc-viewer-menu" data-menu="${m}">${m}</button>`).join('')}</div></div>`;
+      translateTree(box);
       box.querySelectorAll('.mc-viewer-menu').forEach((b) => { b.onclick = () => view.menu(b.dataset.menu, b); });
       box.append(view.el);
       view.el.setAttribute('autofocus', '');
@@ -225,7 +227,7 @@ async function viewCopy(app, p, e, sel, first, args) {
   const from = p.fullPath(first.name);
   const walk = sel.length ? sel : p.entries.filter((x) => !x.dir && !x.up);
   if (sel.length && first !== e) p.focusName(first.name);
-  if (downloads(p.vfs, p.path)) app.flash(`Downloading ${first.name}…`);
+  if (downloads(p.vfs, p.path)) app.flash(tm('Downloading {name}…', { name: first.name }));
   let local;
   try {
     local = await go.FS.LocalCopy(from);
@@ -240,12 +242,12 @@ async function viewCopy(app, p, e, sel, first, args) {
 }
 
 async function folderSize(app, p, e) {
-  app.flash(`Counting ${e.name}…`);
+  app.flash(tm('Counting {name}…', { name: e.name }));
   try {
     const r = await go.Lister.FolderSize('list', p.fullPath(e.name));
     p.dirSizes.set(e.name, r.bytes);
     p.rebuild();
-    app.flash(`${e.name}: ${fmtSize(r.bytes)} (${fmtBytes(r.bytes)} bytes) in ${fmtBytes(r.files)} ${r.files === 1 ? 'file' : 'files'} and ${fmtBytes(r.dirs)} ${r.dirs === 1 ? 'folder' : 'folders'}`);
+    app.flash(tm('{name}: {size} ({bytes} bytes) in {files} and {folders}', { name: e.name, size: fmtSize(r.bytes), bytes: fmtBytes(r.bytes), files: tn(r.files, 'file', 'files', fmtBytes(r.files)), folders: tn(r.dirs, 'folder', 'folders', fmtBytes(r.dirs)) }));
   } catch (err) {
     app.flash(errText(err), 'err');
   }
@@ -379,7 +381,7 @@ command({
     if (wantInternal(app.config?.values, path, !args.path && viewsFromCopy(p.vfs, p.path))) {
       const r = await openTextEditor(app, path);
       if (r.shown) return;
-      app.flash(`${r.why} Opening the external editor.`, 'err');
+      app.flash(tm('{why} Opening the external editor.', { why: te(r.why) }), 'err');
     }
     // (a file inside an archive or on a server opens as a watched temporary copy: each save asks to update the archive
     // or upload the file, see vfs.js)

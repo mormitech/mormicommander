@@ -8,6 +8,7 @@
 
 import { esc } from '../../core/dialogs.js';
 import { bytes as fmtCount } from '../../core/format.js';
+import { tm, tn } from '../../core/i18n.js';
 
 export const BLOCK = 200; // rows fetched in one call
 const OVERSCAN = 10; // rows drawn above and below the visible ones
@@ -74,6 +75,16 @@ export function rowsLabel(shape) {
   if (!shape) return '';
   if (shape.truncated) return shape.total > shape.rows ? `first ${fmtCount(shape.rows)} of ${fmtCount(shape.total)} rows` : `first ${fmtCount(shape.rows)} rows`;
   return `${fmtCount(shape.rows)} ${shape.rows === 1 ? 'row' : 'rows'}`;
+}
+
+// rowsLabelMsg is rowsLabel as a Msg (core/i18n.js): its English text and its translation, for the status line.
+export function rowsLabelMsg(shape) {
+  if (!shape) return '';
+  if (shape.truncated) {
+    return shape.total > shape.rows ? tm('first {rows} of {total} rows', { rows: fmtCount(shape.rows), total: fmtCount(shape.total) })
+      : tm('first {rows} rows', { rows: fmtCount(shape.rows) });
+  }
+  return tn(shape.rows, 'row', 'rows', fmtCount(shape.rows));
 }
 
 // formatName is the menu text of a table format.

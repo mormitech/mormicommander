@@ -20,6 +20,7 @@ import { size, plural } from '../core/format.js';
 import { openWindow } from './synccompare-ui.js';
 import { setCompareTool } from '../core/jobs.js';
 import { app as theApp } from '../core/app.js';
+import { tm, translateTree, tr } from '../core/i18n.js';
 
 const ROW_H = 18;     // px, the fixed height of a text or hex row (the list draws only what is in view)
 const HEX_W = 16;     // bytes per hex row
@@ -41,7 +42,7 @@ export async function compareFiles(app, left, right, { force = false } = {}) {
   }
   const same = await go.CompareFiles.Same(left, right).catch((e) => { throw new Error(errText(e)); });
   if (same) {
-    const b = await messageDialog({ Title: 'Compare by content', Message: `The two files are identical.\n\n${left}\n${right}`, Buttons: ['OK', 'Show anyway'], Kind: 'compare-identical' });
+    const b = await messageDialog({ Title: 'Compare by content', Message: tm('The two files are identical.\n\n{left}\n{right}', { left, right }), Buttons: ['OK', 'Show anyway'], Kind: 'compare-identical' });
     if (b !== 'Show anyway') return { saved: [false, false] };
   }
   const opts = { ignoreCase: false, whitespace: 'exact', ignoreRepeated: false, resyncLines: 1, binary: false, ansi: '', ...(settings(app).options || {}) };
@@ -191,20 +192,20 @@ function runWindow(app, first, encodings) {
     q('.b-redo').disabled = !txt || !v.canRedo;
     q('.b-saveleft').disabled = !txt || !v.modified[0];
     q('.b-saveright').disabled = !txt || !v.modified[1];
-    q('.b-saveleft').textContent = `Save left${v.modified[0] ? ' *' : ''}`;
-    q('.b-saveright').textContent = `Save right${v.modified[1] ? ' *' : ''}`;
+    q('.b-saveleft').textContent = `${tr('Save left')}${v.modified[0] ? ' *' : ''}`;
+    q('.b-saveright').textContent = `${tr('Save right')}${v.modified[1] ? ' *' : ''}`;
     for (const [i, id] of [[0, '#cmp-enc-left'], [1, '#cmp-enc-right']]) {
       const el = q(id);
       el.disabled = !txt;
       const name = txt ? String(v.encoding[i]).replace(/ BOM$/, '') : '';
       if (name && ![...el.options].some((o) => o.value === name)) el.add(new Option(name, name));
       el.value = name || 'Auto';
-      el.title = txt ? `Encoding of the ${i ? 'right' : 'left'} file: ${v.encoding[i]}` : '';
+      el.title = txt ? (i ? tm('Encoding of the right file: {enc}', { enc: v.encoding[i] }) : tm('Encoding of the left file: {enc}', { enc: v.encoding[i] })) : '';
     }
     if (document.activeElement !== q('#cmp-left')) q('#cmp-left').value = v.left;
     if (document.activeElement !== q('#cmp-right')) q('#cmp-right').value = v.right;
     box.classList.toggle('editing', st.edit);
-    box.querySelector('h2').textContent = `Compare ${baseName(v.left)} and ${baseName(v.right)}`;
+    box.querySelector('h2').textContent = tm('Compare {left} and {right}', { left: baseName(v.left), right: baseName(v.right) });
   };
 
   const paintAll = () => { paintTools(); paintStatus(); render(); };
@@ -290,7 +291,7 @@ function runWindow(app, first, encodings) {
     for (const side of [0, 1]) {
       if (!st.v.modified[side]) continue;
       const file = side ? st.v.right : st.v.left;
-      const b = await messageDialog({ Title: 'Compare by content', Message: `Save changes to ${file}?`, Buttons: ['Yes', 'No', 'Cancel'], DefaultButton: 'Yes', CancelButton: 'Cancel', Kind: 'compare-save' });
+      const b = await messageDialog({ Title: 'Compare by content', Message: tm('Save changes to {name}?', { name: file }), Buttons: ['Yes', 'No', 'Cancel'], DefaultButton: 'Yes', CancelButton: 'Cancel', Kind: 'compare-save' });
       if (b === 'Cancel') return false;
       if (b === 'Yes') {
         if (!await call(() => go.CompareFiles.Save(st.id, side))) return false;
@@ -300,7 +301,7 @@ function runWindow(app, first, encodings) {
     return true;
   };
   const save = async (side) => {
-    if (await call(() => go.CompareFiles.Save(st.id, side))) { st.saved[side] = true; app.flash(`Saved ${baseName(side ? st.v.right : st.v.left)}.`); }
+    if (await call(() => go.CompareFiles.Save(st.id, side))) { st.saved[side] = true; app.flash(tm('Saved {name}.', { name: baseName(side ? st.v.right : st.v.left) })); }
   };
   const recompare = async (newPaths = false) => {
     if (modified()) {
@@ -332,7 +333,7 @@ function runWindow(app, first, encodings) {
       const i = (st.row + k) % n;
       if ((st.side ? rows[i].b : rows[i].a).toLowerCase().includes(needle)) { setRow(i, true); return; }
     }
-    app.flash(`"${st.find}" is not there.`);
+    app.flash(tm('"{text}" is not there.', { text: st.find }));
   };
 
   const close = async (done) => {
@@ -373,6 +374,7 @@ function runWindow(app, first, encodings) {
         </div>
         <div class="mc-cmp-body" tabindex="0"><div class="mc-cmp-spacer"></div><div class="mc-cmp-rows"></div></div>
         <div class="mc-cmp-foot"><span class="mc-cmp-status"></span><span class="mc-btns"><button type="button" class="b-close">Close</button></span></div>`;
+      translateTree(box);
       body = box.querySelector('.mc-cmp-body');
       spacer = box.querySelector('.mc-cmp-spacer');
       rowsEl = box.querySelector('.mc-cmp-rows');

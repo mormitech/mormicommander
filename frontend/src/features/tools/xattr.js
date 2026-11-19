@@ -11,6 +11,7 @@ import { go } from '../../core/go.js';
 import { messageDialog, formDialog } from '../../core/dialogs.js';
 import { runTool, needLocal, targets, showError, failureList, deselect, esc } from './common.js';
 import { quarantineMessage, quarantineQuestion, removeAttrQuestion, xattrLines } from './xattr-lib.js';
+import { tm } from '../../core/i18n.js';
 
 // ask shows a question with a "Remove" button and answers whether the user chose it.
 async function ask(title, message) {
@@ -44,7 +45,7 @@ export async function removeAttribute(app, path, list) {
   if (!(await ask('Remove extended attribute', removeAttrQuestion(path, pick)))) return '';
   try {
     const ok = await go.Tools.RemoveXattr(path, pick);
-    app.flash(ok ? `Removed ${pick}.` : `It had no ${pick} any more.`);
+    app.flash(ok ? tm('Removed {name}.', { name: pick }) : tm('It had no {name} any more.', { name: pick }));
     return pick;
   } catch (e) { await showError(String(e?.message ?? e)); return ''; }
 }

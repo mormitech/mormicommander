@@ -15,6 +15,7 @@ import { formDialog } from '../../core/dialogs.js';
 import { plural } from '../../core/format.js';
 import { esc, runTool, needLocal, targets, showError, failureList, reloadAll, deselect, pref, setPref, dateInput, parseDateInput } from './common.js';
 import { onServer, remoteAttrs } from '../net-attrs.js';
+import { tm, tn } from '../../core/i18n.js';
 
 const UNIX_ROWS = [['Owner', [0o400, 0o200, 0o100]], ['Group', [0o40, 0o20, 0o10]], ['Others', [0o4, 0o2, 0o1]]];
 const SPECIAL = [[0o4000, 'Set user ID'], [0o2000, 'Set group ID'], [0o1000, 'Sticky']];
@@ -120,7 +121,7 @@ command({
       <div class="mc-row"><label for="dateFrom">Modified date of each file from</label><select id="dateFrom"><option value="">(the date above)</option><option value="exif">its EXIF date (photos)</option><option value="name">a date in its name</option></select></div>
       </fieldset>`;
 
-    const req = await formDialog(paths.length === 1 ? `Change attributes of ${entries[0].name}` : 'Change attributes', html, (box) => {
+    const req = await formDialog(paths.length === 1 ? tm('Change attributes of {name}', { name: entries[0].name }) : 'Change attributes', html, (box) => {
       const q = (s) => box.querySelector(s);
       const r = { paths, recursive: !!q('#recursive')?.checked, applyTo: '', mask: '', template: '', permSet: 0, permClear: 0, attrSet: 0, attrClear: 0,
         owner: '', group: '', modified: { mode: '' }, accessed: { mode: '' }, created: { mode: '' }, modifiedFrom: '' };
@@ -199,7 +200,7 @@ command({
     await reloadAll(app);
     const failed = new Set(res.failed.map((f) => f.path));
     deselect(p, entries.filter((e, i) => !failed.has(paths[i])).map((e) => e.name));
-    if (res.canceled) app.flash(`Stopped. ${plural(res.changed, 'item')} changed.`);
+    if (res.canceled) app.flash(tm('Stopped. {what} changed.', { what: tn(res.changed, 'item') }));
     else if (res.failed.length) await failureList('Change attributes', res.failed, `${plural(res.changed, 'item')} changed, ${res.failed.length} not:`);
     else app.flash(res.changed ? `Changed ${plural(res.changed, 'item')}.` : 'Nothing needed a change.');
   },

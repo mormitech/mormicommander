@@ -109,23 +109,60 @@ function flashTexts() {
 // Find files, Multi-Rename and Synchronize folders are translated with translateTree (their HTML) and through the
 // dialogs, menus and messages they use, so their words are read from the source: the text of their HTML templates and
 // their single-quoted strings that read like words for people (key names and the like left out).
-const TREE_FILES = ['src/features/find.js', 'src/features/multirename.js', 'src/features/syncdirs.js'];
-const NOT_WORDS = new Set(['Esc', 'Ins', 'Num+', 'Num-', 'Space', 'Down', 'Apps', 'Enter', '^Aa', 'GB', 'KB', 'MB', 'TB', 'ANSI', 'UTF-8', 'Hex', 'RegEx']);
+// Part 3 (#113) added the Lister (in-page and window), the text editor, the tools (properties, checksums, split and
+// combine, attributes, links, occupied space), the server connections and their bar, the AI dialogs, the tabs and
+// hotlist dialogs, the command palette and Compare by content.
+const TREE_FILES = ['src/features/find.js', 'src/features/multirename.js', 'src/features/syncdirs.js',
+  'src/features/viewer.js', 'src/features/viewer/view.js', 'src/viewer-window.js', 'src/features/textedit.js',
+  'src/features/tools/common.js', 'src/features/tools/props.js', 'src/features/tools/checksums.js', 'src/features/tools/split.js',
+  'src/features/tools/attrs.js', 'src/features/tools/links.js', 'src/features/tools/space.js', 'src/features/tools/xattr.js',
+  'src/features/net.js', 'src/features/net-attrs.js', 'src/features/network.js', 'src/features/ai-settings.js', 'src/features/ask.js',
+  'src/features/tabs.js', 'src/features/hotlist.js', 'src/features/palette.js', 'src/features/comparefiles.js'];
+const NOT_WORDS = new Set(['[data-b]', '[data-r]', 'Playing this kind', 'Esc', 'Ins', 'Num+', 'Num-', 'Space', 'Down', 'Apps', 'Enter', '^Aa', 'GB', 'KB', 'MB', 'TB', 'ANSI', 'UTF-8', 'Hex', 'RegEx']);
 function uiStrings(src) {
   const out = [];
   for (const m of src.matchAll(/'((?:[^'\\\n]|\\.)*)'/g)) {
-    const s = m[1].replace(/\\(.)/g, '$1');
-    if (/^[A-Z[(…]/.test(s) && /[a-z]{2}/.test(s) && !/^[A-Z][a-z]+[A-Z]|^(Arrow|Page|Ctrl|Cmd|Alt|Shift|Escape|Enter|Tab|Home|End|Insert|Delete$|Backspace)|^[A-Za-z]+\.[A-Za-z]+$|[${}]|<\//.test(s)) out.push(s);
+    const s = m[1].replace(/\\(.)/g, (x, c) => (c === 'n' ? '\n' : c));
+    if (/^[A-Z[(…]/.test(s) && /[a-z]{2}/.test(s) && !/^[A-Z][a-z]+[A-Z]|^(Arrow|Page|Ctrl|Cmd|Alt|Shift|Escape|Enter|Tab|Home|End|Insert|Delete$|Backspace)|^[A-Za-z]+\.[A-Za-z]+$|[${}]|<\/|^\[data-|\/\/ |' \+/.test(s)) out.push(s);
   }
   return out;
 }
+// The words of tn(n, 'word', 'words') calls (a number and a word, translated), in every source file.
+function pluralTexts() {
+  const out = [];
+  const walk = (dir) => {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const f = resolve(dir, e.name);
+      if (e.isDirectory()) walk(f);
+      else if (f.endsWith('.js')) {
+        for (const m of readFileSync(f, 'utf8').matchAll(/\btn\([^,()]+(?:\([^()]*\))?[^,()]*,\s*'([^']+)'(?:,\s*'([^']+)')?/g)) out.push(m[1], m[2] || `${m[1]}s`);
+      }
+    }
+  };
+  walk(resolve(__dirname, '../src'));
+  return out;
+}
+
+// Texts of part 3 that reach t() through a variable: the Lister's modes, the link kinds and checksum states of the
+// tools, the transfer modes, the keyboard presets, the kinds of a server item.
+const DYNAMIC = ['Text', 'Binary', 'Hex', 'Image/Multimedia', 'HTML/Markdown', 'Table', 'File', 'Edit', 'Options', 'Image', 'Encoding',
+  'Symbolic link', 'Junction', 'Hard link', 'Shortcut file', 'Web location file', 'Desktop link file', 'Windows shortcut', 'Finder alias',
+  'Get Info in Finder', 'Windows properties…', 'File manager properties…', 'OK', 'FAILED', 'Not found', 'Not readable',
+  'Automatic', 'ASCII', 'Total Commander', 'Mac-native', 'Marta-like', 'Vim', 'Folder',
+  'Symbolic link to a folder', 'Symbolic link to a file', 'Symbolic link to a folder (target missing)', 'Symbolic link to a file (target missing)',
+  'Left', 'Right', 'Left, shown', 'Right, shown', 'Command', 'Tab', 'Hotlist'];
+
+// The Go error messages (frontend/test/error-texts.json, kept in step by feature_lang_test.go): shown translated by
+// tText (core/i18n.js) where an error reaches the user.
+const ERROR_TEXTS = JSON.parse(readFileSync(resolve(__dirname, 'error-texts.json'), 'utf8'));
+
 function treeTexts() {
   const out = ['lowercase', 'UPPERCASE'];
   for (const f of TREE_FILES) {
     const src = readFileSync(resolve(__dirname, '..', f), 'utf8');
     out.push(...i18n.htmlTexts(src), ...uiStrings(src));
   }
-  return out.filter((x) => !NOT_WORDS.has(x));
+  return out.filter((x) => !NOT_WORDS.has(x) && !/\/\/ |' \+|\('/.test(x)); // (not code that happens to sit between > and <)
 }
 
 // sliceTexts: what t() is asked while the menu bar is built (the texts of every menu, also the items features add),
@@ -134,7 +171,7 @@ function sliceTexts() {
   i18n.startCollecting();
   menus.menuSpec();
   for (const s of Object.values(fkeys.SHORT)) i18n.t(s);
-  const got = new Set([...i18n.stopCollecting(), ...EXTRA, ...menus.SYSTEM_MENU_WORDS, ...OPTION_TEXTS, ...optionsDialogTexts(), ...jobTexts(), ...flashTexts(), ...treeTexts()]);
+  const got = new Set([...i18n.stopCollecting(), ...EXTRA, ...menus.SYSTEM_MENU_WORDS, ...OPTION_TEXTS, ...optionsDialogTexts(), ...jobTexts(), ...flashTexts(), ...treeTexts(), ...pluralTexts(), ...DYNAMIC, ...ERROR_TEXTS]);
   for (const f of SLICE_FILES) for (const s of i18n.literalTexts(readFileSync(resolve(__dirname, '..', f), 'utf8'))) got.add(s);
   return [...got].filter((s) => /[A-Za-z]/.test(s) && !/^cm_|^em_/.test(s));
 }
@@ -174,6 +211,7 @@ test('the Hungarian file covers the converted slice and makes the menus Hungaria
   const texts = sliceTexts();
   expect(texts.length).toBeGreaterThan(200);
   const missing = texts.filter((s) => hu[s] === undefined && !(s.endsWith('…') && hu[s.slice(0, -1)] !== undefined));
+  if (process.env.MC_LANG_MISSING) writeFileSync(process.env.MC_LANG_MISSING, JSON.stringify(missing, null, 1));
   expect(missing).toEqual([]);
   i18n.setTranslations(hu);
   const spec = menus.menuSpec();
@@ -232,6 +270,52 @@ test('the Hungarian file translates the Options labels from Go and the job words
   expect(i18n.t('{done} of {files}', { done: 2, files: '5 fájl' })).toBe('2 / 5 fájl');
   expect(i18n.t('[N] Name')).toBe('[N] Név'); // (a line that starts with "[" but doesn't end with "]" is no section)
   for (const s of OPTION_TEXTS) if (/[a-z]{2}/.test(s)) expect(hu[s], s).toBeTruthy();
+});
+
+test('tm and tn keep the English text and give the translation; a Msg flash keeps the English one for control mode', async () => {
+  const { app } = await import('../src/core/app.js');
+  if (!document.getElementById('flash')) document.body.insertAdjacentHTML('beforeend', '<div id="flash" hidden></div>');
+  const m = i18n.tm('Copied {what}.', { what: i18n.tn(3, 'name') });
+  expect([m.en, m.text, String(m)]).toEqual(['Copied 3 names.', 'Copied 3 names.', 'Copied 3 names.']); // (no language file: English)
+  const { plural } = await import('../src/core/format.js');
+  expect(i18n.tn(1234, 'file').en).toBe(plural(1234, 'file')); // (the same text plural() gave before)
+  i18n.setTranslations({ 'Copied {what}.': 'Másolva: {what}.', names: 'név', '{what} could not be read: {error}': '{what} nem olvasható: {error}' });
+  const h = i18n.tm('Copied {what}.', { what: i18n.tn(3, 'name') });
+  expect([h.en, h.text]).toEqual(['Copied 3 names.', 'Másolva: 3 név.']);
+  app.flash(h);
+  expect(document.getElementById('flash').textContent).toBe('Másolva: 3 név.');
+  expect(app.lastMessage).toBe('Copied 3 names.');
+  expect(i18n.t(h)).toBe('Másolva: 3 név.');
+  const j = i18n.tjoin([h, 'x']);
+  expect([j.en, j.text]).toEqual(['Copied 3 names.\nx', 'Másolva: 3 név.\nx']);
+});
+
+test('tText translates Go messages by their verbs, the most specific text first, and nothing without a language file', () => {
+  expect(i18n.tText('Can\'t copy a.txt: it is not there.')).toBe('Can\'t copy a.txt: it is not there.');
+  i18n.setTranslations({
+    'Can\'t %s %s: %v': 'Nem sikerült (%s): %s: %v',
+    'Can\'t %s %s: it is not there.': '%[2]s nem létezik (%[1]s).',
+    'The folder %s is not there.': 'A(z) %s mappa nem létezik.',
+    'Done.': 'Kész.',
+  });
+  expect(i18n.tText('Done.')).toBe('Kész.');
+  expect(i18n.tText('The folder /tmp/x is not there.')).toBe('A(z) /tmp/x mappa nem létezik.');
+  expect(i18n.tText('Can\'t copy a.txt: it is not there.')).toBe('a.txt nem létezik (copy).');
+  expect(i18n.tText('Can\'t copy a.txt: disk full')).toBe('Nem sikerült (copy): a.txt: disk full');
+  expect(i18n.tText('Something else happened.')).toBe('Something else happened.');
+  const e = i18n.te('The folder /a is not there.');
+  expect([e.en, e.text]).toEqual(['The folder /a is not there.', 'A(z) /a mappa nem létezik.']);
+});
+
+test('the Hungarian file translates every Go error message with the same verbs', () => {
+  const hu = readLng(readFileSync(resolve(root, 'lang/hu.lng'), 'utf8'));
+  const verbs = (s) => (s.match(/%(?:\[\d+\])?[-+# 0-9.]*[a-zA-Z]/g) || []).length;
+  for (const en of ERROR_TEXTS) {
+    expect(hu[en], en).toBeTruthy();
+    expect(verbs(hu[en]), en).toBe(verbs(en));
+  }
+  i18n.setTranslations(hu);
+  expect(i18n.tText('The folder /tmp/x is not there.')).toBe('A(z) /tmp/x mappa nem létezik.');
 });
 
 test.runIf(process.env.MC_WRITE_LANG_TEMPLATE)('write lang/template.lng', () => {

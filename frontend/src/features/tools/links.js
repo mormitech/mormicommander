@@ -10,6 +10,7 @@ import { formDialog, messageDialog } from '../../core/dialogs.js';
 import { plural } from '../../core/format.js';
 import { esc, runTool, askOverwrite, needLocal, targets, showError, failureList, reloadAll, deselect, pref, setPref, baseName, joinPath, otherDir } from './common.js';
 import { onServer, remoteSymlink } from '../net-attrs.js';
+import { tm, tn } from '../../core/i18n.js';
 
 let kindsCache = null;
 const linkKinds = async () => (kindsCache ||= await go.Tools.LinkKinds().catch(() => [{ kind: 'symlink', label: 'Symbolic link', ext: '' }]));
@@ -21,7 +22,7 @@ async function makeLinks(app, p, entries, sources, dir, kind, relative) {
   const there = res.filter((r) => r.exists);
   if (there.length) {
     const ok = there.length === 1 ? await askOverwrite(there[0].link)
-      : (await messageDialog({ Title: 'Overwrite?', Message: `${plural(there.length, 'name')} already in ${dir}:\n${there.slice(0, 8).map((r) => baseName(r.link)).join('\n')}${there.length > 8 ? '\n…' : ''}\n\nReplace them?`, Buttons: ['Overwrite', 'Skip them', 'Cancel'], Kind: 'tools-overwrite' })) === 'Overwrite';
+      : (await messageDialog({ Title: 'Overwrite?', Message: tm('{what} already in {dir}:\n{names}\n\nReplace them?', { what: tn(there.length, 'name'), dir, names: there.slice(0, 8).map((r) => baseName(r.link)).join('\n') + (there.length > 8 ? '\n…' : '') }), Buttons: ['Overwrite', 'Skip them', 'Cancel'], Kind: 'tools-overwrite' })) === 'Overwrite';
     if (ok) {
       try {
         const again = await runTool('Creating links', (id) => go.Tools.CreateLinks(id, { kind, sources: there.map((r) => r.source), destDir: dir, relative, overwrite: true }));
@@ -52,7 +53,7 @@ async function linkDialog(app, kind) {
   const title = kind === 'hardlink' ? 'Create hard link' : 'Create symbolic link';
   const relRow = kind === 'symlink' ? `<label class="mc-check"><input type="checkbox" id="relative"${pref(app, 'linkRelative', false) ? ' checked' : ''}> Store the path relative to the link</label>` : '';
   if (paths.length > 1) {
-    const ans = await formDialog(title, `<div class="mc-row"><label for="folder">Make ${plural(paths.length, kind === 'hardlink' ? 'hard link' : 'symbolic link')} in the folder</label><input type="text" id="folder" spellcheck="false" value="${esc(otherDir(app))}" autofocus></div>${relRow}`,
+    const ans = await formDialog(title, `<div class="mc-row"><label for="folder">${esc(tm('Make {what} in the folder', { what: kind === 'hardlink' ? tn(paths.length, 'hard link') : tn(paths.length, 'symbolic link') }))}</label><input type="text" id="folder" spellcheck="false" value="${esc(otherDir(app))}" autofocus></div>${relRow}`,
       (box) => { const v = box.querySelector('#folder').value.trim(); return v ? { folder: v, relative: !!box.querySelector('#relative')?.checked } : 'Type the folder for the links.'; }, null, { kind: 'create-link', okLabel: 'Create' });
     if (!ans) return;
     if (kind === 'symlink') setPref(app, 'linkRelative', ans.relative);
@@ -80,7 +81,7 @@ async function linkDialog(app, kind) {
   if (r.error) { await showError(r.error, title); return; }
   await reloadAll(app, r.link);
   deselect(p, [entries[0].name]);
-  app.flash(`Made ${baseName(r.link)}.`);
+  app.flash(tm('Made {name}.', { name: baseName(r.link) }));
 }
 
 command({ name: 'cm_CreateSymbolicLink', label: 'Create symbolic link…', enabled: (app) => !app.demo, run: (app) => linkDialog(app, 'symlink') });

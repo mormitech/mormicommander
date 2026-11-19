@@ -5,6 +5,7 @@ import { go, errText } from '../core/go.js';
 import { runJob } from '../core/jobs.js';
 import { modal, esc } from '../core/dialogs.js';
 import { plural } from '../core/format.js';
+import { tm, tn, tText } from '../core/i18n.js';
 
 // isLocal: a path on this computer (not inside an archive, not on an FTP/SFTP/WebDAV server).
 export const isLocal = (p) => !!p && !/^[a-z][a-z0-9+.-]*:\/\//i.test(p);
@@ -60,7 +61,7 @@ export function askDrop(app, op, paths, dest) {
     const input = box.querySelector('#drop-target');
     const answer = (o) => {
       const d = input.value.trim();
-      if (!d) { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = 'Type the folder to put the files in.'; return; }
+      if (!d) { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = tText('Type the folder to put the files in.'); return; }
       done({ op: o, dest: app.resolvePath(d, dest) });
     };
     box.querySelectorAll('[data-op]').forEach((b) => { b.onclick = () => (b.dataset.op === 'cancel' ? done(null) : answer(b.dataset.op)); });
@@ -110,7 +111,7 @@ export async function transferFiles(app, op, paths, dest, { confirm = false } = 
     const errs = await go.SystemFiles.CreateLinks(paths, dest);
     await Promise.all(app.panels.map((p) => p.reload()));
     if (errs?.length) { logError(`Some links could not be made in ${dest}.`, errs); app.flash(errs.slice(0, 3).join('\n'), 'err'); return false; }
-    app.flash(`Made ${plural(paths.length, 'link')} in ${baseName(dest)}.`);
+    app.flash(tm('Made {what} in {name}.', { what: tn(paths.length, 'link'), name: baseName(dest) }));
     focusIn(app, dest, paths.map(baseName));
     return true;
   }

@@ -18,6 +18,7 @@ import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { martaOffer, martaDone } from './setup-lib.js';
 import { KEY_PRESETS, DEFAULT_PRESET, presetName, presetKeys, shouldShowSetup, fnAdvice } from '../core/keypresets.js';
+import { tm } from '../core/i18n.js';
 
 // applyPreset lays the chosen preset's keys into the keymap (the menus and the function key bar follow by themselves).
 // The setting "quickLookSpace" (board issue #19, off by default) makes the Mac-native preset's Space and ⌘Y open Quick
@@ -102,7 +103,7 @@ async function showSetup(app) {
   if (answer && answer !== current) {
     await app.setSetting('keyPreset', answer);
     applyPreset(answer);
-    app.flash(`Keyboard: ${KEY_PRESETS[answer].label}.`);
+    app.flash(tm('Keyboard: {name}.', { name: tm(KEY_PRESETS[answer].label) }));
   }
   return answer;
 }

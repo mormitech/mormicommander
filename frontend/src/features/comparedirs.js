@@ -16,8 +16,8 @@
 import { command } from '../core/registry.js';
 import { go, errText } from '../core/go.js';
 import { messageDialog } from '../core/dialogs.js';
-import { plural } from '../core/format.js';
 import { isCompareFilter, compareSubdirs, hideEqualFilter } from './comparedirs-lib.js';
+import { tm, tn } from '../core/i18n.js';
 
 const entriesOf = (p) => p.all.filter((e) => !e.up && e.name !== '..').map((e) => ({ name: e.name, size: e.size || 0, mtime: e.mtime || 0, dir: !!e.dir, hidden: !!e.hidden }));
 
@@ -41,11 +41,11 @@ export async function compareDirs(app, { subdirs = '', hideEqual = false } = {})
     p.selectionChanged();
   }
   const nl = res.leftSelect.length, nr = res.rightSelect.length;
-  if (res.errors.length) app.flash(`Some files could not be compared: ${res.errors.slice(0, 2).join('; ')}${res.errors.length > 2 ? ` …and ${res.errors.length - 2} more` : ''}`, 'err');
+  if (res.errors.length) app.flash(res.errors.length > 2 ? tm('Some files could not be compared: {list} …and {n} more', { list: res.errors.slice(0, 2).join('; '), n: res.errors.length - 2 }) : tm('Some files could not be compared: {list}', { list: res.errors.slice(0, 2).join('; ') }), 'err');
   if (!nl && !nr) {
     await messageDialog({ Title: 'Compare folders', Message: 'No differences found.', Kind: 'comparedirs' });
   } else if (!res.errors.length) {
-    app.flash(`Selected ${plural(nl, 'entry', 'entries')} on the left and ${plural(nr, 'entry', 'entries')} on the right.`);
+    app.flash(tm('Selected {left} on the left and {right} on the right.', { left: tn(nl, 'entry', 'entries'), right: tn(nr, 'entry', 'entries') }));
   }
   return { left: res.leftSelect, right: res.rightSelect, counts: res.counts };
 }

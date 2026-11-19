@@ -19,6 +19,7 @@ import { app as theApp } from '../core/app.js';
 import { maskKey } from './select-mask-keys.js';
 import { templateName, kindIndexes } from './find-select-lib.js';
 import './selection.css';
+import { tm } from '../core/i18n.js';
 
 const markDirs = (app) => !!app.setting('markDirectories', false);
 
@@ -346,7 +347,7 @@ command({
     }
     try { await go.Select.SaveFile(path, p.path, names, r.full); }
     catch (e) { await messageDialog({ Title: 'Save selection to file', Message: errText(e), Kind: 'select-error' }); return false; }
-    app.flash(`Saved ${names.length === 1 ? '1 name' : `${names.length} names`} to ${path}.`);
+    app.flash(tm('Saved {what} to {path}.', { what: names.length === 1 ? tm('1 name') : tm('{n} names', { n: names.length }), path }));
     const dir = path.slice(0, Math.max(path.lastIndexOf('/'), path.lastIndexOf('\\')));
     for (const q of app.panels) if (q.path === dir) q.reload();
     return true;
@@ -408,7 +409,7 @@ copyNames('cm_CopyURLNamesToClip', 'Copy names as file URLs', { menu: 'Mark', me
 copyNames('cm_CopyFullNamesQuotedToClip', 'Copy names with full path, quoted', { menu: 'Mark', menuAfter: 'cm_CopyURLNamesToClip' });
 
 async function copyPath(app, p) {
-  try { const t = await go.Select.CopyPath(p.path); app.flash(`Copied ${t} to the clipboard.`); return true; }
+  try { const t = await go.Select.CopyPath(p.path); app.flash(tm('Copied {what} to the clipboard.', { what: t })); return true; }
   catch (e) { app.flash(errText(e), 'err'); return false; }
 }
 command({ name: 'cm_CopySrcPathToClip', label: 'Copy folder path', run: (app) => copyPath(app, app.cur) });

@@ -26,6 +26,7 @@ import { plural } from '../core/format.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { anchorFor } from './system.js';
+import { tm, tn } from '../core/i18n.js';
 
 // The preset colours: readable as text on the light and the dark theme.
 export const COLORS = [
@@ -291,7 +292,7 @@ command({
     if (b !== 'Remove') return false;
     try { await go.Notes.Forget(r.gone); } catch (e) { app.flash(errText(e), 'err'); return false; }
     reset();
-    app.flash(`Removed ${plural(r.gone.length, 'entry', 'entries')}.`);
+    app.flash(tm('Removed {what}.', { what: tn(r.gone.length, 'entry', 'entries') }));
     return true;
   },
 });

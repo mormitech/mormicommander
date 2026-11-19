@@ -8,7 +8,7 @@
 // (panel); 'active' (panel); 'ready' once start-up is done.
 
 import { go, errText } from './go.js';
-import { t } from './i18n.js';
+import { tText, Msg, tm } from './i18n.js';
 import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js';
 import { getSetting, setSetting } from './settings.js';
 import { mergeMaps } from './drivemerge.js';
@@ -91,7 +91,7 @@ export const app = {
       return await runCommand(name, args);
     } catch (e) {
       if (e instanceof NotReady) {
-        if (!opts.quiet) this.flash(`${commandTitle(name)} is not ready yet.`);
+        if (!opts.quiet) this.flash(tm('{name} is not ready yet.', { name: commandTitle(name) }));
       } else {
         console.error(e);
         this.flash(errText(e), 'err');
@@ -102,11 +102,13 @@ export const app = {
 
   // flash shows a short message above the function keys for a few seconds. It is shown translated when the language
   // file has it (#113); lastMessage keeps the text as it was given, for control mode.
+  // A Msg (tm() in core/i18n.js) shows its translation and keeps its English text; a plain text may also be a Go error
+  // whose translation the language file has (tText).
   flash(msg, kind = '') {
     const el = document.getElementById('flash');
-    this.lastMessage = msg;
+    this.lastMessage = msg instanceof Msg ? msg.en : msg;
     if (!el) return;
-    el.textContent = typeof msg === 'string' ? t(msg) : msg;
+    el.textContent = typeof msg === 'string' || msg instanceof Msg ? tText(msg) : msg;
     el.className = kind;
     el.hidden = false;
     clearTimeout(flashTimer);

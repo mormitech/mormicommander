@@ -21,6 +21,7 @@ import { app as theApp } from '../core/app.js';
 import { isLocal, baseName } from './system-lib.js';
 import { anchorFor, revealLabel, openWith } from './system.js';
 import { mapFolder, unmapFolder, moveMap, isMapped, mapIndex, mapCount } from './drivemaps.js';
+import { tm } from '../core/i18n.js';
 
 const SEP = { sep: true };
 
@@ -50,7 +51,7 @@ async function menu(app, title, items, anchor, kind) {
 
 async function copyText(app, text, what) {
   await go.SystemClip.WriteText(text);
-  app.flash(`Copied ${what} to the clipboard.`);
+  app.flash(tm('Copied {what} to the clipboard.', { what }));
   return true;
 }
 
@@ -193,7 +194,7 @@ async function volumeProps(app, v, note = '') {
 async function ejectShare(app, v) {
   const vol = v.mount ? app.volumes.find((x) => x.path === v.mount) : null;
   if (vol && !(await eject(app, vol))) return false; // (eject takes the button off too)
-  if (!vol) { await unmapFolder(app, v.path); app.flash(`Removed ${v.name}.`); }
+  if (!vol) { await unmapFolder(app, v.path); app.flash(tm('Removed {name}.', { name: v.name })); }
   return true;
 }
 
@@ -285,7 +286,7 @@ async function renameVolume(app) {
     app.flash(errText(e), 'err');
     return false;
   }
-  app.flash(`Renamed ${old || v.name} to ${name.trim()}.`);
+  app.flash(tm('Renamed {old} to {name}.', { old: old || v.name, name: name.trim() }));
   await app.loadVolumes();
   return true;
 }

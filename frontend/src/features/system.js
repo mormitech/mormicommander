@@ -30,6 +30,7 @@ import { createCutState } from './system-cut.js';
 import { Panel } from '../core/panel.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { cmdline } from '../core/cmdline.js';
+import { tm } from '../core/i18n.js';
 
 const REVEAL = { darwin: 'Show in Finder', windows: 'Show in Explorer', linux: 'Open in the file manager' };
 export const revealLabel = (app) => REVEAL[app.platform] || REVEAL.linux;
@@ -88,22 +89,22 @@ export async function openWith(app, args = {}) {
   items.push({ label: 'Other program…', value: 'other' });
   if (await go.SystemLaunch.HasChooser().catch(() => false)) items.push({ label: 'Choose another app…', value: 'chooser' });
   const what = files.length === 1 ? files[0].name : plural(files.length, 'file');
-  const r = await showList({ title: `Open ${what} with`, items, anchor: anchorFor(p, args), kind: 'open-with' });
+  const r = await showList({ title: tm('Open {what} with', { what }), items, anchor: anchorFor(p, args), kind: 'open-with' });
   if (!r) return false;
   if (r.item.value === 'chooser') { await go.SystemLaunch.OpenWithChooser(paths[0]); return true; }
   if (r.item.value === 'other') {
     const last = app.setting('openWithLast', '');
-    const prog = await inputDialog({ title: `Open ${what} with`, label: 'Program', value: last, okLabel: 'Open', kind: 'open-with-program',
+    const prog = await inputDialog({ title: tm('Open {what} with', { what }), label: 'Program', value: last, okLabel: 'Open', kind: 'open-with-program',
       note: app.platform === 'darwin' ? 'An app name such as TextEdit, or the path of a program.' : 'The name or the path of a program.',
       validate: (v) => (v.trim() ? '' : 'Type the name or the path of a program.') });
     if (prog === null) return false;
     app.setSetting('openWithLast', prog.trim());
     await go.SystemLaunch.OpenWithProgram(paths, prog);
-    app.flash(`Opened ${what} with ${prog.trim()}.`);
+    app.flash(tm('Opened {what} with {prog}.', { what, prog: prog.trim() }));
     return true;
   }
   await go.SystemLaunch.OpenWith(paths, r.item.value);
-  app.flash(`Opened ${what} with ${r.item.value.Name}.`);
+  app.flash(tm('Opened {what} with {prog}.', { what, prog: r.item.value.Name }));
   return true;
 }
 command({ name: 'cm_OpenWith', label: 'Open with…', menu: 'Files', menuAfter: 'cm_InternalAssociate', run: (app, args) => openWith(app, args) });
@@ -116,7 +117,7 @@ command({
   name: 'cm_ExecuteDOS', menuKey: true, label: 'Open terminal here', keys: ['Ctrl+Alt+T'],
   run: async (app) => {
     await go.SystemLaunch.Terminal(app.cur.path);
-    app.flash(`Opened a terminal in ${app.cur.path}.`);
+    app.flash(tm('Opened a terminal in {path}.', { path: app.cur.path }));
   },
 });
 command({
@@ -150,7 +151,7 @@ addCmdlineHandler(async (text, { shift }) => {
   if (r.kind === 'cd') await p.go(r.target);
   else if (r.kind === 'back') await p.goBack();
   else if (r.kind === 'internal') await app.run(r.command);
-  else if (r.kind === 'run') app.flash(`Started: ${text}`);
+  else if (r.kind === 'run') app.flash(tm('Started: {cmd}', { cmd: text }));
   return true;
 });
 
@@ -214,7 +215,7 @@ async function pasteData(app, dir, content) {
   const path = await go.SystemClip.PasteData(dir, name.trim());
   await Promise.all(app.panels.filter((p) => p.path === dir).map((p) => p.reload()));
   focusIn(app, dir, [baseName(path)]);
-  app.flash(`Saved ${baseName(path)}.`);
+  app.flash(tm('Saved {name}.', { name: baseName(path) }));
   return true;
 }
 
@@ -278,7 +279,7 @@ async function leaveGone(app, p) {
     const up = dirName(dir);
     if (!up || up === dir) break;
     dir = up;
-    if (await p.go(dir, { history: false, focus: baseName(gone) })) { app.flash(`The folder ${gone} is not there any more.`); return; }
+    if (await p.go(dir, { history: false, focus: baseName(gone) })) { app.flash(tm('The folder {path} is not there any more.', { path: gone })); return; }
   }
   await p.go(app.home);
 }

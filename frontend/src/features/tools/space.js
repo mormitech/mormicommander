@@ -17,6 +17,7 @@ import { track } from '../../core/busy.js';
 import { bytes, size, plural } from '../../core/format.js';
 import { newId, onProgress, runTool, isLocal, needLocal, targets, showError } from './common.js';
 import { countSpaceOn } from './space-lib.js';
+import { tm, tn, tjoin } from '../../core/i18n.js';
 
 const scans = new Map(); // id → {panel, path, names, cancel, owner}
 
@@ -107,13 +108,14 @@ command({
     if (r.canceled) { app.flash('Stopped counting.'); return; }
     const t = r.total;
     const lines = [
-      `Total: ${bytes(t.bytes)} bytes (${size(t.bytes)}) in ${plural(t.files, 'file')}, ${plural(t.dirs, 'folder')}`,
-      `Size on disk: ${bytes(t.allocated)} bytes (${size(t.allocated)})${r.blockSize ? `, cluster size ${bytes(r.blockSize)} bytes` : ''}`,
+      tm('Total: {bytes} bytes ({size}) in {files}, {folders}', { bytes: bytes(t.bytes), size: size(t.bytes), files: tn(t.files, 'file'), folders: tn(t.dirs, 'folder') }),
+      r.blockSize ? tm('Size on disk: {bytes} bytes ({size}), cluster size {block} bytes', { bytes: bytes(t.allocated), size: size(t.allocated), block: bytes(r.blockSize) })
+        : tm('Size on disk: {bytes} bytes ({size})', { bytes: bytes(t.allocated), size: size(t.allocated) }),
     ];
-    if (t.links) lines.push(`${plural(t.links, 'symbolic link')} not followed.`);
-    if (r.skipped) lines.push(`${plural(r.skipped, 'folder')} on other drives or in link loops not counted.`);
-    if (t.errors) lines.push(`${plural(t.errors, 'item')} could not be read (no permission?).`);
-    await messageDialog({ Title: 'Occupied space', Message: lines.join('\n'), Kind: 'tools-space' });
+    if (t.links) lines.push(tm('{what} not followed.', { what: tn(t.links, 'symbolic link') }));
+    if (r.skipped) lines.push(tm('{what} on other drives or in link loops not counted.', { what: tn(r.skipped, 'folder') }));
+    if (t.errors) lines.push(tm('{what} could not be read (no permission?).', { what: tn(t.errors, 'item') }));
+    await messageDialog({ Title: 'Occupied space', Message: tjoin(lines), Kind: 'tools-space' });
   },
 });
 

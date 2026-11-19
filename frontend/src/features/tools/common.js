@@ -6,6 +6,7 @@ import { go, on, errText, setClipboardText } from '../../core/go.js';
 import { modal, messageDialog, esc } from '../../core/dialogs.js';
 import { size, plural } from '../../core/format.js';
 import { track } from '../../core/busy.js';
+import { tm, tn, tText, tr, Msg, translateTree } from '../../core/i18n.js';
 
 export { esc };
 
@@ -37,16 +38,17 @@ export function runTool(title, fn, { delay = 350 } = {}) {
       modal((box, done) => {
         close = () => done();
         box.classList.add('mc-tools-progress');
-        box.innerHTML = `<h2>${esc(title)}</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p>
-          <div class="mc-btns"><button type="button" class="cancel">Cancel</button></div>`;
+        box.innerHTML = `<h2>${esc(tr(title))}</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p>
+          <div class="mc-btns"><button type="button" class="cancel">${esc(tr('Cancel'))}</button></div>`;
+        translateTree(box);
         const msg = box.querySelector('.mc-msg'), bar = box.querySelector('.mc-progress i'), note = box.querySelector('.mc-note');
         paint = () => {
           msg.textContent = p.text || (p.current ? baseName(p.current) : '');
           const frac = p.bytes > 0 ? p.bytesDone / p.bytes : p.total > 0 ? p.done / p.total : p.itemsTotal > 0 ? p.itemsDone / p.itemsTotal : 0;
           bar.style.width = `${Math.round(Math.min(1, frac || 0) * 100)}%`;
-          if (p.files !== undefined) note.textContent = `${size(p.bytes || 0)} in ${plural(p.files || 0, 'file')}, ${plural(p.dirs || 0, 'folder')}`;
-          else if (p.bytes > 0) note.textContent = `${size(p.bytesDone || 0)} of ${size(p.bytes)}`;
-          else if (p.total > 0) note.textContent = `${p.done} of ${plural(p.total, 'item')}`;
+          if (p.files !== undefined) note.textContent = tm('{size} in {files}, {folders}', { size: size(p.bytes || 0), files: tn(p.files || 0, 'file'), folders: tn(p.dirs || 0, 'folder') });
+          else if (p.bytes > 0) note.textContent = tm('{done} of {total}', { done: size(p.bytesDone || 0), total: size(p.bytes) });
+          else if (p.total > 0) note.textContent = tm('{done} of {total}', { done: p.done, total: tn(p.total, 'item') });
         };
         paint();
         box.querySelector('.cancel').onclick = () => go.Tools.Cancel(id);
@@ -66,7 +68,7 @@ export function runTool(title, fn, { delay = 350 } = {}) {
 // askOverwrite asks before a tool replaces a file that is already there.
 export async function askOverwrite(path, what = '') {
   const b = await messageDialog({
-    Title: 'Overwrite?', Message: `${what || baseName(path) || 'The file'} is already there.\n\nReplace it?`,
+    Title: 'Overwrite?', Message: what || baseName(path) ? tm('{name} is already there.\n\nReplace it?', { name: what || baseName(path) }) : tm('The file is already there.\n\nReplace it?'),
     Buttons: ['Overwrite', 'Cancel'], DefaultButton: 'Overwrite', CancelButton: 'Cancel', Kind: 'tools-overwrite',
   });
   return b === 'Overwrite';
@@ -88,8 +90,10 @@ export const showError = (msg, title = 'mormiCommander') => messageDialog({ Titl
 // failureList shows the files a tool could not handle: [{path, error}].
 export function failureList(title, failed, intro = '') {
   const lines = failed.slice(0, 12).map((f) => `${baseName(f.path)}: ${f.error}`);
-  if (failed.length > 12) lines.push(`…and ${failed.length - 12} more.`);
-  return messageDialog({ Title: title, Message: `${intro ? intro + '\n\n' : ''}${lines.join('\n')}`, Kind: 'tools-failed' });
+  const shown = failed.slice(0, 12).map((f) => `${baseName(f.path)}: ${tText(f.error)}`);
+  if (failed.length > 12) { const m = tm('…and {n} more.', { n: failed.length - 12 }); lines.push(m.en); shown.push(m.text); }
+  const head = (s) => (s ? `${s}\n\n` : '');
+  return messageDialog({ Title: title, Message: new Msg(head(intro?.en ?? intro) + lines.join('\n'), head(tText(intro)) + shown.join('\n')), Kind: 'tools-failed' });
 }
 
 export const baseName = (p) => String(p || '').replace(/[\\/]+$/, '').split(/[\\/]/).pop();

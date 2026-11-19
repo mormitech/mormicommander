@@ -31,6 +31,7 @@ import { isLocal, quoteArg, transferFiles } from './system-lib.js';
 import { dragPlan, nativeHoverEl, ownNativeDrop, prepText, VFS_DRAG_LIMIT } from './system-dragout.js';
 import { showList } from '../core/popup.js';
 import { Panel } from '../core/panel.js';
+import { tm, tn } from '../core/i18n.js';
 
 const MIME = 'application/x-mormicommander';
 let drag = null;        // {from: panel, paths, native?}: the drag that started in a panel
@@ -140,7 +141,7 @@ export async function performDrop(app, paths, t, op, fromPanel = null) {
   if (t.kind === 'program') {
     try {
       await go.SystemLaunch.RunWith(t.path, paths, t.panel?.path || '');
-      app.flash(`Started ${t.entry?.name || t.path} with ${plural(paths.length, 'file')}.`);
+      app.flash(tm('Started {name} with {what}.', { name: t.entry?.name || t.path, what: tn(paths.length, 'file') }));
     } catch (e) { app.flash(errText(e), 'err'); }
     return true;
   }
@@ -174,7 +175,7 @@ export function init(app) {
       const outside = app.setting('dragToOtherApp', true) !== false;
       const plan = outside ? dragPlan({ setting: app.setting('nativeDragOut', false), supported: nativeOK, kind: p.vfs?.kind, entries: list }) : 'html';
       if (plan === 'copy') { ev.preventDefault(); startNativeCopy(app, p, paths); return; }
-      if (plan === 'big') app.flash(`Too big to drag to other programs as real files (over ${VFS_DRAG_LIMIT >> 20} MB). Copy with F5 instead.`);
+      if (plan === 'big') app.flash(tm('Too big to drag to other programs as real files (over {n} MB). Copy with F5 instead.', { n: VFS_DRAG_LIMIT >> 20 }));
       if (!isLocal(p.path)) { ev.preventDefault(); return; }
       if (plan === 'native') { ev.preventDefault(); startNative(app, p, paths); return; }
       drag = { from: p, paths };

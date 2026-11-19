@@ -8,6 +8,7 @@ import { command, hasCommand, commandList, run } from '../core/registry.js';
 import { cmdline, addCmdlineHandler } from '../core/cmdline.js';
 import { app as theApp } from '../core/app.js';
 import { go, errText } from '../core/go.js';
+import { tm } from '../core/i18n.js';
 
 const quote = (s) => (/[\s"'&|;<>()$`\\]/.test(s) && theApp.platform !== 'windows') || /\s/.test(s) ? `"${s.replace(/"/g, '\\"')}"` : s;
 
@@ -46,7 +47,7 @@ addCmdlineHandler(async (text) => {
   if (w.kind === 'terminal') { await app.run('cm_ExecuteDOS'); return true; }
   try {
     await go.SystemLaunch.RunLine(text.trim(), p.path, true);
-    app.flash(`Started ${text.trim()} in a terminal.`);
+    app.flash(tm('Started {cmd} in a terminal.', { cmd: text.trim() }));
   } catch (e) { app.flash(errText(e), 'err'); }
   return true;
 });
@@ -91,7 +92,7 @@ command({
   name: 'cm_ExecuteCmdLine', label: 'Run the command line',
   run: async (app, { shift } = {}) => {
     const text = cmdline.text.trim();
-    if (!await cmdline.submit({ shift })) app.flash(`Running programs from the command line is not ready yet ("${text}").`);
+    if (!await cmdline.submit({ shift })) app.flash(tm('Running programs from the command line is not ready yet ("{cmd}").', { cmd: text }));
   },
 });
 command({ name: 'cm_FocusCmdLine', menuKey: true, label: 'Command line', run: () => cmdline.focus() });

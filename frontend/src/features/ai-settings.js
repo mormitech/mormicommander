@@ -17,6 +17,7 @@ import { command } from '../core/registry.js';
 import { modal, esc } from '../core/dialogs.js';
 import { applyOptions } from './config/util.js';
 import './ai-settings.css';
+import { translateTree, tText, tm, tr } from '../core/i18n.js';
 
 const PROVIDERS = [
   { value: '0', label: 'Claude Code', note: 'the claude command, installed and signed in by you; its path and model are in Options > AI' },
@@ -116,6 +117,7 @@ function build(box, done, saved, hasKey) {
     <p class="mc-note">What a run sends to the provider: your prompt, a short description of where you are (the panels' folders), and what the tools answer (file names, sizes, dates). The key stays in the system keychain.</p>
     <p class="mc-err" hidden></p>
     <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">Save</button></div>`;
+  translateTree(box);
 
   const $ = (s) => box.querySelector(s);
   const keyIn = $('#ai-key'), modelIn = $('#ai-model'), filterIn = $('#ai-model-filter'), urlIn = $('#ai-url');
@@ -125,13 +127,13 @@ function build(box, done, saved, hasKey) {
   let shown = [];        // the rows the filter lets through
   let loading = false;
 
-  const showError = (msg) => { const e = $('.mc-err'); e.hidden = !msg; e.textContent = msg || ''; };
+  const showError = (msg) => { const e = $('.mc-err'); e.hidden = !msg; e.textContent = tText(msg || ''); };
 
   function renderKeyState() {
     const st = $('.mc-ai-keystate');
     const rm = $('.mc-ai-remove');
     rm.hidden = !hasKey || removeKey;
-    if (removeKey) st.textContent = 'The saved key will be removed when you save.';
+    if (removeKey) st.textContent = tr('The saved key will be removed when you save.');
     else st.textContent = hasKey ? 'A key is saved in the system keychain. Type a new one to replace it.' : 'No key is saved. Paste your key; it is kept in the system keychain only.';
     keyIn.placeholder = hasKey && !removeKey ? '(saved; type to replace)' : 'Paste your API key';
   }
@@ -146,9 +148,9 @@ function build(box, done, saved, hasKey) {
       return `<div class="mc-ai-model${m.id === cur ? ' on' : ''}${m.noTools ? ' no-tools' : ''}" role="option" data-i="${i}" aria-selected="${m.id === cur}"
         ${m.noTools ? 'title="This model can\'t call tools, so it can\'t search with mormiCommander."' : ''}>
         <span class="mc-ai-name">${esc(m.name || m.id)}</span><span class="mc-ai-meta">${esc(meta.join(' · '))}</span></div>`;
-    }).join('') || '<div class="mc-ai-none">No model matches the filter.</div>';
-    const more = shown.length > MAX_ROWS ? ` The first ${MAX_ROWS} are shown; type in the filter to narrow them.` : '';
-    modelState.textContent = `${shown.length} of ${models.length} models.${more} Click one to choose it.`;
+    }).join('') || `<div class="mc-ai-none">${esc(tr('No model matches the filter.'))}</div>`;
+    modelState.textContent = shown.length > MAX_ROWS ? tm('{n} of {total} models. The first {max} are shown; type in the filter to narrow them. Click one to choose it.', { n: shown.length, total: models.length, max: MAX_ROWS })
+      : tm('{n} of {total} models. Click one to choose it.', { n: shown.length, total: models.length });
     list.querySelector('.on')?.scrollIntoView?.({ block: 'nearest' });
   }
 
@@ -163,7 +165,7 @@ function build(box, done, saved, hasKey) {
     if (loading) return;
     loading = true;
     showError('');
-    modelState.textContent = 'Fetching the model list…';
+    modelState.textContent = tr('Fetching the model list…');
     try {
       models = (await go.AI.ModelsFrom('openrouter', urlIn.value.trim())) || [];
       renderList();
@@ -182,7 +184,7 @@ function build(box, done, saved, hasKey) {
   keyIn.addEventListener('input', () => { if (keyIn.value) { removeKey = false; renderKeyState(); } });
   filterIn.addEventListener('input', renderList);
   // (a changed address has its own list: the old one is put away until Show models fetches the new one)
-  urlIn.addEventListener('input', () => { models = null; list.hidden = true; modelState.textContent = 'Press Show models to fetch the list from this address.'; });
+  urlIn.addEventListener('input', () => { models = null; list.hidden = true; modelState.textContent = tr('Press Show models to fetch the list from this address.'); });
   list.addEventListener('click', (ev) => { const row = ev.target.closest('.mc-ai-model'); if (row) choose(+row.dataset.i); });
   $('.cancel').onclick = () => done(false);
 

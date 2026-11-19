@@ -20,6 +20,7 @@ import { formDialog, esc } from '../core/dialogs.js';
 import { Panel } from '../core/panel.js';
 import { realCommand } from './config/run.js';
 import { compileMask } from './config/util.js';
+import { tm } from '../core/i18n.js';
 
 export const ASSOC_KEY = 'internalAssociations';
 
@@ -73,7 +74,7 @@ async function runAssociation(app, verb, name, path, dir) {
   if (a.internal) {
     const args = verb === 'open' ? (a.args ? { params: a.args } : undefined) : { ...(a.args ? { params: a.args } : {}), noAssoc: true };
     await app.run(realCommand(a.internal), args);
-  } else app.flash(`Opened ${name}.`);
+  } else app.flash(tm('Opened {name}.', { name }));
   return true;
 }
 

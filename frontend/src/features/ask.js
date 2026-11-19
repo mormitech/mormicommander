@@ -20,6 +20,7 @@ import { app as theApp } from '../core/app.js';
 import { comboFromEvent } from '../core/keys.js';
 import { askContext, describeAnyTool, pushHistory, historyStep, providerLines } from './aitools-more-lib.js';
 import './ask.css';
+import { translateTree, tr } from '../core/i18n.js';
 
 const LOG_MAX = 300;
 const HISTORY_KEY = 'aiAskHistory';
@@ -53,7 +54,7 @@ function renderLog() {
   if (!el) return;
   el.innerHTML = A.log.length
     ? A.log.map((x) => `<div class="ai-${x.kind}">${esc(x.text)}</div>`).join('')
-    : '<div class="ai-empty">Write what mormiCommander should do, then press Enter. The AI works with mormiCommander\'s own tools: it can look around, open folders, select, search, sort, change the view and the colours, and pack copies into a new archive. It cannot delete, move, rename or overwrite files, or run programs.</div>';
+    : `<div class="ai-empty">${esc(tr('Write what mormiCommander should do, then press Enter. The AI works with mormiCommander\'s own tools: it can look around, open folders, select, search, sort, change the view and the colours, and pack copies into a new archive. It cannot delete, move, rename or overwrite files, or run programs.'))}</div>`;
   el.scrollTop = el.scrollHeight;
 }
 
@@ -61,7 +62,7 @@ function renderProviders() {
   const el = $('.mc-ask-provider');
   if (!el) return;
   const p = A.providers;
-  if (!p) { el.textContent = 'Looking for AI providers…'; el.className = 'mc-ask-provider'; return; }
+  if (!p) { el.textContent = tr('Looking for AI providers…'); el.className = 'mc-ask-provider'; return; }
   el.className = `mc-ask-provider${p.ok ? ' ok' : ' bad'}`;
   // (plain text, no links: the page links only to the sites privacy.test.js allows)
   el.innerHTML = p.lines.map((l) => `<div class="${l.ok ? 'ok' : 'bad'}"${l.error ? ` title="${esc(l.error)}"` : ''}>${esc(l.text)}</div>`).join('');
@@ -203,6 +204,7 @@ function openAsk() {
         <button type="button" class="ask-stop">Stop</button>
         <button type="button" class="ask-close">Close</button>
       </div>`;
+    translateTree(box);
     box.onsubmit = (ev) => { ev.preventDefault(); start(); };
     box.querySelector('.ask-stop').onclick = stop;
     box.querySelector('.ask-close').onclick = () => done(null);

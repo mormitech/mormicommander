@@ -20,6 +20,7 @@ import { app as theApp } from '../core/app.js';
 import { addFindTab, findDialog } from './find.js';
 import { openAISettings } from './ai-settings.js';
 import { findRequest, findSummary, describeTool, findContext, providerLine, day } from './aitools-lib.js';
+import { tr } from '../core/i18n.js';
 
 const TOOL_TIMEOUT = 100_000; // ms a search may take before it is stopped (Go waits 120 s for a tool's answer)
 const LOG_MAX = 200;
@@ -54,7 +55,7 @@ function renderLog() {
   if (!el) return;
   el.innerHTML = A.log.length
     ? A.log.map((x) => `<div class="ai-${x.kind}">${esc(x.text)}</div>`).join('')
-    : '<div class="ai-empty">Describe the files you are looking for, then press Enter or Start search. The model searches with Find files; the results fill the list below.</div>';
+    : `<div class="ai-empty">${esc(tr('Describe the files you are looking for, then press Enter or Start search. The model searches with Find files; the results fill the list below.'))}</div>`;
   el.scrollTop = el.scrollHeight;
 }
 
@@ -62,7 +63,7 @@ function renderProvider() {
   const el = $('.mc-find-ai-provider');
   if (!el) return;
   const p = A.provider;
-  if (!p) { el.textContent = 'Looking for the AI provider…'; el.className = 'mc-find-ai-provider'; return; }
+  if (!p) { el.textContent = tr('Looking for the AI provider…'); el.className = 'mc-find-ai-provider'; return; }
   el.className = `mc-find-ai-provider${p.ok ? ' ok' : ' bad'}`;
   // (plain text, not a link: the page links only to the sites privacy.test.js allows)
   el.textContent = p.text;

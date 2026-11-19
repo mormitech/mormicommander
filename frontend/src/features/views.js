@@ -21,7 +21,7 @@ import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { Panel, splitPath } from '../core/panel.js';
 import { esc, modal, formDialog, messageDialog, inputDialog } from '../core/dialogs.js';
-import { t as tt } from '../core/i18n.js';
+import { t as tt, tm, tText } from '../core/i18n.js';
 import { showList } from '../core/popup.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
@@ -513,7 +513,7 @@ function setMode(p, mode, set = '') {
   const vs = vsOf(p);
   if (vs.mode === 'tree' && mode !== 'tree') return leaveTree(p, { mode, set, toNode: true });
   if (mode === 'custom') {
-    if (!findSet(set)) { p.app.flash(`There is no column set "${set}".`, 'err'); return false; }
+    if (!findSet(set)) { p.app.flash(tm('There is no column set "{name}".', { name: set }), 'err'); return false; }
     if (vs.mode === 'custom' && vs.set === set) return false;
   } else if (vs.mode === mode) return false;
   vs.mode = mode;
@@ -735,7 +735,7 @@ function setThumbSize(n) {
   if (n === thumbSize()) return;
   saveCfg({ thumbSize: n });
   for (const p of theApp.panels) if (modeOf(p) === 'thumbs') { p.rebuild(); startThumbs(p); }
-  theApp.flash(`Thumbnails: ${n} × ${n} pixels.`);
+  theApp.flash(tm('Thumbnails: {n} × {n} pixels.', { n }));
 }
 
 // ---- the tree in the panel (Ctrl+F8) ----
@@ -1133,7 +1133,7 @@ async function customColumnConfig(app) {
         const s = await editSet({ name: uniqueName(list, 'Columns'), autoSwitch: '', columns: [{ title: 'Size', template: '[=tc.size]', width: 90, align: 'right' }, { title: 'Date', template: '[=tc.writedate]', width: 130, align: 'left' }] }, list, -1);
         if (s) { list.push(s); draw(list.length - 1); }
       } else if (i < 0) {
-        if (a !== 'up' && a !== 'down') { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = 'Choose a column set first.'; }
+        if (a !== 'up' && a !== 'down') { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = tText('Choose a column set first.'); }
       } else if (a === 'copy') {
         const s = await editSet({ ...list[i], name: uniqueName(list, `${list[i].name} copy`), columns: list[i].columns.map((c) => ({ ...c })) }, list, -1);
         if (s) { list.push(s); draw(list.length - 1); }
@@ -1212,7 +1212,7 @@ function editSet(set, list, index) {
       box.querySelectorAll('[data-del]').forEach((b) => { b.onclick = () => { read(); cols.splice(+b.dataset.del, 1); draw(); }; });
       box.querySelectorAll('[data-f]').forEach((b) => { b.onclick = () => chooseField(box, +b.dataset.f, b); });
     };
-    const err = (t) => { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = t; };
+    const err = (t) => { const e = box.querySelector('.mc-err'); e.hidden = false; e.textContent = tText(t); };
     box.onsubmit = async (ev) => {
       ev.preventDefault();
       read();
@@ -1509,7 +1509,7 @@ async function viewModeList(app, p) {
     if (!r2) return false;
     await app.setSetting('viewModes', moveViewModeUp(modes, r2.item.value));
     refreshMenu();
-    app.flash(`View mode "${r2.item.value}" moved up.`);
+    app.flash(tm('View mode "{name}" moved up.', { name: r2.item.value }));
     return true;
   }
   if (v.remove) {
@@ -1517,7 +1517,7 @@ async function viewModeList(app, p) {
     if (!r2) return false;
     await app.setSetting('viewModes', modes.filter((m) => m.name !== r2.item.value));
     refreshMenu();
-    app.flash(`View mode "${r2.item.value}" removed.`);
+    app.flash(tm('View mode "{name}" removed.', { name: r2.item.value }));
     return true;
   }
   if (v.edit) {
@@ -1530,7 +1530,7 @@ async function viewModeList(app, p) {
     refreshMenu();
     // a panel in the mode takes the change at once
     for (const q of app.panels || []) if (vsOf(q).viewMode === old.name) await applyViewMode(q, m, { auto: !!vsOf(q).modeAuto });
-    app.flash(`View mode "${m.name}" changed.`);
+    app.flash(tm('View mode "{name}" changed.', { name: m.name }));
     return true;
   }
   const cur = vs.mode === 'tree' ? (vs.prev || { mode: 'full', set: '' }) : vs;
@@ -1540,7 +1540,7 @@ async function viewModeList(app, p) {
   refreshMenu();
   vs.viewMode = m.name;
   if (lookWords(m).length) modeLook(p, m);
-  app.flash(`View mode "${m.name}" saved.`);
+  app.flash(tm('View mode "{name}" saved.', { name: m.name }));
   return true;
 }
 
@@ -1601,7 +1601,7 @@ function sortByColumn(p, n) {
   if (cols.ext) keys.push('ext');
   cols.cols.forEach((c, k) => keys.push(c.sort || (isColumnMode(p) ? `col${k + 1}` : null)));
   const key = keys[n - 1];
-  if (!key) { p.app.flash(`The view has no column ${n} to sort by.`); return false; }
+  if (!key) { p.app.flash(tm('The view has no column {n} to sort by.', { n })); return false; }
   p.sortBy(key);
   return true;
 }
