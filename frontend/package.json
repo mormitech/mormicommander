@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lang:template": "MC_WRITE_LANG_TEMPLATE=1 vitest run test/i18n.test.js"
   },
   "devDependencies": {
     "happy-dom": "^18.0.1",

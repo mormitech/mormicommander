@@ -1,22 +1,59 @@
-// Translations of the interface's words (Options > Language, board issue #94). A language file holds lines of
-// "English text=Translated text", optionally in sections named by language ("[hu]"); the section of Options > Language
-// > Interface language is used, and lines outside any section always. Without a file everything stays English. The
-// menu bar, the function key buttons, the popup lists and the dialogs' titles and buttons go through tr(); what a
-// dialog answers stays the English word, so the program's own logic never sees a translation.
+// Translations of the interface's words (Options > Language, board issues #94 and #113). The language file (read by Go,
+// feature_lang.go: .lng lines "English text=Translated text" or a .json object, optionally in sections named by
+// language) gives a table English → translation; t() looks a text up in it. Without a file, and for every text the
+// file lacks, t() gives back the English text unchanged, so the default interface is exactly the English one.
+// What a dialog answers stays the English word (the buttons only show a translation), so the program's own logic never
+// sees one.
+//
+// t('Copy {what} to:', { what }) fills in {name} placeholders after the lookup; the translation may move them around.
+// The template of all the texts (lang/template.lng) is made by `npm run lang:template` in frontend/, which collects
+// what t() is asked while the menus are built (collect mode, below) plus the literal t('…') texts in the source.
 
 let table = null; // Map English → translation, or null
+let collected = null; // Set of the texts asked while collecting, or null
 
 export function setTranslations(map) {
-  table = map && Object.keys(map).length ? new Map(Object.entries(map)) : null;
+  const entries = map ? Object.entries(map).filter(([k, v]) => k && typeof v === 'string' && v !== '') : [];
+  table = entries.length ? new Map(entries) : null;
 }
 
-// tr is the translation of an English text (the text itself when there is none). A trailing "…" is kept.
-export function tr(s) {
-  if (!table || typeof s !== 'string' || !s) return s;
-  const hit = table.get(s);
-  if (hit !== undefined) return hit;
-  if (s.endsWith('…')) { const h = table.get(s.slice(0, -1)); if (h !== undefined) return `${h}…`; }
-  return s;
+// fill puts vars into the {name} placeholders of s (a placeholder without a value stays as it is).
+function fill(s, vars) {
+  return s.replace(/\{(\w+)\}/g, (m, k) => (Object.hasOwn(vars, k) ? String(vars[k]) : m));
 }
+
+// t is the translation of an English text (the text itself when there is none). A trailing "…" is kept, so "Pack" also
+// translates "Pack…".
+export function t(s, vars) {
+  if (typeof s !== 'string' || !s) return s;
+  collected?.add(s);
+  let out = s;
+  if (table) {
+    const hit = table.get(s);
+    if (hit !== undefined) out = hit;
+    else if (s.endsWith('…')) { const h = table.get(s.slice(0, -1)); if (h !== undefined) out = `${h}…`; }
+  }
+  return vars ? fill(out, vars) : out;
+}
+
+export const tr = t; // (the older name, used by the menus, popups and dialogs)
 
 export const translating = () => !!table;
+
+// Collect mode, for the template: every text t() is asked from now on is kept until stopCollecting() returns them.
+export function startCollecting() { collected = new Set(); }
+export function stopCollecting() { const s = collected ? [...collected] : []; collected = null; return s; }
+
+// lngLine is one "English=Translation" line of a .lng file ("=" in the English text written "\=").
+export const lngLine = (en, tr2 = '') => `${en.replace(/=/g, '\\=')}=${tr2}`;
+
+// literalTexts finds the texts of t('…') / tr('…') / tt('…') calls with a plain string (no ${} inside) in source code.
+export function literalTexts(src) {
+  const out = [];
+  const re = /\b(?:t|tr|tt)\(\s*(?:'((?:[^'\\\n]|\\.)*)'|"((?:[^"\\\n]|\\.)*)"|`((?:[^`\\$]|\\.)*)`)/g;
+  for (const m of src.matchAll(re)) {
+    const s = (m[1] ?? m[2] ?? m[3]).replace(/\\(.)/g, (x, c) => (c === 'n' ? '\n' : c));
+    if (s) out.push(s);
+  }
+  return out;
+}

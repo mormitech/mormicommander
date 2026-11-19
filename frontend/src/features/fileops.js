@@ -30,6 +30,7 @@ import { modal, messageDialog, esc } from '../core/dialogs.js';
 import { runJob, showTransfers, jobList, backgroundSpeedLimit } from '../core/jobs.js';
 import { onErrorFor } from '../core/joberrors.js';
 import { plural, F } from '../core/format.js';
+import { t as tt } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { sameNameTarget, targetHistory } from './fileops-target.js';
@@ -68,7 +69,8 @@ function targetsOf(app) {
 function describe(items) {
   if (items.length === 1) return `"${items[0].name}"`;
   const dirs = items.filter((e) => e.dir).length, files = items.length - dirs;
-  return [files ? plural(files, 'file') : '', dirs ? plural(dirs, 'folder') : ''].filter(Boolean).join(' and ');
+  const f = files ? plural(files, tt('file'), tt('files')) : '', d = dirs ? plural(dirs, tt('folder'), tt('folders')) : '';
+  return f && d ? tt('{files} and {folders}', { files: f, folders: d }) : f || d;
 }
 
 const trashWord = (app) => (app.platform === 'windows' ? 'Recycle Bin' : app.platform === 'darwin' ? 'Trash' : 'trash');
@@ -199,8 +201,8 @@ function copyDialog(app, { move, same, items }) {
     if (dl && remote(src.path) && remote(dst.path)) initial = withSep(app, dl);
     select = [0, initial.length];
   }
-  const ch = (id, label, on, title = '') => `<label class="mc-check"${title ? ` title="${esc(title)}"` : ''}><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${esc(label)}</label>`;
-  const attrsLabel = app.platform === 'windows' ? 'Copy alternate data streams' : app.platform === 'darwin' ? 'Copy extended attributes and resource forks' : 'Copy extended attributes';
+  const ch = (id, label, on, title = '') => `<label class="mc-check"${title ? ` title="${esc(tt(title))}"` : ''}><input type="checkbox" id="${id}"${on ? ' checked' : ''}> ${esc(tt(label))}</label>`;
+  const attrsLabel = tt(app.platform === 'windows' ? 'Copy alternate data streams' : app.platform === 'darwin' ? 'Copy extended attributes and resource forks' : 'Copy extended attributes');
   const ow = opt(app, 'overwriteDefault');
   const showOpts = !!opt(app, 'showOptions');
   // with the undo journal on (board #13), a choice that replaces files without asking says it can't be undone
@@ -208,13 +210,13 @@ function copyDialog(app, { move, same, items }) {
   return modal((box, done) => {
     box.classList.add('mc-fileops-copy');
     queueMicrotask(() => { const t = box.querySelector('#target'); if (t) attachPathComplete(t, () => src.path); }); // (F-782)
-    box.innerHTML = `<h2>${verb}</h2>
-      <div class="mc-row"><label for="target" class="mc-msg">${esc(`${verb} ${describe(items)} to:`)}</label>
+    box.innerHTML = `<h2>${esc(tt(verb))}</h2>
+      <div class="mc-row"><label for="target" class="mc-msg">${esc(move ? tt('Move {what} to:', { what: describe(items) }) : tt('Copy {what} to:', { what: describe(items) }))}</label>
         <div class="mc-fileops-field"><input id="target" type="text" spellcheck="false" autofocus value="${esc(initial)}" data-select="${select.join(',')}">
-        <button type="button" class="mc-fileops-hist" tabindex="-1" title="Recent targets (Alt+Down)" aria-label="Recent targets">▾</button></div></div>
-      <div class="mc-row"><label for="filter">Only files of this type:</label><input id="filter" type="text" spellcheck="false" value="*.*" title="For example *.txt *.md | old* — after | what to leave out; a name ending in / leaves out folders"></div>
+        <button type="button" class="mc-fileops-hist" tabindex="-1" title="${esc(tt('Recent targets (Alt+Down)'))}" aria-label="${esc(tt('Recent targets'))}">▾</button></div></div>
+      <div class="mc-row"><label for="filter">${esc(tt('Only files of this type:'))}</label><input id="filter" type="text" spellcheck="false" value="*.*" title="${esc(tt('For example *.txt *.md | old* — after | what to leave out; a name ending in / leaves out folders'))}"></div>
       <div class="mc-fileops-opts"${showOpts ? '' : ' hidden'}>
-        <div class="mc-row"><label for="overwrite">When a file is already there:</label><select id="overwrite">${OVERWRITE.map(([v, l]) => `<option value="${v}"${v === ow ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+        <div class="mc-row"><label for="overwrite">${esc(tt('When a file is already there:'))}</label><select id="overwrite">${OVERWRITE.map(([v, l]) => `<option value="${v}"${v === ow ? ' selected' : ''}>${esc(tt(l))}</option>`).join('')}</select></div>
         <p class="mc-note mc-fileops-noundo"${overwriteNote(ow, journalOn) ? '' : ' hidden'}>${esc(overwriteNote(ow, journalOn))}</p>
         <div class="mc-fileops-checks">
           ${ch('verify', 'Verify after copying', opt(app, 'verify'), 'Read every copy back and compare it with the original')}
@@ -229,8 +231,8 @@ function copyDialog(app, { move, same, items }) {
         </div>
       </div>
       <p class="mc-err" hidden></p>
-      <div class="mc-btns"><button type="button" class="opts">Options</button><button type="button" class="tree" title="Pick the target folder in a tree (F10)">Tree</button>
-        <span class="mc-fileops-gap"></span><button type="button" class="cancel">Cancel</button><button type="button" class="queue" title="Add to the background queue (F2)">F2 Queue</button><button type="submit" class="primary">OK</button></div>`;
+      <div class="mc-btns"><button type="button" class="opts">${esc(tt('Options'))}</button><button type="button" class="tree" title="${esc(tt('Pick the target folder in a tree (F10)'))}">${esc(tt('Tree'))}</button>
+        <span class="mc-fileops-gap"></span><button type="button" class="cancel">${esc(tt('Cancel'))}</button><button type="button" class="queue" title="${esc(tt('Add to the background queue (F2)'))}">${esc(tt('F2 Queue'))}</button><button type="submit" class="primary">${esc(tt('OK'))}</button></div>`;
     const $ = (s) => box.querySelector(s);
     const input = $('#target');
     const drop = new Drop(box, input, $('.mc-fileops-field'));
@@ -260,7 +262,7 @@ function copyDialog(app, { move, same, items }) {
       const q = queued;
       queued = false;
       const text = input.value.trim();
-      if (!text) { err('Type the folder to copy to.'); return; }
+      if (!text) { err(tt('Type the folder to copy to.')); return; }
       busy = true;
       try {
         let t;
@@ -274,7 +276,7 @@ function copyDialog(app, { move, same, items }) {
           return;
         }
         if (!t.dirExists) {
-          const b = await messageDialog({ Title: 'Make the folder?', Message: `The folder ${t.dir} is not there.\n\nMake it?`, Buttons: ['Make it', 'Cancel'], Kind: 'make-target' });
+          const b = await messageDialog({ Title: 'Make the folder?', Message: tt('The folder {dir} is not there.\n\nMake it?', { dir: t.dir }), Buttons: ['Make it', 'Cancel'], Kind: 'make-target' });
           if (b !== 'Make it') return;
         }
         done({
@@ -420,29 +422,39 @@ async function deleteFiles(app, { permanent = false, wipe = false } = {}) {
     ? noTrashReason(app.platform, app.volumeFor?.(src.path), src.path) : '';
   const noTrash = toTrash && (!trashOK || !!volReason);
   if (noTrash) toTrash = false;
-  const T = trashWord(app);
+  const T = tt(trashWord(app)), trashEn = trashWord(app);
   const what = describe(items);
   let title, msg, button;
   if (place) {
     title = 'Delete';
-    const them = items.length === 1 ? 'It' : 'They';
-    msg = place === 'archive'
-      ? `Delete ${what} from the archive?\n\n${them} will be removed from the archive for good: there is no ${T} for files in an archive.`
-      : `Delete ${what} from the server?\n\n${them} will be deleted for good: there is no ${T} on a server.`;
+    const one = items.length === 1, v = { what, trash: T };
+    if (place === 'archive') {
+      msg = one ? tt('Delete {what} from the archive?\n\nIt will be removed from the archive for good: there is no {trash} for files in an archive.', v)
+        : tt('Delete {what} from the archive?\n\nThey will be removed from the archive for good: there is no {trash} for files in an archive.', v);
+    } else {
+      msg = one ? tt('Delete {what} from the server?\n\nIt will be deleted for good: there is no {trash} on a server.', v)
+        : tt('Delete {what} from the server?\n\nThey will be deleted for good: there is no {trash} on a server.', v);
+    }
     button = 'Delete';
   } else if (wipe) {
     title = 'Wipe';
-    msg = `Wipe ${what}?\n\nThe contents are overwritten before they are deleted, so they can't be brought back, not even with recovery tools.`;
+    msg = tt('Wipe {what}?\n\nThe contents are overwritten before they are deleted, so they can\'t be brought back, not even with recovery tools.', { what });
     button = 'Wipe';
   } else if (toTrash) {
     title = 'Delete';
-    msg = `Move ${what} to the ${T}?`;
-    if (app.volumeFor(src.path)?.kind === 'network') msg += `\n\nNetwork volumes often have no ${T}. If this one has none, you will be asked before anything is deleted permanently.`;
-    button = `Move to ${T}`;
+    msg = tt('Move {what} to the {trash}?', { what, trash: T });
+    if (app.volumeFor(src.path)?.kind === 'network') msg += `\n\n${tt('Network volumes often have no {trash}. If this one has none, you will be asked before anything is deleted permanently.', { trash: T })}`;
+    button = `Move to ${trashEn}`; // (the English answer; the dialog shows its translation)
   } else {
     title = 'Delete permanently';
-    msg = noTrash ? `There is no ${T} here${volReason ? ` (${volReason})` : ''}, so ${what} will be deleted permanently.\n\nDelete ${items.length === 1 ? 'it' : 'them'}? This can't be undone.`
-      : `Delete ${what} permanently?\n\n${items.length === 1 ? 'It' : 'They'} will not go to the ${T}, and can't be brought back.`;
+    const one = items.length === 1, v = { trash: T, reason: volReason ? ` (${volReason})` : '', what };
+    if (noTrash) {
+      msg = one ? tt('There is no {trash} here{reason}, so {what} will be deleted permanently.\n\nDelete it? This can\'t be undone.', v)
+        : tt('There is no {trash} here{reason}, so {what} will be deleted permanently.\n\nDelete them? This can\'t be undone.', v);
+    } else {
+      msg = one ? tt('Delete {what} permanently?\n\nIt will not go to the {trash}, and can\'t be brought back.', v)
+        : tt('Delete {what} permanently?\n\nThey will not go to the {trash}, and can\'t be brought back.', v);
+    }
     button = 'Delete';
   }
   if (wipe || volReason || opt(app, 'confirmDelete')) { // (F-833: a delete that would have gone to the trash always asks)
@@ -481,13 +493,13 @@ async function makeFolder(app) {
   const initial = e && !e.up ? (e.dir ? e.name : e.base) : '';
   const first = await modal((box, done) => {
     box.classList.add('mc-fileops-mkdir');
-    box.innerHTML = `<h2>New folder</h2>
-      <div class="mc-row"><label for="name">Name of the new folder:</label>
+    box.innerHTML = `<h2>${esc(tt('New folder'))}</h2>
+      <div class="mc-row"><label for="name">${esc(tt('Name of the new folder:'))}</label>
         <div class="mc-fileops-field"><input id="name" type="text" spellcheck="false" autofocus value="${esc(initial)}" data-select="0,${initial.length}">
-        <button type="button" class="mc-fileops-hist" tabindex="-1" title="Recent names and date templates (Alt+Down)" aria-label="Recent names">▾</button></div></div>
-      <p class="mc-note">Use / to make folders inside folders (a/b/c). [Y] [M] [D] [h] [m] [s] put in the date and time.</p>
+        <button type="button" class="mc-fileops-hist" tabindex="-1" title="${esc(tt('Recent names and date templates (Alt+Down)'))}" aria-label="${esc(tt('Recent names'))}">▾</button></div></div>
+      <p class="mc-note">${esc(tt('Use / to make folders inside folders (a/b/c). [Y] [M] [D] [h] [m] [s] put in the date and time.'))}</p>
       <p class="mc-err" hidden></p>
-      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+      <div class="mc-btns"><button type="button" class="cancel">${esc(tt('Cancel'))}</button><button type="submit" class="primary">${esc(tt('OK'))}</button></div>`;
     const input = box.querySelector('#name');
     const drop = new Drop(box, input, box.querySelector('.mc-fileops-field'));
     box._drop = drop;
@@ -505,7 +517,7 @@ async function makeFolder(app) {
       ev.preventDefault();
       if (busy) return;
       const name = input.value;
-      if (!name.trim()) { err('Type a name for the new folder.'); return; }
+      if (!name.trim()) { err(tt('Type a name for the new folder.')); return; }
       busy = true;
       try {
         const made = await go.Jobs.MkDir(src.path, name);

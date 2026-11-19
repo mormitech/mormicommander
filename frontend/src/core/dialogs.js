@@ -270,7 +270,9 @@ export function answerDialog(button, fields = {}) {
   }
   if (button === 'Esc') { d.cancel(); return; }
   if (!button) { d.box.requestSubmit(); return; }
-  const b = [...d.box.querySelectorAll('button')].find((x) => x.textContent.trim().toLowerCase() === String(button).toLowerCase());
+  // (the English label also finds its translated button, so control mode and the AI tools work in any language)
+  const want = new Set([String(button), tr(String(button))].map((s) => s.trim().toLowerCase()));
+  const b = [...d.box.querySelectorAll('button')].find((x) => want.has(x.textContent.trim().toLowerCase()));
   if (!b) throw new Error(`the dialog has no button "${button}"`);
   b.click();
 }
@@ -280,7 +282,7 @@ export function messageDialog(o) {
   const buttons = o.Buttons?.length ? o.Buttons : ['OK'];
   const cancel = o.CancelButton || (buttons.includes('Cancel') ? 'Cancel' : buttons.includes('No') ? 'No' : buttons.at(-1));
   return modal((box, done) => {
-    box.innerHTML = `<h2>${esc(tr(o.Title))}</h2><p class="mc-msg">${esc(o.Message).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
+    box.innerHTML = `<h2>${esc(tr(o.Title))}</h2><p class="mc-msg">${esc(tr(o.Message)).replace(/\n/g, '<br>')}</p><div class="mc-btns"></div>`;
     const row = box.querySelector('.mc-btns');
     for (const b of buttons) {
       const el = document.createElement('button');
@@ -300,10 +302,10 @@ export function messageDialog(o) {
 export function inputDialog({ title, label = '', value = '', select, okLabel = 'OK', note = '', validate, kind = 'input' }) {
   return modal((box, done) => {
     const sel = select ? select.join(',') : `0,${value.length}`;
-    box.innerHTML = `<h2>${esc(title)}</h2>
-      <div class="mc-row"><label for="mc-input">${esc(label)}</label><input id="mc-input" type="text" spellcheck="false" value="${esc(value)}" autofocus data-select="${sel}"></div>
-      ${note ? `<p class="mc-note">${esc(note)}</p>` : ''}<p class="mc-err" hidden></p>
-      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">${esc(okLabel)}</button></div>`;
+    box.innerHTML = `<h2>${esc(tr(title))}</h2>
+      <div class="mc-row"><label for="mc-input">${esc(tr(label))}</label><input id="mc-input" type="text" spellcheck="false" value="${esc(value)}" autofocus data-select="${sel}"></div>
+      ${note ? `<p class="mc-note">${esc(tr(note))}</p>` : ''}<p class="mc-err" hidden></p>
+      <div class="mc-btns"><button type="button" class="cancel">${esc(tr('Cancel'))}</button><button type="submit" class="primary">${esc(tr(okLabel))}</button></div>`;
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();
@@ -318,7 +320,7 @@ export function inputDialog({ title, label = '', value = '', select, okLabel = '
 // formDialog shows html fields; read(box) returns the answer, or a string to show as an error and keep the dialog open.
 export function formDialog(title, html, read, setup, { okLabel = 'OK', kind = 'form' } = {}) {
   return modal((box, done) => {
-    box.innerHTML = `<h2>${esc(title)}</h2>${html}<p class="mc-err" hidden></p><div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">${esc(okLabel)}</button></div>`;
+    box.innerHTML = `<h2>${esc(tr(title))}</h2>${html}<p class="mc-err" hidden></p><div class="mc-btns"><button type="button" class="cancel">${esc(tr('Cancel'))}</button><button type="submit" class="primary">${esc(tr(okLabel))}</button></div>`;
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();

@@ -13,6 +13,7 @@ import { sortEntries } from './sort.js';
 import { fitCrumbs } from './fitpath.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
+import { t } from './i18n.js';
 import { hiddenMarkHTML } from './hidden.js';
 import { historyFocus } from './histfocus.js';
 import { attachMiddlePan } from './midpan.js';
@@ -574,9 +575,10 @@ export class Panel {
 
   renderStatus() {
     const s = this.stats();
-    let t = `${footerSize(s.selBytes)} of ${footerSize(s.total)} in ${s.selFiles} of ${plural(s.files, 'file')} selected`;
-    if (s.dirs) t += `, ${s.selDirs} of ${plural(s.dirs, 'folder')}`;
-    this.$.status.textContent = t;
+    let line = t('{selSize} of {size} in {sel} of {files} selected', { selSize: footerSize(s.selBytes), size: footerSize(s.total), sel: s.selFiles,
+      files: plural(s.files, t('file'), t('files')) });
+    if (s.dirs) line += t(', {sel} of {folders}', { sel: s.selDirs, folders: plural(s.dirs, t('folder'), t('folders')) });
+    this.$.status.textContent = line;
     // while hidden files are shown the line ends with a "Hidden: shown" marker (Layout > "Show the hidden files
     // marker" turns it off by hiding it with a body class).
     const mark = hiddenMarkHTML(this.app.showHidden);

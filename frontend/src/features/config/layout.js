@@ -277,6 +277,7 @@ async function loadLanguage() {
   try { setTranslations(await go.Configuration.Language()); } catch (e) { setTranslations(null); app?.flash(String(e?.message ?? e), 'err'); }
   refreshMenu();
   renderFkeys();
+  for (const p of app?.panels || []) p.renderStatus?.(); // (the status line is translated too, #113)
 }
 
 export function applyAll(startTheme) {

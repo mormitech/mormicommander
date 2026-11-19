@@ -8,6 +8,11 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Translations: mormiCommander can now speak Hungarian. Set Options > Language > Interface language to hu and the menus,
+  the function key bar, the status line and the copy, move, new folder and delete dialogs are in Hungarian; texts not
+  translated yet stay English. A language file of your own can be a .lng file ("English=Translation" lines) or a .json
+  file in the settings folder. Without a language file nothing changes. Translators get the list of texts as
+  lang/template.lng (`npm run lang:template` in frontend/) (issue #113).
 - Cloud remotes through rclone: if you have rclone installed and set up, Net > Cloud remotes (rclone)… lists the
   remotes of your rclone configuration (S3, R2, B2, Azure, Google Cloud Storage, WebDAV, Google Drive, Dropbox,
   OneDrive, SMB …) and opens one in the panel; rclone://remote/folder works in New FTP connection and the path bar too.

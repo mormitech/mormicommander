@@ -30,7 +30,7 @@ export const EXTRA_PAGES = { // (also read by the command palette, features/pale
 };
 
 const NOTES = {
-  Language: 'mormiCommander speaks English for now. Translations will come as language files; the choice here is kept for them.',
+  Language: 'Without a language file mormiCommander is in English. Hungarian comes built in: set the interface language to hu. A language file of your own (.lng lines "English=Translation", or .json) goes in the settings folder; texts it lacks stay English. Translated so far: the menus, the function key bar, the status line and the most common dialogs.',
   Layout: 'The panel widths change with the line between the panels (double-click it for half and half).',
   Plugins: 'Total Commander plugins are Windows programs and do not work here. mormiCommander has its packers and viewers built in, and can use these programs for more.',
   Hotlist: 'The folders of the hotlist itself are changed with Ctrl+D > Configure.',
