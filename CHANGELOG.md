@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.39 – 2026-11-19
+
+The rest of #103 (every partly done feature rechecked; separate tree panes, an expanding Alt+F10 tree, font face per
+view mode, F1 help per dialog, quick search for folders or files only) and most of the interface translated through
+language files, with a built-in Hungarian translation (#113). All new behaviour is off by default; with the interface
+language left at English nothing changes.
+
 ### Added
 
 - Options > Quick search > "Quick search finds": quick search can jump to folders only or files only. The default,
