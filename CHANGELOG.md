@@ -8,6 +8,10 @@ version is changed only when a round of features is merged.
 
 ### Added
 
+- Versions from snapshots: Files > Versions from snapshots… lists the earlier copies of the file or folder under the
+  cursor kept by ZFS and Btrfs (snapper) snapshots, macOS local snapshots and Time Machine backups, and Windows shadow
+  copies, and opens the one you pick in the other panel to compare or copy back. Snapshots are only read, never
+  changed.
 - Embedded terminal pane: Commands > Terminal pane (or Ctrl+`) opens your shell in a pane below the panels, in the
   active panel's folder. It follows the panel's folder while the shell waits at its prompt (Commands > Terminal follows
   the panel), and Insert names / Insert full paths in terminal put the selected files at the prompt. Off until you open
