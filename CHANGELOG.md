@@ -10,6 +10,12 @@ version is changed only when a round of features is merged.
 
 - Options > Quick search > "Quick search finds": quick search can jump to folders only or files only. The default,
   files and folders, works as before (FEATURES F-070, issue #103).
+- View modes can set a font face: Show > View modes > Change view mode > Font face (F-785).
+- Options > Tree > "Folder tree popup (Alt+F10) shows the whole drive as an expanding tree": Alt+F10 becomes an
+  expanding, type-to-filter tree of the drive; off by default, the one-level popup stays (F-171).
+- F1 in a dialog opens the help on that dialog's own section (new Dialogs page) where there is one (F-145).
+- Options > Layout > "Separate tree as a pane of its own beside the file list": Show > Separate tree and Ctrl+Shift+F8
+  then show folder tree panes next to the file lists; off by default (F-025).
 
 ## 0.14.38 – 2026-11-19
 

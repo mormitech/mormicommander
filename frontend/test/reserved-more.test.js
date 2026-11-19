@@ -148,6 +148,61 @@ test('Alt+F10: Shift+Enter on a folder goes there at once; Esc changes nothing',
   expect(calls.filter((c) => c[0] === 'go')).toEqual([]);
 });
 
+test('Alt+F10 with Options > Tree > expanding tree: the drive as a tree, opened down to the folder; Enter goes (F-171)', async () => {
+  app.config = { values: { 'Tree.CDTreeExpand': '1' } };
+  app.panels[0].path = '/a/b';
+  const done = run('cm_CDtree');
+  await new Promise((r) => setTimeout(r, 0));
+  const box = document.querySelector('.mc-cdtree');
+  expect(box).not.toBe(null);
+  expect([...box.querySelectorAll('.mc-ft-row .nm')].map((d) => d.textContent)).toEqual(['/', 'a', 'b', 'c']);
+  expect(box.querySelector('.mc-ft-row.on .nm').textContent).toBe('b');
+  expect(lists).toEqual([]); // (not the one-level popup)
+  const press = (key) => window.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+  press('ArrowDown');
+  press('Enter');
+  expect(await done).toBe(true);
+  expect(calls).toContainEqual(['go', 'left', '/a/b/c']);
+  expect(document.querySelector('.mc-cdtree')).toBe(null);
+  // Esc closes it without going anywhere
+  calls.length = 0;
+  const again = run('cm_CDtree');
+  await new Promise((r) => setTimeout(r, 0));
+  press('Escape');
+  expect(await again).toBe(false);
+  expect(calls.filter((c) => c[0] === 'go')).toEqual([]);
+});
+
+test('separate tree commands keep using the tree view while tree panes are off (F-025)', async () => {
+  app.config = { values: { 'Layout.SeparateTreePane': '0' } };
+  await run('cm_SeparateTree1');
+  expect(calls).toContainEqual(['tree', 'left', true]);
+  expect(document.querySelector('.mc-treepane')).toBe(null);
+});
+
+test('with tree panes on, Show > Separate tree shows folder tree panes beside the panels; Shift+Tab moves into them (F-025, F-807)', async () => {
+  document.body.innerHTML = '<main id="panels"><section class="panel" data-side="left"></section><div id="splitter"></div><section class="panel" data-side="right"></section></main>';
+  app.config = { values: { 'Layout.SeparateTreePane': '1' } };
+  app.on = () => () => {};
+  for (const p of app.panels) p.$.list = Object.assign(document.createElement('div'), { tabIndex: 0 });
+  await run('cm_SeparateTree2');
+  const panes = [...document.querySelectorAll('#panels > .mc-treepane')];
+  expect(panes.map((x) => x.dataset.for)).toEqual(['left', 'right']);
+  expect(panes[0].nextElementSibling.dataset.side).toBe('left');
+  expect(calls.filter((c) => c[0] === 'tree')).toEqual([]); // (the panels stay in their own view)
+  expect(cmds.get('cm_SeparateTree2').checked(app)).toBe(true);
+  expect([...panes[0].querySelectorAll('.mc-ft-row .nm')].map((d) => d.textContent)).toEqual(['/', 'a', 'b']);
+  await run('cm_FocusTreeToggle');
+  expect(document.activeElement).toBe(panes[0]);
+  expect(app.active).toBe(0);
+  await run('cm_SeparateTreeCycle'); // two -> off
+  expect(document.querySelectorAll('.mc-treepane').length).toBe(0);
+  await run('cm_SeparateTree1');
+  expect([...document.querySelectorAll('.mc-treepane')].map((x) => x.dataset.for)).toEqual(['active']);
+  await run('cm_SeparateTreeOff');
+  document.body.innerHTML = '';
+});
+
 test('printing a file asks first and prints only on yes', async () => {
   app.cur.cur = { name: 'x.txt' };
   dialogAnswer = 'Cancel';

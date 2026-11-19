@@ -86,6 +86,9 @@ type LayoutPage struct {
 	MenuBar           bool `ini:"Layout:MenuBar" def:"1" label:"Show main menu bar"`
 	Horizontal        bool `ini:"Layout:HorizontalPanels" def:"0" label:"Panels above each other"`
 	SeparateTree      int  `ini:"Configuration:SeparateTree" def:"0" min:"0" max:"2" opts:"0=Off|1=One tree for both panels|2=One tree per panel" label:"Separate folder tree"`
+	// SeparateTreePane (F-025): the separate tree as a folder tree pane of its own beside the file list; off keeps
+	// today's mapping of Show > Separate tree onto the panels' tree view.
+	SeparateTreePane bool `ini:"Configuration:SeparateTreePane" def:"0" label:"Separate tree as a pane of its own beside the file list"`
 }
 
 // DisplayPage: how file lists look (F-414). DirBrackets is on by default in TC; ours is off, the folder icon already
@@ -505,6 +508,8 @@ type TreePage struct {
 	ShowFiles    bool `ini:"Configuration:TreeShowFiles" def:"0" label:"Show files in the tree"`
 	AutoExpand   bool `ini:"Configuration:TreeAutoExpand" def:"0" label:"Expand folders on single click"`
 	ShowNetwork  bool `ini:"Configuration:TreeNetwork" def:"0" label:"Read network folders in the tree"`
+	// CDTreeExpand (F-171): Alt+F10 (cm_CDtree) shows the drive as an expanding tree instead of one level at a time.
+	CDTreeExpand bool `ini:"Configuration:CDTreeExpand" def:"0" label:"Folder tree popup (Alt+F10) shows the whole drive as an expanding tree"`
 }
 
 // FindFilesPage (F-825).

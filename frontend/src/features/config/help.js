@@ -98,7 +98,7 @@ const INTRO = `<h3>Welcome</h3>
   <li>The button bar under the menu runs commands and programs; right-click a button to change it.</li>
   <li>Everything in the menus has a key; Help &gt; Keyboard shortcuts lists them as they are set now.</li></ul>`;
 
-const TOPICS = [['intro', 'Welcome'], ['keys', 'Keyboard shortcuts'], ['menus', 'Menus'], ['start', 'Start-up parameters'], ['settings', 'Settings']];
+const TOPICS = [['intro', 'Welcome'], ['keys', 'Keyboard shortcuts'], ['menus', 'Menus'], ['dialogs', 'Dialogs'], ['start', 'Start-up parameters'], ['settings', 'Settings']];
 
 // The help on a dialog (F1 in a dialog, F-145): [dialog kinds, heading, text]. The first match wins; a dialog with no
 // entry gets its own title and the keys every dialog has.
@@ -119,7 +119,43 @@ const DIALOG_HELP = [
   [/^properties$/, 'Properties (Alt+Enter)', 'Size, dates, permissions and owner of the file or folder.'],
   [/^(create-link|symlink)$/, 'Links', 'Makes a symbolic link (or a hard link) to the file under the cursor, with the name given.'],
   [/^config$/, 'Options', 'Every page of Options changes how mormiCommander looks and works. The settings are saved when you press OK.'],
+  [/^view-mode/, 'View modes (Show > View modes)', 'A view mode keeps a view (Brief, Full, Comments, Thumbnails or a column set), a sort, and optionally icons, colours, a font size and a font face under a name. With a folder mask and Options > View modes > Switch view modes automatically, a panel takes the mode by itself in matching folders.'],
+  [/^(custom-columns|edit-column-set|column-)/, 'Custom columns', 'A column set lists the columns of a custom view: each column has a title, a field (name, size, date, a plugin field...), a width and an alignment. Choose a set from the column header\'s right-click menu or Show > Custom columns.'],
+  [/^(compare|comparedirs)/, 'Compare', 'Compare by content shows two files side by side with the differences marked; Compare folders marks the files that differ between the two panels.'],
+  [/^(split|combine)$/, 'Split and combine files', 'Split cuts a file into parts of the size given, with a .crc file to check them; Combine joins the parts again in order.'],
+  [/^crc-/, 'Checksums', 'Create checksum files (MD5, SHA and others) for the selected files, or verify the files listed in a checksum file.'],
+  [/^attributes$/, 'Change attributes', 'Set the attributes or permissions and the dates of the selected files; with subfolders checked it applies to everything inside them too.'],
+  [/^(server-edit|net-server|net-site|net-connect)/, 'Server connection', 'The address, user and settings of an FTP, SFTP or WebDAV server. Passwords are kept in the system\'s keychain when you choose to save them.'],
+  [/^(tabs-config|favorite-tabs)/, 'Folder tabs', 'Settings of the folder tabs, and saved sets of tabs (favourite tabs) that open together.'],
+  [/^(button-|bar-file|subbar)/, 'Button bar', 'Each button runs a command or a program with parameters; right-click a button to change, move or delete it.'],
 ];
+
+// The help sections a dialog may open on (F-145): Options and its settings dialogs open the Settings page, the
+// dialogs above their part of the Dialogs page; other dialogs get the general "This dialog" page.
+const SETTINGS_KINDS = /^(config($|-)|confirmations$|history-settings$|thumbnails-config$|first-run-setup$)/;
+
+// helpSlug is the anchor of a Dialogs section: its heading in lower case, words joined by dashes.
+export const helpSlug = (head) => `dlg-${String(head).toLowerCase().replace(/\(.*?\)/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
+
+// dialogSection is where F1 in a dialog of this kind opens the help: {topic, anchor}, or null for the general page.
+export function dialogSection(kind = '') {
+  const k = String(kind || '');
+  if (!k) return null;
+  if (SETTINGS_KINDS.test(k)) return { topic: 'settings', anchor: '' };
+  const hit = DIALOG_HELP.find(([re]) => re.test(k));
+  return hit ? { topic: 'dialogs', anchor: helpSlug(hit[1]) } : null;
+}
+
+// dialogsPage is the Dialogs page of the help: a section for every dialog with help. With here (an anchor), that
+// section comes first and is marked, so F1 in a dialog shows its own section at the top without scrolling.
+export function dialogsPage(here = '') {
+  const secs = DIALOG_HELP.map(([, head, text]) => ({ id: helpSlug(head), html: `<h4>${esc(head)}</h4><p>${esc(text)}</p>` }));
+  const first = secs.find((x) => x.id === here);
+  const rest = secs.filter((x) => x !== first);
+  return `<h3>Dialogs</h3>${first ? `<div class="mc-help-here" id="${first.id}">${first.html}</div><h4 class="mc-help-others">Other dialogs</h4>` : ''}
+    <p>In every dialog Enter presses the main button, Esc cancels, Tab goes to the next field and F1 opens the help on that dialog.</p>
+    ${rest.map((x) => `<div id="${x.id}">${x.html}</div>`).join('')}`;
+}
 
 function dialogPage({ kind = '', title = '' } = {}) {
   const hit = DIALOG_HELP.find(([re]) => re.test(kind));
@@ -130,11 +166,15 @@ function dialogPage({ kind = '', title = '' } = {}) {
 }
 
 // dialog: {kind, title} of the dialog F1 was pressed in; the help then opens on a page about it.
+// A dialog with a section of its own in the help (dialogSection) opens on that section; any other opens on the general
+// "This dialog" page, as before.
 export async function openHelp(topic = 'intro', dialog = null) {
   const topics = dialog ? [['dialog', 'This dialog'], ...TOPICS] : TOPICS;
-  if (dialog) topic = 'dialog';
+  const sec = dialog ? dialogSection(dialog.kind) : null;
+  if (dialog) topic = sec ? sec.topic : 'dialog';
   const pages = {
     dialog: dialog ? dialogPage(dialog) : '',
+    dialogs: dialogsPage(sec?.anchor || ''),
     intro: INTRO,
     keys: `<div class="mc-config-doc">${md(keyboardDoc)}</div><h3>All keys as they are set now</h3>${keysTable()}`,
     menus: menusPage(),

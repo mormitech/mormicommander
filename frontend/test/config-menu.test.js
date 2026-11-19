@@ -109,6 +109,28 @@ test('a view mode puts its icons, colours and font size on its panel and takes t
   Panel.schemeVars = saved;
 });
 
+test('a view mode may set a font face; it goes back when the panel leaves the mode (F-785)', () => {
+  expect(views.cleanFontFace(' Menlo ')).toBe('Menlo');
+  expect(views.cleanFontFace('Ar"ial;}{')).toBe('Arial');
+  expect(views.modeFont('13px -apple-system, sans-serif', 0, '')).toBe('');
+  expect(views.modeFont('13px -apple-system, sans-serif', 0, 'Menlo')).toBe('13px "Menlo", -apple-system, sans-serif');
+  expect(views.modeFont('13px -apple-system, sans-serif', 16, 'Menlo')).toBe('16px "Menlo", -apple-system, sans-serif');
+  expect(views.modeFont('13px -apple-system, sans-serif', 16, '')).toBe('16px -apple-system, sans-serif');
+  // the dialog: empty keeps modes as before (no fontFace key); a name is kept cleaned
+  expect(views.readModeForm({ name: 'a', fontFace: '' })).not.toHaveProperty('fontFace');
+  expect(views.readModeForm({ name: 'a', fontFace: ' Courier New ' }).fontFace).toBe('Courier New');
+  expect(views.readModeForm({ name: 'a', fontFace: '' }, { name: 'a', fontFace: 'Menlo' })).not.toHaveProperty('fontFace');
+  const el = document.createElement('section');
+  let measured = 0;
+  const p = { el, vs: {}, measure: () => { measured++; } };
+  views.modeLook(p, { fontFace: 'Menlo' });
+  expect(el.style.getPropertyValue('--font')).toContain('"Menlo"');
+  expect(el.style.getPropertyValue('--row-h')).toBe(''); // (the face alone keeps the row height)
+  views.modeLook(p, null);
+  expect(el.style.getPropertyValue('--font')).toBe('');
+  expect(measured).toBe(2);
+});
+
 test('tooltip fields per file type: the first matching entry decides the lines; none set keeps the tooltip (F-821)', async () => {
   const lo = await import('../src/features/config/listopts.js');
   expect(lo.parseTipFields('')).toEqual([]);

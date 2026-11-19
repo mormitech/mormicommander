@@ -15,6 +15,7 @@ import { state, opt, on, num, applyOptions, compileMask, isDark } from './util.j
 import { applyIgnoreList } from './listopts.js';
 import { applyWindowOpts } from './windowopts.js';
 import { applyIcons, rowHeight } from './fileicons.js';
+import { syncTreePane } from '../treepane.js';
 
 // Layout option → body class that hides an element (see config.css).
 const HIDE = {
@@ -56,8 +57,12 @@ export function applyLayout() {
 
 // Layout > Separate folder tree: 0 off, 1 one tree for both panels, 2 one per panel, as the cm_SeparateTree* commands
 // do (features/reserved-more.js). Only a change of the option runs the command, so a tree opened by hand stays.
-let treeApplied = 0;
+// Layout > "Separate tree as a pane of its own" (F-025, features/treepane.js) changes where the trees go: turning it on
+// or off shows the chosen level again the new way (and off takes the panes away).
+let treeApplied = 0, paneApplied = false;
 function syncSeparateTree() {
+  syncTreePane(app);
+  if (on('Layout.SeparateTreePane') !== paneApplied) { paneApplied = on('Layout.SeparateTreePane'); treeApplied = 0; }
   const want = Math.max(0, Math.min(2, num('Layout.SeparateTree', 0)));
   if (want === treeApplied || !app?.panels?.every((p) => p.path)) return;
   treeApplied = want;

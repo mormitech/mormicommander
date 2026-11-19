@@ -1327,18 +1327,37 @@ for (const [pre, pick] of Object.entries(PANELS)) {
 // With a folder mask ("folders", TC's syntax, as column sets have) and Options > View modes > Switch view modes
 // automatically on, a panel takes the mode by itself in matching folders and goes back to its own view after them.
 // A mode may also set the panel's icons ("icons": "on" / "off"), colours ("scheme": a colour scheme's name) and font
-// size ("fontSize" in pixels) while it is used (F-820); without them (modes saved before) the panel keeps its own.
+// size ("fontSize" in pixels) and font face ("fontFace", a font family name) while it is used (F-820, F-785);
+// without them (modes saved before) the panel keeps its own.
 
 const viewModes = () => (theApp.setting('viewModes', []) || []).filter((m) => m && m.name);
 const VIEW_WORD = { brief: 'Brief', full: 'Full', comments: 'Comments', thumbs: 'Thumbnails' };
-const lookWords = (m) => [m.icons === 'off' ? 'no icons' : m.icons === 'on' ? 'icons' : '', m.scheme ? `colours "${m.scheme}"` : '', +m.fontSize ? `${+m.fontSize} px font` : ''].filter(Boolean);
+const lookWords = (m) => [m.icons === 'off' ? 'no icons' : m.icons === 'on' ? 'icons' : '', m.scheme ? `colours "${m.scheme}"` : '', +m.fontSize ? `${+m.fontSize} px font` : '', m.fontFace ? `font "${m.fontFace}"` : ''].filter(Boolean);
 const describeMode = (m) => `${m.mode === 'custom' ? `columns "${m.set}"` : VIEW_WORD[m.mode] || m.mode}${m.sort?.key ? `, by ${m.sort.key}${m.sort.desc ? ' (reversed)' : ''}` : ''}${lookWords(m).length ? `, ${lookWords(m).join(', ')}` : ''}${m.folders ? `; on its own in ${m.folders}` : ''}`;
 
+// a few common font faces offered in the view mode dialog (any installed font's name can be typed)
+const FONT_FACES = ['Arial', 'Helvetica', 'Verdana', 'Tahoma', 'Segoe UI', 'Times New Roman', 'Georgia', 'Menlo', 'Monaco', 'Consolas', 'Courier New', 'SF Mono', 'DejaVu Sans', 'DejaVu Sans Mono', 'Ubuntu'];
 const LOOK_VARS = ['--text', '--bg', '--sel', '--cur', '--cur-off', '--row-alt', '--font', '--mono', '--row-h'];
 
 // modeLook puts a view mode's icons, colours and font size on its panel, and with null (or a mode without them) takes
 // them off again, so the panel looks as the options say (F-820). Colours come from the built-in schemes and the
 // light / dark ones of Options > Colours (Panel.schemeVars, features/config/layout.js).
+// cleanFontFace is a font family name safe to put in a CSS font (no quotes, semicolons or braces), or ''.
+export function cleanFontFace(s) {
+  const f = String(s || '').replace(/["';{}<>\\]/g, '').replace(/\s+/g, ' ').trim();
+  return f.slice(0, 80);
+}
+
+// modeFont is the CSS font of a panel in a mode with font size px (0: the usual size) and face (''; the usual face),
+// built from base, the app's --font ("13px -apple-system, ..."); '' when the mode changes neither.
+export function modeFont(base, px, face) {
+  if (!px && !face) return '';
+  const b = String(base || '').trim() || '13px -apple-system, "Segoe UI", system-ui, sans-serif';
+  const m = b.match(/^(.*?)(\d+(?:\.\d+)?px)(?:\/\S+)?\s*(.*)$/);
+  const pre = m ? m[1] : '', size = px ? `${px}px` : (m ? m[2] : '13px'), fam = (m ? m[3] : b) || 'system-ui, sans-serif';
+  return `${pre}${size} ${face ? `"${face}", ` : ''}${fam}`;
+}
+
 export function modeLook(p, m) {
   const el = p.el;
   if (!el?.classList) return;
@@ -1347,6 +1366,7 @@ export function modeLook(p, m) {
   const vars = m?.scheme ? (Panel.schemeVars?.(m.scheme) || null) : null;
   const px = Math.round(+m?.fontSize || 0);
   const font = px >= 8 && px <= 40;
+  const face = cleanFontFace(m?.fontFace);
   el.classList.toggle('mc-vm-noicons', icons === 'off');
   el.classList.toggle('mc-vm-icons', icons === 'on');
   for (const k of LOOK_VARS) el.style.removeProperty(k);
@@ -1356,17 +1376,19 @@ export function modeLook(p, m) {
     if (vars['--text']) el.style.color = vars['--text'];
     if (vars['--bg']) el.style.backgroundColor = vars['--bg'];
   }
-  if (font) {
+  if (font || face) {
     const root = globalThis.getComputedStyle ? getComputedStyle(document.documentElement) : null;
-    const base = root?.getPropertyValue('--font').trim() || '13px -apple-system, "Segoe UI", system-ui, sans-serif';
-    const f = /\d+(\.\d+)?px/.test(base) ? base.replace(/\d+(\.\d+)?px/, `${px}px`) : `${px}px ${base}`;
+    const f = modeFont(root?.getPropertyValue('--font'), font ? px : 0, face);
     el.style.setProperty('--font', f);
     el.style.font = f;
+  }
+  if (font) {
+    const root = globalThis.getComputedStyle ? getComputedStyle(document.documentElement) : null;
     el.style.setProperty('--mono', `${px - 1}px ui-monospace, "SF Mono", Menlo, Consolas, monospace`);
     const ic = parseFloat(root?.getPropertyValue('--ic-size')) || 15; // (taller rows for large icons, as Options > Icons)
     el.style.setProperty('--row-h', `${Math.max(Math.round(px * 1.55), ic > 16 ? Math.round(ic + 6) : 0)}px`);
   }
-  const look = !!(icons || vars || font);
+  const look = !!(icons || vars || font || face);
   if (p.vs) p.vs.look = look;
   if (look || had) { try { p.measure(); } catch { /* not drawn yet */ } }
 }
@@ -1426,10 +1448,12 @@ export function readModeForm(f, old = {}) {
     if (!(fontSize >= 8 && fontSize <= 40)) return 'The font size is a number from 8 to 40 (or empty: the usual size).';
   }
   const m = { ...old, name, mode, set: mode === 'custom' ? set : '', sort: f.sortKey ? { key: f.sortKey, desc: !!f.sortDesc } : {}, folders: String(f.folders || '').trim() };
-  delete m.icons; delete m.scheme; delete m.fontSize;
+  delete m.icons; delete m.scheme; delete m.fontSize; delete m.fontFace;
   if (f.icons === 'on' || f.icons === 'off') m.icons = f.icons;
   if (String(f.scheme || '').trim()) m.scheme = String(f.scheme).trim();
   if (fontSize) m.fontSize = fontSize;
+  const face = cleanFontFace(f.fontFace);
+  if (face) m.fontFace = face;
   return m;
 }
 
@@ -1450,12 +1474,13 @@ function modeDialog(p, m, isNew) {
     <div class="mc-row"><label for="vm-icons">Icons</label><select id="vm-icons">${[['', 'As the options say'], ['on', 'Shown'], ['off', 'Hidden']].map(([v, l]) => opt(v, l, m.icons || '')).join('')}</select></div>
     <div class="mc-row"><label for="vm-scheme">Colours</label><select id="vm-scheme">${schemes.map(([v, l]) => opt(v, l, m.scheme || '')).join('')}</select></div>
     <div class="mc-row"><label for="vm-font">Font size in pixels (empty: the usual size)</label><input type="text" id="vm-font" inputmode="numeric" value="${+m.fontSize || ''}"></div>
+    <div class="mc-row"><label for="vm-face">Font face (empty: the usual font), e.g. Menlo or Arial</label><input type="text" id="vm-face" list="vm-faces" spellcheck="false" value="${esc(m.fontFace || '')}"><datalist id="vm-faces">${FONT_FACES.map((f) => `<option value="${esc(f)}">`).join('')}</datalist></div>
     <div class="mc-row"><label for="vm-folders">Use it by itself in these folders (optional mask, e.g. *\\Photos* or */Pictures/*)</label><input type="text" id="vm-folders" spellcheck="false" value="${esc(m.folders || '')}"></div>
-    <p class="mc-note">Icons, colours and font size apply to the panel while it is in this mode, and go back when it leaves it.</p>`;
+    <p class="mc-note">Icons, colours, font size and font face apply to the panel while it is in this mode, and go back when it leaves it.</p>`;
   return formDialog(isNew ? 'New view mode' : `Change view mode "${m.name}"`, html, (box) => {
     const v = (id) => box.querySelector(id);
     return readModeForm({ name: v('#vm-name').value, view: v('#vm-view').value, sortKey: v('#vm-sort').value, sortDesc: v('#vm-desc').checked,
-      icons: v('#vm-icons').value, scheme: v('#vm-scheme').value, fontSize: v('#vm-font').value, folders: v('#vm-folders').value }, isNew ? {} : m);
+      icons: v('#vm-icons').value, scheme: v('#vm-scheme').value, fontSize: v('#vm-font').value, fontFace: v('#vm-face').value, folders: v('#vm-folders').value }, isNew ? {} : m);
   }, null, { okLabel: isNew ? 'Save' : 'OK', kind: 'view-mode-edit' });
 }
 

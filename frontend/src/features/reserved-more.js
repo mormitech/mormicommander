@@ -14,6 +14,10 @@ import { menuSpec } from '../core/menus.js';
 import { F } from '../core/format.js';
 import { inTreeView, setTreeView } from './views.js';
 import { printerNote } from './viewer/print.js';
+import { waitForUser } from '../core/busy.js';
+import { popupArea } from '../core/overlay.js';
+import { FolderTree, folderReader, rootOf } from './foldertree.js';
+import { treePaneOn, treePaneLevel, setTreePane, focusTreePane } from './treepane.js';
 import { treeLevel, treeTarget, menuItems, topMenuItems, dirNames, folderItems, fileListText, subEntries } from './reserved-more-lib.js';
 
 const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
@@ -28,6 +32,7 @@ const isRemote = (p) => /^[a-z][a-z0-9+.-]*:\/\//i.test(p || '');
 async function cdTree(app) {
   const p = app.cur;
   if (!p?.path) return false;
+  if (app.config?.values?.['Tree.CDTreeExpand'] === '1') return cdTreeExpanded(app, p);
   let path = p.path, focus = '';
   for (;;) {
     let l;
@@ -49,6 +54,52 @@ async function cdTree(app) {
     path = v.open;
   }
 }
+// cdTreeExpanded is the popup as TC's tree dialog (Options > Tree > "Folder tree popup shows the whole drive as an
+// expanding tree", off by default, F-171): the drive of the active panel as a tree, opened down to the panel's folder.
+// Folders are read when they are opened (Right, Space or a click on the arrow); typing filters the folders read so
+// far; Enter (or a double click) makes the panel show the highlighted folder; Esc closes it.
+async function cdTreeExpanded(app, p) {
+  const el = document.createElement('div');
+  el.className = 'mc-popup mc-cdtree';
+  el.innerHTML = '<div class="t">Folder tree</div><div class="q" hidden></div><div class="mc-cdtree-rows"></div>';
+  const q = el.querySelector('.q');
+  let done = null;
+  const tree = new FolderTree({
+    el: el.querySelector('.mc-cdtree-rows'),
+    read: folderReader(app, { hidden: () => app.config?.values?.['Tree.ShowHidden'] === '1' }),
+    ignoreCase: app.platform === 'windows',
+    onGo: (n) => done?.(n.path),
+    onFilter: (s) => { q.hidden = !s; q.textContent = s ? `Filter: ${s}` : ''; },
+    onError: (t) => app.flash(t, 'err'),
+  });
+  try { await tree.openTo(await rootOf(p.path), p.path); } catch (e) { app.flash(errText(e), 'err'); return false; }
+  document.body.append(el);
+  const A = popupArea(), r = p.$.pathbar?.getBoundingClientRect?.() || { left: A.left + 40, bottom: A.top + 40 };
+  el.style.left = `${Math.max(A.left + 6, Math.min(A.right - el.offsetWidth - 6, r.left))}px`;
+  el.style.top = `${Math.max(A.top + 6, Math.min(r.bottom + 2, A.bottom - el.offsetHeight - 6))}px`;
+  tree.render();
+  const path = await waitForUser(new Promise((resolve) => {
+    const key = (ev) => {
+      ev.stopImmediatePropagation();
+      if (tree.key(ev)) { ev.preventDefault(); return; }
+      if (ev.key === 'Escape' || (ev.key === 'F4' && ev.altKey)) { ev.preventDefault(); done(null); }
+    };
+    const outside = (ev) => { if (!el.contains(ev.target)) done(null); };
+    done = (v) => {
+      done = () => {};
+      el.remove();
+      window.removeEventListener('keydown', key, true);
+      window.removeEventListener('mousedown', outside, true);
+      resolve(v);
+    };
+    window.addEventListener('keydown', key, true);
+    setTimeout(() => window.addEventListener('mousedown', outside, true), 0);
+  }));
+  if (!path) return false;
+  app.setActive(p);
+  return p.go(path);
+}
+
 command({ name: 'cm_CDtree', menuKey: true, label: 'Folder tree…', run: (app) => cdTree(app) });
 
 // ---- separate tree (Show > Separate tree, Ctrl+Shift+F8, Shift+Tab) ----
@@ -58,7 +109,15 @@ command({ name: 'cm_CDtree', menuKey: true, label: 'Folder tree…', run: (app) 
 // it had before, at the folder it showed before, just as Ctrl+F8 does.
 const treeState = (app) => ({ active: inTreeView(app.cur), other: inTreeView(app.other) });
 
+// With Layout > "Separate tree as a pane of its own" on (off by default, F-025), the same commands show folder tree
+// panes beside the file lists instead (features/treepane.js).
+const level = (app) => (treePaneOn(app) ? treePaneLevel() : treeLevel(treeState(app)));
+
 async function separateTree(app, want) {
+  if (treePaneOn(app)) {
+    const next = want === 'cycle' ? { off: 'one', one: 'two', two: 'off' }[treePaneLevel()] : want;
+    return setTreePane(app, next);
+  }
   const target = treeTarget(treeState(app), want);
   const cur = app.cur, other = app.other;
   // the other panel first, so the active panel is the last one drawn and keeps the keyboard
@@ -68,16 +127,21 @@ async function separateTree(app, want) {
   return true;
 }
 
-command({ name: 'cm_SeparateTreeOff', label: 'Separate tree: off', checked: (app) => treeLevel(treeState(app)) === 'off', run: (app) => separateTree(app, 'off') });
-command({ name: 'cm_SeparateTree1', label: 'Separate tree: one for both panels', checked: (app) => treeLevel(treeState(app)) === 'one', run: (app) => separateTree(app, 'one') });
-command({ name: 'cm_SeparateTree2', label: 'Separate tree: one per panel', checked: (app) => treeLevel(treeState(app)) === 'two', run: (app) => separateTree(app, 'two') });
+command({ name: 'cm_SeparateTreeOff', label: 'Separate tree: off', checked: (app) => level(app) === 'off', run: (app) => separateTree(app, 'off') });
+command({ name: 'cm_SeparateTree1', label: 'Separate tree: one for both panels', checked: (app) => level(app) === 'one', run: (app) => separateTree(app, 'one') });
+command({ name: 'cm_SeparateTree2', label: 'Separate tree: one per panel', checked: (app) => level(app) === 'two', run: (app) => separateTree(app, 'two') });
 command({ name: 'cm_SeparateTreeCycle', label: 'Separate tree: next state', short: 'Tree', run: (app) => separateTree(app, 'cycle') });
 
 // cm_FocusTreeToggle (Shift+Tab) moves the keyboard between the tree and the file list in TC. Here the tree is one of
 // the two panels, so with one panel in the tree view this goes to the other panel, and with none or both it switches
 // panels the way Tab does. In every case it is the other panel that gets the keyboard; the command exists so Shift+Tab
 // does something useful instead of saying it is not ready.
-command({ name: 'cm_FocusTreeToggle', label: 'Switch between the tree and the file list', run: (app) => { app.setActive(app.other); return true; } });
+// With tree panes (F-025) it moves the keyboard between the active panel's tree pane and its file list, as in TC.
+command({ name: 'cm_FocusTreeToggle', label: 'Switch between the tree and the file list', run: (app) => {
+  if (treePaneOn(app) && focusTreePane(app)) return true;
+  app.setActive(app.other);
+  return true;
+} });
 
 // ---- the in-window menu (F9, F10) ----
 
