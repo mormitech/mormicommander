@@ -6,8 +6,8 @@
 import { command, getCommand } from '../../core/registry.js';
 import { go } from '../../core/go.js';
 import { messageDialog } from '../../core/dialogs.js';
-import { addMenuItems, setCustomMenus, refreshMenu } from '../../core/menus.js';
-import { setTranslations } from '../../core/i18n.js';
+import { addMenuItems, setCustomMenus, refreshMenu, sendMenuWords } from '../../core/menus.js';
+import { setTranslations, translating } from '../../core/i18n.js';
 import { renderFkeys } from '../../core/fkeys.js';
 import { setDisplay } from '../../core/format.js';
 import { Panel } from '../../core/panel.js';
@@ -275,14 +275,21 @@ async function loadMainMenu() {
 
 // loadLanguage reads Options > Language (the language file and the interface language) and redraws what is translated.
 let langKey = null;
+let hadLanguage = false;
 async function loadLanguage() {
   const key = `${opt('Language.LanguageFile').trim()}|${opt('Language.UILanguage').trim()}`;
   if (key === langKey) return;
   langKey = key;
   try { setTranslations(await go.Configuration.Language()); } catch (e) { setTranslations(null); app?.flash(String(e?.message ?? e), 'err'); }
-  refreshMenu();
+  // (English at start, as always: nothing to redraw but what was redrawn before; a language, or leaving one, also
+  // redraws the program's own menu words and the panels' column headers, #113)
+  const redraw = translating() || hadLanguage;
+  hadLanguage = translating();
+  if (redraw) sendMenuWords(); else refreshMenu();
   renderFkeys();
-  for (const p of app?.panels || []) p.renderStatus?.(); // (the status line is translated too, #113)
+  for (const p of app?.panels || []) {
+    try { if (redraw) { p.translateHeader?.(); p.render?.(); } p.renderStatus?.(); } catch { /* (a panel not drawn yet) */ }
+  }
 }
 
 export function applyAll(startTheme) {

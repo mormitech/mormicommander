@@ -16,6 +16,9 @@ version is changed only when a round of features is merged.
 - F1 in a dialog opens the help on that dialog's own section (new Dialogs page) where there is one (F-145).
 - Options > Layout > "Separate tree as a pane of its own beside the file list": Show > Separate tree and Ctrl+Shift+F8
   then show folder tree panes next to the file lists; off by default (F-025).
+- Translations (#113): the built-in Hungarian (interface language hu) now also covers the Options dialog, the column
+  headers, the copy/move progress and question windows, background transfers, Find files, Multi-Rename, Synchronize
+  folders, most messages and, on macOS, the application, Edit and Window menus. English stays exactly as it was.
 
 ## 0.14.38 – 2026-11-19
 

@@ -21,6 +21,7 @@ import { state, loadSchema, loadValues, currentValue, BRIDGE, fillSelect, barCou
 import { keyText } from './keys.js';
 import { applyAll, loadColors } from './layout.js';
 import { matchesAll, searchWords } from './search.js';
+import { t, translating } from '../../core/i18n.js';
 import { registerUserCommands } from './usercmds.js';
 
 export const EXTRA_PAGES = { // (also read by the command palette, features/palette.js)
@@ -29,15 +30,15 @@ export const EXTRA_PAGES = { // (also read by the command palette, features/pale
   SettingsFile: { title: 'Settings file', after: null, words: 'settings file ini import export back up backup restore edit total commander wincmd portable reload' },
 };
 
-const NOTES = {
-  Language: 'Without a language file mormiCommander is in English. Hungarian comes built in: set the interface language to hu. A language file of your own (.lng lines "English=Translation", or .json) goes in the settings folder; texts it lacks stay English. Translated so far: the menus, the function key bar, the status line and the most common dialogs.',
+export const NOTES = {
+  Language: 'Without a language file mormiCommander is in English. Hungarian comes built in: set the interface language to hu. A language file of your own (.lng lines "English=Translation", or .json) goes in the settings folder; texts it lacks stay English. Translated so far: the menus (on macOS the system\'s own too), the function key bar, the status line, the column headers, the Options dialog, the job windows, Find files, Multi-Rename, Synchronize folders, the most common dialogs and many messages.',
   Layout: 'The panel widths change with the line between the panels (double-click it for half and half).',
   Plugins: 'Total Commander plugins are Windows programs and do not work here. mormiCommander has its packers and viewers built in, and can use these programs for more.',
   Hotlist: 'The folders of the hotlist itself are changed with Ctrl+D > Configure.',
   CustomColumns: 'The column sets themselves are changed from Show > Custom columns.',
 };
 
-const COLOR_KEYS = [
+export const COLOR_KEYS = [
   ['fore', 'Text'], ['back', 'Background'], ['back2', 'Second line background'], ['mark', 'Selected files'], ['cursor', 'Cursor'],
   ['cursorText', 'Text under the cursor'], ['inactiveCursor', 'Cursor in the inactive panel'], ['inactiveMark', 'Selected files in the inactive panel'],
   ['inactiveBack', 'Background of the inactive panel'],
@@ -47,7 +48,7 @@ const COLOR_KEYS = [
 // before; kept while the app runs, so the dialog opens again the way it was left.
 let wholeWords = false;
 
-const ICONIC = [{ value: '0', label: 'Normal window' }, { value: '1', label: 'Minimized' }, { value: '-1', label: 'Maximized' }];
+export const ICONIC = [{ value: '0', label: 'Normal window' }, { value: '1', label: 'Minimized' }, { value: '-1', label: 'Maximized' }];
 
 // ---- keymap helpers ----
 export function defaultKeys(platform) {
@@ -83,76 +84,78 @@ export const commandLabel = (n) => (getCommand(n)?.label || LABELS[n] || n).repl
 // ---- the dialog ----
 // An option the program does not act on yet (Go's internal/config/noeffect.go, board issue #94) carries a small note
 // saying so; Misc.HideNoEffect leaves these options out of the dialog (the class on the dialog, see config.css).
-const NO_EFFECT_TAG = '<span class="mc-config-tag" title="This option is kept in the settings file, but mormiCommander does not act on it yet.">no effect yet</span>';
+const NO_EFFECT_TAG = () => `<span class="mc-config-tag" title="${esc(t('This option is kept in the settings file, but mormiCommander does not act on it yet.'))}">${esc(t('no effect yet'))}</span>`;
 const HIDE_NO_EFFECT = 'Misc.HideNoEffect';
 // A bar option whose bar has no buttons: turning it on shows nothing, so the option says why (Configuration > Change
 // button bar adds buttons). The option itself works; it is not marked as having no effect.
 const BAR_OF = { 'Layout.ButtonBar': 'main', 'Layout.ButtonBarVertical': 'vertical' };
-const EMPTY_BAR_TAG = '<span class="mc-config-tag" title="This bar has no buttons yet, so it shows nothing. Add buttons with Configuration > Change button bar.">bar is empty</span>';
+const EMPTY_BAR_TAG = () => `<span class="mc-config-tag" title="${esc(t('This bar has no buttons yet, so it shows nothing. Add buttons with Configuration > Change button bar.'))}">${esc(t('bar is empty'))}</span>`;
 
 function fieldHTML(f, value) {
   const id = esc(f.name);
   const name = f.name.split('.').pop();
   const ne = f.noEffect ? ' mc-config-noeffect' : '';
-  const tag = f.noEffect ? ` ${NO_EFFECT_TAG}` : BAR_OF[f.name] && !barCounts[BAR_OF[f.name]] ? ` ${EMPTY_BAR_TAG}` : '';
+  const tag = f.noEffect ? ` ${NO_EFFECT_TAG()}` : BAR_OF[f.name] && !barCounts[BAR_OF[f.name]] ? ` ${EMPTY_BAR_TAG()}` : '';
   if (f.type === 'bool') {
-    return `<label class="mc-check mc-config-field${ne}" data-field="${id}"><input type="checkbox" id="${id}"${value === '1' ? ' checked' : ''}> ${esc(f.label)}${tag}</label>`;
+    return `<label class="mc-check mc-config-field${ne}" data-field="${id}"><input type="checkbox" id="${id}"${value === '1' ? ' checked' : ''}> ${esc(t(f.label))}${tag}</label>`;
   }
   let input;
   if (f.options?.length) {
-    input = `<select id="${id}">${f.options.map((o) => `<option value="${o.value}"${String(o.value) === value ? ' selected' : ''}>${esc(o.label)}</option>`).join('')}</select>`;
+    input = `<select id="${id}">${f.options.map((o) => `<option value="${o.value}"${String(o.value) === value ? ' selected' : ''}>${esc(t(o.label))}</option>`).join('')}</select>`;
   } else if (f.type === 'int') {
     input = `<input type="number" id="${id}" value="${esc(value)}"${f.min != null ? ` min="${f.min}"` : ''}${f.max != null ? ` max="${f.max}"` : ''}>`;
   } else {
     input = `<input type="text" id="${id}" spellcheck="false" value="${esc(value)}" data-name="${esc(name)}">`;
   }
-  return `<div class="mc-row mc-config-field${ne}" data-field="${id}"><label for="${id}">${esc(f.label)}${tag}</label>${input}</div>`;
+  return `<div class="mc-row mc-config-field${ne}" data-field="${id}"><label for="${id}">${esc(t(f.label))}${tag}</label>${input}</div>`;
 }
 
 function colorsHTML() {
-  return `<h4>Colours</h4>
-    <div class="mc-config-inline"><div class="mc-row"><label for="col-which">Colours for</label><select id="col-which"><option value="light">the light theme</option><option value="dark">the dark theme</option></select></div>
-    <div class="mc-row"><label for="col-preset">Start from</label><select id="col-preset"></select></div><button type="button" class="col-use">Use these colours</button></div>
-    <p class="mc-note">Colours that are not ticked follow the theme.</p>
-    <div class="mc-config-colorgrid">${COLOR_KEYS.map(([k, l]) => `<label class="mc-check"><input type="checkbox" id="col-${k}-on"> ${esc(l)}</label><input type="color" id="col-${k}" aria-label="${esc(l)}">`).join('')}</div>
-    <h4>Colours by file type</h4>
-    <div class="mc-config-listedit"><select id="colf-list" size="6" aria-label="Colours by file type"></select>
-      <div class="mc-config-listfields"><div class="mc-row"><label for="colf-mask">Files (for example *.zip *.7z, or folders: *\\)</label><input type="text" id="colf-mask" spellcheck="false"></div>
-      <div class="mc-row"><label for="colf-color">Colour</label><input type="color" id="colf-color"></div>
-      <div class="mc-config-rowbtns"><button type="button" class="colf-add">Add type colour</button><button type="button" class="colf-del">Remove type colour</button></div></div></div>`;
+  return `<h4>${esc(t('Colours'))}</h4>
+    <div class="mc-config-inline"><div class="mc-row"><label for="col-which">${esc(t('Colours for'))}</label><select id="col-which"><option value="light">${esc(t('the light theme'))}</option><option value="dark">${esc(t('the dark theme'))}</option></select></div>
+    <div class="mc-row"><label for="col-preset">${esc(t('Start from'))}</label><select id="col-preset"></select></div><button type="button" class="col-use">${esc(t('Use these colours'))}</button></div>
+    <p class="mc-note">${esc(t('Colours that are not ticked follow the theme.'))}</p>
+    <div class="mc-config-colorgrid">${COLOR_KEYS.map(([k, l]) => `<label class="mc-check"><input type="checkbox" id="col-${k}-on"> ${esc(t(l))}</label><input type="color" id="col-${k}" aria-label="${esc(t(l))}">`).join('')}</div>
+    <h4>${esc(t('Colours by file type'))}</h4>
+    <div class="mc-config-listedit"><select id="colf-list" size="6" aria-label="${esc(t('Colours by file type'))}"></select>
+      <div class="mc-config-listfields"><div class="mc-row"><label for="colf-mask">${esc(t('Files (for example *.zip *.7z, or folders: *\\)'))}</label><input type="text" id="colf-mask" spellcheck="false"></div>
+      <div class="mc-row"><label for="colf-color">${esc(t('Colour'))}</label><input type="color" id="colf-color"></div>
+      <div class="mc-config-rowbtns"><button type="button" class="colf-add">${esc(t('Add type colour'))}</button><button type="button" class="colf-del">${esc(t('Remove type colour'))}</button></div></div></div>`;
 }
 
 function hotkeysHTML() {
-  return `<div class="mc-row"><label for="hk-filter">Find a command (name, words or key)</label><input type="text" id="hk-filter" spellcheck="false"></div>
-    <div class="mc-config-listedit"><select id="hk-list" size="14" aria-label="Commands"></select>
+  return `<div class="mc-row"><label for="hk-filter">${esc(t('Find a command (name, words or key)'))}</label><input type="text" id="hk-filter" spellcheck="false"></div>
+    <div class="mc-config-listedit"><select id="hk-list" size="14" aria-label="${esc(t('Commands'))}"></select>
       <div class="mc-config-listfields"><p class="mc-note" id="hk-info"></p>
-      <div class="mc-row"><label for="hk-keys">Keys of this command</label><select id="hk-keys" size="4"></select></div>
-      <div class="mc-row"><label for="hk-key">New key: click here and press it</label><input type="text" id="hk-key" data-keycapture="1" spellcheck="false" placeholder="Press a key"></div>
+      <div class="mc-row"><label for="hk-keys">${esc(t('Keys of this command'))}</label><select id="hk-keys" size="4"></select></div>
+      <div class="mc-row"><label for="hk-key">${esc(t('New key: click here and press it'))}</label><input type="text" id="hk-key" data-keycapture="1" spellcheck="false" placeholder="${esc(t('Press a key'))}"></div>
       <p class="mc-note" id="hk-conflict"></p>
-      <div class="mc-config-rowbtns"><button type="button" class="hk-assign">Assign key</button><button type="button" class="hk-remove">Remove key</button><button type="button" class="hk-restore">Restore default keys</button></div></div></div>`;
+      <div class="mc-config-rowbtns"><button type="button" class="hk-assign">${esc(t('Assign key'))}</button><button type="button" class="hk-remove">${esc(t('Remove key'))}</button><button type="button" class="hk-restore">${esc(t('Restore default keys'))}</button></div></div></div>`;
 }
 
 function userCmdsHTML() {
-  return `<p class="mc-note">User commands (em_name) can be put on buttons, in the Start menu and on keys like any command. They are kept in usercmd.ini.</p>
-    <div class="mc-config-listedit"><select id="uc-list" size="10" aria-label="User commands"></select>
+  return `<p class="mc-note">${esc(t('User commands (em_name) can be put on buttons, in the Start menu and on keys like any command. They are kept in usercmd.ini.'))}</p>
+    <div class="mc-config-listedit"><select id="uc-list" size="10" aria-label="${esc(t('User commands'))}"></select>
       <div class="mc-config-listfields">
-      <div class="mc-row"><label for="uc-name">Name (em_…)</label><input type="text" id="uc-name" spellcheck="false"></div>
-      <div class="mc-row"><label for="uc-menu">Title in menus and tooltips</label><input type="text" id="uc-menu"></div>
-      <div class="mc-row"><label for="uc-cmd">Command (program, cm_ command, cd folder)</label><input type="text" id="uc-cmd" spellcheck="false" list="mc-config-cmds"></div>
-      <div class="mc-row"><label for="uc-params">Parameters (%P path, %N name, %S selected names, ? to ask first)</label><input type="text" id="uc-params" spellcheck="false"></div>
-      <div class="mc-row"><label for="uc-path">Start folder</label><input type="text" id="uc-path" spellcheck="false"></div>
-      <div class="mc-row"><label for="uc-iconic">Run</label><select id="uc-iconic">${ICONIC.map((o) => `<option value="${o.value}">${o.label}</option>`).join('')}</select></div>
-      <div class="mc-config-rowbtns"><button type="button" class="uc-new">New command</button><button type="button" class="uc-del">Delete command</button></div></div></div>`;
+      <div class="mc-row"><label for="uc-name">${esc(t('Name (em_…)'))}</label><input type="text" id="uc-name" spellcheck="false"></div>
+      <div class="mc-row"><label for="uc-menu">${esc(t('Title in menus and tooltips'))}</label><input type="text" id="uc-menu"></div>
+      <div class="mc-row"><label for="uc-cmd">${esc(t('Command (program, cm_ command, cd folder)'))}</label><input type="text" id="uc-cmd" spellcheck="false" list="mc-config-cmds"></div>
+      <div class="mc-row"><label for="uc-params">${esc(t('Parameters (%P path, %N name, %S selected names, ? to ask first)'))}</label><input type="text" id="uc-params" spellcheck="false"></div>
+      <div class="mc-row"><label for="uc-path">${esc(t('Start folder'))}</label><input type="text" id="uc-path" spellcheck="false"></div>
+      <div class="mc-row"><label for="uc-iconic">${esc(t('Run'))}</label><select id="uc-iconic">${ICONIC.map((o) => `<option value="${o.value}">${esc(t(o.label))}</option>`).join('')}</select></div>
+      <div class="mc-config-rowbtns"><button type="button" class="uc-new">${esc(t('New command'))}</button><button type="button" class="uc-del">${esc(t('Delete command'))}</button></div></div></div>`;
 }
 
 function settingsFileHTML(info) {
-  const where = info.override ? 'given on the command line (-I=)' : info.portable ? 'next to the program (portable)' : 'in your settings folder';
-  const warn = (info.warnings || []).length ? `<p class="mc-note">Problems found in the file: ${esc(info.warnings.join('; '))}</p>` : '';
-  return `<p class="mc-msg">The settings are kept in <b class="mc-config-path">${esc(info.ini || '')}</b>, ${where}. It is a plain text file in the style of Total Commander's wincmd.ini.${info.exists ? '' : ' (It is written the first time a setting changes.)'}</p>${warn}
+  const where = t(info.override ? 'given on the command line (-I=)' : info.portable ? 'next to the program (portable)' : 'in your settings folder');
+  const warn = (info.warnings || []).length ? `<p class="mc-note">${esc(t('Problems found in the file: {list}', { list: info.warnings.join('; ') }))}</p>` : '';
+  const kept = esc(t('The settings are kept in {file}, {where}. It is a plain text file in the style of Total Commander\'s wincmd.ini.', { file: '\u0001', where }))
+    .replace('\u0001', `<b class="mc-config-path">${esc(info.ini || '')}</b>`);
+  return `<p class="mc-msg">${kept}${info.exists ? '' : ` ${esc(t('(It is written the first time a setting changes.)'))}`}</p>${warn}
     <div class="mc-config-rowbtns mc-config-col">
-    <button type="button" class="sf-edit">Edit settings file</button><button type="button" class="sf-reload">Read settings file again</button>
-    <button type="button" class="sf-import">Import Total Commander settings…</button><button type="button" class="sf-export">Back up settings…</button><button type="button" class="sf-restore">Restore from backup…</button></div>
-    <p class="mc-note">Starting with <code>-I=file</code> uses another settings file; a settings file named mormicommander.ini next to the program makes the program portable.</p>`;
+    <button type="button" class="sf-edit">${esc(t('Edit settings file'))}</button><button type="button" class="sf-reload">${esc(t('Read settings file again'))}</button>
+    <button type="button" class="sf-import">${esc(t('Import Total Commander settings…'))}</button><button type="button" class="sf-export">${esc(t('Back up settings…'))}</button><button type="button" class="sf-restore">${esc(t('Restore from backup…'))}</button></div>
+    <p class="mc-note">${esc(t('Starting with {opt} uses another settings file; a settings file named mormicommander.ini next to the program makes the program portable.', { opt: '\u0001' })).replace('\u0001', '<code>-I=file</code>')}</p>`;
 }
 
 // openOptions shows the dialog; page: the page to show first. opts.command (with the Keyboard shortcuts page) picks
@@ -193,24 +196,24 @@ async function showDialog(app, startPage, opts = {}) {
     box.classList.add('mc-config-box');
     const byPage = (id) => schema.fields.filter((f) => f.pageId === id);
     const sections = pages.map((p) => {
-      let body = NOTES[p.id] ? `<p class="mc-note">${esc(NOTES[p.id])}</p>` : '';
+      let body = NOTES[p.id] ? `<p class="mc-note">${esc(t(NOTES[p.id]))}</p>` : '';
       if (p.id === 'Hotkeys') body += hotkeysHTML();
       else if (p.id === 'UserCommands') body += userCmdsHTML();
       else if (p.id === 'SettingsFile') body += settingsFileHTML(info || {});
       else body += byPage(p.id).map((f) => fieldHTML(f, initial[f.name])).join('');
       if (p.id === 'Colors' && pendingColors) body += colorsHTML();
-      return `<section class="mc-config-page" data-page="${esc(p.id)}" hidden><h3>${esc(p.title)}</h3>${body}</section>`;
+      return `<section class="mc-config-page" data-page="${esc(p.id)}" hidden><h3>${esc(t(p.title))}</h3>${body}</section>`;
     }).join('');
-    box.innerHTML = `<h2>Options</h2>
+    box.innerHTML = `<h2>${esc(t('Options'))}</h2>
       <datalist id="mc-config-cmds">${allCommandNames(app.platform).map((n) => `<option value="${esc(n)}">${esc(commandLabel(n))}</option>`).join('')}</datalist>
       <div class="mc-config">
-        <div class="mc-config-side"><input type="text" id="cfg-search" placeholder="Search options" spellcheck="false" aria-label="Search options">
-          <label class="mc-check mc-config-whole-words"><input type="checkbox" id="cfg-whole"${wholeWords ? ' checked' : ''}> Whole words</label>
-          <div id="cfg-page" class="mc-config-pages" role="listbox" tabindex="0" aria-label="Pages">${pageItems(pages)}</div></div>
+        <div class="mc-config-side"><input type="text" id="cfg-search" placeholder="${esc(t('Search options'))}" spellcheck="false" aria-label="${esc(t('Search options'))}">
+          <label class="mc-check mc-config-whole-words"><input type="checkbox" id="cfg-whole"${wholeWords ? ' checked' : ''}> ${esc(t('Whole words'))}</label>
+          <div id="cfg-page" class="mc-config-pages" role="listbox" tabindex="0" aria-label="${esc(t('Pages'))}">${pageItems(pages)}</div></div>
         <div class="mc-config-main">${sections}</div>
       </div>
       <p class="mc-err" hidden></p>
-      <div class="mc-btns"><button type="button" class="cancel">Cancel</button><button type="submit" class="primary">OK</button></div>`;
+      <div class="mc-btns"><button type="button" class="cancel">${esc(t('Cancel'))}</button><button type="submit" class="primary">${esc(t('OK'))}</button></div>`;
     const $ = (s) => box.querySelector(s);
     const err = $('.mc-err');
     // "Hide options that have no effect yet": follows its checkbox at once (off by default: every option is shown)
@@ -236,7 +239,7 @@ async function showDialog(app, startPage, opts = {}) {
     const main = $('.mc-config-main');
     const none = document.createElement('p');
     none.className = 'mc-note mc-config-none';
-    none.textContent = 'No options match.';
+    none.textContent = t('No options match.');
     none.hidden = true;
     main.append(none);
     let filtering = false;
@@ -265,11 +268,18 @@ async function showDialog(app, startPage, opts = {}) {
       if (searchBox.value.trim() !== q || wholeBox.checked !== whole) return;
       const words = searchWords(q);
       const titleHits = new Set();
-      for (const p of pages) if (matchesAll(p.title, words, whole)) titleHits.add(p.id);
+      for (const p of pages) if (matchesAll(p.title, words, whole) || (translating() && matchesAll(t(p.title), words, whole))) titleHits.add(p.id);
       for (const [id, x] of Object.entries(EXTRA_PAGES)) if (matchesAll(x.title + ' ' + x.words, words, whole)) titleHits.add(id);
+      // (with a language file the translated labels are searched too: Go's search knows only the English ones)
+      const fieldHits = [...(r.fields || [])];
+      if (translating()) {
+        for (const f of schema.fields) {
+          if (matchesAll([f.label, ...(f.options || []).map((o) => o.label)].map((s) => t(s)).join(' '), words, whole)) fieldHits.push(f.name);
+        }
+      }
       const hitPages = new Set(titleHits);
       box.querySelectorAll('.mc-config-hit, .mc-config-whole').forEach((e) => e.classList.remove('mc-config-hit', 'mc-config-whole'));
-      for (const n of r.fields || []) {
+      for (const n of fieldHits) {
         const el = box.querySelector(`.mc-config-field[data-field="${CSS.escape(n)}"]`);
         if (!el) continue;
         el.classList.add('mc-config-hit');
@@ -298,7 +308,7 @@ async function showDialog(app, startPage, opts = {}) {
     if (pendingColors) {
       const which = () => $('#col-which').value;
       const preset = $('#col-preset');
-      preset.innerHTML = '<option value="">Theme colours</option>' + (colorsData.builtin || []).map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join('');
+      preset.innerHTML = `<option value="">${esc(t('Theme colours'))}</option>` + (colorsData.builtin || []).map((s, i) => `<option value="${i}">${esc(s.name)}</option>`).join('');
       const paint = () => {
         const s = pendingColors[which()];
         for (const [k] of COLOR_KEYS) {
@@ -389,7 +399,7 @@ async function showDialog(app, startPage, opts = {}) {
       const k = normalizeCombo($('#hk-key').value);
       const eff = effectiveKeys(app.platform, pendingKeys);
       const used = k && eff.get(k);
-      $('#hk-conflict').textContent = used && used !== hkList.value ? `${keyText(k)} now runs ${commandLabel(used)}; assigning it takes it from there.` : '';
+      $('#hk-conflict').textContent = used && used !== hkList.value ? t('{key} now runs {command}; assigning it takes it from there.', { key: keyText(k), command: commandLabel(used) }) : '';
     };
     $('#hk-filter').addEventListener('input', paintHk);
     hkList.addEventListener('change', paintHk);
@@ -397,7 +407,7 @@ async function showDialog(app, startPage, opts = {}) {
     $('.hk-assign').onclick = () => {
       const k = normalizeCombo($('#hk-key').value);
       const cmd = hkList.value;
-      if (!k || !cmd) { err.hidden = false; err.textContent = 'Choose a command and press the new key in the key field.'; return; }
+      if (!k || !cmd) { err.hidden = false; err.textContent = t('Choose a command and press the new key in the key field.'); return; }
       err.hidden = true;
       pendingKeys[k] = cmd;
       keysDirty = true;
@@ -464,10 +474,10 @@ async function showDialog(app, startPage, opts = {}) {
     const fail = (e) => { err.hidden = false; err.textContent = errText(e); };
     const choose = async (title, save, name) => {
       const picked = await go.Configuration.ChooseFile(title, save, name, '*.ini').catch(() => '');
-      return inputDialog({ title, label: 'File', value: picked || (save ? `${app.home}${app.sep}${name}` : ''), okLabel: save ? 'Save' : 'Open', kind: 'config-file' });
+      return inputDialog({ title, label: t('File'), value: picked || (save ? `${app.home}${app.sep}${name}` : ''), okLabel: save ? 'Save' : 'Open', kind: 'config-file' });
     };
     $('.sf-edit').onclick = async () => {
-      try { const p = await go.Configuration.EditFile(); app.flash(`Editing ${p}. Saved changes are read in at once.`); } catch (e) { fail(e); }
+      try { const p = await go.Configuration.EditFile(); app.flash(t('Editing {path}. Saved changes are read in at once.', { path: p })); } catch (e) { fail(e); }
     };
     $('.sf-reload').onclick = async () => {
       try { await go.Configuration.Reload(); done('SettingsFile'); } catch (e) { fail(e); }
@@ -480,20 +490,20 @@ async function showDialog(app, startPage, opts = {}) {
       try {
         const r = await go.Configuration.ImportTC(path, how === 'Replace');
         const lines = [...(r.imported || [])];
-        if (r.warnings?.length) lines.push('', 'Notes:', ...r.warnings);
-        await messageDialog({ Title: 'Settings imported', Message: lines.join('\n') || 'Nothing to import was found.', Kind: 'config-imported' });
+        if (r.warnings?.length) lines.push('', t('Notes:'), ...r.warnings);
+        await messageDialog({ Title: 'Settings imported', Message: lines.join('\n') || t('Nothing to import was found.'), Kind: 'config-imported' });
         done('SettingsFile');
       } catch (e) { fail(e); }
     };
     $('.sf-export').onclick = async () => {
       const path = await choose('Back up settings', true, 'mormicommander-backup.ini');
       if (!path) return;
-      try { await go.Configuration.Export(path); app.flash(`The settings were saved to ${path}.`); } catch (e) { fail(e); }
+      try { await go.Configuration.Export(path); app.flash(t('The settings were saved to {path}.', { path })); } catch (e) { fail(e); }
     };
     $('.sf-restore').onclick = async () => {
       const path = await choose('Restore settings from a backup', false, 'mormicommander-backup.ini');
       if (!path) return;
-      const ok = await messageDialog({ Title: 'Restore settings?', Message: `All settings are replaced by those in ${path}.`, Buttons: ['Restore', 'Cancel'], Kind: 'config-restore' });
+      const ok = await messageDialog({ Title: 'Restore settings?', Message: t('All settings are replaced by those in {path}.', { path }), Buttons: ['Restore', 'Cancel'], Kind: 'config-restore' });
       if (ok !== 'Restore') return;
       try { await go.Configuration.Restore(path); done('SettingsFile'); } catch (e) { fail(e); }
     };
@@ -530,7 +540,7 @@ async function showDialog(app, startPage, opts = {}) {
         if (ucDirty) touched.ucs = true;
         if (ucDirty) {
           const bad = ucs.find((u) => !/^em_[A-Za-z0-9_]+$/.test(u.name));
-          if (bad) { show('UserCommands'); throw new Error(`"${bad.name}" is not a user command name: it starts with em_ and has letters, digits and _ only.`); }
+          if (bad) { show('UserCommands'); throw new Error(t('"{name}" is not a user command name: it starts with em_ and has letters, digits and _ only.', { name: bad.name })); }
         }
         // write the options the file keeps even when a feature also keeps them (so the file is complete)
         const changed = Object.keys(changes).length ? await go.Configuration.Apply(changes) : [];
@@ -593,7 +603,7 @@ async function revertOptions(app, opened, touched) {
     app.emit('config', []);
     app.emit('settings');
   } catch (e) {
-    app.flash(`The options could not all be put back: ${e?.message || e}`, 'err');
+    app.flash(t('The options could not all be put back: {error}', { error: e?.message || e }), 'err');
   }
 }
 
@@ -601,7 +611,7 @@ async function revertOptions(app, opened, touched) {
 // The page list is a list of our own, not a <select size>: WebKit's native list box, stretched to the dialog's height and
 // scrolled, drew its rows apart from where it took the clicks, so a click on its empty part chose some page.
 function pageItems(list) {
-  return list.map((p) => `<div role="option" class="mc-config-pageitem" data-value="${esc(p.id)}">${esc(p.title)}</div>`).join('');
+  return list.map((p) => `<div role="option" class="mc-config-pageitem" data-value="${esc(p.id)}">${esc(t(p.title))}</div>`).join('');
 }
 
 // pageList gives the list the value property and "change" event a <select> has, chosen with a click or the arrow keys.
@@ -655,7 +665,7 @@ command({
 });
 command({
   name: 'cm_ConfigChangeIniFiles', label: 'Edit settings file',
-  run: async (app) => { const p = await go.Configuration.EditFile(); app.flash(`Editing ${p}. Saved changes are read in at once.`); return true; },
+  run: async (app) => { const p = await go.Configuration.EditFile(); app.flash(t('Editing {path}. Saved changes are read in at once.', { path: p })); return true; },
 });
 
 export function initOptions(app) {

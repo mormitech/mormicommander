@@ -27,6 +27,7 @@ import './syncdirs.css';
 import { command } from '../core/registry.js';
 import { go, on, errText, setClipboardText } from '../core/go.js';
 import { esc, modal, messageDialog, inputDialog, formDialog } from '../core/dialogs.js';
+import { t as tt, translateTree } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { size, bytes, date, plural, dateWidth } from '../core/format.js';
 import { openWindow, contextMenu, joinPath } from './synccompare-ui.js';
@@ -212,7 +213,7 @@ function syncWindow(app, id, args = {}) {
       status.textContent = `Comparing… ${plural(p.dirs || 0, 'folder')}, ${plural(p.files || 0, 'file')}${p.current ? ` · ${p.current}` : ''}  (Esc stops)`;
       return;
     }
-    if (!st.compared) { status.textContent = st.stale ? 'The folders changed: press Compare (Enter).' : 'Choose the folders and press Compare (Enter).'; return; }
+    if (!st.compared) { status.textContent = tt(st.stale ? 'The folders changed: press Compare (Enter).' : 'Choose the folders and press Compare (Enter).'); return; }
     const s = st.summary || {};
     const files = st.rows.filter((r) => !r.isDir);
     const total = files.reduce((a, r) => a + Math.max(r.left?.size || 0, r.right?.size || 0), 0);
@@ -223,7 +224,7 @@ function syncWindow(app, id, args = {}) {
   };
   const paintTools = () => {
     const cb = q('.b-compare');
-    cb.textContent = st.running ? 'Stop' : 'Compare';
+    cb.textContent = tt(st.running ? 'Stop' : 'Compare');
     q('.b-sync').disabled = !st.compared || st.running || st.syncing;
     q('#sync-onlysel').disabled = !app.left.selectedEntries().length && !app.right.selectedEntries().length;
     box.classList.toggle('running', st.running);
@@ -466,6 +467,7 @@ function syncWindow(app, id, args = {}) {
     modal((b, close) => {
       closeBox = () => close();
       b.innerHTML = `<h2>Synchronizing</h2><p class="mc-msg"></p><div class="mc-progress"><i></i></div><p class="mc-note"></p><div class="mc-btns"><button type="button" class="cancel">Cancel</button></div>`;
+      translateTree(b);
       const msg = b.querySelector('.mc-msg'), bar = b.querySelector('.mc-progress i'), note = b.querySelector('.mc-note');
       paintBox = () => {
         msg.textContent = last.current ? `${last.kind === 'delete' || last.kind === 'removeDir' ? 'Deleting' : 'Copying'} ${last.current} (${last.side || ''})` : '';
@@ -546,6 +548,7 @@ function syncWindow(app, id, args = {}) {
         <div class="mc-sync-head"><span class="mc-sync-l"><span>Name</span><span>Size</span><span>Date</span></span><span class="mc-sync-act">Action</span><span class="mc-sync-r"><span>Date</span><span>Size</span><span>Name</span></span></div>
         <div class="mc-sync-body" tabindex="0"><div class="mc-sync-spacer"></div><div class="mc-sync-rows"></div></div>
         <div class="mc-sync-foot"><span class="mc-sync-status"></span><span class="mc-btns"><button type="button" class="b-sync" disabled>Synchronize…</button><button type="button" class="b-close">Close</button></span></div>`;
+      translateTree(box); // (#113: the window's own words, before the folders and options are filled in)
       body = q('.mc-sync-body'); spacer = q('.mc-sync-spacer'); rowsEl = q('.mc-sync-rows'); status = q('.mc-sync-status');
       q('#sync-left').value = st.left;
       q('#sync-right').value = st.right;

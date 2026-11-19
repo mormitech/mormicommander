@@ -24,6 +24,7 @@ import './find.css';
 import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { modal, messageDialog, inputDialog, formDialog, esc, keyOwnerBox, focusDialog } from '../core/dialogs.js';
+import { t as tt, translateTree } from '../core/i18n.js';
 import { addControlCommand } from '../core/control.js';
 import { app as theApp } from '../core/app.js';
 import { Panel } from '../core/panel.js';
@@ -276,7 +277,7 @@ function syncEnabled() {
   const none = S.items.length === 0;
   const busy = S.running || !!busyTab();
   $('.ff-start').disabled = busy;
-  $('.ff-cancel').textContent = busy ? 'Stop' : 'Cancel';
+  $('.ff-cancel').textContent = tt(busy ? 'Stop' : 'Cancel');
   for (const c of ['.ff-goto', '.ff-view', '.ff-edit', '.ff-copy', '.ff-savelist']) $(c).disabled = none;
   $('.ff-feed').disabled = none || S.running;
   $('.ff-dups').disabled = S.running || !hasDuplicates(S.items);
@@ -286,7 +287,7 @@ function showErr(text) {
   const e = $('.mc-err');
   if (!e) return;
   e.hidden = !text;
-  e.textContent = text || '';
+  e.textContent = tt(text || '');
 }
 
 function switchTab(name) {
@@ -421,7 +422,7 @@ function render() {
   rows.style.transform = `translateY(${first * ROW_H}px)`;
   rows.innerHTML = h;
   empty.hidden = !(S.last && !S.items.length);
-  empty.textContent = 'No files found.';
+  empty.textContent = tt('No files found.');
   renderStatus();
 }
 
@@ -756,6 +757,7 @@ async function openDialog(app, args = {}) {
     S.done = done;
     box.classList.add('mc-find');
     box.innerHTML = html(setup);
+    translateTree(box); // (#113: the dialog's own words, before the fields are filled in)
     attachPathComplete(box.querySelector('#ff-in'), () => app.cur?.path || ''); // (folder names complete, F-782)
     // fields
     if (resume) fill(resume, { keepIn: false });

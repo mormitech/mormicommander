@@ -9,6 +9,7 @@
 import './multirename.css';
 import { command } from '../core/registry.js';
 import { modal, messageDialog, inputDialog, formDialog, infoDialog, esc } from '../core/dialogs.js';
+import { t as tt, translateTree } from '../core/i18n.js';
 import { go, on, errText } from '../core/go.js';
 import { addControlCommand } from '../core/control.js';
 import { size as fmtSize, date as fmtDate, plural } from '../core/format.js';
@@ -210,6 +211,7 @@ function build(st, box, done, saved, hist) {
     <button type="button" class="mc-multirename-close" title="Esc">Close</button>
   </div>`;
 
+  translateTree(box); // (#113: the window's own words, before the names and fields are filled in)
   writeForm(box, { ...st.defaults, ...(saved.last || {}) });
   const list = box.querySelector('.mc-multirename-list');
 
@@ -373,7 +375,7 @@ function summary(st) {
 function setStatus(st, text) {
   st.status = text;
   const el = st.box?.querySelector('.mc-multirename-status');
-  if (el) el.textContent = text;
+  if (el) el.textContent = tt(text); // (#113: a plain message is translated; st.status keeps the English)
 }
 
 function paintSel(st, scroll = true) {
@@ -489,9 +491,9 @@ function showMenu(st, anchor, items, kind) {
     const b = document.createElement('button');
     b.type = 'button';
     b.setAttribute('role', 'menuitem');
-    b.textContent = it.label;
+    b.textContent = tt(it.label);
     if (it.disabled) b.disabled = true;
-    if (it.detail) b.title = it.detail;
+    if (it.detail) b.title = tt(it.detail);
     b.onclick = () => { closeMenu(st); it.run(); };
     el.append(b);
   }

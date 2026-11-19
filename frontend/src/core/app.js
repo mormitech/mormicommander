@@ -8,6 +8,7 @@
 // (panel); 'active' (panel); 'ready' once start-up is done.
 
 import { go, errText } from './go.js';
+import { t } from './i18n.js';
 import { run as runCommand, NotReady, getCommand, keysFor } from './registry.js';
 import { getSetting, setSetting } from './settings.js';
 import { mergeMaps } from './drivemerge.js';
@@ -99,12 +100,13 @@ export const app = {
     }
   },
 
-  // flash shows a short message above the function keys for a few seconds.
+  // flash shows a short message above the function keys for a few seconds. It is shown translated when the language
+  // file has it (#113); lastMessage keeps the text as it was given, for control mode.
   flash(msg, kind = '') {
     const el = document.getElementById('flash');
     this.lastMessage = msg;
     if (!el) return;
-    el.textContent = msg;
+    el.textContent = typeof msg === 'string' ? t(msg) : msg;
     el.className = kind;
     el.hidden = false;
     clearTimeout(flashTimer);

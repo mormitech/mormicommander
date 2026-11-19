@@ -28,6 +28,51 @@ type MenuItem struct {
 	Sep      bool       `json:"sep"`      // a separator line
 	Items    []MenuItem `json:"items"`    // a submenu
 	Icon     string     `json:"icon"`     // an image file drawn before the label (Start menu entries, F-450); "" = none
+	Key      string     `json:"key"`      // a top-level menu's English name when its label is translated (#113), else ""
+}
+
+// SetMenuWords gives the translations of the menu words the program itself writes (issue #113): the macOS application
+// menu, the system's Edit and Window menus, Help. The page sends them with the language file (English → translation;
+// empty for English) and then the menu tree again, so the next SetMenu uses them.
+func (a *App) SetMenuWords(words map[string]string) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if len(words) == 0 {
+		a.menuWords = nil
+		return
+	}
+	a.menuWords = map[string]string{}
+	for k, v := range words {
+		if k != "" && v != "" {
+			a.menuWords[k] = v
+		}
+	}
+}
+
+// menuWord is the translation of one of the program's own menu words, or the word itself.
+func (a *App) menuWord(s string) string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if w, ok := a.menuWords[s]; ok {
+		return w
+	}
+	return s
+}
+
+// translateRoleMenu writes the labels of a system role menu (Edit, Window) and its items in the interface language;
+// the items keep their roles, so they work as before. Without translations it changes nothing.
+func (a *App) translateRoleMenu(it *application.MenuItem) {
+	if it == nil {
+		return
+	}
+	if w := a.menuWord(it.Label()); w != it.Label() {
+		it.SetLabel(w)
+	}
+	if sub := it.GetSubmenu(); sub != nil {
+		for _, x := range menuItems(sub) {
+			a.translateRoleMenu(x)
+		}
+	}
 }
 
 // SetMenu replaces the menu bar with the given tree (top-level items are the menus).
@@ -90,7 +135,7 @@ func baseMenu(a *App, spec []MenuItem) *application.Menu {
 	var help *MenuItem
 	var rest []MenuItem
 	for i := range spec {
-		if spec[i].Label == "Help" {
+		if spec[i].Label == "Help" || spec[i].Key == "Help" {
 			help = &spec[i]
 		} else {
 			rest = append(rest, spec[i])
@@ -98,22 +143,24 @@ func baseMenu(a *App, spec []MenuItem) *application.Menu {
 	}
 	if runtime.GOOS == "darwin" {
 		app := m.AddSubmenu("mormiCommander")
-		app.Add("About mormiCommander").OnClick(func(*application.Context) { a.ShowAbout() })
+		app.Add(a.menuWord("About mormiCommander")).OnClick(func(*application.Context) { a.ShowAbout() })
 		app.AddSeparator()
-		app.Add("Hide mormiCommander").SetAccelerator("CmdOrCtrl+h").OnClick(func(*application.Context) {
+		app.Add(a.menuWord("Hide mormiCommander")).SetAccelerator("CmdOrCtrl+h").OnClick(func(*application.Context) {
 			if a.wapp != nil {
 				application.InvokeSync(a.wapp.Hide)
 			}
 		})
 		app.AddSeparator()
-		app.Add("Quit mormiCommander").SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { a.emit("menu", "cm_Exit") })
+		app.Add(a.menuWord("Quit mormiCommander")).SetAccelerator("CmdOrCtrl+q").OnClick(func(*application.Context) { a.emit("menu", "cm_Exit") })
 		m.AddRole(application.EditMenu)
+		a.translateRoleMenu(m.ItemAt(1))
 		for _, it := range rest {
 			addItems(a, m.AddSubmenu(it.Label), it.Items)
 		}
 		m.AddRole(application.WindowMenu)
+		a.translateRoleMenu(m.ItemAt(len(rest) + 2))
 		if help != nil {
-			addItems(a, m.AddSubmenu("Help\u200b"), help.Items)
+			addItems(a, m.AddSubmenu(helpLabel(help)+"\u200b"), help.Items)
 		}
 		return m
 	}
@@ -121,11 +168,19 @@ func baseMenu(a *App, spec []MenuItem) *application.Menu {
 		addItems(a, m.AddSubmenu(it.Label), it.Items)
 	}
 	if help != nil {
-		addItems(a, m.AddSubmenu("Help"), help.Items)
+		addItems(a, m.AddSubmenu(helpLabel(help)), help.Items)
 	} else {
-		m.AddSubmenu("Help").Add("About mormiCommander").OnClick(func(*application.Context) { a.ShowAbout() })
+		m.AddSubmenu(a.menuWord("Help")).Add(a.menuWord("About mormiCommander")).OnClick(func(*application.Context) { a.ShowAbout() })
 	}
 	return m
+}
+
+// helpLabel is the Help menu's label as the page sent it (translated with a language file).
+func helpLabel(help *MenuItem) string {
+	if help.Label != "" {
+		return help.Label
+	}
+	return "Help"
 }
 
 func addItems(a *App, m *application.Menu, items []MenuItem) {

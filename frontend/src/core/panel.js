@@ -93,8 +93,19 @@ export class Panel {
   get isActive() { return this.app.cur === this; }
   get cur() { return this.entries[this.cursor]; }
 
+  // translateHeader writes the words of the column header (and their tooltips) in the interface language (#113); the
+  // header is built once, so a language file read later calls it again.
+  translateHeader() {
+    for (const [id, word] of COLUMNS) {
+      const el = this.$?.header?.querySelector(`[data-col="${id}"]`);
+      if (!el) continue;
+      el.textContent = t(word);
+      el.title = t('Sort by {column} (Ctrl/Cmd+click: as the second sort key)', { column: t(word).toLowerCase() });
+    }
+  }
+
   build() {
-    const cols = COLUMNS.map(([id, t, c]) => `<span data-col="${id}" class="${c || ''}" title="Sort by ${t.toLowerCase()} (Ctrl/Cmd+click: as the second sort key)">${t}</span>`).join('');
+    const cols = COLUMNS.map(([id, , c]) => `<span data-col="${id}" class="${c || ''}"></span>`).join('');
     this.el.innerHTML = `<div class="drivebar" role="toolbar" aria-label="Drives"></div><div class="driveinfo"></div><div class="tabbar" hidden></div>
       <div class="pathbar"><span class="crumbs"></span><span class="filter" hidden></span><span class="pbtns"></span><button class="hist" title="Folders you visited (Alt+Down)" aria-label="Folder history">▾</button></div>
       <div class="header">${cols}</div>
@@ -103,6 +114,7 @@ export class Panel {
     const $ = (s) => this.el.querySelector(s);
     this.$ = { drives: $('.drivebar'), driveinfo: $('.driveinfo'), tabbar: $('.tabbar'), pathbar: $('.pathbar'), crumbs: $('.crumbs'), filter: $('.filter'),
       pbtns: $('.pbtns'), hist: $('.hist'), header: $('.header'), list: $('.list'), spacer: $('.spacer'), rows: $('.rows'), msg: $('.msg'), status: $('.status') };
+    this.translateHeader();
     this.measure();
     const { list, header, crumbs, pathbar, hist } = this.$;
     let raf = 0;

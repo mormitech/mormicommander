@@ -21,6 +21,7 @@ import { command } from '../core/registry.js';
 import { go, on, errText } from '../core/go.js';
 import { Panel, splitPath } from '../core/panel.js';
 import { esc, modal, formDialog, messageDialog, inputDialog } from '../core/dialogs.js';
+import { t as tt } from '../core/i18n.js';
 import { showList } from '../core/popup.js';
 import { addKeyHandler } from '../core/keyboard.js';
 import { addControlCommand } from '../core/control.js';
@@ -258,7 +259,7 @@ function renderHeader(p) {
   el.classList.toggle('mc-views-cols', isColumnMode(p)); // (custom columns: the no-extension layout doesn't apply)
   if (!isColumnMode(p)) {
     el.style.removeProperty('--cols');
-    if (header.dataset.views) { header.innerHTML = coreHeader.get(el); delete header.dataset.views; }
+    if (header.dataset.views) { header.innerHTML = coreHeader.get(el); delete header.dataset.views; p.translateHeader?.(); }
     markCoreHeader(p);
     return;
   }
@@ -269,9 +270,14 @@ function renderHeader(p) {
   const fit = treeOpt('CustomColumns.EqualWidthOnOpen', '0') === '1';
   for (const c of def.cols) tpl.push(c.width && !fit ? `${c.width}px` : 'minmax(60px, 1fr)');
   el.style.setProperty('--cols', tpl.join(' '));
-  let html = `<span data-vcol="name" title="Sort by name">Name</span>`;
-  if (def.ext) html += `<span data-vcol="ext" title="Sort by extension">Ext</span>`;
-  def.cols.forEach((c, k) => { html += `<span data-vcol="${k}" class="${c.align === 'right' ? 'r' : ''}" title="Sort by ${esc(c.title.toLowerCase() || `column ${k + 1}`)}${c.sort ? ' (Ctrl/Cmd+click: as the second sort key)' : ''}">${esc(c.title)}</span>`; });
+  // (the words are translated with a language file, #113; a column set's own titles too, when the file has them)
+  let html = `<span data-vcol="name" title="${esc(tt('Sort by name'))}">${esc(tt('Name'))}</span>`;
+  if (def.ext) html += `<span data-vcol="ext" title="${esc(tt('Sort by extension'))}">${esc(tt('Ext'))}</span>`;
+  def.cols.forEach((c, k) => {
+    const what = tt(c.title).toLowerCase() || tt('column {n}', { n: k + 1 });
+    const tip = c.sort ? tt('Sort by {column} (Ctrl/Cmd+click: as the second sort key)', { column: what }) : tt('Sort by {column}', { column: what });
+    html += `<span data-vcol="${k}" class="${c.align === 'right' ? 'r' : ''}" title="${esc(tip)}">${esc(tt(c.title))}</span>`;
+  });
   header.innerHTML = html;
   header.dataset.views = '1';
   const s = p.sort;

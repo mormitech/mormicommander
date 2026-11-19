@@ -40,6 +40,48 @@ export const tr = t; // (the older name, used by the menus, popups and dialogs)
 
 export const translating = () => !!table;
 
+// translateTree translates a freshly built piece of a dialog in place (#113): every text node and title / placeholder /
+// aria-label whose whole text (without the spaces around it) is a text of the language file. It is called on the
+// dialog's own words right after they are built, before names or other data are filled in, so it changes nothing but
+// those words; without a language file it does nothing at all. An element marked data-notr is left alone with its
+// contents.
+const TR_ATTRS = ['title', 'placeholder', 'aria-label'];
+export function translateTree(root) {
+  if ((!table && !collected) || !root?.ownerDocument) return root; // (collect mode reads the words for the template)
+  const doc = root.ownerDocument;
+  const skip = (n) => !!n.parentElement?.closest('[data-notr], script, style, textarea');
+  const walker = doc.createTreeWalker(root, 4 /* NodeFilter.SHOW_TEXT */);
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    const s = n.nodeValue, core = s.trim();
+    if (!core || !/[A-Za-z]/.test(core) || skip(n)) continue;
+    const x = t(core);
+    if (x !== core) n.nodeValue = s.replace(core, () => x);
+  }
+  for (const el of [root, ...root.querySelectorAll(TR_ATTRS.map((a) => `[${a}]`).join(','))]) {
+    if (!el.getAttribute || el.closest?.('[data-notr]')) continue;
+    for (const a of TR_ATTRS) {
+      const v = el.getAttribute(a)?.trim();
+      if (!v) continue;
+      const x = t(v);
+      if (x !== v) el.setAttribute(a, x);
+    }
+  }
+  return root;
+}
+
+// htmlTexts finds the words of HTML templates in source code: the text between tags and the title / placeholder /
+// aria-label values that have no ${} in them (for the template and the test of the files translated with translateTree).
+export function htmlTexts(src) {
+  const out = [];
+  const keep = (s) => {
+    s = s.replace(/\s+/g, ' ').trim().replace(/&gt;/g, '>').replace(/&lt;/g, '<').replace(/&quot;/g, '"').replace(/&amp;/g, '&');
+    if (/[A-Za-z]{2}/.test(s) && !/[${}=;|]|&&/.test(s)) out.push(s);
+  };
+  for (const m of src.matchAll(/>([^<>`]+)</g)) keep(m[1]);
+  for (const m of src.matchAll(/\b(?:title|placeholder|aria-label)="([^"$`]+)"/g)) keep(m[1]);
+  return out;
+}
+
 // Collect mode, for the template: every text t() is asked from now on is kept until stopCollecting() returns them.
 export function startCollecting() { collected = new Set(); }
 export function stopCollecting() { const s = collected ? [...collected] : []; collected = null; return s; }

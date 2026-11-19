@@ -22,21 +22,22 @@ import (
 
 // App is the window: what the page can ask about the app itself (version, platform, start folders, window state).
 type App struct {
-	ctx      context.Context // the application's context once Wails is set up; nil in tests (features check it)
-	mu       sync.Mutex
-	opts     startOpts
-	mode     string    // "about" when the process shows only the About box (--about), else ""
-	fs       vfs.FS    // the real file system, or the demo's fictional one
-	mock     *vfs.Mock // the fictional file system in a demo run, else nil
-	settings *Settings // see settings.go
-	jobs     *Jobs     // see feature_jobs.go
-	undo     *Undo     // the undo journal of file operations, see feature_undo.go
-	ctl      *control  // control mode (see control.go); nil when off
-	saved    *winState // where the window was left last time
-	winW     int       // the size the window was asked for, before it is fitted to the screen
-	winH     int
-	menuBar  *application.Menu // the menu bar (see menu.go)
-	quitting bool
+	ctx       context.Context // the application's context once Wails is set up; nil in tests (features check it)
+	mu        sync.Mutex
+	opts      startOpts
+	mode      string    // "about" when the process shows only the About box (--about), else ""
+	fs        vfs.FS    // the real file system, or the demo's fictional one
+	mock      *vfs.Mock // the fictional file system in a demo run, else nil
+	settings  *Settings // see settings.go
+	jobs      *Jobs     // see feature_jobs.go
+	undo      *Undo     // the undo journal of file operations, see feature_undo.go
+	ctl       *control  // control mode (see control.go); nil when off
+	saved     *winState // where the window was left last time
+	winW      int       // the size the window was asked for, before it is fitted to the screen
+	winH      int
+	menuBar   *application.Menu // the menu bar (see menu.go)
+	menuWords map[string]string // translations of the program's own menu words (menu.go, #113); nil for English
+	quitting  bool
 	// standalone: started with -S=L and Options > Operation > StandaloneTools, so the file manager's window stays hidden
 	// and only the Lister window shows; the app ends when that closes (F-852, feature_config_start.go)
 	standalone bool

@@ -20,7 +20,7 @@
 //   await formDialog(title, html, read, setup) → what read(box) returns, or null
 //   infoDialog(html) → a box with a close button
 
-import { tr } from './i18n.js';
+import { tr, translateTree } from './i18n.js';
 import './dialogs.css';
 import { waitForUser } from './busy.js';
 import { getSetting } from './settings.js';
@@ -321,6 +321,7 @@ export function inputDialog({ title, label = '', value = '', select, okLabel = '
 export function formDialog(title, html, read, setup, { okLabel = 'OK', kind = 'form' } = {}) {
   return modal((box, done) => {
     box.innerHTML = `<h2>${esc(tr(title))}</h2>${html}<p class="mc-err" hidden></p><div class="mc-btns"><button type="button" class="cancel">${esc(tr('Cancel'))}</button><button type="submit" class="primary">${esc(tr(okLabel))}</button></div>`;
+    translateTree(box); // (the form's own words, before setup fills in anything else; nothing without a language file)
     box.querySelector('.cancel').onclick = () => done(null);
     box.onsubmit = (ev) => {
       ev.preventDefault();

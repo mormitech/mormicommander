@@ -25,6 +25,7 @@ import './jobs.css';
 import { go, on, errText, setClipboardText } from './go.js';
 import { modal, messageDialog, inputDialog, esc } from './dialogs.js';
 import { size, date, bytes, plural } from './format.js';
+import { t as tt } from './i18n.js';
 import { track } from './busy.js';
 import { app } from './app.js';
 import { holdProgress, progressHeld, showWhenFree } from './progresshold.js';
@@ -99,6 +100,9 @@ export async function refreshJobs() {
 const VERB = { copy: 'Copying', move: 'Moving', delete: 'Deleting', trash: 'Moving to the trash', wipe: 'Wiping', pack: 'Packing', unpack: 'Unpacking', test: 'Testing archives' };
 const KIND = { copy: 'Copy', move: 'Move', delete: 'Delete', trash: 'Trash', wipe: 'Wipe', pack: 'Pack', unpack: 'Unpack', test: 'Test' };
 const STATE = { queued: 'Waiting', running: 'Running', paused: 'Paused', asking: 'Waiting for an answer', done: 'Done', failed: 'Done with errors', cancelled: 'Stopped' };
+export const JOB_WORDS = { VERB, KIND, STATE }; // (for the translation test, #113)
+// pl is plural() with the words translated (#113): Hungarian, for one, keeps the singular after a number.
+const pl = (n, word, many = `${word}s`) => plural(n, tt(word), tt(many));
 const base = (p) => String(p || '').split(/[\\/]/).filter(Boolean).pop() || p || '';
 
 export function fraction(p) {
@@ -206,7 +210,7 @@ function report(r, final) {
   } else if (final.state === 'done' && final.summary && (r.background || summaryWanted(r.req))) {
     app.flash(final.summary);
   } else if (final.state === 'cancelled' && r.background) {
-    app.flash(`${KIND[final.kind] || 'Job'} stopped.`);
+    app.flash(tt('{job} stopped.', { job: tt(KIND[final.kind] || 'Job') }));
   }
 }
 
@@ -245,28 +249,28 @@ function foreground(r) {
       closeBox = done;
       b.classList.add('mc-jobs-progress');
       b.innerHTML = `<h2></h2><p class="mc-msg"></p><p class="mc-jobs-path"></p>
-        <div class="mc-jobs-bar cur" title="This file"><i></i></div><div class="mc-jobs-bar total" title="All files"><i></i></div>
+        <div class="mc-jobs-bar cur" title="${esc(tt('This file'))}"><i></i></div><div class="mc-jobs-bar total" title="${esc(tt('All files'))}"><i></i></div>
         <p class="mc-note"></p>
-        <div class="mc-btns"><button type="button" class="bg" title="Go on in the background (F2)">Background</button><button type="button" class="pause">Pause</button><button type="button" class="cancel primary">Cancel</button></div>`;
+        <div class="mc-btns"><button type="button" class="bg" title="${esc(tt('Go on in the background (F2)'))}">${esc(tt('Background'))}</button><button type="button" class="pause">${esc(tt('Pause'))}</button><button type="button" class="cancel primary">${esc(tt('Cancel'))}</button></div>`;
       const $ = (s) => b.querySelector(s);
       ui.paint = () => {
         const p = r.p;
         const pct = Math.round(fraction(p) * 100);
-        $('h2').textContent = `${pct}% ${r.title}`;
-        $('.mc-msg').textContent = p.state === 'paused' ? `Paused: ${base(p.current)}` : base(p.current) || (p.files ? '' : 'Counting files…');
+        $('h2').textContent = `${pct}% ${tt(r.title)}`;
+        $('.mc-msg').textContent = p.state === 'paused' ? tt('Paused: {name}', { name: base(p.current) }) : base(p.current) || (p.files ? '' : tt('Counting files…'));
         const to = r.req?.target && (p.kind === 'copy' || p.kind === 'move') ? ` → ${r.req.target}` : '';
         $('.mc-jobs-path').textContent = p.current ? `${p.current}${to}` : '';
         const curBar = $('.mc-jobs-bar.cur');
         curBar.hidden = !(p.currentSize > 0);
         curBar.firstElementChild.style.width = `${p.currentSize > 0 ? Math.round(Math.min(1, p.currentDone / p.currentSize) * 100) : 0}%`;
         $('.mc-jobs-bar.total i').style.width = `${pct}%`;
-        const parts = [`${p.filesDone} of ${plural(p.files, 'file')}`];
-        if (p.bytes) parts.push(`${size(p.bytesDone)} of ${size(p.bytes)}`);
+        const parts = [tt('{done} of {files}', { done: p.filesDone, files: pl(p.files, 'file') })];
+        if (p.bytes) parts.push(tt('{done} of {size}', { done: size(p.bytesDone), size: size(p.bytes) }));
         if (p.speed > 0 && p.state === 'running') parts.push(`${size(p.speed)}/s`);
-        if (p.eta > 0 && p.state === 'running') parts.push(`${eta(p.eta)} left`);
-        if (errorCount(p) > 0) parts.push(plural(errorCount(p), 'error'));
+        if (p.eta > 0 && p.state === 'running') parts.push(tt('{time} left', { time: eta(p.eta) }));
+        if (errorCount(p) > 0) parts.push(pl(errorCount(p), 'error'));
         $('.mc-note').textContent = parts.join(' · ');
-        $('.pause').textContent = p.state === 'paused' ? 'Continue' : 'Pause';
+        $('.pause').textContent = tt(p.state === 'paused' ? 'Continue' : 'Pause');
       };
       ui.paint();
       $('.cancel').onclick = () => done('cancel');
@@ -323,24 +327,25 @@ async function askNow(r, c) {
   switch (c.type) {
     case '': return overwrite(r, c);
     case 'readonly':
-      return answer(r, await pick(r, { Title: 'Read-only file', Message: `${c.target} is read-only.\n\nOverwrite it anyway?`, Kind: 'overwrite-readonly', DefaultButton: 'Skip' },
+      return answer(r, await pick(r, { Title: 'Read-only file', Message: tt('{name} is read-only.\n\nOverwrite it anyway?', { name: c.target }), Kind: 'overwrite-readonly', DefaultButton: 'Skip' },
         [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     case 'hidden': // (only with Options > Copy/Delete > Confirm overwriting hidden and system files, F-467)
-      return answer(r, await pick(r, { Title: 'Hidden or system file', Message: `${c.target} is a hidden or system file.\n\nOverwrite it anyway?`, Kind: 'overwrite-hidden', DefaultButton: 'Skip' },
+      return answer(r, await pick(r, { Title: 'Hidden or system file', Message: tt('{name} is a hidden or system file.\n\nOverwrite it anyway?', { name: c.target }), Kind: 'overwrite-hidden', DefaultButton: 'Skip' },
         [['Overwrite', 'overwrite'], ['Overwrite all', 'overwrite_all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     case 'error':
-      return answer(r, await pick(r, { Title: 'Problem', Message: (c.error || `Something went wrong with ${name}.`) + (c.denied ? `\n\n${deniedHint(app.platform)}` : ''), Kind: 'job-error', DefaultButton: 'Retry' },
+      return answer(r, await pick(r, { Title: 'Problem', Message: (c.error || tt('Something went wrong with {name}.', { name })) + (c.denied ? `\n\n${deniedHint(app.platform)}` : ''), Kind: 'job-error', DefaultButton: 'Retry' },
         ERROR_BUTTONS));
     case 'no_space':
-      return answer(r, await pick(r, { Title: 'Not enough space', Message: `${c.target} has ${size(c.free)} free, but this needs ${size(c.need)}.\n\nStart anyway?`, Kind: 'no-space', DefaultButton: 'Cancel' },
+      return answer(r, await pick(r, { Title: 'Not enough space', Message: tt('{name} has {free} free, but this needs {need}.\n\nStart anyway?', { name: c.target, free: size(c.free), need: size(c.need) }), Kind: 'no-space', DefaultButton: 'Cancel' },
         [['Start anyway', 'yes'], ['Cancel', 'cancel']]));
     case 'delete_dir': {
       const verb = r.p.kind === 'wipe' ? 'Wipe' : 'Delete';
-      return answer(r, await pick(r, { Title: 'Folder is not empty', Message: `The folder ${c.source} is not empty.\n\n${verb} it with everything in it?`, Kind: 'delete-folder', DefaultButton: 'Yes', Danger: true },
+      return answer(r, await pick(r, { Title: 'Folder is not empty', Message: verb === 'Wipe' ? tt('The folder {name} is not empty.\n\nWipe it with everything in it?', { name: c.source })
+        : tt('The folder {name} is not empty.\n\nDelete it with everything in it?', { name: c.source }), Kind: 'delete-folder', DefaultButton: 'Yes', Danger: true },
         [['Yes', 'yes'], ['All', 'all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     }
     case 'delete_readonly':
-      return answer(r, await pick(r, { Title: 'Read-only file', Message: `${c.source} is read-only.\n\nDelete it anyway?`, Kind: 'delete-readonly', DefaultButton: 'Yes', Danger: true },
+      return answer(r, await pick(r, { Title: 'Read-only file', Message: tt('{name} is read-only.\n\nDelete it anyway?', { name: c.source }), Kind: 'delete-readonly', DefaultButton: 'Yes', Danger: true },
         [['Yes', 'yes'], ['All', 'all'], ['Skip', 'skip'], ['Skip all', 'skip_all'], ['Cancel', 'cancel']]));
     default:
       return answer(r, 'cancel');
@@ -363,25 +368,25 @@ async function overwrite(r, c) {
   const offered = new Set(c.choices || []);
   // "Compare tool…" (F-466): next to the quick Compare, for two files on this computer; the question comes back after
   const toolBtn = compareTool && offered.has('compare') && !backendOf.get(r.id)
-    ? '<button type="button" data-choice="compare_tool" title="Open both files in the compare-by-content tool">Compare tool…</button>' : '';
+    ? `<button type="button" data-choice="compare_tool" title="${esc(tt('Open both files in the compare-by-content tool'))}">${esc(tt('Compare tool…'))}</button>` : '';
   const row = (list, cls = '') => `<div class="mc-btns ${cls}">${list.filter(([, ch]) => offered.has(ch))
-    .map(([l, ch]) => `<button type="button" data-choice="${ch}"${ch === 'overwrite' ? ' class="primary"' : ''}>${esc(l)}</button>`).join('')}</div>`;
+    .map(([l, ch]) => `<button type="button" data-choice="${ch}"${ch === 'overwrite' ? ' class="primary"' : ''}>${esc(tt(l))}</button>`).join('')}</div>`;
   const newer = c.srcTime > c.dstTime ? 'src' : c.dstTime > c.srcTime ? 'dst' : '';
   const file = (label, path, sz, t, who) => `<div class="mc-jobs-file"><span class="l">${label}</span><span class="p">${esc(path)}</span>
-    <span class="i">${esc(bytes(sz))} bytes · <span class="${newer === who ? 'newer' : ''}">${esc(date(t))}${newer === who ? ' (newer)' : ''}</span></span></div>`;
-  const same = c.same == null ? '' : `<p class="mc-jobs-same ${c.same ? 'eq' : 'ne'}">${c.same ? 'The two files have the same content.' : 'The two files are different.'}</p>`;
+    <span class="i">${esc(tt('{n} bytes', { n: bytes(sz) }))} · <span class="${newer === who ? 'newer' : ''}">${esc(date(t))}${newer === who ? ` ${esc(tt('(newer)'))}` : ''}</span></span></div>`;
+  const same = c.same == null ? '' : `<p class="mc-jobs-same ${c.same ? 'eq' : 'ne'}">${esc(tt(c.same ? 'The two files have the same content.' : 'The two files are different.'))}</p>`;
   // with the undo journal on (board #13), say that this is one of the things it can't take back
-  const noUndo = app.setting('undoJournal', true) === false ? '' : '<p class="mc-jobs-noundo">Replacing a file can\'t be undone.</p>';
+  const noUndo = app.setting('undoJournal', true) === false ? '' : `<p class="mc-jobs-noundo">${esc(tt('Replacing a file can\'t be undone.'))}</p>`;
   const verb = r.p.kind === 'move' ? 'Move' : 'Copy';
   const hasMore = MORE.some(([, ch]) => offered.has(ch));
   const choice = await modal((box, done) => {
     box.classList.add('mc-jobs-overwrite');
-    box.innerHTML = `<h2>Replace file?</h2><p class="mc-msg">${esc(base(c.target))} is already in the target folder.</p>
-      ${file('Overwrite this file:', c.target, c.dstSize, c.dstTime, 'dst')}${file(`With this one (${verb.toLowerCase()}):`, c.source, c.srcSize, c.srcTime, 'src')}${same}${noUndo}
-      ${row(MAIN)}${row(SECOND).replace(/<\/div>$/, `${toolBtn}</div>`)}${hasMore ? `<div class="mc-btns"><button type="button" class="mc-jobs-more">More options</button></div><div class="mc-jobs-morebox" hidden>${row(MORE)}</div>` : ''}`;
+    box.innerHTML = `<h2>${esc(tt('Replace file?'))}</h2><p class="mc-msg">${esc(tt('{name} is already in the target folder.', { name: base(c.target) }))}</p>
+      ${file(esc(tt('Overwrite this file:')), c.target, c.dstSize, c.dstTime, 'dst')}${file(esc(verb === 'Move' ? tt('With this one (move):') : tt('With this one (copy):')), c.source, c.srcSize, c.srcTime, 'src')}${same}${noUndo}
+      ${row(MAIN)}${row(SECOND).replace(/<\/div>$/, `${toolBtn}</div>`)}${hasMore ? `<div class="mc-btns"><button type="button" class="mc-jobs-more">${esc(tt('More options'))}</button></div><div class="mc-jobs-morebox" hidden>${row(MORE)}</div>` : ''}`;
     box.querySelectorAll('[data-choice]').forEach((b) => { b.onclick = () => done(b.dataset.choice); });
     const more = box.querySelector('.mc-jobs-more');
-    if (more) more.onclick = () => { const m = box.querySelector('.mc-jobs-morebox'); m.hidden = !m.hidden; more.textContent = m.hidden ? 'More options' : 'Fewer options'; };
+    if (more) more.onclick = () => { const m = box.querySelector('.mc-jobs-morebox'); m.hidden = !m.hidden; more.textContent = tt(m.hidden ? 'More options' : 'Fewer options'); };
     box.onsubmit = (ev) => { ev.preventDefault(); done('overwrite'); };
   }, 'cancel', {
     kind: 'overwrite',
@@ -401,7 +406,7 @@ async function overwrite(r, c) {
     const name = base(c.target);
     const dot = name.lastIndexOf('.');
     const v = await inputDialog({ title: `${verb} under another name`, label: 'New name', value: name, select: [0, dot > 0 ? dot : name.length], kind: 'rename-target',
-      validate: (t) => (!t.trim() ? 'Type a name.' : /[\\/]/.test(t) ? 'A name can\'t contain / or \\.' : t === name ? 'That name is taken: type another one.' : '') });
+      validate: (t) => tt(!t.trim() ? 'Type a name.' : /[\\/]/.test(t) ? 'A name can\'t contain / or \\.' : t === name ? 'That name is taken: type another one.' : '') });
     if (v === null) return overwrite(r, c); // back to the question
     return answer(r, 'rename', v);
   }
@@ -418,7 +423,7 @@ function paintIndicator() {
     indicator = document.createElement('button');
     indicator.type = 'button';
     indicator.className = 'mc-jobs-indicator';
-    indicator.title = 'Background transfers';
+    indicator.title = tt('Background transfers');
     indicator.addEventListener('mousedown', (ev) => ev.preventDefault());
     indicator.onclick = () => app.run('cm_BackgroundTransferManager');
     document.body.append(indicator);
@@ -428,7 +433,7 @@ function paintIndicator() {
   const asking = live.filter((r) => r.p.state === 'asking').length;
   const bytesAll = live.reduce((s, r) => s + (r.p.bytes || 0), 0), doneAll = live.reduce((s, r) => s + (r.p.bytesDone || 0), 0);
   const pct = bytesAll ? Math.round(doneAll / bytesAll * 100) : Math.round(live.reduce((s, r) => s + fraction(r.p), 0) / live.length * 100);
-  indicator.textContent = asking ? `${plural(live.length, 'job')} · waiting for an answer` : `${plural(live.length, 'job')} · ${pct}%`;
+  indicator.textContent = asking ? `${pl(live.length, 'job')} · ${tt('waiting for an answer')}` : `${pl(live.length, 'job')} · ${pct}%`;
   indicator.classList.toggle('asking', asking > 0);
 }
 
@@ -457,36 +462,36 @@ async function transfersWindow() {
   const sp = speedSetting();
   await modal((box, done) => {
     box.classList.add('mc-jobs-transfers');
-    box.innerHTML = `<h2>Background transfers</h2><p class="mc-msg"></p><div class="mc-jobs-list" role="listbox" aria-label="Jobs"></div>
+    box.innerHTML = `<h2>${esc(tt('Background transfers'))}</h2><p class="mc-msg"></p><div class="mc-jobs-list" role="listbox" aria-label="${esc(tt('Jobs'))}"></div>
       <div class="mc-jobs-bar total"><i></i></div><p class="mc-note mc-jobs-detail"></p>
-      <div class="mc-jobs-limit"><label class="mc-check"><input type="checkbox" id="limitOn"${sp.on ? ' checked' : ''}> Speed limit</label>
-        <input type="text" id="limit" inputmode="numeric" value="${sp.kb || ''}" placeholder="0" aria-label="Speed limit in KB per second"> <span>KB/s</span></div>
-      <div class="mc-btns"><button type="button" class="pause">Pause</button><button type="button" class="now">Start now</button><button type="button" class="stop">Stop job</button>
-        <button type="button" class="errs" title="The files that failed, with the reasons">Errors…</button><button type="button" class="clear">Clear finished</button><button type="button" class="close primary">Close</button></div>`;
+      <div class="mc-jobs-limit"><label class="mc-check"><input type="checkbox" id="limitOn"${sp.on ? ' checked' : ''}> ${esc(tt('Speed limit'))}</label>
+        <input type="text" id="limit" inputmode="numeric" value="${sp.kb || ''}" placeholder="0" aria-label="${esc(tt('Speed limit in KB per second'))}"> <span>KB/s</span></div>
+      <div class="mc-btns"><button type="button" class="pause">${esc(tt('Pause'))}</button><button type="button" class="now">${esc(tt('Start now'))}</button><button type="button" class="stop">${esc(tt('Stop job'))}</button>
+        <button type="button" class="errs" title="${esc(tt('The files that failed, with the reasons'))}">${esc(tt('Errors…'))}</button><button type="button" class="clear">${esc(tt('Clear finished'))}</button><button type="button" class="close primary">${esc(tt('Close'))}</button></div>`;
     const $ = (s) => box.querySelector(s);
     const list = $('.mc-jobs-list');
     const cur = () => jobs.get(selected);
     const paint = () => {
       const all = [...jobs.values()].filter((r) => r.p);
       if (!jobs.has(selected)) selected = (all.find((r) => !r.done) || all[0])?.id ?? null;
-      $('.mc-msg').textContent = all.length ? `${plural(all.filter((r) => !r.done).length, 'job')} at work, ${all.filter((r) => r.done).length} finished.` : 'No transfers. Press F2 in the copy or move dialog to queue one.';
+      $('.mc-msg').textContent = all.length ? tt('{jobs} at work, {done} finished.', { jobs: pl(all.filter((r) => !r.done).length, 'job'), done: all.filter((r) => r.done).length }) : tt('No transfers. Press F2 in the copy or move dialog to queue one.');
       list.innerHTML = all.map((r) => {
         const p = r.p;
-        const src = r.req?.sources?.length ? (r.req.sources.length === 1 ? base(r.req.sources[0]) : plural(r.req.sources.length, 'item')) : plural(p.files || 0, 'file');
+        const src = r.req?.sources?.length ? (r.req.sources.length === 1 ? base(r.req.sources[0]) : pl(r.req.sources.length, 'item')) : pl(p.files || 0, 'file');
         const to = p.target ? ` → ${p.target}` : '';
         return `<div class="mc-jobs-row${r.id === selected ? ' on' : ''} st-${p.state}" data-id="${r.id}" role="option" aria-selected="${r.id === selected}">
-          <span class="k">${esc(KIND[p.kind] || p.kind)}${p.queued ? ' (queue)' : ''}${r.ext ? ' (server)' : ''}</span><span class="w" title="${esc(src + to)}">${esc(src + to)}</span>
-          <span class="s">${esc(STATE[p.state] || p.state)}</span><span class="pc">${Math.round(fraction(p) * 100)}%</span>
+          <span class="k">${esc(tt(KIND[p.kind] || p.kind))}${p.queued ? ` ${esc(tt('(queue)'))}` : ''}${r.ext ? ` ${esc(tt('(server)'))}` : ''}</span><span class="w" title="${esc(src + to)}">${esc(src + to)}</span>
+          <span class="s">${esc(tt(STATE[p.state] || p.state))}</span><span class="pc">${Math.round(fraction(p) * 100)}%</span>
           <span class="sp">${p.state === 'running' && p.speed > 0 ? esc(size(p.speed)) + '/s' : ''}</span></div>`;
       }).join('');
       const r = cur();
       const p = r?.p;
       $('.mc-jobs-bar i').style.width = `${p ? Math.round(fraction(p) * 100) : 0}%`;
       $('.mc-jobs-detail').textContent = !p ? '' : p.summary && r.done ? p.summary + (p.errors?.length ? ` ${p.errors[0]}` : '')
-        : [base(p.current), `${p.filesDone} of ${plural(p.files, 'file')}`, p.bytes ? `${size(p.bytesDone)} of ${size(p.bytes)}` : '', p.eta > 0 ? `${eta(p.eta)} left` : '',
-          errorCount(p) > 0 ? plural(errorCount(p), 'error') : ''].filter(Boolean).join(' · ');
+        : [base(p.current), tt('{done} of {files}', { done: p.filesDone, files: pl(p.files, 'file') }), p.bytes ? tt('{done} of {size}', { done: size(p.bytesDone), size: size(p.bytes) }) : '',
+          p.eta > 0 ? tt('{time} left', { time: eta(p.eta) }) : '', errorCount(p) > 0 ? pl(errorCount(p), 'error') : ''].filter(Boolean).join(' · ');
       const live = p && !r.done;
-      $('.pause').textContent = p?.state === 'paused' ? 'Continue' : 'Pause';
+      $('.pause').textContent = tt(p?.state === 'paused' ? 'Continue' : 'Pause');
       $('.pause').disabled = !live || p.state === 'queued' || !!r.ext; // (a server transfer can only be stopped)
       $('.now').disabled = !(live && p.state === 'queued');
       $('.stop').disabled = !live;
@@ -549,24 +554,24 @@ export async function showErrorList(r, p = r.p) {
       return path ? `<li><span class="p">${esc(path)}</span><span class="r">${esc(f.reason || f.message)}</span></li>` : `<li><span class="r">${esc(f.message)}</span></li>`;
     }).join('');
     const more = count - failures.length;
-    box.innerHTML = `<h2>${esc(`${KIND[p.kind] || 'Job'}: ${plural(count, 'error')}`)}</h2>
+    box.innerHTML = `<h2>${esc(`${tt(KIND[p.kind] || 'Job')}: ${pl(count, 'error')}`)}</h2>
       <p class="mc-msg">${esc(p.summary || '')}</p>
-      <ul class="mc-jobs-errlist" aria-label="Failed files">${rows}</ul>
-      ${more > 0 ? `<p class="mc-note">${esc(`…and ${more} more errors that were not listed.`)}</p>` : ''}
+      <ul class="mc-jobs-errlist" aria-label="${esc(tt('Failed files'))}">${rows}</ul>
+      ${more > 0 ? `<p class="mc-note">${esc(tt('…and {n} more errors that were not listed.', { n: more }))}</p>` : ''}
       ${anyDenied(failures) ? `<p class="mc-note mc-jobs-denied">${esc(deniedHint(app.platform))}</p>` : ''}
-      ${requests.length && skipped ? `<p class="mc-note">${esc(`${plural(skipped, 'error')} can't be retried by itself.`)}</p>` : ''}
+      ${requests.length && skipped ? `<p class="mc-note">${esc(tt('{errors} can\'t be retried by itself.', { errors: pl(skipped, 'error') }))}</p>` : ''}
       <p class="mc-note mc-jobs-errstate" aria-live="polite"></p>
-      <div class="mc-btns"><button type="button" class="retry"${requests.length ? '' : ' disabled'}>Retry failed</button><button type="button" class="copy">Copy list</button>
-        <button type="button" class="save">Save log</button><button type="button" class="close primary">Close</button></div>`;
+      <div class="mc-btns"><button type="button" class="retry"${requests.length ? '' : ' disabled'}>${esc(tt('Retry failed'))}</button><button type="button" class="copy">${esc(tt('Copy list'))}</button>
+        <button type="button" class="save">${esc(tt('Save log'))}</button><button type="button" class="close primary">${esc(tt('Close'))}</button></div>`;
     const $ = (sel) => box.querySelector(sel);
     const say = (t) => { $('.mc-jobs-errstate').textContent = t; };
     $('.retry').onclick = () => done('retry');
     $('.close').onclick = () => done('close');
-    $('.copy').onclick = async () => say(await setClipboardText(listText(failures)) ? `Copied ${plural(failures.length, 'line')}.` : 'The clipboard can\'t be written.');
+    $('.copy').onclick = async () => say(await setClipboardText(listText(failures)) ? tt('Copied {lines}.', { lines: pl(failures.length, 'line') }) : tt('The clipboard can\'t be written.'));
     $('.save').onclick = async () => {
       try {
         const path = await go.Jobs.SaveErrorLog(logName(p), logText(p, failures));
-        if (path) say(`Saved to ${path}.`);
+        if (path) say(tt('Saved to {path}.', { path }));
       } catch (e) { say(errText(e)); }
     };
     box.onsubmit = (ev) => { ev.preventDefault(); done('close'); };

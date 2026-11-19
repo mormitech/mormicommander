@@ -78,3 +78,43 @@ func TestServices(t *testing.T) {
 		}
 	}
 }
+
+// With a language file (#113) the page sends the menus translated, each with its English name in Key, and the
+// program's own menu words through SetMenuWords: Help is still found by its Key, and on macOS the application menu
+// and the system's Edit and Window menus are translated too (their items keep their roles).
+func TestBaseMenuTranslated(t *testing.T) {
+	a := &App{}
+	a.SetMenuWords(map[string]string{"About mormiCommander": "A mormiCommander névjegye", "Edit": "Szerkesztés", "Cut": "Kivágás", "Window": "Ablak", "Help": "Súgó"})
+	spec := []MenuItem{
+		{Label: "Fájl", Key: "Files", Items: []MenuItem{{Label: "Másolás…", Cmd: "cm_Copy"}}},
+		{Label: "Súgó", Key: "Help", Items: []MenuItem{{Label: "Névjegy", Cmd: "cm_About"}}},
+	}
+	var labels []string
+	items := menuItems(baseMenu(a, spec))
+	for _, it := range items {
+		labels = append(labels, it.Label())
+	}
+	want := []string{"Fájl", "Súgó"}
+	if runtime.GOOS == "darwin" {
+		want = []string{"mormiCommander", "Szerkesztés", "Fájl", "Ablak", "Súgó​"}
+	}
+	if !reflect.DeepEqual(labels, want) {
+		t.Fatalf("menus %q, want %q", labels, want)
+	}
+	if runtime.GOOS == "darwin" {
+		if l := menuItems(items[0].GetSubmenu())[0].Label(); l != "A mormiCommander névjegye" {
+			t.Errorf("about item %q", l)
+		}
+		found := false
+		for _, it := range menuItems(items[1].GetSubmenu()) {
+			found = found || it.Label() == "Kivágás"
+		}
+		if !found {
+			t.Error("the Edit menu's Cut is not translated")
+		}
+	}
+	a.SetMenuWords(nil)
+	if a.menuWord("Edit") != "Edit" {
+		t.Error("English menu words after SetMenuWords(nil)")
+	}
+}

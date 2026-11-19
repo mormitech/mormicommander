@@ -135,11 +135,26 @@ export function menuSpec() {
     try { items = p.fn() || []; } catch (e) { console.error(e); }
     if (m && items.length) m[1].push(...items);
   }
-  return menus.map(([label, items]) => ({ label: tr(label), items: toSpec(items) }));
+  // (a translated menu also carries its English name, so Go still knows which one is Help: #113)
+  return menus.map(([label, items]) => (tr(label) === label ? { label, items: toSpec(items) } : { label: tr(label), key: label, items: toSpec(items) }));
 }
 
 let timer = 0;
 let last = '';
+
+// The menu words Go writes itself (menu.go): the macOS application menu, the system's Edit and Window menus (Wails'
+// role menus, with their items) and Help. The language file translates them like any other (#113).
+export const SYSTEM_MENU_WORDS = ['About mormiCommander', 'Hide mormiCommander', 'Quit mormiCommander', 'Help', 'Edit', 'Undo', 'Redo', 'Cut', 'Copy',
+  'Paste', 'Paste and Match Style', 'Delete', 'Select All', 'Speech', 'Start Speaking', 'Stop Speaking', 'Window', 'Minimize', 'Zoom', 'Bring All to Front'];
+
+// sendMenuWords gives Go the translations of SYSTEM_MENU_WORDS (none for English) and sends the menu again with them.
+export async function sendMenuWords() {
+  const words = {};
+  for (const w of SYSTEM_MENU_WORDS) if (tr(w) !== w) words[w] = tr(w);
+  await go.App.SetMenuWords(words).catch(() => {});
+  last = '';
+  refreshMenu();
+}
 
 // refreshMenu sends the menu to Go when it changed (commands added, check marks flipped). Cheap to call often.
 export function refreshMenu() {
