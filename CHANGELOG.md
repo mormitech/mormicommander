@@ -6,6 +6,12 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.38 – 2026-11-19
+
+Embedded terminal pane on macOS and Linux (#31), a local AI rename plan in Multi-Rename (#33), versions from
+snapshots (#34), cloud remotes through your own rclone (#18), and language files with a first Hungarian translation
+(#113). All of it is off by default or a new command; with the interface language left at English nothing changes.
+
 ### Added
 
 - Translations: mormiCommander can now speak Hungarian. Set Options > Language > Interface language to hu and the menus,
