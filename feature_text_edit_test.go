@@ -6,6 +6,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -54,7 +55,7 @@ func TestTextEditReadWrite(t *testing.T) {
 	if b, _ := os.ReadFile(p); string(b) != "one\r\ntwo\r\nthree\r\n" {
 		t.Fatalf("saved %q", b)
 	}
-	if fi, _ := os.Stat(p); fi.Mode().Perm() != 0o600 {
+	if fi, _ := os.Stat(p); runtime.GOOS != "windows" && fi.Mode().Perm() != 0o600 {
 		t.Fatalf("permissions changed to %v", fi.Mode().Perm())
 	}
 	// another program changes the file: the next save is refused until forced

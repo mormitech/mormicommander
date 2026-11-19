@@ -1,6 +1,7 @@
 package ptyterm
 
 import (
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -26,6 +27,9 @@ func TestQuote(t *testing.T) {
 }
 
 func TestCdLine(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix shells and paths; the terminal pane has no Windows ConPTY yet")
+	}
 	got, err := CdLine("/bin/zsh", "/Users/x/My Folder")
 	if err != nil || got != " cd '/Users/x/My Folder'\r" {
 		t.Errorf("CdLine = %q, %v", got, err)

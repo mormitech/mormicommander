@@ -6,6 +6,14 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.14.40 – 2026-11-19
+
+CI fix only, no change to the program.
+
+### Fixed
+- Tests added in 0.14.37–0.14.39 failed on the Windows and Linux CI builds: they assumed Unix paths and permissions,
+  LF line ends in the checkout, and Finder attributes on Linux.
+
 ## 0.14.39 – 2026-11-19
 
 The rest of #103 (every partly done feature rechecked; separate tree panes, an expanding Alt+F10 tree, font face per

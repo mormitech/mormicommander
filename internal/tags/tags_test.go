@@ -3,10 +3,12 @@
 package tags
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
+	"syscall"
 	"testing"
 
 	"mormicommander/internal/xattr"
@@ -100,6 +102,9 @@ func TestWriteReadFinder(t *testing.T) {
 	p := tempFile(t)
 	list := []Tag{{"Red", 6}, {"Projekt", 0}, {"Blue", 4}}
 	if err := WriteStyle(Finder, p, list); err != nil {
+		if errors.Is(err, syscall.ENOTSUP) {
+			t.Skip("this file system has no Finder attributes (Linux allows only user.* names)")
+		}
 		t.Fatal(err)
 	}
 	got, err := ReadStyle(Finder, p)

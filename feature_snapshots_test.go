@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"io/fs"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestSnapshotVersionsTimeout(t *testing.T) {
 			ReadDir: func(string) ([]fs.DirEntry, error) { return nil, fs.ErrNotExist }, ReadFile: func(string) ([]byte, error) { return nil, fs.ErrNotExist },
 			Run: func(context.Context, string, ...string) (string, error) { return "", fs.ErrNotExist }}
 	}
-	if _, err := findSnapshotVersions("/data/a"); err == nil || !strings.Contains(err.Error(), "too long") {
+	if _, err := findSnapshotVersions(filepath.Join(t.TempDir(), "a")); err == nil || !strings.Contains(err.Error(), "too long") {
 		t.Fatalf("err = %v", err)
 	}
 }

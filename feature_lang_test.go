@@ -130,7 +130,7 @@ func TestOptionTextsFile(t *testing.T) {
 		}
 	}
 	got, err := os.ReadFile(file)
-	if err != nil || string(got) != string(want) {
+	if err != nil || strings.ReplaceAll(string(got), "\r\n", "\n") != string(want) { // (a Windows checkout may have CRLF line ends)
 		t.Fatalf("%s is out of date with the Options labels: run MC_WRITE_LANG_TEMPLATE=1 go test -run TestOptionTextsFile . (and translate the new texts in lang/hu.lng)", file)
 	}
 }
@@ -207,7 +207,7 @@ func TestErrorTextsFile(t *testing.T) {
 		}
 	}
 	got, err := os.ReadFile(file)
-	if err != nil || string(got) != string(want) {
+	if err != nil || strings.ReplaceAll(string(got), "\r\n", "\n") != string(want) { // (a Windows checkout may have CRLF line ends)
 		t.Fatalf("%s is out of date with the Go error messages: run MC_WRITE_LANG_TEMPLATE=1 go test -run TestErrorTextsFile . (and translate the new texts in lang/hu.lng)", file)
 	}
 }
