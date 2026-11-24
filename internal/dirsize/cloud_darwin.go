@@ -46,7 +46,11 @@ func isCloudTop(p string) bool {
 }
 
 // inCloud reports whether p is a cloud storage folder or inside one.
-func inCloud(p string) bool {
+func inCloud(p string) bool { return InCloud(p) }
+
+// InCloud reports whether p is a cloud storage folder or inside one (for the page: a cloud folder listed inside a
+// folder that is cloud storage too is nothing special there).
+func InCloud(p string) bool {
 	for q := filepath.Clean(p); ; {
 		if isCloudTop(q) {
 			return true

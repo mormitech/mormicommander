@@ -867,6 +867,7 @@ func (l *Lister) FolderSize(key, path string) (dirsize.Result, error) {
 		return r, nil
 	}
 	r, err := dirsize.Calculate(ctx, path, dirsize.Options{SameVolume: true})
+	r.Cloud = cloudMark(r) // (the page's mark; Size is already the right number)
 	if err != nil && ctx.Err() != nil {
 		return r, errors.New("Stopped counting.")
 	}

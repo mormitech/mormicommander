@@ -6,3 +6,6 @@ package dirsize
 // online-only OneDrive file takes no clusters, so the size on disk is already right there.
 func isCloudTop(p string) bool { return false }
 func inCloud(p string) bool    { return false }
+
+// InCloud: see cloud_darwin.go.
+func InCloud(p string) bool { return false }

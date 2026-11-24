@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.15.2 – 2026-11-24
+
+### Fixed
+- A counted cloud folder listed among the folders of the disk (CloudStorage or Mobile Documents in ~/Library) is
+  left out of the panel's total in the status line, as it is left out of the folder above; selected on purpose it
+  still counts in the selection. Inside cloud storage nothing is marked and its folders add up as usual.
+
 ## 0.15.1 – 2026-11-24
 
 ### Fixed

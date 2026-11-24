@@ -598,7 +598,9 @@ export class Panel {
       const sel = this.selected.has(e.name);
       const n = e.dir ? (e.dirSize || 0) : (e.disk ?? e.size);
       if (e.dir) { dirs++; if (sel) selDirs++; } else { files++; if (sel) selFiles++; }
-      total += n;
+      // a counted cloud storage folder shows its size but is not space on this disk, so the folder's total leaves it
+      // out; selected on purpose, it counts in what is selected
+      if (!(e.dir && e.dirSize != null && cloudDirs.has(this.fullPath(e.name)))) total += n;
       if (sel) selBytes += n;
     }
     return { files, dirs, total, selFiles, selDirs, selBytes };

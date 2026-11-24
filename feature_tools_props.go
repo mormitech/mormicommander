@@ -187,7 +187,7 @@ type ToolsSpaceItem struct {
 	Bytes     int64  `json:"bytes"`
 	Allocated int64  `json:"allocated"`
 	Size      int64  `json:"size"`  // what the size column shows: size on disk, or the logical size in cloud storage
-	Cloud     bool   `json:"cloud"` // the path is cloud storage (OneDrive, iCloud Drive …)
+	Cloud     bool   `json:"cloud"` // cloud storage (OneDrive, iCloud Drive …) listed in a folder that is not (cloudMark)
 	Files     int64  `json:"files"`
 	Dirs      int64  `json:"dirs"`
 	Links     int64  `json:"links"`
@@ -206,12 +206,19 @@ type ToolsSpace struct {
 }
 
 func toolsSpaceItem(r dirsize.Result) ToolsSpaceItem {
-	it := ToolsSpaceItem{Path: r.Path, IsDir: r.IsDir, Bytes: r.Bytes, Allocated: r.Allocated, Size: r.Size, Cloud: r.Cloud, Files: r.Files, Dirs: r.Dirs,
+	it := ToolsSpaceItem{Path: r.Path, IsDir: r.IsDir, Bytes: r.Bytes, Allocated: r.Allocated, Size: r.Size, Cloud: cloudMark(r), Files: r.Files, Dirs: r.Dirs,
 		Links: r.Symlinks, Errors: r.ErrorCount, Complete: r.Complete}
 	if r.ErrorCount > 0 && r.Bytes == 0 && r.Files == 0 && r.Dirs == 0 && len(r.Errors) > 0 {
 		it.Error = r.Errors[0].Err
 	}
 	return it
+}
+
+// cloudMark says whether the page marks a counted folder as cloud storage: its size is then shown in a style of its
+// own and left out of the panel's total. That is only so for a cloud folder listed in a folder of the disk (OneDrive
+// in ~/Library/CloudStorage seen from ~/Library); inside cloud storage every folder is cloud, so nothing is marked.
+func cloudMark(r dirsize.Result) bool {
+	return r.Cloud && !dirsize.InCloud(filepath.Dir(r.Path))
 }
 
 // Space calculates the size of files and folders (Space on a folder, Alt+Shift+Enter, Ctrl+L). While it runs it
@@ -234,7 +241,7 @@ func (t *Tools) Space(id string, paths []string) (ToolsSpace, error) {
 				"bytes": p.Bytes, "allocated": p.Allocated, "size": p.Size, "files": p.Files, "dirs": p.Dirs, "errors": p.Errors})
 		},
 		ItemDone: func(i int, r dirsize.Result) {
-			t.app.emit("tools-progress", map[string]any{"id": id, "itemDone": i, "path": r.Path, "bytes": r.Bytes, "size": r.Size, "cloud": r.Cloud, "complete": r.Complete})
+			t.app.emit("tools-progress", map[string]any{"id": id, "itemDone": i, "path": r.Path, "bytes": r.Bytes, "size": r.Size, "cloud": cloudMark(r), "complete": r.Complete})
 		},
 	}
 	// Counted in a goroutine of its own (internal/hang), so Esc stops the count within a second even when a folder on a
