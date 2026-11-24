@@ -6,6 +6,13 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.16.0 – 2026-11-24
+
+Release of 0.15.1 and 0.15.2: folder sizes are the space the folder really takes on the disk (a sparse Docker.raw
+no longer makes a home folder look bigger than the drive), sparse files show their size on disk, and on macOS cloud
+storage (OneDrive, Google Drive, Dropbox, iCloud Drive) counts only when the count starts in it; listed among the
+folders of the disk its size is shown in its own style and left out of the totals.
+
 ## 0.15.2 – 2026-11-24
 
 ### Fixed
