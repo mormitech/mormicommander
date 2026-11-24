@@ -904,6 +904,7 @@ func vfsFolderSize(ctx context.Context, rt *vfs.Router, dir string) (dirsize.Res
 		}
 	}
 	r.Allocated = r.Bytes
+	r.Size = r.Bytes
 	return r, nil
 }
 

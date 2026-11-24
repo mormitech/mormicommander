@@ -26,6 +26,7 @@ import { addControlCommand } from '../core/control.js';
 import { comboFromEvent } from '../core/keys.js';
 import { size as fmtSize, bytes as fmtBytes } from '../core/format.js';
 import { app as theApp } from '../core/app.js';
+import { cloudDirs } from '../core/panel.js';
 import { quickViewSource, viewsFromCopy, downloads, ARCHIVE_PREVIEW_LIMIT, SERVER_PREVIEW_LIMIT } from './viewer/qvsource.js';
 import { ListerView, listerSettings, saveListerSettings, applyListerOptions, LISTER_DEFAULTS } from './viewer/view.js';
 import { makeWalker, walkList } from './viewer/walk.js';
@@ -245,9 +246,11 @@ async function folderSize(app, p, e) {
   app.flash(tm('Counting {name}…', { name: e.name }));
   try {
     const r = await go.Lister.FolderSize('list', p.fullPath(e.name));
-    p.dirSizes.set(e.name, r.bytes);
+    const n = r.size ?? r.bytes; // on disk, or the logical size in cloud storage (see tools/space.js)
+    if (r.cloud) cloudDirs.add(p.fullPath(e.name)); else cloudDirs.delete(p.fullPath(e.name));
+    p.dirSizes.set(e.name, n);
     p.rebuild();
-    app.flash(tm('{name}: {size} ({bytes} bytes) in {files} and {folders}', { name: e.name, size: fmtSize(r.bytes), bytes: fmtBytes(r.bytes), files: tn(r.files, 'file', 'files', fmtBytes(r.files)), folders: tn(r.dirs, 'folder', 'folders', fmtBytes(r.dirs)) }));
+    app.flash(tm('{name}: {size} ({bytes} bytes) in {files} and {folders}', { name: e.name, size: fmtSize(n), bytes: fmtBytes(n), files: tn(r.files, 'file', 'files', fmtBytes(r.files)), folders: tn(r.dirs, 'folder', 'folders', fmtBytes(r.dirs)) }));
   } catch (err) {
     app.flash(errText(err), 'err');
   }

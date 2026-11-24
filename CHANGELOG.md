@@ -6,6 +6,21 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.15.1 – 2026-11-24
+
+### Fixed
+- **Folder sizes are the space the folder really takes on the disk.** A home folder could show more than the whole
+  disk (332 GB on a 228 GB drive): Docker Desktop's Docker.raw claims 245 GB but holds under 3 GB, and the size column
+  added up what files claim. Counted folder sizes (Space, Alt+Shift+Enter, Ctrl+L, F3 on a folder) now show the size
+  on disk, as Finder and `du` do; Ctrl+L still gives both numbers.
+- **A sparse file shows the space it takes** in the size column, in italics, with its full length in the tooltip
+  (only files at least 64 MB smaller on disk than their length; every other file shows its exact length as before).
+- **Cloud storage counts only where the count starts** (macOS). Counting the home folder or ~/Library leaves out
+  OneDrive, Google Drive, Dropbox (~/Library/CloudStorage), iCloud Drive (~/Library/Mobile Documents) and OneDrive's
+  own mirror of its files, so files in the cloud no longer count as disk space, and OneDrive files are no longer
+  counted twice. Counting a cloud folder itself gives the size of its content, shown in italics after a cloud sign
+  ("In cloud storage, not on this disk").
+
 ## 0.15.0 – 2026-11-24
 
 Release of 0.14.3 to 0.14.40. The highlights: menu and feature parity rounds that cover every menu and most feature

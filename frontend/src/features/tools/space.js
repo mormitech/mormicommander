@@ -17,9 +17,16 @@ import { track } from '../../core/busy.js';
 import { bytes, size, plural } from '../../core/format.js';
 import { newId, onProgress, runTool, isLocal, needLocal, targets, showError } from './common.js';
 import { countSpaceOn } from './space-lib.js';
+import { cloudDirs } from '../../core/panel.js';
 import { tm, tn, tjoin } from '../../core/i18n.js';
 
 const scans = new Map(); // id → {panel, path, names, cancel, owner}
+
+// markCloud remembers whether a counted folder is cloud storage, for the size column's style.
+export function markCloud(path, cloud) {
+  if (!path) return;
+  if (cloud) cloudDirs.add(path); else cloudDirs.delete(path);
+}
 
 // countSizes counts folders of a panel in the background and writes the sizes into the size column. opts.owner names
 // the feature that started it (Esc does not stop it then), opts.onUpdate runs after every change of a size and
@@ -40,8 +47,9 @@ export function countSizes(app, p, entries, { owner = '', onUpdate = null, hint 
     if (p.path !== path) return;
     if (pr.itemDone !== undefined) {
       const e = live(names[pr.itemDone]);
-      if (pr.complete) p.dirSizes.set(names[pr.itemDone], pr.bytes);
-      if (e) e.dirSize = pr.complete ? pr.bytes : undefined;
+      markCloud(pr.path, pr.cloud);
+      if (pr.complete) p.dirSizes.set(names[pr.itemDone], pr.size ?? pr.bytes);
+      if (e) e.dirSize = pr.complete ? (pr.size ?? pr.bytes) : undefined;
       p.renderRows();
       onUpdate?.();
       return;
@@ -49,7 +57,7 @@ export function countSizes(app, p, entries, { owner = '', onUpdate = null, hint 
     // running total of the folder being counted: its share is the total minus the folders already done
     const done = names.slice(0, pr.item).reduce((n, nm) => n + (p.dirSizes.get(nm) || 0), 0);
     const e = live(names[pr.item]);
-    if (e) { e.dirSize = Math.max(0, (pr.bytes || 0) - done); p.renderRows(); onUpdate?.(); }
+    if (e) { e.dirSize = Math.max(0, (pr.size ?? pr.bytes ?? 0) - done); p.renderRows(); onUpdate?.(); }
     status(pr);
   });
   status({ bytes: 0, files: 0, itemsDone: 0 });
@@ -59,7 +67,8 @@ export function countSizes(app, p, entries, { owner = '', onUpdate = null, hint 
     if (p.path === path) {
       r.items.forEach((it, i) => {
         const e = live(names[i]);
-        if (it.complete) { p.dirSizes.set(names[i], it.bytes); if (e) e.dirSize = it.bytes; }
+        markCloud(it.path, it.cloud);
+        if (it.complete) { p.dirSizes.set(names[i], it.size ?? it.bytes); if (e) e.dirSize = it.size ?? it.bytes; }
         else { p.dirSizes.delete(names[i]); if (e) e.dirSize = undefined; }
       });
       p.renderRows();
@@ -101,7 +110,8 @@ command({
     // computed folder sizes go into the size column, as Space does
     r.items.forEach((it, i) => {
       const e = entries[i];
-      if (e?.dir && it.complete) { p.dirSizes.set(e.name, it.bytes); e.dirSize = it.bytes; }
+      markCloud(it.path, it.cloud);
+      if (e?.dir && it.complete) { p.dirSizes.set(e.name, it.size ?? it.bytes); e.dirSize = it.size ?? it.bytes; }
     });
     p.renderRows();
     p.renderStatus();
@@ -113,7 +123,7 @@ command({
         : tm('Size on disk: {bytes} bytes ({size})', { bytes: bytes(t.allocated), size: size(t.allocated) }),
     ];
     if (t.links) lines.push(tm('{what} not followed.', { what: tn(t.links, 'symbolic link') }));
-    if (r.skipped) lines.push(tm('{what} on other drives or in link loops not counted.', { what: tn(r.skipped, 'folder') }));
+    if (r.skipped) lines.push(tm('{what} on other drives, in cloud storage or in link loops not counted.', { what: tn(r.skipped, 'folder') }));
     if (t.errors) lines.push(tm('{what} could not be read (no permission?).', { what: tn(t.errors, 'item') }));
     await messageDialog({ Title: 'Occupied space', Message: tjoin(lines), Kind: 'tools-space' });
   },

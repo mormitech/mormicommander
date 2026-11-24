@@ -50,6 +50,8 @@ describes the volume of any path in more detail.
     `Progress func(Progress)` (serialized; last call has `Done`),
     `ItemDone func(i int, r Result)` (fill the size column folder by folder).
 - `Result`: `Path, IsDir, Bytes` (logical), `Allocated` (size on disk),
+  `Size` (what the size column shows: `Allocated`, or `Bytes` for cloud
+  storage), `Cloud` (the path is cloud storage, see below),
   `Files, Dirs` (excluding the root), `Symlinks` (links not followed, no size),
   `Others` (sockets, pipes, devices), `HardlinkDupes, HardlinkBytes`,
   `SkippedMounts/SkippedMountCount` (other volumes, link loops),
@@ -57,6 +59,12 @@ describes the volume of any path in more detail.
   `Complete, Duration`. Entries that vanish while counting are ignored.
 - `Progress`: `Current` folder, `Item, ItemPath, ItemsDone, ItemsTotal`, running
   `Bytes, Allocated, Files, Dirs, Errors`, `Elapsed`, `Done`.
+
+Cloud storage (macOS, `cloud_darwin.go`): `~/Library/CloudStorage` (OneDrive,
+Google Drive, Dropbox …), `~/Library/Mobile Documents` (iCloud Drive) and
+OneDrive's `OneDrive….noindex` mirror in its group container. The folder a count
+starts on decides: started in cloud storage, it is counted (`Cloud`, logical
+`Size`); started outside, cloud folders inside are skipped like other volumes.
 
 Size on disk: Unix uses `st_blocks * 512` (free, from the lstat the walk does
 anyway). Windows opens each file for attributes only (shares everything) and

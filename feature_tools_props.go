@@ -186,6 +186,8 @@ type ToolsSpaceItem struct {
 	IsDir     bool   `json:"isDir"`
 	Bytes     int64  `json:"bytes"`
 	Allocated int64  `json:"allocated"`
+	Size      int64  `json:"size"`  // what the size column shows: size on disk, or the logical size in cloud storage
+	Cloud     bool   `json:"cloud"` // the path is cloud storage (OneDrive, iCloud Drive …)
 	Files     int64  `json:"files"`
 	Dirs      int64  `json:"dirs"`
 	Links     int64  `json:"links"`
@@ -204,7 +206,7 @@ type ToolsSpace struct {
 }
 
 func toolsSpaceItem(r dirsize.Result) ToolsSpaceItem {
-	it := ToolsSpaceItem{Path: r.Path, IsDir: r.IsDir, Bytes: r.Bytes, Allocated: r.Allocated, Files: r.Files, Dirs: r.Dirs,
+	it := ToolsSpaceItem{Path: r.Path, IsDir: r.IsDir, Bytes: r.Bytes, Allocated: r.Allocated, Size: r.Size, Cloud: r.Cloud, Files: r.Files, Dirs: r.Dirs,
 		Links: r.Symlinks, Errors: r.ErrorCount, Complete: r.Complete}
 	if r.ErrorCount > 0 && r.Bytes == 0 && r.Files == 0 && r.Dirs == 0 && len(r.Errors) > 0 {
 		it.Error = r.Errors[0].Err
@@ -224,14 +226,15 @@ func (t *Tools) Space(id string, paths []string) (ToolsSpace, error) {
 	progress := t.toolsProgress(id)
 	opts := dirsize.Options{
 		// A folder's size is what is in it on its own volume: other volumes mounted inside it are not counted (like
-		// "du -x"), and links are not followed, so nothing is counted twice.
+		// "du -x"), and links are not followed, so nothing is counted twice. Cloud storage inside it is left out too,
+		// unless the count starts in it (internal/dirsize/cloud_darwin.go).
 		SameVolume: true,
 		Progress: func(p dirsize.Progress) {
 			progress(map[string]any{"current": p.Current, "item": p.Item, "itemsDone": p.ItemsDone, "itemsTotal": p.ItemsTotal,
-				"bytes": p.Bytes, "allocated": p.Allocated, "files": p.Files, "dirs": p.Dirs, "errors": p.Errors})
+				"bytes": p.Bytes, "allocated": p.Allocated, "size": p.Size, "files": p.Files, "dirs": p.Dirs, "errors": p.Errors})
 		},
 		ItemDone: func(i int, r dirsize.Result) {
-			t.app.emit("tools-progress", map[string]any{"id": id, "itemDone": i, "path": r.Path, "bytes": r.Bytes, "complete": r.Complete})
+			t.app.emit("tools-progress", map[string]any{"id": id, "itemDone": i, "path": r.Path, "bytes": r.Bytes, "size": r.Size, "cloud": r.Cloud, "complete": r.Complete})
 		},
 	}
 	// Counted in a goroutine of its own (internal/hang), so Esc stops the count within a second even when a folder on a

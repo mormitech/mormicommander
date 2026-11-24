@@ -98,7 +98,9 @@
 {what} got their old names back.=
 {what} not followed.=
 {what} not readable=
-{what} on other drives or in link loops not counted.=
+{what} on other drives, in cloud storage or in link loops not counted.=
+In cloud storage, not on this disk=
+{bytes} bytes long, {disk} bytes on disk (sparse file)=
 {what} to download. Start fetches them one after the other.=
 {why} Opening the external editor.=
 * (all)=

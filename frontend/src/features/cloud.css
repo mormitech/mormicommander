@@ -1,2 +1,8 @@
 /* Online-only cloud files (cloud.js, issue #30): a muted cloud after the name when Display.CloudMark is on. */
 .row.mc-cloud .n b::after { content: ' \2601\FE0E'; color: var(--muted); font-size: .9em; }
+/* Sizes that are not space on this disk (features/tools/space.js, core/panel.js sizeCell): a counted cloud storage
+   folder shows the logical size of its content, in italics; a sparse file shows its size on disk, its length in the
+   tooltip. */
+.row .s.mc-size-cloud { font-style: italic; color: var(--muted); }
+.row .s.mc-size-cloud::before { content: '\2601\FE0E\00a0'; }
+.row .s.mc-size-sparse { font-style: italic; }

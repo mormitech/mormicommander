@@ -51,6 +51,7 @@ type walker struct {
 	checkDev bool
 	rootDev  uint64
 	root     string // the path being calculated (for isAliasDir)
+	cloud    bool   // the root is cloud storage (cloud_darwin.go): cloud folders inside it are counted
 
 	mu      sync.Mutex
 	links   map[fileID]linkInfo
@@ -74,7 +75,7 @@ func newWalker(ctx context.Context, opts Options) *walker {
 // run calculates one path. The root is resolved with Stat, so a link to a folder counts that folder.
 func (w *walker) run(path string) Result {
 	start := time.Now()
-	r := Result{Path: path}
+	r := Result{Path: path, Cloud: w.cloud}
 	w.root = path
 	w.current.Store(&path)
 	fi, err := os.Stat(path)
@@ -116,6 +117,10 @@ func (w *walker) run(path string) Result {
 func (w *walker) result(r Result) Result {
 	r.Bytes = w.c.bytes.Load()
 	r.Allocated = w.c.alloc.Load()
+	r.Size = r.Allocated
+	if r.Cloud {
+		r.Size = r.Bytes
+	}
 	r.Files = w.c.files.Load()
 	r.Dirs = w.c.dirs.Load()
 	r.Symlinks = w.c.symlinks.Load()
@@ -267,6 +272,10 @@ func (w *walker) enterDir(p string, fi fs.FileInfo, viaLink bool) (string, bool)
 		w.skip(p) // (the same folders are counted under their other names)
 		return "", false
 	}
+	if !w.cloud && isCloudTop(p) {
+		w.skip(p) // cloud storage counts only when the count starts in it
+		return "", false
+	}
 	w.c.dirs.Add(1)
 	if w.checkDev && fi != nil {
 		if dev, ok := dirDev(p, fi, w.env); ok && dev != w.rootDev {
@@ -379,6 +388,7 @@ func CalculateAll(ctx context.Context, paths []string, opts Options) (Summary, e
 			break
 		}
 		w := newWalker(ctx, opts)
+		w.cloud = inCloud(p) // set before the progress reporter can see the walker
 		pr.begin(i, p, w)
 		r := w.run(p)
 		s.Items[i] = r
@@ -407,6 +417,7 @@ func CalculateAll(ctx context.Context, paths []string, opts Options) (Summary, e
 func mergeTotal(t *Result, r Result, links, global map[fileID]linkInfo) {
 	t.Bytes += r.Bytes
 	t.Allocated += r.Allocated
+	t.Size += r.Size
 	t.Files += r.Files
 	t.Dirs += r.Dirs
 	if r.IsDir {
@@ -435,6 +446,7 @@ func mergeTotal(t *Result, r Result, links, global map[fileID]linkInfo) {
 		if _, seen := global[id]; seen {
 			t.Bytes -= li.size
 			t.Allocated -= li.alloc
+			t.Size -= li.alloc // (the shared data was counted on disk in an earlier item)
 			t.HardlinkDupes++
 			t.HardlinkBytes += li.size
 			continue
@@ -454,6 +466,7 @@ type progressState struct {
 	active      *walker
 	bytes       int64
 	alloc       int64
+	size        int64
 	files       int64
 	dirs        int64
 	errors      int64
@@ -472,6 +485,7 @@ func (p *progressState) finish(r Result) {
 	p.done++
 	p.bytes += r.Bytes
 	p.alloc += r.Allocated
+	p.size += r.Size
 	p.files += r.Files
 	p.dirs += r.Dirs
 	if r.IsDir {
@@ -486,12 +500,17 @@ func (p *progressState) snapshot(done bool) Progress {
 	defer p.mu.Unlock()
 	s := Progress{
 		Item: p.item, ItemPath: p.itemPath, ItemsDone: p.done, ItemsTotal: p.total,
-		Bytes: p.bytes, Allocated: p.alloc, Files: p.files, Dirs: p.dirs, Errors: p.errors,
+		Bytes: p.bytes, Allocated: p.alloc, Size: p.size, Files: p.files, Dirs: p.dirs, Errors: p.errors,
 		Elapsed: time.Since(p.start), Done: done, Current: p.lastCurrent,
 	}
 	if w := p.active; w != nil {
 		s.Bytes += w.c.bytes.Load()
 		s.Allocated += w.c.alloc.Load()
+		if w.cloud {
+			s.Size += w.c.bytes.Load()
+		} else {
+			s.Size += w.c.alloc.Load()
+		}
 		s.Files += w.c.files.Load()
 		s.Dirs += w.c.dirs.Load()
 		s.Errors += w.c.errors.Load()

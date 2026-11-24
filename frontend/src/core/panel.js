@@ -8,12 +8,12 @@
 // ('panel', 'cursor', 'selection'), never by poking the DOM. See docs/ARCHITECTURE.md for the list.
 
 import { go, errText } from './go.js';
-import { F, splitExt, date, attr, size, plural, cellSize, display, footerSize, dosName } from './format.js';
+import { F, splitExt, date, attr, size, plural, cellSize, display, footerSize, dosName, bytes } from './format.js';
 import { sortEntries } from './sort.js';
 import { fitCrumbs } from './fitpath.js';
 import { track } from './busy.js';
 import { esc } from './dialogs.js';
-import { t } from './i18n.js';
+import { t, tm } from './i18n.js';
 import { hiddenMarkHTML } from './hidden.js';
 import { historyFocus } from './histfocus.js';
 import { attachMiddlePan } from './midpan.js';
@@ -30,12 +30,31 @@ function usageBar(on, v) {
 export const COLUMNS = [['name', 'Name'], ['ext', 'Ext'], ['size', 'Size', 'r'], ['date', 'Date'], ['attr', 'Attr']];
 const SORT_CMD = { name: 'cm_SrcByName', ext: 'cm_SrcByExt', size: 'cm_SrcBySize', date: 'cm_SrcByDateTime' };
 
-// toEntry turns a row from Go ([name, size, mtime, flags, mode]) into the object the panel keeps.
+// toEntry turns a row from Go ([name, size, mtime, flags, mode, disk?]) into the object the panel keeps. disk is only
+// there for a sparse file that takes far less space than its length (Docker's Docker.raw), see internal/vfs/local.go.
 export function toEntry(row) {
-  const [name, sz, mtime, flags, mode] = row;
+  const [name, sz, mtime, flags, mode, disk] = row;
   const dir = !!(flags & F.DIR);
   const [base, ext] = dir ? [name, ''] : splitExt(name);
-  return { name, base, ext, size: sz, mtime, flags, mode, dir, link: !!(flags & F.LINK), hidden: !!(flags & F.HIDDEN), exec: !!(flags & F.EXEC), broken: !!(flags & F.BROKEN) };
+  const e = { name, base, ext, size: sz, mtime, flags, mode, dir, link: !!(flags & F.LINK), hidden: !!(flags & F.HIDDEN), exec: !!(flags & F.EXEC), broken: !!(flags & F.BROKEN) };
+  if (disk != null) e.disk = disk;
+  return e;
+}
+
+// cloudDirs holds the full paths of counted folders that are cloud storage (OneDrive, iCloud Drive …): their size is
+// the logical size of what is in the cloud, not space on this disk, so the size column shows it in a style of its own.
+export const cloudDirs = new Set();
+
+// sizeCell is the size column of one row: a counted folder's size (on disk, or in the cloud), a sparse file's size
+// on disk with its length in the tooltip, or the file's length.
+function sizeCell(p, e) {
+  if (e.dir) {
+    if (e.dirSize == null) return ['', '&lt;DIR&gt;'];
+    if (cloudDirs.has(p.fullPath(e.name))) return [` mc-size-cloud" title="${esc(tm('In cloud storage, not on this disk'))}`, cellSize(e.dirSize)];
+    return ['', cellSize(e.dirSize)];
+  }
+  if (e.disk != null) return [` mc-size-sparse" title="${esc(tm('{bytes} bytes long, {disk} bytes on disk (sparse file)', { bytes: bytes(e.size), disk: bytes(e.disk) }))}`, cellSize(e.disk)];
+  return ['', cellSize(e.size)];
 }
 
 const UP = { name: '..', base: '..', ext: '', size: 0, mtime: 0, flags: F.DIR, mode: 0, dir: true, up: true };
@@ -557,13 +576,13 @@ export class Panel {
       let name = e.dir || !sep ? e.name : e.base;
       const dos = display.longNames === false && !e.up; // Options > Display > Show long names off: 8.3 names
       if (dos) { const d = dosName(e.name, e.dir); const k = d.lastIndexOf('.'); name = e.dir || !sep || k < 0 ? d : d.slice(0, k); }
-      const sz = e.dir ? (e.dirSize != null ? cellSize(e.dirSize) : '&lt;DIR&gt;') : cellSize(e.size);
+      const [szCls, sz] = e.up ? ['', '&lt;DIR&gt;'] : sizeCell(this, e);
       const tip = Panel.tipAttr(this, e, name.length > 28);
       const shown = e.dir && !e.up && display.brackets ? `[${esc(name)}]` : esc(name);
       // screen readers (F-764): each row is an option of the "Files" list box, named by the file, its kind and whether
       // it is selected; the cursor row is the list's active descendant
       const label = `${e.up ? '.. (parent folder)' : e.name}${e.dir && !e.up ? ', folder' : ''}${!e.up && this.selected.has(e.name) ? ', selected' : ''}`;
-      html += `<div class="${cls}" data-i="${i}" role="option" aria-label="${esc(label)}"${i === this.cursor ? ` id="mc-cur-${this.side}"` : ''}${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(this, e)}<b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
+      html += `<div class="${cls}" data-i="${i}" role="option" aria-label="${esc(label)}"${i === this.cursor ? ` id="mc-cur-${this.side}"` : ''}${i === this.cursor && active ? ' aria-selected="true"' : ''}><span class="n">${Panel.rowIcon(this, e)}<b${tip}>${shown}</b></span><span class="e">${sep && !e.dir ? esc(dos ? (dosName(e.name).split('.')[1] || '') : e.ext) : ''}</span><span class="s r${szCls}">${sz}</span><span class="d">${e.up ? '' : date(e.mtime)}</span><span class="a">${e.up ? '' : attr(e.mode, e.flags, plat)}</span></div>`;
     }
     rows.style.transform = `translateY(${first * h}px)`;
     rows.innerHTML = html;
@@ -577,7 +596,7 @@ export class Panel {
     for (const e of this.entries) {
       if (e.up) continue;
       const sel = this.selected.has(e.name);
-      const n = e.dir ? (e.dirSize || 0) : e.size;
+      const n = e.dir ? (e.dirSize || 0) : (e.disk ?? e.size);
       if (e.dir) { dirs++; if (sel) selDirs++; } else { files++; if (sel) selFiles++; }
       total += n;
       if (sel) selBytes += n;

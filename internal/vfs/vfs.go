@@ -38,6 +38,10 @@ type Entry struct {
 	MTime int64  // last change, Unix milliseconds
 	Flags int    // Flag* bits
 	Mode  uint32 // Unix permission bits (and type bits as in io/fs.FileMode); on Windows only the read-only bit is meaningful
+	// Sparse is set for a sparse file that takes far less space than its length (Docker's Docker.raw), and Disk is
+	// then its size on disk, so the size column can show the space it really takes (local.go, sparse_unix.go).
+	Sparse bool
+	Disk   int64
 }
 
 // Listing is a folder as a panel shows it.
@@ -45,7 +49,7 @@ type Listing struct {
 	Path    string  `json:"path"`    // the folder, cleaned
 	Parent  string  `json:"parent"`  // the folder above, "" at the root
 	Entries []Entry `json:"-"`       // see Rows for the form the page gets
-	Rows    [][]any `json:"entries"` // [name, size, mtime, flags, mode] per entry: compact, because a folder can have 100k files
+	Rows    [][]any `json:"entries"` // [name, size, mtime, flags, mode(, disk)] per entry: compact, because a folder can have 100k files
 }
 
 // FS is a file system a panel can show.
@@ -68,6 +72,10 @@ type FS interface {
 func Rows(es []Entry) [][]any {
 	rows := make([][]any, len(es))
 	for i, e := range es {
+		if e.Sparse {
+			rows[i] = []any{e.Name, e.Size, e.MTime, e.Flags, e.Mode, e.Disk}
+			continue
+		}
 		rows[i] = []any{e.Name, e.Size, e.MTime, e.Flags, e.Mode}
 	}
 	return rows

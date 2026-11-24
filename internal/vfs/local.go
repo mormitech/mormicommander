@@ -132,6 +132,9 @@ func localEntry(dir string, de fs.DirEntry) Entry {
 		e.Flags |= FlagDir
 	} else {
 		e.Size = info.Size()
+		if d := sparseDisk(info, e.Flags); d >= 0 {
+			e.Sparse, e.Disk = true, d
+		}
 	}
 	if strings.HasPrefix(e.Name, ".") {
 		e.Flags |= FlagHidden

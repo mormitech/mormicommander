@@ -81,10 +81,17 @@ type Result struct {
 	// Allocated is the size on disk: blocks or clusters the files occupy. It is smaller than Bytes for sparse and
 	// compressed files and larger for many small files.
 	Allocated int64 `json:"allocated"`
-	Files     int64 `json:"files"`    // regular files (every name, including extra hard links)
-	Dirs      int64 `json:"dirs"`     // subfolders
-	Symlinks  int64 `json:"symlinks"` // symbolic links and junctions that were not followed (no size counted)
-	Others    int64 `json:"others"`   // sockets, pipes, device files (no size counted)
+	// Cloud is set when the calculated path is cloud storage or inside it (OneDrive, iCloud Drive … on macOS, see
+	// cloud_darwin.go). Cloud folders inside a path that is not cloud storage are skipped (SkippedMounts).
+	Cloud bool `json:"cloud"`
+	// Size is what a folder's size column shows: the real space on disk (Allocated), so that a sparse disk image
+	// (Docker's Docker.raw claims hundreds of gigabytes and holds a few) or compressed files count what they take.
+	// Cloud storage has no space on this disk to show, so there it is the logical size of its content (Bytes).
+	Size     int64 `json:"size"`
+	Files    int64 `json:"files"`    // regular files (every name, including extra hard links)
+	Dirs     int64 `json:"dirs"`     // subfolders
+	Symlinks int64 `json:"symlinks"` // symbolic links and junctions that were not followed (no size counted)
+	Others   int64 `json:"others"`   // sockets, pipes, device files (no size counted)
 	// HardlinkDupes is the number of file names whose data had already been counted under another name, and
 	// HardlinkBytes the logical bytes that were therefore not counted again.
 	HardlinkDupes int64 `json:"hardlinkDupes"`
@@ -111,6 +118,7 @@ type Progress struct {
 	ItemsTotal int           `json:"itemsTotal"` // number of paths
 	Bytes      int64         `json:"bytes"`      // running totals over all paths
 	Allocated  int64         `json:"allocated"`
+	Size       int64         `json:"size"` // running Result.Size over all paths
 	Files      int64         `json:"files"`
 	Dirs       int64         `json:"dirs"`
 	Errors     int64         `json:"errors"`
