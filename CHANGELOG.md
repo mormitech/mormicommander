@@ -6,6 +6,17 @@ version is changed only when a round of features is merged.
 
 ## Unreleased
 
+## 0.15.0 – 2026-11-24
+
+Release of 0.14.3 to 0.14.40. The highlights: menu and feature parity rounds that cover every menu and most feature
+areas (#57–#65, #103), with every Options dialog setting now working (#94) and many more Total Commander commands
+(#38). It also brings colour labels and notes for files and folders (#147), view modes, a second sort key, system and
+overlay icons, tooltips, an ignore list and folder-name completion. The Lister streams every kind of film and sound
+(#150), and HEIC, AVIF and JPEG XL pictures open (#25). Further additions: an embedded terminal pane on macOS and
+Linux (#31), a local AI rename plan in Multi-Rename (#33), and the interface in language files with a built-in
+Hungarian translation (#113). Network shares and mounted volumes act as drives in the drive bar, and there are many
+dialog and Network panel fixes. All new behaviour is off by default or keeps today's behaviour at its default.
+
 ## 0.14.40 – 2026-11-19
 
 CI fix only, no change to the program.
